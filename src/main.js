@@ -1,0 +1,402 @@
+// Bootstrap: canvas, loop, estado global e integracao com o live update.
+import { DB, ILHA_GERADA } from "./data/index.js";
+import { Assets } from "./core/assets.js";
+import { initInput, Input } from "./core/input.js";
+import { Audio2 } from "./core/audio.js";
+import { Save } from "./core/save.js";
+import { setTextVars } from "./systems/dialogue.js";
+import { SceneStack } from "./core/scene.js";
+import { initHot } from "./core/hot.js";
+import { Glitch } from "./systems/glitchfx.js";
+import { createMon, recalc } from "./systems/mon.js";
+import { reverterTudo } from "./systems/mega.js";
+import { Online } from "./systems/online.js";
+import { TitleScene } from "./scenes/title.js";
+import { OverworldScene } from "./scenes/overworld.js";
+import { BattleScene } from "./scenes/battle.js";
+import { drawText } from "./core/gfx.js";
+import { loadExternalSprites, mapArt, SpriteStore } from "./core/sprites.js";
+
+const W = 240, H = 160;
+
+const display = document.getElementById("screen");
+const dctx = display.getContext("2d");
+const buffer = document.createElement("canvas");
+buffer.width = W; buffer.height = H;
+const ctx = buffer.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+dctx.imageSmoothingEnabled = false;
+
+function newState() {
+  return {
+    player: { name: "VERMELHO", map: DB.START_MAP, ...DB.MAPS[DB.START_MAP].spawn },
+    party: [],
+    box: [],
+    items: { "poké bola": 5, "poção": 3 },
+    money: 3000,
+    corruption: 0,
+    fragChance: DB.SPOT_CHANCE,     // sobe a cada mapa (ver src/data/fragments.js)
+    badges: [],
+    flags: {},
+    npcState: {},
+    seen: {},
+    caught: {},
+    playtime: 0,
+    respawn: { map: DB.START_MAP, ...DB.MAPS[DB.START_MAP].spawn },
+  };
+}
+
+const game = {
+  state: newState(),
+  scenes: null,
+  debug: false,
+
+  newGame() {
+    this.state = newState();
+    const spawn = DB.MAPS[DB.START_MAP].spawn;
+    Object.assign(this.state.player, { map: DB.START_MAP, ...spawn });
+    Glitch.level = this.state.corruption;
+    return this.state;
+  },
+
+  /** Grava. Se o arquivo tiver algo mais novo (o giveglitch mexeu enquanto você
+   *  jogava), NÃO sobrescreve: adota o que está no disco. */
+  async save() {
+    this._lastSave = performance.now();
+    const r = await Save.write(this.state);
+    if (r === "conflito") await this.adoptSave("o arquivo tinha algo mais novo");
+    return r;
+  },
+
+  /** Recarrega a partida do arquivo (alguém gravou por fora). */
+  async adoptSave(motivo = "") {
+    if (!(this.scenes?.top instanceof OverworldScene)) {
+      this._adoptPending = motivo || true;      // no meio de uma batalha: espera
+      return false;
+    }
+    const st = await Save.load();
+    if (!st?.player || !this.isValid(st)) return false;
+    this.state = st;
+    this.state.badges ||= [];
+    reverterTudo(this.state);
+    this.state.party.forEach(recalc);
+    this.state.box?.forEach(recalc);
+    Glitch.level = this.state.corruption || 0;
+    Glitch.forced = !!this.state.flags?.glitchWorld;
+    this._lastSave = performance.now();
+    this.scenes.stack.forEach((sc) => sc.onSaveAdopted?.(motivo));
+    console.log("%c[save] partida recarregada do arquivo", "color:#59d99b", motivo);
+    return true;
+  },
+
+  /** Salva sozinho nos momentos seguros (trocar de mapa, sair de batalha, fechar
+   *  a aba). Antes disso a partida só existia na memória: fechar o navegador
+   *  sem passar no menu SALVAR perdia tudo. */
+  autosave(force = false) {
+    if (!this.state?.party) return;
+    if (this.scenes?.top instanceof TitleScene) return;
+    const agora = performance.now();
+    if (!force && agora - (this._lastSave || 0) < 5000) return;   // no máximo um a cada 5s
+    return this.save();
+  },
+
+  /** save/estado de uma versão antiga dos dados não deve quebrar o jogo */
+  isValid(st) {
+    if (!st?.player || !DB.MAPS[st.player.map] || !DB.KANTO[st.player.map]) return false;
+    return (st.party || []).every((m) => DB.SPECIES[m.species]);
+  },
+
+  loadGame() {
+    const data = Save.read();
+    if (data && !this.isValid(data)) {
+      console.warn("[save] incompatível com os dados atuais — começando um jogo novo");
+      return this.newGame();
+    }
+    if (data) {
+      this.state = data;
+      this.state.badges ||= [];
+      reverterTudo(this.state);
+      Glitch.forced = !!this.state.flags?.glitchWorld;
+      this.state.party.forEach(recalc);
+      this.state.box?.forEach(recalc);
+    } else this.newGame();
+    return this.state;
+  },
+
+  giveStarter(id) {
+    const mon = createMon(id, 5);
+    this.state.party.push(mon);
+    this.state.caught[id] = true;
+    this.state.seen[id] = true;
+    return mon;
+  },
+
+  /** Toca a faixa do mapa. As músicas ficam em src/data/music.js (hot-swap:
+   *  editar lá troca a trilha sem recarregar o jogo). */
+  music(kind) {
+    const alias = DB.MUSIC_ALIAS?.[kind] || kind;
+    const song = DB.MUSIC?.[alias] || DB.MUSIC?.pallet;
+    if (song && song === Audio2.musicaAtual) return;   // já é essa que está tocando
+    Audio2.playMusic(alias, song);
+  },
+
+  /** chamado pelo live update quando src/data/* muda */
+  applyData(next) {
+    Object.assign(DB, next);
+    this.state.party.forEach(recalc);
+    this.state.box?.forEach(recalc);
+    this.scenes.stack.forEach((s) => s.onDataChange?.());
+    Glitch.hit(0.5);
+  },
+
+  serialize() {
+    return {
+      state: this.state,
+      scene: this.scenes.top?.constructor?.name || "TitleScene",
+      v: Save.versao(),        // em que versão do arquivo este estado se baseia
+    };
+  },
+};
+
+Assets.init();
+initInput(window);
+
+// sprites externos (assets/sprites/**) entram por cima da arte provisoria.
+// A lista sai dos proprios mapas — todo NPC, os oito lideres de ginasio inclusos —
+// mais os papeis usados fora deles (jogador, rival, telas). Antes era uma lista
+// fixa: quem nao estivesse nela ficava com a silhueta provisoria mesmo tendo PNG.
+const PAPEIS_FIXOS = [
+  "hero", "heroina", "prof", "mae", "garoto", "garota", "velho", "velha", "menino", "menina",
+  "enfermeira", "balconista", "rival", "gentleman", "cientista", "cacador", "policial", "pescador",
+  "motoqueiro", "marinheiro", "montanhista", "rocket", "rocketf", "lutador", "superm", "superf",
+  "tecnico", "tecnica", "canalizadora", "maniaco", "roqueiro",
+];
+const ATORES = [...new Set([
+  ...PAPEIS_FIXOS,
+  ...Object.values(DB.MAPS).flatMap((m) => (m.npcs || []).map((n) => n.sprite)),
+])].filter((n) => n && n !== "ball" && n !== "portal");   // esses dois sao desenhados em codigo
+
+loadExternalSprites(
+  // `spriteDex` existe nas formas MEGA: o arquivo delas é o id da PokeAPI da
+  // forma (10033.png), não o número da Pokédex da espécie de origem
+  Object.values(DB.SPECIES).map((sp) => ({ id: sp.id || slugFallback(sp), dex: sp.spriteDex || sp.dex })),
+  ATORES,
+);
+function slugFallback(sp) { return sp.name.toLowerCase().replace(/[^a-z0-9]+/g, ""); }
+game.scenes = new SceneStack(game);
+
+// o save vem do arquivo do computador (save/save.json), não do navegador
+await Save.load();
+
+// restaura estado apos um reload do live update
+const stash = Save.popStash();
+// se o arquivo mudou enquanto a página recarregava (giveglitch), ele ganha
+if (stash?.state && Save.read()?.player && (stash.v ?? 0) < Save.versao()) {
+  console.warn("[hot] o save do arquivo é mais novo — usando ele");
+  stash.state = Save.read();
+}
+if (stash?.state && !game.isValid(stash.state)) {
+  console.warn("[hot] estado antigo descartado (dados mudaram)");
+  game.newGame();
+  game.scenes.push(new TitleScene());
+} else if (stash?.state) {
+  game.state = stash.state;
+  reverterTudo(game.state);
+  game.state.party.forEach(recalc);
+  game.state.box?.forEach(recalc);
+  Glitch.level = game.state.corruption;
+  game.scenes.push(stash.scene === "TitleScene" ? new TitleScene() : new OverworldScene());
+  console.log("%c[hot] estado restaurado", "color:#59d99b");
+} else {
+  game.scenes.push(new TitleScene());
+}
+
+/** "spearow:10,cranidos:19" -> coloca esses Pokémon na equipe (sobra vai pro box) */
+function addMons(state, spec) {
+  for (const item of String(spec).split(",")) {
+    const [id, lvl] = item.trim().split(":");
+    if (!DB.SPECIES[id]) { console.warn("[give] espécie desconhecida:", id); continue; }
+    const mon = createMon(id, Math.max(1, Math.min(100, +lvl || 5)));
+    (state.party.length < 6 ? state.party : state.box).push(mon);
+    state.seen[id] = true;
+    state.caught[id] = true;
+  }
+}
+
+// ------------------------------------------------- atalhos de desenvolvimento
+// ?map=route1&x=7&y=10  |  ?battle=missingno&lvl=8  |  ?starter=squirtle  |  ?debug=1
+const q = new URLSearchParams(location.search);
+if (q.has("map") || q.has("battle")) {
+  game.newGame();
+  {
+    const [sid, slvl] = (q.get("starter") || "charmander").split(":");
+    const mon = game.giveStarter(sid);
+    if (slvl) { mon.level = +slvl; recalc(mon); mon.hp = mon.maxHp; }
+  }
+  const p = game.state.player;
+  if (q.has("map")) {
+    const spawn = DB.MAPS[q.get("map")].spawn;
+    p.map = q.get("map");
+    p.x = q.has("x") ? +q.get("x") : spawn.x;
+    p.y = q.has("y") ? +q.get("y") : spawn.y;
+    p.dir = q.get("dir") || spawn.dir;
+  }
+  if (q.has("badges")) {   // ?badges=3 -> começa com 3 insígnias e o professor te chamando
+    const n = Math.min(8, +q.get("badges") || 0);
+    game.state.badges = DB.STORY.badges.slice(0, n).map((b) => b.id);
+    game.state.flags.oakPending = n > 0;
+    game.state.flags.starterChosen = true;
+  }
+  if (q.get("glitchworld")) {   // ?glitchworld=1 -> testa a caçada final
+    game.state.flags.glitchWorld = true;
+    game.state.corruption = 60;
+    Glitch.forced = true;
+  }
+  if (q.get("escort") === "lab") {   // já no laboratório, missão cumprida
+    game.state.escort = { stage: "atLab", map: "lab", x: 5, y: 11, dir: "right",
+                          from: { map: "pewter_city", x: 17, y: 6, dir: "down" } };
+    game.state.flags.oakPending = false;
+  } else if (q.get("escort")) game.state.flags.escortPending = true;
+  if (q.has("party")) {   // ?party=pidgey:8,pikachu:6 -> equipe extra pra teste
+    addMons(game.state, q.get("party"));
+  }
+  if (q.get("dim")) {   // ?dim=3 -> já dentro da dimensão, missão 3
+    game.state.mission = { n: +q.get("dim") || 1, back: { map: "lab", x: 6, y: 11, dir: "up" } };
+    Object.assign(game.state.player, {
+      map: "glitchdim",
+      x: q.has("x") ? +q.get("x") : 22,
+      y: q.has("y") ? +q.get("y") : 29,
+      dir: q.get("dir") || "up",
+    });
+    Glitch.forced = true;
+  }
+  if (q.get("missionready")) game.state.flags.missionReady = true;
+  if (q.get("dimunlocked")) game.state.flags.dimUnlocked = true;
+  if (q.get("pokedex")) game.state.flags.pokedexMsg = true;
+  if (q.get("visor")) game.state.items[DB.STORY.detector.item] = 1;
+  if (q.get("mega")) {   // ?mega=1 -> anel + todas as megapedras na mochila
+    game.state.items[DB.MEGA_ANEL] = 1;
+    for (const pedra of Object.keys(DB.MEGA_PEDRAS || {})) game.state.items[pedra] = 1;
+    game.state.flags.anelMega = true;
+  }
+  if (q.get("frag")) {   // ?frag=1 -> fragmento colado no jogador, pra testar
+    const p2 = game.state.player;
+    game.state.flags.dimUnlocked = true;
+    game.state.fragment = { map: p2.map, x: p2.x, y: p2.y + 1 };
+  }
+  game.scenes.replace(new OverworldScene());
+  if (q.has("battle")) {
+    const foe = createMon(q.get("battle"), +(q.get("lvl") || 5));
+    const bs = game.scenes.push(new BattleScene(), { foe, glitch: q.get("battle") === "missingno" });
+    bs.fadeA = 0; bs.fadeDir = 0;
+  }
+  if (q.get("debug")) game.debug = true;
+}
+
+// ?give=spearow:10,cranidos:19 -> entrega os Pokémon na partida que for carregada
+// (funciona com CONTINUAR: não começa jogo novo, não apaga nada)
+if (q.has("give")) {
+  const pedido = q.get("give");
+  const entregar = (st) => {
+    if (!st?.party) return;
+    addMons(st, pedido);
+    game.autosave(true);
+    // tira o parâmetro da URL: recarregar não entrega de novo
+    try {
+      const u = new URL(location.href);
+      u.searchParams.delete("give");
+      history.replaceState(null, "", u.pathname + (u.search || "") + u.hash);
+    } catch {}
+  };
+  const loadOrig = game.loadGame.bind(game);
+  game.loadGame = () => { const st = loadOrig(); entregar(st); return st; };
+  const newOrig = game.newGame.bind(game);
+  game.newGame = () => { const st = newOrig(); entregar(st); return st; };
+  if (game.scenes.top instanceof OverworldScene) entregar(game.state);
+}
+
+SpriteStore.maps.glitchdim = Assets.glitchRoom(DB.KANTO.glitchdim);
+// só desenha a ilha em código quando o mapa do decomp não foi importado
+if (ILHA_GERADA) SpriteStore.maps.birth_island = Assets.islandArt(DB.KANTO.birth_island);
+mapArt(game.state.player.map); // começa a carregar a arte do mapa atual
+
+setTextVars({ NOME: game.state.player?.name || "VERMELHO" });
+
+initHot(game);
+// Funções online (sala, presença, troca, batalha link, presente misterioso).
+// Se o servidor não responder, o jogo segue igual: nada aqui é obrigatório.
+Online.init(game);
+
+// -------------------------------------------------------------- resize
+function resize() {
+  // a escala precisa cair em pixels INTEIROS do monitor: em telas HiDPI
+  // (devicePixelRatio 1.25/1.5) uma escala quebrada faz o cenário cintilar
+  const dpr = window.devicePixelRatio || 1;
+  const fit = Math.min(window.innerWidth / W, (window.innerHeight - 60) / H);
+  const scale = Math.max(1, Math.floor(fit * dpr)) / dpr;
+  display.style.width = W * scale + "px";
+  display.style.height = H * scale + "px";
+}
+window.addEventListener("resize", resize);
+resize();
+
+// ---------------------------------------------------------------- loop
+let last = performance.now();
+let acc = 0;
+const STEP = 1 / 60;
+let fps = 0, fpsT = 0, frames = 0;
+
+function frame(now) {
+  game.frames = (game.frames || 0) + 1;
+  const dt = Math.min(0.25, (now - last) / 1000);
+  last = now;
+  acc += dt;
+  frames++; fpsT += dt;
+  if (fpsT >= 0.5) { fps = Math.round(frames / fpsT); frames = 0; fpsT = 0; }
+
+  while (acc >= STEP) {
+    if (Input.consume("debug")) game.debug = !game.debug;
+    if (Input.consume("mute")) Audio2.toggleMute();
+    if (Input.consume("glitch")) { Glitch.hit(1.5); Audio2.glitch(); }
+    game.state.playtime += STEP;
+    // a fenda continua fechando mesmo durante uma batalha
+    const ms = game.state.mission;
+    if (ms?.left > 0 && game.state.player.map === "glitchdim") ms.left = Math.max(0, ms.left - STEP);
+    Glitch.update(STEP);
+    Online.update(STEP);            // presença/convites andam mesmo dentro do menu
+    game.scenes.update(STEP);
+    Input.endFrame();
+    acc -= STEP;
+  }
+
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, W, H);
+  game.scenes.render(ctx);
+  // gancho de diagnóstico: window.__camlog = [] grava a câmera quadro a quadro
+  if (window.__camlog && game.scenes.top?.cam) window.__camlog.push(game.scenes.top.cam.y);
+  if (game.debug) {
+    const p = game.state.player;
+    drawText(ctx, `${fps}FPS ${p.map} ${p.x},${p.y}`, 2, H - 20, "#00ffcc");
+    drawText(ctx, `CORR ${Math.round(game.state.corruption)}%`, 2, H - 10, "#b455ff");
+    const fc = game.state.fragChance ?? DB.SPOT_CHANCE ?? 0.5;
+    drawText(ctx, `FRAG ${Math.round(fc * 100)}%`, 92, H - 10, "#ffd166");
+  }
+  Glitch.render(dctx, buffer);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+window.addEventListener("keydown", () => Audio2.unlock(), { once: true });
+
+// fechar a aba, recarregar ou trocar de janela salva a partida
+const gravarSaindo = () => {
+  if (game.state?.party && !(game.scenes?.top instanceof TitleScene)) Save.flush(game.state);
+};
+window.addEventListener("pagehide", gravarSaindo);
+window.addEventListener("beforeunload", gravarSaindo);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") gravarSaindo();
+});
+window.game = game;
+window.Assets = Assets;
+window.DB = DB;

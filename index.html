@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Pokémon Glitch Edition</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    height:100%; background:#0b0d10; overflow:hidden;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    display:flex; align-items:center; justify-content:center;
+  }
+  #shell { position:relative; }
+  canvas#screen {
+    display:block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    background:#000;
+    box-shadow: 0 0 0 4px #1b2027, 0 0 0 6px #0e1116, 0 24px 60px rgba(0,0,0,.7),
+                0 0 90px rgba(120, 40, 200, .16);
+    border-radius: 3px;
+  }
+  #hud {
+    position:absolute; left:0; right:0; bottom:-26px;
+    display:flex; justify-content:space-between; gap:12px;
+    font-size:11px; color:#3f4854; letter-spacing:.5px; user-select:none;
+  }
+  #hot-badge { color:#6b4ea8; transition:color .2s, opacity .4s; opacity:.55; }
+  #hot-badge.live { color:#59d99b; opacity:1; }
+  #hot-badge.dead { color:#d95959; opacity:1; }
+  #hot-badge.flash { color:#ffd166; opacity:1; }
+  @media (max-width:720px) { #hud { display:none; } }
+</style>
+</head>
+<body>
+  <div id="shell">
+    <canvas id="screen" width="240" height="160"></canvas>
+    <div id="hud">
+      <span>&uarr;&darr;&larr;&rarr;/WASD mover &middot; Z confirmar &middot; X voltar &middot; SHIFT correr &middot; F debug</span>
+      <span id="hot-badge">&#9679; live update</span>
+    </div>
+  </div>
+  <div id="err"></div>
+  <script>
+    // overlay de erro do dev server (aparece na tela em vez de sumir no console)
+    (function () {
+      const box = document.getElementById("err");
+      const show = (msg) => {
+        box.style.cssText = "position:fixed;inset:auto 0 0 0;max-height:45%;overflow:auto;" +
+          "background:#2a0a12;color:#ff9aa2;font:12px/1.5 ui-monospace,monospace;padding:10px 14px;" +
+          "border-top:2px solid #ff5566;white-space:pre-wrap;z-index:99";
+        box.textContent += msg + "\n";
+      };
+      window.addEventListener("error", (e) =>
+        show("ERRO: " + (e.message || e.error) + "\n  " + (e.filename || "") + ":" + (e.lineno || "")));
+      window.addEventListener("unhandledrejection", (e) => show("PROMISE: " + (e.reason?.stack || e.reason)));
+    })();
+  </script>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

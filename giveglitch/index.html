@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>giveglitch — Pokémon Glitch Edition</title>
+<style>
+  :root {
+    --bg: #14101f; --panel: #1e1830; --panel2: #272040; --line: #3d3160;
+    --ink: #f4f2ff; --ink2: #a99ec9; --glitch: #b455ff; --ok: #59d99b; --warn: #ffd166; --bad: #e0524a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  header {
+    padding: 14px 18px; border-bottom: 2px solid var(--line);
+    background: linear-gradient(180deg, #241b3c, #14101f);
+    display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+  }
+  h1 { margin: 0; font-size: 18px; letter-spacing: 2px; text-transform: uppercase; }
+  h1 span { color: var(--glitch); }
+  .sub { color: var(--ink2); }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; padding: 16px; align-items: start; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 2px solid var(--line); border-radius: 8px; padding: 12px; }
+  .card h2 { margin: 0 0 10px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--ink2); }
+  input, select, button {
+    font: inherit; background: var(--panel2); color: var(--ink);
+    border: 2px solid var(--line); border-radius: 6px; padding: 6px 9px;
+  }
+  input:focus, select:focus, button:focus { outline: 2px solid var(--glitch); outline-offset: 1px; }
+  button { cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+  button:hover { border-color: var(--glitch); }
+  button.primary { background: var(--glitch); border-color: var(--glitch); color: #120820; font-weight: bold; }
+  button.primary:disabled { background: var(--panel2); border-color: var(--line); color: var(--ink2); cursor: not-allowed; }
+  .filtros { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .filtros input[type=search] { flex: 1 1 220px; }
+  .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; max-height: 62vh; overflow: auto; }
+  .mon {
+    background: var(--panel2); border: 2px solid var(--line); border-radius: 6px;
+    padding: 6px; text-align: center; cursor: pointer; position: relative;
+  }
+  .mon:hover { border-color: var(--glitch); }
+  .mon[aria-selected="true"] { border-color: var(--glitch); box-shadow: 0 0 0 2px rgba(180,85,255,.35); }
+  .mon img, .mon .ph { width: 64px; height: 64px; image-rendering: pixelated; display: block; margin: 0 auto; }
+  .mon .ph { border-radius: 6px; opacity: .55; }
+  .mon .n { color: var(--ink2); font-size: 11px; }
+  .mon .nome { font-size: 11px; word-break: break-word; }
+  .tag { position: absolute; top: 4px; right: 4px; font-size: 9px; color: var(--glitch); }
+  .linha { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .linha label { flex: 0 0 84px; color: var(--ink2); font-size: 11px; text-transform: uppercase; }
+  .linha input[type=text], .linha input[type=number], .linha select { flex: 1; min-width: 0; }
+  .equipe li { list-style: none; display: flex; gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--line); }
+  .equipe { margin: 0; padding: 0; }
+  .equipe img, .equipe .ph { width: 32px; height: 32px; image-rendering: pixelated; }
+  .msg { margin-top: 10px; padding: 8px; border-radius: 6px; border: 2px solid var(--line); background: var(--panel2); }
+  .msg.ok { border-color: var(--ok); color: var(--ok); }
+  .msg.bad { border-color: var(--bad); color: var(--bad); }
+  .msg.warn { border-color: var(--warn); color: var(--warn); }
+  .aviso { color: var(--warn); }
+  code { color: var(--glitch); }
+  a { color: var(--glitch); }
+</style>
+</head>
+<body>
+<header>
+  <h1>give<span>glitch</span></h1>
+  <div class="sub" id="status">lendo o save...</div>
+  <div style="margin-left:auto; display:flex; gap:8px">
+    <button id="recarregar">Reler save</button>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Pokémon do jogo <span id="contagem" class="sub"></span></h2>
+    <div class="filtros">
+      <input type="search" id="busca" placeholder="buscar por nome, nº ou tipo (ex: dragão)">
+      <select id="grupo">
+        <option value="todos">todos</option>
+        <option value="kanto">só Kanto</option>
+        <option value="fenda">só os da fenda</option>
+      </select>
+    </div>
+    <div class="grade" id="grade"></div>
+  </section>
+
+  <section class="card">
+    <h2>Enviar pro save</h2>
+    <div id="escolhido" class="sub" style="margin-bottom:10px">nenhum escolhido</div>
+    <div class="linha"><label for="nivel">Nível</label><input type="number" id="nivel" min="1" max="100" value="5"></div>
+    <div class="linha"><label for="apelido">Apelido</label><input type="text" id="apelido" placeholder="(nome da espécie)" maxlength="10"></div>
+    <div class="linha"><label for="destino">Destino</label>
+      <select id="destino"><option value="party">equipe (sobra vai pro box)</option><option value="box">box</option></select>
+    </div>
+    <div class="linha"><label for="shiny">Shiny</label><input type="checkbox" id="shiny"></div>
+    <div class="linha"><label for="corrupt">Corrompido</label><input type="checkbox" id="corrupt"></div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap">
+      <button class="primary" id="enviar" disabled>Colocar no save</button>
+      <button id="link" disabled>Copiar link ?give=</button>
+    </div>
+    <div id="msg"></div>
+
+    <h2 style="margin-top:16px">Equipe no save</h2>
+    <ul class="equipe" id="equipe"></ul>
+    <p class="aviso" id="aviso" style="font-size:11px"></p>
+  </section>
+</main>
+
+<script type="module">
+import { DB } from "/src/data/index.js";
+import { createMon } from "/src/systems/mon.js";
+import { Save } from "/src/core/save.js";
+
+const $ = (id) => document.getElementById(id);
+const pad3 = (n) => String(n).padStart(3, "0");
+const semAcento = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+// as formas MEGA ficam de fora: elas só existem dentro da batalha (baixar uma
+// deixaria um Pokémon megado pra sempre, que é justo o que o jogo não permite)
+const ESPECIES = Object.values(DB.SPECIES).filter((sp) => !sp.mega)
+  .sort((a, b) => (a.dex || 999) - (b.dex || 999));
+let escolhido = null;
+let save = null;
+
+/** o sprite pode não ter sido baixado: cai num quadrado da cor do tipo */
+function arte(sp, tam = 64) {
+  const img = new Image();
+  img.width = img.height = tam;
+  img.alt = sp.name;
+  img.loading = "lazy";
+  img.src = `/assets/sprites/pokemon/${pad3(sp.dex)}.png`;
+  img.onerror = () => {
+    const ph = document.createElement("div");
+    ph.className = "ph";
+    ph.style.width = ph.style.height = tam + "px";
+    ph.style.background = DB.TYPE_COLOR[sp.types[0]] || "#888";
+    img.replaceWith(ph);
+  };
+  return img;
+}
+
+async function lerSave() {
+  save = await Save.load();
+  const st = $("status");
+  if (!save?.player) {
+    st.innerHTML = '<span style="color:var(--bad)">nenhum save encontrado</span> — abra o jogo, comece uma partida e volte aqui';
+  } else {
+    save.party ||= []; save.box ||= []; save.seen ||= {}; save.caught ||= {};
+    st.textContent = `${save.player.name} · $${save.money ?? 0} · ${(save.badges || []).length} insígnia(s) · `
+      + `equipe ${save.party.length}/6 · box ${save.box.length} · ${save.player.map}`;
+  }
+  desenhaEquipe();
+  atualizaBotoes();
+}
+
+function desenhaEquipe() {
+  const ul = $("equipe");
+  ul.innerHTML = "";
+  if (!save?.party?.length) {
+    ul.innerHTML = '<li class="sub">equipe vazia</li>';
+    return;
+  }
+  save.party.forEach((mon, i) => {
+    const sp = DB.SPECIES[mon.species];
+    const li = document.createElement("li");
+    li.append(arte(sp, 32));
+    const txt = document.createElement("span");
+    txt.style.flex = "1";
+    txt.textContent = `${mon.shiny ? "* " : ""}${mon.nickname} nv${mon.level}`;
+    const bt = document.createElement("button");
+    bt.textContent = "tirar";
+    bt.onclick = async () => {
+      save.party.splice(i, 1);
+      await Save.write(save);
+      msg("ok", `${mon.nickname} saiu da equipe.`);
+      lerSave();   // relê do arquivo
+    };
+    li.append(txt, bt);
+    ul.append(li);
+  });
+}
+
+function msg(tipo, texto) {
+  $("msg").className = "msg " + tipo;
+  $("msg").textContent = texto;
+}
+
+function atualizaBotoes() {
+  $("enviar").disabled = !escolhido || !save?.player;
+  $("link").disabled = !escolhido;
+  $("aviso").textContent = save?.player
+    ? "O save é um arquivo só (save/save.json). Com o jogo aberto, recarregue a aba dele depois de enviar — senão o autosave grava por cima."
+    : "";
+}
+
+function desenhaGrade() {
+  const termo = semAcento($("busca").value.trim());
+  const grupo = $("grupo").value;
+  const grade = $("grade");
+  grade.innerHTML = "";
+  let n = 0;
+  for (const sp of ESPECIES) {
+    if (grupo === "kanto" && sp.foreign) continue;
+    if (grupo === "fenda" && !sp.foreign) continue;
+    if (termo) {
+      const alvo = semAcento(`${sp.name} ${sp.id} ${sp.dex} ${sp.types.join(" ")}`);
+      if (!alvo.includes(termo)) continue;
+    }
+    n++;
+    const div = document.createElement("div");
+    div.className = "mon";
+    div.tabIndex = 0;
+    div.setAttribute("role", "option");
+    div.setAttribute("aria-selected", escolhido?.id === sp.id ? "true" : "false");
+    div.append(arte(sp));
+    const num = document.createElement("div");
+    num.className = "n";
+    num.textContent = sp.dex ? "Nº " + pad3(sp.dex) : "Nº ???";
+    const nome = document.createElement("div");
+    nome.className = "nome";
+    nome.textContent = sp.name;
+    div.append(num, nome);
+    if (sp.foreign) {
+      const t = document.createElement("span");
+      t.className = "tag";
+      t.textContent = "FENDA";
+      div.append(t);
+    }
+    const escolher = () => selecionar(sp);
+    div.onclick = escolher;
+    div.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); escolher(); } };
+    grade.append(div);
+  }
+  $("contagem").textContent = `(${n} de ${ESPECIES.length})`;
+}
+
+function selecionar(sp) {
+  escolhido = sp;
+  $("escolhido").innerHTML = `<b>${sp.name}</b> — ${sp.types.join("/")} · BST ${sp.bst ?? "?"}`
+    + `<br><span class="sub">${sp.dexText || ""}</span>`;
+  $("apelido").placeholder = sp.name;
+  desenhaGrade();
+  atualizaBotoes();
+}
+
+$("enviar").onclick = async () => {
+  if (!escolhido || !save?.player) return;
+  const nivel = Math.max(1, Math.min(100, +$("nivel").value || 5));
+  const mon = createMon(escolhido.id, nivel, {
+    shiny: $("shiny").checked,
+    corrupt: $("corrupt").checked,
+  });
+  const apelido = $("apelido").value.trim().toUpperCase();
+  if (apelido) mon.nickname = apelido;
+  const paraBox = $("destino").value === "box" || save.party.length >= 6;
+  (paraBox ? save.box : save.party).push(mon);
+  save.seen[escolhido.id] = true;
+  save.caught[escolhido.id] = true;
+  if (!(await Save.write(save))) return msg("bad", "não deu pra gravar — o dev_server.py está rodando?");
+  msg("ok", `${mon.nickname} nv${mon.level} foi pro ${paraBox ? "box" : "equipe"}. Recarregue a aba do jogo.`);
+  lerSave();
+};
+
+$("link").onclick = async () => {
+  const nivel = Math.max(1, Math.min(100, +$("nivel").value || 5));
+  const url = `${location.origin}/?give=${escolhido.id}:${nivel}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    msg("ok", "link copiado: " + url);
+  } catch {
+    msg("warn", "copie na mão: " + url);
+  }
+};
+
+$("recarregar").onclick = async () => { await lerSave(); msg("ok", "save relido."); };
+$("busca").oninput = desenhaGrade;
+$("grupo").onchange = desenhaGrade;
+
+await lerSave();
+desenhaGrade();
+</script>
+</body>
+</html>

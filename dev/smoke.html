@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>smoke test — Pokémon Glitch Edition</title>
+<style>
+  body { background:#111; color:#9aa; font:12px ui-monospace,monospace; margin:0; padding:8px; }
+  iframe { width:740px; height:560px; border:0; }
+  #log { white-space:pre-wrap; color:#7fd; }
+</style>
+</head>
+<body>
+<!-- roteiro de teclas enviado pro jogo; o <img> abaixo segura o evento `load`
+     ate o roteiro terminar, entao `firefox --screenshot` captura o resultado. -->
+<div id="log">rodando...</div>
+<iframe id="fr" src=""></iframe>
+<img id="hold" alt="" width="1" height="1">
+<script>
+  const p = new URLSearchParams(location.search);
+  const url = p.get("url") || "/?map=rota1&battle=vermex&lvl=4";
+  const script = (p.get("keys") || "z,z,z,w200,z,z,z").split(",");
+  const holdMs = +(p.get("hold") || 6000);
+  const gapMs = +(p.get("gap") || 420);
+  const fr = document.getElementById("fr");
+  const log = document.getElementById("log");
+  fr.src = url;
+
+  const CODE = { z: "KeyZ", x: "KeyX", up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight" };
+  const press = (code) => {
+    const w = fr.contentWindow;
+    w.dispatchEvent(new KeyboardEvent("keydown", { code, bubbles: true }));
+    setTimeout(() => w.dispatchEvent(new KeyboardEvent("keyup", { code, bubbles: true })), 60);
+  };
+
+  const errs = [];
+  window.addEventListener("error", (e) => errs.push("PAI: " + e.message));
+  /** captura N quadros do canvas em intervalos curtos e monta uma tira */
+  async function filmstrip(n, gap, cols = 4) {
+    const cv = fr.contentDocument.getElementById("screen");
+    const out = document.createElement("canvas");
+    const rows = Math.ceil(n / cols);
+    out.width = cv.width * cols;
+    out.height = cv.height * rows;
+    const c = out.getContext("2d");
+    c.imageSmoothingEnabled = false;
+    for (let i = 0; i < n; i++) {
+      c.drawImage(cv, (i % cols) * cv.width, Math.floor(i / cols) * cv.height);
+      c.strokeStyle = "#ff0066";
+      c.strokeRect((i % cols) * cv.width + 0.5, Math.floor(i / cols) * cv.height + 0.5, cv.width - 1, cv.height - 1);
+      await new Promise((r) => setTimeout(r, gap));
+    }
+    return out.toDataURL();
+  }
+
+  fr.addEventListener("load", async () => {
+    if (p.get("noOverlay")) fr.contentWindow.__noOverlay = true;
+    fr.contentWindow.addEventListener("error", (e) => errs.push("JOGO: " + e.message));
+    fr.contentWindow.addEventListener("unhandledrejection", (e) => errs.push("JOGO-PROMISE: " + (e.reason?.stack || e.reason)));
+    log.textContent = "iframe carregado, enviando: " + script.join(" ");
+    await new Promise((r) => setTimeout(r, 800));
+    // a câmera é gravada dentro do próprio loop do jogo (1 amostra por quadro)
+    if (p.get("camlog")) fr.contentWindow.__camlog = [];
+
+    let filmPromise = null;
+    if (p.get("film")) filmPromise = filmstrip(+p.get("film"), +(p.get("filmGap") || 50));
+
+    let i = 0;
+    for (const step of script) {
+      i++;
+      log.textContent = `passo ${i}/${script.length}: ${step}`;
+      try {
+        if (step.startsWith("w")) { await new Promise((r) => setTimeout(r, +step.slice(1))); continue; }
+        press(CODE[step] || step);
+        await new Promise((r) => setTimeout(r, gapMs));
+      } catch (e) { errs.push("passo " + i + ": " + e.message); }
+    }
+    const w = fr.contentWindow;
+    const sc = w.game?.scenes?.top;
+    errs.push(`frames=${w.game?.frames} cena=${sc?.constructor?.name} busy=${sc?.busy} dlg=${sc?.dlg?.active}` +
+      ` menu=${JSON.stringify(sc?.menu)} pos=${w.game?.state?.player?.map}(${w.game?.state?.player?.x},${w.game?.state?.player?.y})` +
+      ` party=${w.game?.state?.party?.map((m) => m.species + ":" + m.level).join(",")} $=${w.game?.state?.money}` +
+      (() => { try { const a = w.Assets.actor("hero"); const f = a.up[0];
+        return ` frag=${JSON.stringify(w.game.state.fragment)} itens=${JSON.stringify(w.game.state.items)} equipe=${w.game.state.party.map((m)=>m.species+" nv"+m.level+" xp"+m.xp)}`; }
+        catch (e) { return " heroi=?" } })());
+    try {
+      const err = fr.contentDocument.getElementById("err");
+      errs.push(...(err?.textContent.trim() ? [err.textContent.trim()] : []));
+    } catch (e) { errs.push("acesso ao iframe: " + e.message); }
+    const cam = fr.contentWindow.__camlog || [];
+    if (cam.length) {
+      const d = cam.slice(1).map((v, i) => +(v - cam[i]).toFixed(3));
+      const counts = {};
+      d.forEach((v) => (counts[v] = (counts[v] || 0) + 1));
+      const frac = cam.filter((v) => v % 1 !== 0).length;
+      errs.push(`cam: ${cam.length} quadros, deltas=${JSON.stringify(counts)}, fracionarios=${frac}`);
+      errs.push(`dpr=${fr.contentWindow.devicePixelRatio} canvas=${fr.contentDocument.getElementById("screen").style.width}`);
+    }
+    const texto = "roteiro concluido. " + (errs.length ? errs.join(" | ") : "sem erros");
+    log.textContent = texto;
+    // manda canvas + log pro dev server (independe do timing do --screenshot)
+    try {
+      const cv = fr.contentDocument.getElementById("screen");
+      const dataUrl = filmPromise ? await filmPromise : cv.toDataURL();
+      await fetch("/__capture", {
+        method: "POST",
+        body: JSON.stringify({ name: p.get("name") || "smoke", dataUrl, log: texto }),
+      });
+    } catch (e) { console.error(e); }
+  });
+
+  document.getElementById("hold").src = "/__delay?ms=" + holdMs;
+</script>
+</body>
+</html>

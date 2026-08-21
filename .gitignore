@@ -1,0 +1,15 @@
+dev/captures/
+__pycache__/
+*.pyc
+.DS_Store
+assets/sprites/pokemon/*.png
+assets/sprites/pokemon/back/*.png
+assets/sprites/overworld/*.png
+assets/sprites/trainers/*.png
+assets/sprites/tiles/*.png
+assets/maps/*.png
+assets/maps/kanto.json
+assets/sprites/.cache/
+save/
+online/
+assets/music/

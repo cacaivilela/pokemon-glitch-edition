@@ -1,0 +1,58 @@
+// Golpes (nomes PT-BR dos ataques clássicos de Kanto).
+// category: "fisico" | "especial" | "status"
+// campos opcionais lidos pelo engine: burn, para, poison, stat, recoil, crit, corrupt
+export const MOVES = {
+  investida:     { name: "INVESTIDA",     type: "NORMAL",     power: 40, acc: 100, pp: 35, category: "fisico" },
+  arranhao:      { name: "ARRANHÃO",      type: "NORMAL",     power: 40, acc: 100, pp: 35, category: "fisico" },
+  ataquerapido:  { name: "ATAQUE RÁPIDO", type: "NORMAL",     power: 40, acc: 100, pp: 30, category: "fisico", priority: 1 },
+  mordida:       { name: "MORDIDA",       type: "NORMAL",     power: 60, acc: 100, pp: 25, category: "fisico" },
+  cabecada:      { name: "CABEÇADA",      type: "NORMAL",     power: 70, acc: 100, pp: 15, category: "fisico" },
+  grito:         { name: "GRITO",         type: "NORMAL",     power: 0,  acc: 100, pp: 40, category: "status", stat: { target: "foe", key: "atk", delta: -1 } },
+  encarar:       { name: "ENCARAR",       type: "NORMAL",     power: 0,  acc: 100, pp: 30, category: "status", stat: { target: "foe", key: "def", delta: -1 } },
+  rabodeabano:   { name: "RABO DE ABANO", type: "NORMAL",     power: 0,  acc: 100, pp: 30, category: "status", stat: { target: "foe", key: "def", delta: -1 } },
+  areianosolhos: { name: "AREIA NOS OLHOS", type: "NORMAL",   power: 0,  acc: 100, pp: 15, category: "status", stat: { target: "foe", key: "acc", delta: -1 } },
+  endurecer:     { name: "ENDURECER",     type: "NORMAL",     power: 0,  acc: 100, pp: 30, category: "status", stat: { target: "self", key: "def", delta: 1 } },
+  brasa:         { name: "BRASA",         type: "FOGO",       power: 40, acc: 100, pp: 25, category: "especial", burn: 0.1 },
+  lancachamas:   { name: "LANÇA-CHAMAS",  type: "FOGO",       power: 90, acc: 100, pp: 15, category: "especial", burn: 0.1 },
+  pistoladagua:  { name: "PISTOLA D'ÁGUA",type: "ÁGUA",       power: 40, acc: 100, pp: 25, category: "especial" },
+  bolhas:        { name: "BOLHAS",        type: "ÁGUA",       power: 40, acc: 100, pp: 30, category: "especial", stat: { target: "foe", key: "spe", delta: -1 } },
+  surfar:        { name: "SURFAR",        type: "ÁGUA",       power: 90, acc: 100, pp: 15, category: "especial" },
+  // golpes que também servem fora da batalha (ver src/data/field.js)
+  corte:         { name: "CORTE",         type: "NORMAL",     power: 50, acc: 95,  pp: 30, category: "fisico" },
+  voar:          { name: "VOAR",          type: "VOADOR",     power: 90, acc: 95,  pp: 15, category: "fisico" },
+  forca:         { name: "FORÇA",         type: "NORMAL",     power: 80, acc: 100, pp: 15, category: "fisico" },
+  quebrarocha:   { name: "QUEBRA-ROCHA",  type: "LUTADOR",    power: 40, acc: 100, pp: 15, category: "fisico" },
+  chicotedevinha:{ name: "CHICOTE DE VINHA", type: "PLANTA",  power: 45, acc: 100, pp: 25, category: "fisico" },
+  folhanavalha:  { name: "FOLHA NAVALHA", type: "PLANTA",     power: 55, acc: 95,  pp: 25, category: "especial", crit: 2 },
+  choquedotrovao:{ name: "CHOQUE DO TROVÃO", type: "ELÉTRICO",power: 40, acc: 100, pp: 30, category: "especial", para: 0.1 },
+  ondadechoque:  { name: "ONDA DE CHOQUE",type: "ELÉTRICO",   power: 60, acc: 100, pp: 20, category: "especial" },
+  trovoada:      { name: "TROVOADA",      type: "ELÉTRICO",   power: 90, acc: 100, pp: 15, category: "especial", para: 0.1 },
+  fiodeseda:     { name: "FIO DE SEDA",   type: "INSETO",     power: 0,  acc: 95,  pp: 40, category: "status", stat: { target: "foe", key: "spe", delta: -1 } },
+  picada:        { name: "PICADA",        type: "INSETO",     power: 35, acc: 100, pp: 35, category: "fisico" },
+  picadadeveneno:{ name: "PICADA VENENOSA", type: "VENENO",   power: 15, acc: 100, pp: 35, category: "fisico", poison: 0.3 },
+  poderdeacido:  { name: "ÁCIDO",         type: "VENENO",     power: 40, acc: 100, pp: 30, category: "especial", poison: 0.1 },
+  rajadadevento: { name: "RAJADA DE VENTO", type: "VOADOR",   power: 40, acc: 100, pp: 35, category: "especial" },
+  ataquedeasa:   { name: "ATAQUE DE ASA", type: "VOADOR",     power: 60, acc: 100, pp: 35, category: "fisico" },
+  bicada:        { name: "BICADA",        type: "VOADOR",     power: 35, acc: 100, pp: 35, category: "fisico" },
+  // --- golpes dos demais tipos de Kanto (usados pelos learnsets automáticos) ---
+  bofetadadelama:{ name: "BOFETADA DE LAMA", type: "TERRA",     power: 20, acc: 100, pp: 10, category: "especial", stat: { target: "foe", key: "acc", delta: -1 } },
+  terremoto:     { name: "TERREMOTO",     type: "TERRA",      power: 100, acc: 100, pp: 10, category: "fisico" },
+  jogarpedra:    { name: "JOGAR PEDRA",   type: "PEDRA",      power: 50, acc: 90,  pp: 15, category: "fisico" },
+  golpecarate:   { name: "GOLPE CARATÊ",  type: "LUTADOR",    power: 50, acc: 100, pp: 25, category: "fisico", crit: 2 },
+  chuteduplo:    { name: "CHUTE DUPLO",   type: "LUTADOR",    power: 60, acc: 100, pp: 30, category: "fisico" },
+  confusao:      { name: "CONFUSÃO",      type: "PSÍQUICO",   power: 50, acc: 100, pp: 25, category: "especial" },
+  psiquico:      { name: "PSÍQUICO",      type: "PSÍQUICO",   power: 90, acc: 100, pp: 10, category: "especial", stat: { target: "foe", key: "spd", delta: -1 } },
+  ventogelado:   { name: "VENTO GELADO",  type: "GELO",       power: 55, acc: 95,  pp: 15, category: "especial", stat: { target: "foe", key: "spe", delta: -1 } },
+  raiodegelo:    { name: "RAIO DE GELO",  type: "GELO",       power: 95, acc: 100, pp: 10, category: "especial" },
+  furiadragao:   { name: "FÚRIA DO DRAGÃO", type: "DRAGÃO",   power: 40, acc: 100, pp: 10, category: "especial" },
+  garradragao:   { name: "GARRA DRAGÃO",  type: "DRAGÃO",     power: 80, acc: 100, pp: 15, category: "fisico" },
+  lambida:       { name: "LAMBIDA",       type: "FANTASMA",   power: 30, acc: 100, pp: 30, category: "fisico" },
+  bolasombria:   { name: "BOLA SOMBRIA",  type: "FANTASMA",   power: 80, acc: 100, pp: 15, category: "especial" },
+  garrademetal:  { name: "GARRA DE METAL",type: "AÇO",        power: 50, acc: 95,  pp: 35, category: "fisico" },
+  // --- assinatura da GLITCH EDITION (só aparecem com o MISSINGNO.) ---
+  corrompida:    { name: "CORROMPIDA",    type: "GLITCH",     power: 60, acc: 90,  pp: 15, category: "especial", corrupt: 12 },
+  sobrescrever:  { name: "SOBRESCREVER",  type: "GLITCH",     power: 90, acc: 75,  pp: 5,  category: "especial", corrupt: 25, recoil: 0.25 },
+  ruidobranco:   { name: "RUÍDO BRANCO",  type: "GLITCH",     power: 0,  acc: 100, pp: 20, category: "status", stat: { target: "foe", key: "spe", delta: -2 }, corrupt: 8 },
+};
+
+export const moveIds = Object.keys(MOVES);
