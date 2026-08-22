@@ -31,7 +31,14 @@
   #hot-badge.live { color:#59d99b; opacity:1; }
   #hot-badge.dead { color:#d95959; opacity:1; }
   #hot-badge.flash { color:#ffd166; opacity:1; }
-  @media (max-width:720px) { #hud { display:none; } }
+  /* o aviso de que isto não é oficial: fica embaixo da tela, sempre visível */
+  #aviso {
+    position:absolute; left:0; right:0; bottom:-64px;
+    font-size:10px; line-height:1.5; color:#4a5460; text-align:center;
+    max-width:520px; margin:0 auto; user-select:none;
+  }
+  #aviso strong { color:#7a8694; }
+  @media (max-width:720px) { #hud { display:none; } #aviso { bottom:-52px; } }
 </style>
 </head>
 <body>
@@ -41,6 +48,11 @@
       <span>&uarr;&darr;&larr;&rarr;/WASD mover &middot; Z confirmar &middot; X voltar &middot; SHIFT correr &middot; F debug</span>
       <span id="hot-badge">&#9679; live update</span>
     </div>
+    <p id="aviso">
+      <strong>Fangame não oficial.</strong> Feito por fã, sem fins lucrativos e
+      sem nenhuma ligação com a Nintendo, a Creatures ou a Game Freak.
+      Pokémon e a arte do FireRed pertencem a elas.
+    </p>
   </div>
   <div id="err"></div>
   <script>
