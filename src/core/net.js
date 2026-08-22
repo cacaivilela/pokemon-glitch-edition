@@ -9,6 +9,7 @@
 // O id é gravado no navegador e não muda: quem dá F5 no meio de uma troca volta
 // a ser a MESMA pessoa pro outro lado, e o servidor troca a conexão velha pela
 // nova em vez de criar um fantasma na sala.
+import { url as arquivo } from "./base.js";
 const CHAVE_ID = "pge.netid";
 const PING = 5000;          // sinal de vida (o servidor derruba com 20s de silêncio)
 // Espera antes de tentar de novo. A primeira é quase imediata: a maior parte
@@ -83,7 +84,7 @@ export const Net = {
   _abre() {
     this.estado = "ligando";
     this.erro = null;
-    const url = `/__net?sala=${encodeURIComponent(this.sala)}`
+    const url = arquivo(`__net?sala=${encodeURIComponent(this.sala)}`)
       + `&id=${encodeURIComponent(this.id)}&nome=${encodeURIComponent(this.nome)}`
       + (this.privada ? "&privada=1" : "");
     let es;
@@ -182,7 +183,7 @@ export const Net = {
     const corpo = { ...dados, sala: this.sala, de: this.id, tipo };
     if (para) corpo.para = para;
     try {
-      const r = await fetch("/__net", {
+      const r = await fetch(arquivo("__net"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(corpo),
@@ -204,7 +205,7 @@ export const Net = {
     try {
       const blob = new Blob([JSON.stringify({ sala: this.sala, de: this.id, tipo: "sai" })],
                            { type: "application/json" });
-      navigator.sendBeacon?.("/__net", blob);
+      navigator.sendBeacon?.(arquivo("__net"), blob);
     } catch { /* fechando a aba: não dá pra fazer mais nada */ }
   },
 };

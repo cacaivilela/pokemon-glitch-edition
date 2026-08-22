@@ -2,6 +2,7 @@
 //  - Mudou algo em src/data/  -> hot-swap dos dados (o jogo NAO recarrega).
 //  - Mudou codigo/HTML/CSS    -> reload preservando o estado da partida.
 import { Save } from "./save.js";
+import { url as arquivo } from "./base.js";
 
 const badge = () => document.getElementById("hot-badge");
 
@@ -14,9 +15,13 @@ function setBadge(cls, text) {
 
 export function initHot(game) {
   if (!location.protocol.startsWith("http")) return;
+  // Jogo publicado na web: não existe dev_server pra vigiar arquivo. Sem isto
+  // ele ficaria tentando abrir a SSE pra sempre e piscando "servidor offline"
+  // na cara de quem só quer jogar.
+  if (Save.offline()) return setBadge("dead", "&#9679; jogo publicado");
   let es;
   const connect = () => {
-    es = new EventSource("/__hot");
+    es = new EventSource(arquivo("__hot"));
     es.addEventListener("hello", () => setBadge("live", "&#9679; live update"));
     es.onerror = () => { setBadge("dead", "&#9679; servidor offline"); es.close(); setTimeout(connect, 1500); };
     es.onmessage = async (ev) => {

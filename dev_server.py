@@ -303,6 +303,175 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("X-Save-Perfil", perfil)
         self.end_headers()
 
+    # ------------------------------------------------------------- o mundo
+    # As fichas publicadas moram num arquivo de CODIGO, e o codigo deste jogo
+    # tem um endereco no mundo: o repositorio de onde todo mundo baixou ele.
+    # MANDAR PRO MUNDO e um commit daquele arquivo (so dele) + push; BUSCAR DO
+    # MUNDO e um fetch e a juncao do que os outros publicaram com o que voce ja
+    # tem. Nenhum outro arquivo seu e tocado nas duas operacoes: o commit e
+    # limitado ao caminho, e a juncao so reescreve esse mesmo arquivo.
+    FICHAS_REL = "src/data/fusoes-feitas.js"
+
+    def _git(self, *args, timeout=45):
+        import subprocess
+        try:
+            r = subprocess.run(["git", *args], cwd=ROOT, capture_output=True,
+                               text=True, timeout=timeout)
+            return r.returncode, (r.stdout or "").strip(), (r.stderr or "").strip()
+        except (OSError, subprocess.SubprocessError) as e:
+            return 1, "", str(e)
+
+    def _fichas_do_texto(self, texto):
+        try:
+            corpo = texto.split("FUSOES_FEITAS =", 1)[1].rsplit(";", 1)[0].strip()
+            return json.loads(corpo) if corpo.startswith("{") else {}
+        except (IndexError, ValueError):
+            return {}
+
+    def _le_fichas(self):
+        try:
+            with open(os.path.join(ROOT, self.FICHAS_REL), encoding="utf-8") as fh:
+                return self._fichas_do_texto(fh.read())
+        except OSError:
+            return {}
+
+    def _grava_fichas(self, mapa):
+        caminho = os.path.join(ROOT, self.FICHAS_REL)
+        try:
+            with open(caminho, encoding="utf-8") as fh:
+                cabecalho = fh.read().split("export const FUSOES_FEITAS =", 1)[0]
+        except OSError:
+            cabecalho = ""
+        with open(caminho, "w", encoding="utf-8") as fh:
+            fh.write(cabecalho + "export const FUSOES_FEITAS = "
+                     + json.dumps(mapa, ensure_ascii=False, indent=2) + ";\n")
+
+    def _responde(self, dado, code=200):
+        corpo = json.dumps(dado, ensure_ascii=False).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(corpo)))
+        self.end_headers()
+        self.wfile.write(corpo)
+
+    def mundo_post(self):
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            payload = json.loads(self.rfile.read(n) or b"{}")
+        except ValueError:
+            return self.send_error(400)
+        acao = payload.get("acao")
+
+        cod, saida, _ = self._git("rev-parse", "--is-inside-work-tree")
+        if cod or saida != "true":
+            return self._responde({"ok": False, "erro": "esta copia nao e um repositorio git"})
+        ramo = re.sub(r"[^\w./-]", "", str(payload.get("ramo") or "main"))[:40] or "main"
+
+        if acao == "buscar":
+            cod, _, err = self._git("fetch", "origin", "--quiet")
+            if cod:
+                pista = err.splitlines()[-1][:120] if err else "nao deu pra falar com o servidor"
+                return self._responde({"ok": False, "erro": pista})
+            cod, texto, _ = self._git("show", f"origin/{ramo}:{self.FICHAS_REL}")
+            if cod:
+                return self._responde({"ok": True, "novas": 0,
+                                       "aviso": "ninguem publicou nada por la ainda"})
+            de_la, aqui = self._fichas_do_texto(texto), self._le_fichas()
+            novas = 0
+            for chave, lista in de_la.items():
+                minhas = aqui.setdefault(chave, [])
+                ids = {f.get("id") for f in minhas}
+                for f in lista:
+                    if f.get("id") not in ids:
+                        minhas.append(f)
+                        novas += 1
+            if novas:
+                self._grava_fichas(aqui)     # o watcher avisa todo mundo: hot-swap
+            return self._responde({"ok": True, "novas": novas,
+                                   "total": sum(len(v) for v in aqui.values())})
+
+        if acao == "enviar":
+            nome = re.sub(r"[^\w .-]", "", str(payload.get("nome", "fusao")))[:40] or "fusao"
+            autor = re.sub(r"[^\w .-]", "", str(payload.get("autor", "")))[:20]
+            msg = f"fusao: {nome}" + (f" (por {autor})" if autor else "")
+            cod, _, err = self._git("add", "--", self.FICHAS_REL)
+            if cod:
+                return self._responde({"ok": False, "erro": err[:120] or "git add falhou"})
+            cod, saida, err = self._git("commit", "-m", msg, "--", self.FICHAS_REL)
+            if cod and "nothing to commit" not in (saida + err).lower():
+                pista = (err or saida).splitlines()[-1][:120] if (err or saida) else "commit falhou"
+                return self._responde({"ok": False, "erro": pista})
+            cod, saida, err = self._git("push", "origin", f"HEAD:{ramo}", timeout=90)
+            if cod:
+                pista = (err or saida).splitlines()[-1][:120] if (err or saida) else "push falhou"
+                return self._responde({"ok": False, "erro": pista, "commitado": True})
+            print(f"\033[35m[mundo]\033[0m {msg} -> origin/{ramo}", flush=True)
+            return self._responde({"ok": True, "msg": msg})
+
+        return self.send_error(400)
+
+    def ficha_post(self):
+        """A oficina publicou uma ficha de fusao: ela vira CODIGO.
+
+        O arquivo src/data/fusoes-feitas.js e reescrito inteiro a cada
+        publicacao (e um mapa "cabeca+corpo" -> lista de fichas). Como ele mora
+        em src/data/, o proprio live update faz hot-swap: a variante nova
+        aparece na maquina sem recarregar o jogo.
+        """
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            payload = json.loads(self.rfile.read(n) or b"{}")
+        except ValueError:
+            return self.send_error(400)
+        chave = str(payload.get("chave", ""))
+        ficha = payload.get("ficha") or {}
+        if not re.fullmatch(r"[a-z0-9]+\+[a-z0-9]+", chave) or not ficha.get("id"):
+            return self.send_error(400)
+
+        caminho = os.path.join(ROOT, "src", "data", "fusoes-feitas.js")
+        atual = {}
+        try:
+            with open(caminho, encoding="utf-8") as fh:
+                texto = fh.read()
+            corpo = texto.split("FUSOES_FEITAS =", 1)[1].rsplit(";", 1)[0].strip()
+            atual = json.loads(corpo) if corpo.startswith("{") else {}
+        except (OSError, IndexError, ValueError):
+            atual = {}
+
+        lista = [f for f in atual.get(chave, []) if f.get("id") != ficha["id"]]
+        lista.append(ficha)
+        atual[chave] = lista
+
+        cabecalho = (
+            "// FICHAS PUBLICADAS PELOS JOGADORES.\n"
+            "//\n"
+            "// Este arquivo e ESCRITO PELO JOGO: ao terminar uma ficha na oficina,\n"
+            "// PUBLICAR manda ela pro dev_server, que grava aqui (rota /__ficha). Dai em\n"
+            "// diante ela entra na lista de variantes daquela dupla, com o nome de quem\n"
+            "// fez, do mesmo jeito que as fusoes que ja vem no jogo (src/data/fusoes.js)\n"
+            "// -- e vale pra qualquer partida deste computador, inclusive um jogo novo.\n"
+            "//\n"
+            "// Da pra editar a mao, e da pra apagar tudo: e so deixar o objeto vazio. O\n"
+            "// desenho vem junto, em PNG, dentro do campo `sprite`.\n"
+            "export const FUSOES_FEITAS = "
+        )
+        with open(caminho, "w", encoding="utf-8") as fh:
+            fh.write(cabecalho + json.dumps(atual, ensure_ascii=False, indent=2) + ";\n")
+        # Quem esta jogando AGORA, em qualquer aparelho, recebe sozinho: o
+        # arquivo mora em src/data/, que e a pasta que o watcher vigia, e o
+        # broadcast do live update chega em todos os clientes conectados. Como
+        # so mudou dado, e hot-swap: ninguem recarrega, ninguem perde o lugar.
+        with _lock:
+            aparelhos = len(_clients)
+        print(f"\033[35m[ficha]\033[0m {chave}: {ficha.get('nome')} publicada "
+              f"({aparelhos} aparelho(s) ligado(s))", flush=True)
+        corpo = json.dumps({"ok": True, "aparelhos": aparelhos}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(corpo)))
+        self.end_headers()
+        self.wfile.write(corpo)
+
     def do_POST(self):
         """/__capture — a pagina de teste manda o canvas e o log de volta pro disco."""
         if self.path.split("?")[0] == "/__save":
@@ -311,6 +480,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.net_post()
         if self.path.split("?")[0] == "/__gift":
             return self.gift_post()
+        if self.path.split("?")[0] == "/__ficha":
+            return self.ficha_post()
+        if self.path.split("?")[0] == "/__mundo":
+            return self.mundo_post()
         if self.path.split("?")[0] != "/__capture":
             self.send_error(404)
             return

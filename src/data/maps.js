@@ -5,6 +5,29 @@
 // nome, música, NPCs, diálogos, placas, encontros e pontos de entrada.
 //
 // As coordenadas dos NPCs são as mesmas do jogo original (x,y em tiles).
+import { CONCURSO } from "./concurso.js";
+
+/** O palco do CONCURSO DE FUSÃO, na praça do sul de Cinnabar: a anfitriã na
+ *  beira e os três jurados de frente pra plateia. Os nomes e as falas de
+ *  julgamento estão em src/data/concurso.js — aqui é só quem fica onde. */
+const PALCO_CINNABAR = [
+  {
+    id: "concurso", x: 10, y: 13, dir: "right",
+    sprite: CONCURSO.anfitria.sprite, concurso: true,
+    lines: CONCURSO.anfitria.convite,
+  },
+  // A fileira do júri fica na ÚLTIMA linha da praça (y=14), de frente pro
+  // palco. Nada de y=12: ali passa quem vai pra porta do Centro Pokémon,
+  // que é o warp (14,11) — a DRA. CÚPULA estava tapando a entrada.
+  ...CONCURSO.jurados.map((j, i) => ({
+    id: `jurado_${j.id}`, x: 12 + i * 2, y: 14, dir: "up", sprite: j.sprite,
+    lines: [
+      `${j.nome}. EU JULGO A ${j.titulo}.`,
+      ...(j.fala.alto || []).slice(0, 1),
+    ],
+  })),
+];
+
 export const MAPS = {
   home: {
     name: "SUA CASA", music: "casa", interior: true,
@@ -452,6 +475,17 @@ export const MAPS = {
                 party: [{ id: "kadabra", lvl: 38 }, { id: "mrmime", lvl: 37 }, { id: "venomoth", lvl: 38 }, { id: "alakazam", lvl: 43 }] },
     }],
   },
+  cinnabar_island: {
+    // A ilha do laboratório de fósseis. Quem ressuscita bicho de pedra desde
+    // sempre foi ver o que o DECODIFICADOR DE GENOMA faz com dois vivos — e
+    // montou um concurso na praça do sul pra julgar o resultado.
+    addNpcs: PALCO_CINNABAR,
+    signs: {
+      // cartaz na parede do Centro Pokémon, ao lado da porta
+      "12,11": "CONCURSO DE FUSÃO DE CINNABAR. TRAGA UMA DUPLA. TRÊS JURADOS, TRINTA PONTOS.",
+    },
+  },
+
   cinnabar_island_gym: {
     name: "GINÁSIO DE CINNABAR", music: "gym", interior: true,
     // O ginásio do BLAINE é um labirinto de salas com portas trancadas: no

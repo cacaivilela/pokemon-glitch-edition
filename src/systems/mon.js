@@ -40,6 +40,23 @@ export function createMon(speciesId, level, opts = {}) {
 export function recalc(mon) {
   const sp = DB.SPECIES[mon.species];
   const { base } = sp;
+  if (sp.crescimento) {
+    // Fusão criada na oficina: quem manda é a ficha do jogador — cada atributo
+    // vale `inicial` e sobe `crescimento` por nível. Sem stats-base, sem IV: o
+    // que está escrito na ficha é exatamente o que aparece na batalha.
+    const F = DB.FUSAO;
+    mon.maxHp = F.valor(sp, "hp", mon.level);
+    mon.stats = {
+      atk: F.valor(sp, "atk", mon.level),
+      def: F.valor(sp, "def", mon.level),
+      spa: F.valor(sp, "spa", mon.level),
+      spd: F.valor(sp, "spd", mon.level),
+      spe: F.valor(sp, "spe", mon.level),
+    };
+    mon.types = sp.types;
+    mon.name = sp.name;
+    return mon;
+  }
   mon.maxHp = hpValue(base.hp, mon.ivs.hp, mon.level);
   mon.stats = {
     atk: statValue(base.atk, mon.ivs.atk, mon.level),

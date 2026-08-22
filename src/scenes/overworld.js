@@ -20,8 +20,13 @@ import {
 } from "../systems/mon.js";
 import { scatterDimLoot } from "../systems/loot.js";
 import { pedrasIniciaisDevidas } from "../systems/mega.js";
+import { ehFusao, fundivel, previsao, partes, temFicha, fichaInvertida, variantes,
+         buscarDoMundo } from "../systems/fusao.js";
 import { BattleScene } from "./battle.js";
 import { EvolutionScene } from "./evolution.js";
+import { FusionScene } from "./fusion.js";
+import { FusaoEditorScene } from "./fusaoeditor.js";
+import { ConcursoScene } from "./concurso.js";
 
 const W = 240, H = 160;
 // tempos do FireRed, contados em quadros (o loop roda fixo em 60fps):
@@ -874,6 +879,7 @@ export class OverworldScene {
     if (npc.portal) return this.usePortal();
     if (npc.fragment) return this.useFragment();
     if (npc.id === "carvalho") return this.talkOak(npc, state);
+    if (npc.concurso) return this.talkConcurso(npc, state);
 
     if (npc.trainer && !state.defeated) {
       if (!this.st.party.length) {
@@ -1397,7 +1403,7 @@ export class OverworldScene {
 
   openGive() {
     // sem as formas MEGA: elas só existem dentro da batalha
-    const lista = Object.values(DB.SPECIES).filter((sp) => !sp.mega)
+    const lista = Object.values(DB.SPECIES).filter((sp) => !sp.mega && !sp.fusao)
       .sort((a, b) => (a.dex || 999) - (b.dex || 999));
     this.menu = { type: "give", index: 0, top: 0, lvl: 5, shiny: false, lista };
     Audio2.select();
@@ -1420,6 +1426,162 @@ export class OverworldScene {
       .replace("{NOME}", mon.nickname).replace("{NIVEL}", mon.level);
     // baixou um bicho já passado do nível de evoluir? evolui na hora
     this.dlg.say(txt, () => { if (!this.rodarEvolucao(true)) this.openGive(); });
+  }
+
+  /** PROF. CARVALHO entrega o DECODIFICADOR DE GENOMA e emenda no assunto do
+   *  dia (o inicial, ou o que ele fosse falar mesmo). */
+  darDecodificador(npc, state) {
+    const F = DB.STORY.fusao;
+    const st = this.st;
+    st.flags.decodificador = true;
+    this.dlg.say(F.entrega, () => {
+      st.items[DB.FUSAO.item] = 1;
+      Audio2.glitch();
+      Glitch.hit(1.2);
+      this.game.autosave?.(true);
+      this.dlg.say([F.ganhou, ...F.explica], () => this.talkOak(npc, state));
+    });
+  }
+
+  /** A máquina, aberta pela mochila. Junta dois da equipe num só, e abre de
+   *  volta o que ela juntou. */
+  abrirDecodificador() {
+    Audio2.select();
+    Glitch.hit(0.5);
+    this.menu = { type: "genoma", index: 0 };
+  }
+
+  /** A lista de quem pode entrar. Fundir só aceita quem ainda não é fusão; a
+   *  oficina e o concurso aceitam uma fusão pronta, que vale pela dupla dela. */
+  escolherCabeca(modo = "") {
+    const F = DB.STORY.fusao;
+    const solta = modo !== "";
+    const lista = solta ? [...this.st.party] : this.st.party.filter(fundivel);
+    if (lista.filter(fundivel).length < 2 && !(solta && lista.some(ehFusao))) {
+      Audio2.cancel();
+      this.menu = null;
+      return void this.dlg.say(this.st.party.some(ehFusao) && this.st.party.length >= 2
+        ? F.jaFundido : F.poucos);
+    }
+    Audio2.select();
+    this.menu = { type: "fusaoCabeca", index: 0, lista, modo };
+  }
+
+  /** OFICINA: a bancada onde a fusão vira desenho, nome, tipos e crescimento. */
+  abrirOficina() {
+    this.escolherCabeca("oficina");
+  }
+
+  /** CONCURSO DE CINNABAR: a anfitriã, os três jurados e a dupla que você
+   *  inscreve (ver src/scenes/concurso.js). */
+  talkConcurso(npc, state) {
+    const A = DB.CONCURSO.anfitria;
+    const primeira = !state.talked;
+    state.talked = true;
+    this.dlg.say(primeira ? A.convite : A.volta, () => {
+      this.dlg.ask(DB.CONCURSO.nome, A.menu, (i) => {
+        if (i === 0) return this.inscreverNoConcurso();
+        if (i === 1) return void this.dlg.say(A.regras, () => this.talkConcurso(npc, state));
+      });
+    });
+  }
+
+  inscreverNoConcurso() {
+    const A = DB.CONCURSO.anfitria;
+    if (this.st.party.length < 2 && !this.st.party.some(ehFusao)) {
+      Audio2.cancel();
+      return void this.dlg.say(A.semDupla);
+    }
+    this.escolherCabeca("concurso");
+  }
+
+  /** Sobe no palco com aquela dupla (nada é fundido de verdade). */
+  entrarNoPalco(cabeca, corpo, variante = "") {
+    this.menu = null;
+    Audio2.select();
+    this.game.scenes.push(new ConcursoScene(), { cabeca, corpo, variante });
+  }
+
+  /** MUNDO: traz as fusões que outras pessoas publicaram no código do jogo. O
+   *  que chega entra na lista de variantes na hora, por hot-swap — e chega em
+   *  todo aparelho ligado neste servidor junto. */
+  async baixarDoMundo() {
+    const F = DB.STORY.fusao;
+    this.menu = null;
+    if (Save.offline()) { Audio2.cancel(); return void this.dlg.say(F.semServidor); }
+    Audio2.select();
+    this.dlg.say(F.mundoBuscando);
+    const r = await buscarDoMundo();
+    if (!r.ok) {
+      Audio2.cancel();
+      return void this.dlg.say(F.mundoFalhou.replace("{ERRO}", r.erro || "?"));
+    }
+    if (!r.novas) {
+      return void this.dlg.say(r.aviso ? F.mundoFalhou.replace("{ERRO}", r.aviso) : F.mundoNada);
+    }
+    Audio2.heal();
+    Glitch.hit(1.2);
+    this.dlg.say(F.mundoChegou.replace("{N}", r.novas));
+  }
+
+  /** Abre o editor daquele par (os dois ids de espécie). */
+  editarFicha(cabeca, corpo) {
+    this.menu = null;
+    Audio2.select();
+    Glitch.hit(0.8);
+    this.game.scenes.push(new FusaoEditorScene(), { cabeca, corpo });
+  }
+
+  escolherFusao() {
+    const F = DB.STORY.fusao;
+    const lista = this.st.party.filter(ehFusao);
+    if (!lista.length) {
+      Audio2.cancel();
+      this.menu = null;
+      return void this.dlg.say(F.semFusao);
+    }
+    Audio2.select();
+    this.menu = { type: "fusaoAbrir", index: 0, lista };
+  }
+
+  /** Confirma e manda pra tela da máquina (src/scenes/fusion.js). */
+  confirmaFusao(cabeca, corpo, variante = "", jaPerguntou = false) {
+    const F = DB.STORY.fusao;
+    const sp = previsao(cabeca, corpo, variante);
+    if (!sp) { Audio2.cancel(); this.menu = null; return void this.dlg.say(F.naoDaParaFundir); }
+    this.menu = null;
+    // Você fez a ficha de A+B e está fundindo B+A: sem isto a máquina jogava o
+    // seu desenho fora sem falar nada e caía no cálculo automático.
+    // (só vale pra fusão da sua partida: variante escrita no código é outra coisa)
+    const outra = !variante && !temFicha(cabeca.species, corpo.species)
+      && fichaInvertida(cabeca.species, corpo.species);
+    if (outra && !jaPerguntou) {
+      const pergunta = F.perguntaInverter
+        .replace("{NOME}", outra.nome || "?")
+        .replace("{CABECA}", DB.SPECIES[corpo.species]?.name || corpo.nickname)
+        .replace("{OUTRO}", DB.SPECIES[cabeca.species]?.name || cabeca.nickname);
+      return void this.dlg.ask(pergunta, F.opcoesInverter, (i) => {
+        if (i === 0) return this.confirmaFusao(corpo, cabeca, "", true);   // troca os lados
+        if (i === 1) return this.confirmaFusao(cabeca, corpo, "", true);
+        this.abrirDecodificador();
+      });
+    }
+    const pergunta = F.confirmaFundir
+      .replace("{CABECA}", cabeca.nickname).replace("{CORPO}", corpo.nickname)
+      .replace("{NOME}", sp.name);
+    this.dlg.ask(pergunta, F.sim, (i) => {
+      if (i !== 0) return void this.abrirDecodificador();
+      this.game.scenes.push(new FusionScene(), { modo: "fundir", cabeca, corpo, variante });
+    });
+  }
+
+  confirmaSeparacao(mon) {
+    const F = DB.STORY.fusao;
+    this.menu = null;
+    this.dlg.ask(F.confirmaSeparar.replace("{MON}", mon.nickname), F.simSeparar, (i) => {
+      if (i !== 0) return void this.abrirDecodificador();
+      this.game.scenes.push(new FusionScene(), { modo: "separar", mon });
+    });
   }
 
   /** o botão gigante da máquina do laboratório */
@@ -1539,6 +1701,10 @@ export class OverworldScene {
     const st = this.st;
     const S = DB.STORY;
     const n = st.badges.length;
+
+    // DECODIFICADOR DE GENOMA: a primeira coisa que ele faz, na primeira
+    // conversa — antes do inicial, antes de qualquer insígnia.
+    if (!st.flags.decodificador) return this.darDecodificador(npc, state);
 
     // ANEL MEGA: sai da mão dele na primeira volta ao laboratório depois da
     // primeira insígnia. As outras megapedras estão espalhadas por Kanto.
@@ -1812,6 +1978,10 @@ export class OverworldScene {
           Audio2.cancel();                      // ela só serve com alguém na frente
           return void this.dlg.say("A GLITCHBALL SÓ FUNCIONA EM BATALHA. E SÓ UMA VEZ.");
         }
+        if (item === DB.FUSAO?.item && owned > 0) {
+          this.menu = null;                      // item-chave: abre a máquina
+          return void this.abrirDecodificador();
+        }
         if (item === DB.MEGA_ANEL && owned > 0) {
           Audio2.select();                       // item-chave: só se olha
           return void this.dlg.say(DB.STORY.mega.olhaAnel);
@@ -1832,6 +2002,70 @@ export class OverworldScene {
           Audio2.select();
           this.menu = { type: "qty", item, n: 1, max: Math.min(999, owned), next: "use" };
         } else Audio2.cancel();
+      }
+      return;
+    }
+    if (m.type === "genoma") {
+      const opts = DB.STORY.fusao.menu;
+      if (Input.consume("up")) { m.index = (m.index + opts.length - 1) % opts.length; Audio2.blip(); }
+      if (Input.consume("down")) { m.index = (m.index + 1) % opts.length; Audio2.blip(); }
+      if (Input.consume("b")) { this.menu = null; Audio2.cancel(); }
+      if (Input.consume("a")) {
+        if (m.index === 0) this.escolherCabeca();
+        else if (m.index === 1) this.escolherFusao();
+        else if (m.index === 2) this.abrirOficina();
+        else if (m.index === 3) this.baixarDoMundo();
+        else { this.menu = null; Audio2.cancel(); }
+      }
+      return;
+    }
+    if (m.type === "fusaoCabeca" || m.type === "fusaoCorpo" || m.type === "fusaoAbrir") {
+      const n = m.lista.length;
+      if (!n) { this.menu = { type: "genoma", index: 0 }; return; }
+      m.index = Math.min(m.index, n - 1);
+      if (Input.consume("up")) { m.index = (m.index + n - 1) % n; Audio2.blip(); }
+      if (Input.consume("down")) { m.index = (m.index + 1) % n; Audio2.blip(); }
+      if (Input.consume("b")) {
+        Audio2.cancel();
+        if (m.type === "fusaoCorpo") {
+          this.menu = { type: "fusaoCabeca", index: 0, modo: m.modo,
+                        lista: m.modo ? [...this.st.party] : this.st.party.filter(fundivel) };
+        } else if (m.modo === "concurso") this.menu = null;   // o concurso não é a máquina
+        else this.menu = { type: "genoma", index: 0 };
+        return;
+      }
+      // C passa pelas fusões daquela dupla: a automática (ou a sua ficha), as
+      // que já vêm no jogo e as que jogadores publicaram
+      if (m.type === "fusaoCorpo") {
+        const alvo = m.lista[m.index];
+        const vs = alvo ? variantes(m.cabeca.species, alvo.species) : [];
+        m.variante = Math.min(m.variante || 0, Math.max(0, vs.length - 1));
+        if (Input.consume("select") && vs.length > 1) {
+          m.variante = (m.variante + 1) % vs.length;
+          Audio2.select();
+        }
+      }
+      if (Input.consume("a")) {
+        const escolhido = m.lista[m.index];
+        if (m.type === "fusaoCabeca") {
+          const jaFundido = partes(escolhido.species);
+          if (jaFundido && m.modo) {             // esse já é uma fusão: vale pela dupla dele
+            if (m.modo === "oficina") return void this.editarFicha(jaFundido.cabeca, jaFundido.corpo);
+            return void this.entrarNoPalco(jaFundido.cabeca, jaFundido.corpo, jaFundido.variante);
+          }
+          if (!fundivel(escolhido)) { Audio2.cancel(); return void this.dlg.say(DB.STORY.fusao.jaFundido); }
+          Audio2.select();
+          this.menu = {
+            type: "fusaoCorpo", index: 0, cabeca: escolhido, modo: m.modo, variante: 0,
+            lista: m.lista.filter((mon) => mon !== escolhido && fundivel(mon)),
+          };
+        } else if (m.type === "fusaoCorpo") {
+          const vs = variantes(m.cabeca.species, escolhido.species);
+          const v = vs[m.variante || 0]?.variante || "";
+          if (m.modo === "oficina") this.editarFicha(m.cabeca.species, escolhido.species);
+          else if (m.modo === "concurso") this.entrarNoPalco(m.cabeca.species, escolhido.species, v);
+          else this.confirmaFusao(m.cabeca, escolhido, v);
+        } else this.confirmaSeparacao(escolhido);
       }
       return;
     }
@@ -2172,6 +2406,24 @@ export class OverworldScene {
     ctx.globalAlpha = 1;
   }
 
+  /** As duas gavetas da máquina e a saída, desenhadas na tela do menu. */
+  desenhaGavetas(ctx, x, y) {
+    const cx = (bx, by, mon) => {
+      ctx.fillStyle = PAL.ink;
+      ctx.fillRect(bx, by, 26, 26);
+      ctx.fillStyle = "#0a0614";
+      ctx.fillRect(bx + 1, by + 1, 24, 24);
+      if (mon) ctx.drawImage(Assets.mon(mon.species, mon.seed), bx + 1, by + 1, 24, 24);
+    };
+    const p = this.st.party;
+    cx(x, y, p[0]);
+    drawText(ctx, "+", x + 29, y + 9, PAL.ink);
+    cx(x + 38, y, p[1]);
+    drawText(ctx, "=", x + 29, y + 37, PAL.ink);
+    cx(x + 19, y + 32, null);
+    drawText(ctx, "?", x + 30, y + 41, PAL.glitch);
+  }
+
   drawMenu(ctx) {
     const m = this.menu;
     if (m.type === "main") {
@@ -2198,6 +2450,68 @@ export class OverworldScene {
         if (mon.corrupt) drawText(ctx, "!", 200, y + 2, PAL.glitch);
       });
       drawText(ctx, "X VOLTA", 180, H - 20, PAL.ink2);
+      return;
+    }
+    if (m.type === "genoma") {
+      const F = DB.STORY.fusao;
+      panel(ctx, 4, 4, W - 8, H - 8);
+      drawText(ctx, F.titulo, 12, 10, PAL.glitch);
+      drawText(ctx, `${DB.FUSAO.combinacoes} COMBINAÇÕES`, 12, 22, PAL.ink2);
+      F.menu.forEach((o, i) => {
+        const y = 46 + i * LINE_H;
+        drawText(ctx, o, 32, y, PAL.ink);
+        if (i === m.index) cursor(ctx, 20, y);
+      });
+      // as duas gavetas e a saída, do jeito que estão desenhadas na carcaça
+      this.desenhaGavetas(ctx, 130, 44);
+      drawText(ctx, F.ajuda, 12, H - 22, PAL.ink2);
+      return;
+    }
+    if (m.type === "fusaoCabeca" || m.type === "fusaoCorpo" || m.type === "fusaoAbrir") {
+      const F = DB.STORY.fusao;
+      panel(ctx, 4, 4, W - 8, H - 8);
+      const titulo = m.type === "fusaoAbrir" ? F.escolheFusao
+        : m.type === "fusaoCorpo" ? F.escolheCorpo
+        : m.modo === "concurso" ? DB.CONCURSO.anfitria.escolha
+        : m.modo === "oficina" ? F.escolheOficina : F.escolheCabeca;
+      drawText(ctx, titulo, 12, 10, PAL.glitch);
+      const escolhido = m.lista[m.index];
+      m.lista.forEach((mon, i) => {
+        const y = 26 + i * 18;
+        if (y > 118) return;
+        if (i === m.index) cursor(ctx, 8, y + 4);
+        ctx.drawImage(Assets.mon(mon.species, mon.seed), 16, y, 18, 18);
+        drawText(ctx, mon.nickname.slice(0, 11), 38, y + 5, ehFusao(mon) ? PAL.glitch : PAL.ink);
+        drawText(ctx, `N${mon.level}`, 112, y + 5, PAL.ink2);
+      });
+      // a vitrine da direita: o que sai se você confirmar
+      panel(ctx, 142, 22, 92, 100);
+      if (m.type === "fusaoCorpo") {
+        const vs = variantes(m.cabeca.species, escolhido.species);
+        const atual = vs[Math.min(m.variante || 0, vs.length - 1)] || vs[0];
+        const sp = previsao(m.cabeca, escolhido, atual.variante);
+        if (sp) {
+          ctx.drawImage(Assets.mon(sp.id, m.cabeca.seed), 164, 26, 48, 48);
+          drawText(ctx, sp.name, 148, 78, PAL.ink);
+          drawText(ctx, sp.types.join("/").slice(0, 14), 148, 90, PAL.ink2);
+          drawText(ctx, `TOTAL ${sp.bst}`, 148, 100, PAL.ink2);
+          const avessa = atual.origem === "auto" && fichaInvertida(m.cabeca.species, escolhido.species);
+          const cor = atual.origem === "sua" ? "#00ffcc"
+            : atual.origem === "jogo" ? "#f0c419"
+            : atual.origem === "jogador" ? "#59d99b"
+            : avessa ? "#f0c419" : PAL.ink2;
+          drawText(ctx, avessa ? F.fichaAoContrario : atual.rotulo, 148, 110, cor);
+          if (vs.length > 1) drawText(ctx, `C ${(m.variante || 0) + 1}/${vs.length}`, 148, 120, PAL.ink2);
+        } else drawText(ctx, F.naoDaParaFundir.slice(0, 14), 148, 60, PAL.ink2);
+      } else if (escolhido) {
+        ctx.drawImage(Assets.mon(escolhido.species, escolhido.seed), 164, 26, 48, 48);
+        drawText(ctx, escolhido.nickname.slice(0, 14), 148, 78, PAL.ink);
+        const sp = DB.SPECIES[escolhido.species];
+        drawText(ctx, sp.types.join("/").slice(0, 14), 148, 90, PAL.ink2);
+        drawText(ctx, `TOTAL ${sp.bst}`, 148, 100, PAL.ink2);
+        if (sp.codigo) drawText(ctx, sp.codigo, 148, 110, PAL.glitch);
+      }
+      drawText(ctx, F.ajuda, 12, H - 22, PAL.ink2);
       return;
     }
     if (m.type === "qty") {

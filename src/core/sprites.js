@@ -6,6 +6,8 @@
 //   assets/sprites/pokemon/back/025.png   costas
 //   assets/sprites/overworld/hero.png     folha 4 colunas x 3 linhas (baixo/cima/esquerda)
 //   assets/sprites/tiles/grama.png        tile de 16x16
+import { url } from "./base.js";
+
 export const SpriteStore = {
   pokemon: {},      // id -> canvas/Image
   pokemonBack: {},
@@ -37,7 +39,7 @@ const pad3 = (n) => String(n).padStart(3, "0");
 async function findMon(dir, id, dex) {
   const tries = dex ? [`${pad3(dex)}.png`, `${id}.png`] : [`${id}.png`];
   for (const f of tries) {
-    const img = await loadImage(`/assets/sprites/${dir}/${f}`);
+    const img = await loadImage(url(`assets/sprites/${dir}/${f}`));
     if (img) return img;
   }
   return null;
@@ -77,11 +79,11 @@ function sliceActorSheet(img) {
 export function mapArt(id) {
   if (!(id in SpriteStore.maps)) {
     SpriteStore.maps[id] = null;
-    loadImage(`/assets/maps/${id}.png`).then((img) => {
+    loadImage(url(`assets/maps/${id}.png`)).then((img) => {
       SpriteStore.maps[id] = img;
       if (!img) console.warn(`[mapa] assets/maps/${id}.png não encontrado — rode: python3 tools/fetch_maps.py`);
     });
-    loadImage(`/assets/maps/${id}_over.png`).then((img) => { SpriteStore.maps[id + "_over"] = img; });
+    loadImage(url(`assets/maps/${id}_over.png`)).then((img) => { SpriteStore.maps[id + "_over"] = img; });
   }
   return SpriteStore.maps[id];
 }
@@ -95,7 +97,7 @@ export function trainerArt(name) {
   if (!name) return null;
   if (!(name in SpriteStore.trainers)) {
     SpriteStore.trainers[name] = null;
-    loadImage(`/assets/sprites/trainers/${name}.png`).then((img) => {
+    loadImage(url(`assets/sprites/trainers/${name}.png`)).then((img) => {
       SpriteStore.trainers[name] = img;
     });
   }
@@ -123,12 +125,12 @@ export async function loadExternalSprites(speciesList, actorNames) {
     }));
   }
   for (const name of actorNames) {
-    jobs.push(loadImage(`/assets/sprites/overworld/${name}.png`).then((img) => {
+    jobs.push(loadImage(url(`assets/sprites/overworld/${name}.png`)).then((img) => {
       if (img) { SpriteStore.overworld[name] = sliceActorSheet(img); SpriteStore.loaded++; }
     }));
   }
   for (const [ch, file] of Object.entries(TILE_FILES)) {
-    jobs.push(loadImage(`/assets/sprites/tiles/${file}.png`).then((img) => {
+    jobs.push(loadImage(url(`assets/sprites/tiles/${file}.png`)).then((img) => {
       if (img) { SpriteStore.tiles[ch] = img; SpriteStore.loaded++; }
     }));
   }

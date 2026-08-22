@@ -1,3 +1,4 @@
+import { url as arquivo } from "./base.js";
 // Chiptune com WebAudio: bleeps, e musica de varios canais (melodia, contracanto,
 // baixo e percussao) agendada no relogio do proprio audio — sem setTimeout no meio,
 // que e o que fazia a musica antiga tropecar quando a aba engasgava.
@@ -16,7 +17,7 @@ const EXTS = ["ogg", "mp3", "wav", "m4a"];
 /** procura assets/music/<nome>.<ext>; devolve a url ou null */
 async function procurarArquivo(nome) {
   for (const ext of EXTS) {
-    const url = `/assets/music/${nome}.${ext}`;
+    const url = arquivo(`assets/music/${nome}.${ext}`);
     try {
       const r = await fetch(url, { method: "HEAD" });
       if (r.ok) return url;

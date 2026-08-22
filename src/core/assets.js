@@ -537,6 +537,128 @@ function buildRustle() {
   ];
 }
 
+// ------------------------------------------------- fusão (decodificador de genoma)
+// A fusão não tem arquivo de sprite e nunca vai ter: são 255x256 combinações.
+// O desenho é montado com os dois sprites que já existem — o corpo inteiro,
+// recolorido com a cor da cabeça, e a cabeça por cima até a linha do pescoço
+// (`corte`, em src/data/fusao.js). Serve tanto pra arte provisória (16x16)
+// quanto pros PNGs do FireRed (64x64): o tamanho sai do maior dos dois.
+const fusaoCache = new Map();
+const corCache = new Map();
+
+const idImg = (img) => img.__id || (img.__id = Math.random().toString(36).slice(2));
+
+/** A cor média dos pixels opacos: é ela que a cabeça empresta pro corpo. */
+function corMedia(img) {
+  const chave = idImg(img);
+  if (corCache.has(chave)) return corCache.get(chave);
+  const { ctx } = makeCanvas(16, 16);
+  ctx.drawImage(img, 0, 0, 16, 16);
+  let r = 0, g = 0, b = 0, n = 0;
+  try {
+    const d = ctx.getImageData(0, 0, 16, 16).data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 128) continue;
+      r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
+    }
+  } catch { n = 0; }                     // canvas sujo (não deve acontecer): sem tinta
+  const cor = n ? `rgb(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)})` : null;
+  corCache.set(chave, cor);
+  return cor;
+}
+
+/** Recolore mantendo o sombreado, com força regulável (o `tinted` é o mesmo
+ *  com força 1). Sem cor ou sem força, devolve o original. */
+function pintado(src, cor, forca) {
+  if (!cor || forca <= 0) return src;
+  const { cv, ctx } = makeCanvas(src.width, src.height);
+  ctx.drawImage(src, 0, 0);
+  ctx.globalAlpha = Math.min(1, forca);
+  ctx.globalCompositeOperation = "color";
+  ctx.fillStyle = cor;
+  ctx.fillRect(0, 0, src.width, src.height);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "destination-in";
+  ctx.drawImage(src, 0, 0);
+  ctx.globalCompositeOperation = "source-over";
+  return cv;
+}
+
+// O desenho que o JOGADOR fez na oficina (256x256, guardado no save como PNG).
+// Ele entra reduzido pra 64x64 — o tamanho que a batalha usa — e a redução é
+// feita com média, não com amostragem: um pixel do sprite é a média de 16 do
+// desenho, senão o traço fino some.
+const desenhos = new Map();
+function desenhoDoJogador(url) {
+  if (!desenhos.has(url)) {
+    desenhos.set(url, null);
+    const img = new Image();
+    img.onload = () => {
+      const lado = DB.FUSAO?.editor?.tamanho || 64;
+      const { cv, ctx } = makeCanvas(lado, lado);
+      // desenho antigo, feito quando a tela era maior: reduz com média, senão
+      // o traço fino sumia. No tamanho certo, entra pixel por pixel.
+      const encolhe = img.width > lado;
+      ctx.imageSmoothingEnabled = encolhe;
+      if (encolhe) ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, 0, 0, lado, lado);
+      desenhos.set(url, cv);
+    };
+    img.onerror = () => console.warn("[fusão] o desenho gravado não abriu");
+    img.src = url;
+  }
+  return desenhos.get(url);
+}
+
+/** Esquece o desenho reduzido de uma ficha (o editor acabou de mudar ela). */
+export function esquecerDesenho(url) { desenhos.delete(url); }
+
+function comporFusao(sp, lado, seed) {
+  const frente = lado !== "costas";
+  const cab = frente ? Assets.mon(sp.fusao.cabeca, seed) : Assets.monBack(sp.fusao.cabeca, seed);
+  const cor = frente ? Assets.mon(sp.fusao.corpo, seed) : Assets.monBack(sp.fusao.corpo, seed);
+  const F = DB.FUSAO || {};
+  const k = F.corte ?? 0.46;
+  // sempre 64x64: é o tamanho do sprite do jogo, e é o tamanho em que o
+  // jogador desenha na oficina. Arte provisória de 16x16 sobe pra cá, e o
+  // pescoço da fusão cai no mesmo lugar em todo mundo.
+  const S = DB.FUSAO?.editor?.tamanho || 64;
+  const { cv, ctx } = makeCanvas(S, S);
+  ctx.drawImage(pintado(cor, corMedia(cab), F.tintaCorpo ?? 0.5), 0, 0, S, S);
+  const alturaCab = Math.max(1, Math.round(cab.height * k));
+  const pescoco = Math.max(1, Math.round(S * k));
+  ctx.drawImage(cab, 0, 0, cab.width, alturaCab, 0, 0, S, pescoco);
+  // a costura: uma sombra de um pixel onde os dois se encontram. "source-atop"
+  // pinta só onde já tem bicho — sem isso vira uma faixa atravessando o vazio.
+  ctx.globalCompositeOperation = "source-atop";
+  ctx.fillStyle = "rgba(0,0,0,.22)";
+  ctx.fillRect(0, pescoco - 1, S, 1);
+  ctx.globalCompositeOperation = "source-over";
+  return cv;
+}
+
+/** O sprite da fusão, guardado por par de imagens de origem: quando o PNG
+ *  externo de um dos lados termina de carregar, a chave muda e ele remonta. */
+function fusaoSprite(sp, lado, seed) {
+  // ficha do jogador com desenho: é ele, e mais nada. Enquanto o PNG não abre,
+  // a montagem automática segura o lugar — nada fica preto.
+  if (sp.spriteCustom) {
+    const img = desenhoDoJogador(sp.spriteCustom);
+    if (img) return img;
+  }
+  const frente = lado !== "costas";
+  const a = frente ? Assets.mon(sp.fusao.cabeca, seed) : Assets.monBack(sp.fusao.cabeca, seed);
+  const b = frente ? Assets.mon(sp.fusao.corpo, seed) : Assets.monBack(sp.fusao.corpo, seed);
+  const chave = `${sp.id}|${lado}|${idImg(a)}|${idImg(b)}`;
+  let img = fusaoCache.get(chave);
+  if (!img) {
+    if (fusaoCache.size > 240) fusaoCache.clear();      // sessão longa: recomeça
+    img = comporFusao(sp, lado, seed);
+    fusaoCache.set(chave, img);
+  }
+  return img;
+}
+
 export const Assets = {
   tiles: null, actors: null, shapes: null, ball: null, rustle: null, rocha: null, bloco: null,
   init() {
@@ -617,8 +739,10 @@ export const Assets = {
     return cv;
   },
 
-  /** sprite de frente do Pokemon */
+  /** sprite de frente do Pokemon (a fusao e montada na hora com os dois) */
   mon(id, seed) {
+    const sp = DB.SPECIES[id];
+    if (sp?.fusao) return fusaoSprite(sp, "frente", seed);
     const ext = SpriteStore.pokemon[id];
     if (ext) return ext;
     return this.placeholder(id, seed);
@@ -626,6 +750,8 @@ export const Assets = {
 
   /** sprite de costas (do jogador na batalha) */
   monBack(id, seed) {
+    const sp = DB.SPECIES[id];
+    if (sp?.fusao) return fusaoSprite(sp, "costas", seed);
     // nunca espelha: sprite espelhado deixa o jogo com cara de bug
     return SpriteStore.pokemonBack[id] || this.mon(id, seed);
   },

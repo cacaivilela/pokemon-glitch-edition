@@ -1,9 +1,11 @@
 // Ponto unico de acesso aos dados do jogo.
 // O live update reimporta este modulo com ?t=... e reconstroi o DB em memoria,
 // entao TUDO que le dados deve ler via `DB.x` (nunca guardar a referencia solta).
+import { url as arquivo } from "../core/base.js";
+
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, online, gifts, maps, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, online, gifts, maps, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -18,10 +20,14 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./species.js" + V),
   import("./box.js" + V),
   import("./mega.js" + V),
+  import("./fusao.js" + V),
+  import("./fusoes.js" + V),
+  import("./fusoes-feitas.js" + V),
+  import("./concurso.js" + V),
   import("./online.js" + V),
   import("./gifts.js" + V),
   import("./maps.js" + V),
-  fetch(`/assets/maps/kanto.json${V || "?v=1"}`).then((r) => (r.ok ? r.json() : null)),
+  fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
 
 if (!kanto) {
@@ -191,6 +197,10 @@ export function buildDB() {
     MEGA_FORMS: mega.MEGA_FORMS,
     MEGA_PEDRAS: mega.MEGA_PEDRAS,
     MEGA_ANEL: mega.ANEL,
+    FUSAO: fusao.FUSAO,
+    FUSOES: fusoes.FUSOES,
+    FUSOES_FEITAS: feitas.FUSOES_FEITAS,
+    CONCURSO: concurso.CONCURSO,
     ONLINE: online.ONLINE,
     FRASES: online.FRASES,
     EMOTES: online.EMOTES,

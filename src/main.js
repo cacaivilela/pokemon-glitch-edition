@@ -10,6 +10,7 @@ import { initHot } from "./core/hot.js";
 import { Glitch } from "./systems/glitchfx.js";
 import { createMon, recalc } from "./systems/mon.js";
 import { reverterTudo } from "./systems/mega.js";
+import { registrarDoEstado } from "./systems/fusao.js";
 import { Online } from "./systems/online.js";
 import { TitleScene } from "./scenes/title.js";
 import { OverworldScene } from "./scenes/overworld.js";
@@ -75,6 +76,7 @@ const game = {
       return false;
     }
     const st = await Save.load();
+    registrarDoEstado(st);              // as fusões do arquivo voltam a existir
     if (!st?.player || !this.isValid(st)) return false;
     this.state = st;
     this.state.badges ||= [];
@@ -108,6 +110,9 @@ const game = {
 
   loadGame() {
     const data = Save.read();
+    // a espécie de uma fusão não está em src/data/: ela é remontada do id que
+    // está no save, e precisa existir ANTES de qualquer validação
+    registrarDoEstado(data);
     if (data && !this.isValid(data)) {
       console.warn("[save] incompatível com os dados atuais — começando um jogo novo");
       return this.newGame();
@@ -143,6 +148,7 @@ const game = {
   /** chamado pelo live update quando src/data/* muda */
   applyData(next) {
     Object.assign(DB, next);
+    registrarDoEstado(this.state);      // o DB novo veio sem as fusões desta partida
     this.state.party.forEach(recalc);
     this.state.box?.forEach(recalc);
     this.scenes.stack.forEach((s) => s.onDataChange?.());
@@ -185,6 +191,29 @@ loadExternalSprites(
 function slugFallback(sp) { return sp.name.toLowerCase().replace(/[^a-z0-9]+/g, ""); }
 game.scenes = new SceneStack(game);
 
+// Sem a geometria de Kanto (assets/maps/kanto.json) não existe mapa nenhum pra
+// pisar: em vez de estourar num canto escuro, o jogo diz o que falta. É o que
+// aparece pra quem clonou o repositório e ainda não rodou os importadores — e
+// pra quem abriu uma cópia publicada sem os mapas junto.
+if (!DB.KANTO?.[DB.START_MAP]) {
+  const linhas = [
+    "FALTAM OS MAPAS DE KANTO.",
+    "",
+    "assets/maps/kanto.json nao veio junto.",
+    "Rode, na pasta do jogo:",
+    "  python3 tools/fetch_maps.py",
+    "",
+    "Os importadores baixam pra SUA maquina;",
+    "nada de arte oficial vive neste repositorio.",
+  ];
+  ctx.fillStyle = "#101018";
+  ctx.fillRect(0, 0, W, H);
+  linhas.forEach((l, i) => drawText(ctx, l, 8, 16 + i * 14, i === 0 ? "#b455ff" : "#c8ccd4"));
+  dctx.drawImage(buffer, 0, 0);
+  resize();
+  throw new Error("[dados] assets/maps/kanto.json não encontrado");
+}
+
 // o save vem do arquivo do computador (save/save.json), não do navegador
 await Save.load();
 
@@ -195,6 +224,7 @@ if (stash?.state && Save.read()?.player && (stash.v ?? 0) < Save.versao()) {
   console.warn("[hot] o save do arquivo é mais novo — usando ele");
   stash.state = Save.read();
 }
+if (stash?.state) registrarDoEstado(stash.state);
 if (stash?.state && !game.isValid(stash.state)) {
   console.warn("[hot] estado antigo descartado (dados mudaram)");
   game.newGame();
@@ -279,6 +309,10 @@ if (q.has("map") || q.has("battle")) {
     for (const pedra of Object.keys(DB.MEGA_PEDRAS || {})) game.state.items[pedra] = 1;
     game.state.flags.anelMega = true;
   }
+  if (q.get("fusao")) {   // ?fusao=1 -> a máquina do professor já na mochila
+    game.state.items[DB.FUSAO.item] = 1;
+    game.state.flags.decodificador = true;
+  }
   if (q.get("frag")) {   // ?frag=1 -> fragmento colado no jogador, pra testar
     const p2 = game.state.player;
     game.state.flags.dimUnlocked = true;
@@ -325,6 +359,9 @@ setTextVars({ NOME: game.state.player?.name || "VERMELHO" });
 initHot(game);
 // Funções online (sala, presença, troca, batalha link, presente misterioso).
 // Se o servidor não responder, o jogo segue igual: nada aqui é obrigatório.
+// No jogo publicado na web não existe servidor de sala nenhum, então elas saem
+// do menu em vez de ficar dando erro em quem clicar.
+if (Save.offline() && DB.ONLINE) DB.ONLINE.ativo = false;
 Online.init(game);
 
 // -------------------------------------------------------------- resize

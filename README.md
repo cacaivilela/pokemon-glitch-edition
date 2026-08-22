@@ -36,10 +36,11 @@ python3 tools/fetch_maps.py        # os mapas de Kanto: desenho, colisão, grama
 Também dá pra usar arte própria: `tools/slice_sheet.py` fatia uma spritesheet, e
 qualquer PNG colocado à mão nas pastas de `assets/sprites/` é usado no lugar.
 
-> Arte e dados originais são da Nintendo / Creatures / Game Freak. Nada disso é
-> redistribuído aqui: os importadores baixam para a **sua** máquina e o
-> `.gitignore` impede que entrem no repositório. O código, os diálogos, o motor e
-> a arte provisória são originais.
+> Arte e dados originais são da Nintendo / Creatures / Game Freak. Os
+> importadores continuam existindo pra quem clona o projeto, mas **a arte
+> importada está versionada aqui** (`assets/`) para que a versão publicada na
+> web funcione sem que ninguém precise rodar nada. O código, os diálogos, o
+> motor, a trilha e a arte provisória são originais.
 
 ## Controles
 
@@ -52,6 +53,7 @@ qualquer PNG colocado à mão nas pastas de `assets/sprites/` é usado no lugar.
 | F | HUD de debug (FPS, coordenadas) |
 | C | na batalha: arma a MEGA EVOLUÇÃO |
 | M | mudo |
+| Mouse | na oficina de genoma: pinta, clica nos botões e a rodinha dá zoom |
 | ENTER / ESC | no chat e no nome da sala: manda / desiste (ali o teclado vira texto) |
 
 ## O que dá pra jogar
@@ -103,6 +105,166 @@ acha a pedra dele na metade da vida — ninguém precisou dar nada a ele.
 Os dados ficam em `src/data/mega.js` (uma tabela: espécie de origem, nome da
 forma, pedra, sprite e stats) e têm hot-swap como todo o resto de `src/data/`.
 Atalho de dev: `?mega=1` na URL enche a mochila com o anel e as 16 pedras.
+
+## Fusão: o DECODIFICADOR DE GENOMA
+
+O **PROF. CARVALHO** entrega a máquina na **primeira conversa**, antes do
+inicial e de qualquer insígnia. Ela abre pela mochila (`Z` em cima do item) e
+faz três coisas:
+
+- **FUNDIR** — dois Pokémon da equipe viram um só. A **CABEÇA** dá o rosto, o
+  tipo primário, o começo do nome e o lado especial (HP, ESP.ATK, ESP.DEF); o
+  **CORPO** dá o resto do desenho, o tipo secundário, o fim do nome e a parte
+  física (ATK, DEF, VELOCIDADE). Cada atributo é 2/3 de quem manda nele e 1/3
+  do outro, e o learnset é o dos dois juntos.
+- **SEPARAR** — desfaz. Os dois originais ficam **guardados inteiros** dentro da
+  fusão (`mon.fusao`), então voltam com apelido, IVs e golpes que tinham — no
+  nível que a fusão alcançou. Se a equipe estiver cheia, o segundo vai pro PC.
+- **OFICINA** — o estúdio de sprite (abaixo).
+
+O nome sai por sílaba: começo da cabeça + última sílaba do corpo. BULBASAUR +
+CHARMANDER = **BULBANDER**; PIKACHU + SQUIRTLE = **PIKARTLE**; GENGAR +
+MISSINGNO. = **GENGNO**.
+
+Uma fusão é uma **espécie de verdade**, com id `fus-<cabeça>-<corpo>`, mas ela
+não mora em `src/data/`: são 255x256 combinações no catálogo da máquina, e
+guardar todas seria guardar um catálogo pra usar três linhas dele. Ela é montada
+na hora e registrada em `DB.SPECIES` — como o id carrega os dois lados, dá pra
+remontar a espécie só de olhar pro save (`registrarDoEstado`, em
+`src/systems/fusao.js`, roda no boot, ao adotar um save de fora e a cada
+hot-swap). O sprite também é montado na hora, sempre em **64x64** (o tamanho do
+sprite do jogo): corpo inteiro recolorido com a cor da cabeça, e a cabeça por
+cima até a linha do pescoço.
+
+Diferente da MEGA, **a fusão fica**: ela é gravada no save e sobrevive à troca
+online (do outro lado a espécie é remontada pelo id).
+
+### A oficina (estúdio de sprite)
+
+`OFICINA` na máquina. Três abas, trocadas com `TAB` ou clicando no nome:
+
+- **DESENHO** — uma tela de **64x64**: o mesmo tamanho que a batalha desenha,
+  então o que você pinta é pixel por pixel o que aparece no jogo, sem redução no
+  meio. Ela abre inteira na tela (zoom 2x, indo até 16x). Dá pra **pintar com o
+  mouse**, arrastando, e clicar nos botões da direita. Ferramentas: PINCEL (1 a
+  8 pixels), BORRACHA, BALDE, PIPETA e **PEÇA** — os sprites da cabeça e do
+  corpo, inteiros ou nas duas metades, pra **encaixar** onde você quiser, com a
+  rodinha mudando o tamanho e `H` virando de lado. **Sete paletas** de 16 cores,
+  e a primeira é montada na hora com as cores mais usadas nos sprites dos dois.
+  `U` desfaz, `D` apaga tudo (o `U` traz de volta). Ficha antiga, desenhada
+  quando a tela era 256x256, entra reduzida na primeira vez que você abre.
+- **FICHA** — nome e os dois tipos.
+- **STATS** — quanto cada atributo **vale no nível 0** e quanto ele **sobe por
+  nível**. É essa conta que a batalha usa: `valor = inicial + crescimento x
+  nível`, sem stats-base e sem IV. A tela mostra o resultado nos níveis 5, 50 e
+  100 enquanto você mexe.
+
+### Variantes: mais de uma fusão pra mesma dupla
+
+A mesma dupla pode virar coisas diferentes, e na hora de fundir o **`C`** passa
+por todas elas (a vitrine mostra qual está escolhida e quantas existem):
+
+1. **AUTOMÁTICA** — o cálculo da máquina. Ou **SUA FICHA**, se você fez uma pra
+   essa dupla na oficina.
+2. **DO JOGO** — as fusões escritas à mão em `src/data/fusoes.js`. Algumas
+   combinações são boas demais pra sair de uma média: GENGAR+RAYQUAZA vira
+   **GENGQUAZA** (FANTASMA/DRAGÃO), ALAKAZAM+GENGAR vira **ALAKAGAR**,
+   CHARMANDER+GYARADOS vira **CHARADOS**,
+   PIKACHU+BULBASAUR vira **PIKASAUR** (ELÉTRICO/PLANTA), MEWTWO+MEW,
+   GROUDON+KYOGRE, LAPRAS+ARTICUNO, SNORLAX+JIGGLYPUFF, MISSINGNO+PORYGON… são
+   vinte e duas, com nome, tipos, crescimento e texto de Pokédex próprios. A
+   ordem importa: RAYQUAZA+GENGAR é **RAYGAR**, outra fusão.
+3. **DE \<NOME\>** — as fichas que jogadores publicaram (veja abaixo).
+
+O id da espécie carrega qual é: `fus-gengar-rayquaza~gengquaza`. Separar
+devolve os dois de sempre, não importa a variante.
+
+### Publicar uma ficha no código
+
+Terminou a ficha na oficina? Grave e escolha **PUBLICAR NO CÓDIGO**. O jogo
+manda ela pro `dev_server.py` (rota `/__ficha`), que escreve em
+`src/data/fusoes-feitas.js` com o seu nome junto.
+
+**Ela aparece em todos os aparelhos.** Quem joga pela rede (`http://192.168.0.10:5190/`)
+está baixando o jogo **deste** servidor, e o arquivo caiu dentro de `src/data/`,
+que é a pasta que o live update vigia: o watcher vê a mudança e o `broadcast`
+avisa todos os clientes conectados de uma vez. Como só mudou dado, é hot-swap —
+ninguém recarrega, ninguém perde o lugar, e a variante nova já está no `C` da
+máquina deles. Quem entrar depois baixa o arquivo já com ela. O jogo diz quantos
+aparelhos receberam na hora de publicar.
+
+Ela vale pra **qualquer partida deste computador**, inclusive um jogo novo, do
+mesmo jeito que as fusões que já vêm no jogo. O desenho vai junto, em PNG. Pra tirar uma, edite o
+arquivo à mão; pra tirar todas, deixe `export const FUSOES_FEITAS = {};`.
+
+### Mandar pro mundo
+
+Uma casa não é o mundo. Pra ir além do seu servidor existe um caminho só, e ele
+já existia: **o arquivo das fichas é código, e o código deste jogo tem
+endereço** — o repositório de onde todo mundo baixou ele.
+
+- Logo depois de publicar, a oficina pergunta **MANDAR PRO MUNDO?**. Aceitando,
+  o `dev_server.py` (rota `/__mundo`) faz `git add`, `git commit` **só de
+  `src/data/fusoes-feitas.js`** e `git push origin HEAD:main`. Nenhum outro
+  arquivo seu entra no commit. Precisa de permissão de escrita no repositório;
+  sem ela o jogo diz o motivo e a ficha continua valendo aqui e na sua rede.
+- Na máquina, **MUNDO → BAIXAR AS FUSÕES DO MUNDO** faz `git fetch` e **junta**
+  o que os outros publicaram com o que você tem: ficha sua nunca é
+  sobrescrita, e nenhum outro arquivo é tocado. O que chega entra no `C` na
+  hora (é `src/data/`, então é hot-swap) e chega junto em todo aparelho ligado
+  no seu servidor.
+- Quem clonar o jogo depois já vem com todas elas dentro.
+
+O nome de quem fez vai gravado na ficha (`autor`) e aparece na lista de
+variantes como **DE \<NOME\>**.
+
+A ficha é **por lado**: `PIDGEOT+CHARMANDER` e `CHARMANDER+PIDGEOT` são duas
+fichas diferentes, porque o desenho de uma não serve pra outra. Fazer uma e
+fundir na ordem contrária é o erro fácil daqui, então a máquina avisa: a vitrine
+marca **FICHA AO CONTRÁRIO** em amarelo, e antes de gravar ela pergunta se você
+quer **trocar os lados**. Na aba FICHA da oficina, `COPIAR A FICHA AO CONTRÁRIO`
+traz a outra pra este lado, com desenho e tudo.
+
+A ficha vale mais que o cálculo automático e vale **na hora de gravar**: quem já
+é daquela dupla muda de nome, tipo e atributos na mesma hora. `C` na aba FICHA
+apaga a ficha e devolve o par pro cálculo da máquina. O desenho é gravado no
+save como PNG.
+
+Atalho de dev: `?fusao=1` na URL põe a máquina na mochila.
+
+## Concurso de fusão (CINNABAR)
+
+Na praça do sul de **CINNABAR** — a ilha que ressuscita fóssil desde sempre —
+três cientistas montaram um concurso pra julgar o que sai do decodificador. Fale
+com a **DRA. CINÁBRIO** e inscreva uma dupla: você escolhe **cabeça e corpo** da
+sua equipe (ou leva uma fusão pronta, que vale pela dupla dela).
+
+**A dupla não é fundida de verdade.** A máquina do palco lê os dois, mostra o
+que sairia e devolve — dá pra testar combinação a noite inteira sem mexer na
+equipe.
+
+Cada jurado olha uma coisa só, e dá de 0 a 10:
+
+| Jurado | Nota | O que ele mede |
+|---|---|---|
+| DR. HÉLIX | HARMONIA | quantos dos 18 tipos a dupla resiste e quantos ela sofre (monotipo perde ponto) |
+| DRA. CÚPULA | POTÊNCIA | a soma dos atributos **no nível 50** — a mesma conta que a batalha faz |
+| DR. ÂMBAR | AUTORIA | o que veio da **sua** mão: desenho próprio, nome trocado, tipos, crescimento |
+
+São 30 pontos. Sem ficha na oficina, a AUTORIA fica em 2: eles reconhecem o
+cálculo automático da máquina de longe. Com desenho seu e nome seu, vai a 8.
+
+Três rivais entram junto — cientistas do laboratório com as duplas de fóssil
+deles — e a nota deles sai da **mesma** função que a sua, com um empurrão por
+insígnia (o concurso acompanha o seu progresso). Primeiro lugar leva $5000 e 3
+DOCE RARO na primeira vez, $3000 nas seguintes; segundo $2000, terceiro $800, e
+quem fica fora do pódio leva $200 de ajuda de custo. O jogo guarda a sua melhor
+nota (`flags.concursoRecorde`).
+
+Jurados, falas, rivais, prêmios e o peso de cada critério estão em
+`src/data/concurso.js`, com hot-swap: dá pra reescrever a nota de um jurado com
+o concurso rolando. As contas ficam em `src/systems/concurso.js` e a tela em
+`src/scenes/concurso.js`. Pra testar: `?map=cinnabar_island&party=gengar:40,onix:40`.
 
 ## Modo Glitch
 
@@ -431,15 +593,24 @@ src/
     fragments.js       pontos de fragmento e a chance que sobe a cada mapa
     loot.js            conteúdo das bolas largadas na dimensão + itens de evolução
     mega.js            as 16 formas MEGA, as megapedras e o ANEL MEGA
+    fusao.js           regras da fusão: nome, atributos, tipos, paletas, editor
+    concurso.js        o concurso de Cinnabar: jurados, rivais, prêmios, critérios
+    fusoes.js          as fusões escritas à mão (GENGQUAZA, ALAKAGAR, PIKASAUR...)
+    fusoes-feitas.js   as fichas que jogadores publicaram (escrito pelo jogo)
     online.js          sala, chat, emotes e as frases das funções online
     gifts.js           os códigos do PRESENTE MISTERIOSO
     index.js           monta o DB (inclui assets/maps/kanto.json)
   systems/
     mon.js  battle-engine.js  encounters.js  loot.js  dialogue.js  glitchfx.js
     mega.js            mega evoluir/desmegar (e a garantia de não gravar megado)
+    fusao.js           fundir/separar, a espécie montada na hora e as fichas do jogador
+    concurso.js        as notas dos três jurados e a rodada com os rivais
     online.js          presença, convites, chat e o filtro do que vem de fora
   scenes/
     title.js  overworld.js  battle.js
+    fusion.js          a fusão e a separação acontecendo na tela
+    concurso.js        o palco de Cinnabar: entradas, notas e o resultado
+    fusaoeditor.js     a oficina: estúdio de sprite, ficha e crescimento por nível
     online.js          a sala e o PRESENTE MISTERIOSO
     trade.js           a troca entre dois jogadores
     linkbattle.js      a batalha link
@@ -493,10 +664,35 @@ firefox --headless --no-remote --profile /tmp/ffprof \
 cat dev/captures/batalha.log     # frames, cena, posição, equipe, erros
 ```
 
+`dev/fusaocheck.html` roda a fusão sem o jogo (nomes, atributos, fundir,
+separar, ficha do jogador e o registro a partir do save) e escreve o resultado
+em `dev/captures/fusaocheck.log` — útil depois de mexer nas regras de
+`src/data/fusao.js`.
+
 Atalhos de dev na URL do jogo: `?map=route1&x=17&y=34&dir=up`,
 `?battle=pidgey&lvl=6`, `?starter=squirtle`, `?debug=1`.
 
+## Jogar no navegador
+
+O jogo está publicado em
+**[cacaivilela.github.io/pokemon-glitch-edition/](https://cacaivilela.github.io/pokemon-glitch-edition/)**,
+direto do `main` (GitHub Pages). Ali não existe `dev_server.py`, então o jogo se
+vira sozinho:
+
+- **o save fica no navegador** (`localStorage`), em vez do `save/save.json`;
+- **live update desligado** — não tem arquivo pra vigiar;
+- **funções online fora do menu** — não tem servidor de sala;
+- **PUBLICAR / MUNDO** avisam que só funcionam no jogo rodando em casa.
+
+Todo caminho passa por `src/core/base.js`, que descobre a raiz pelo endereço do
+próprio módulo: em casa é `/`, no Pages é `/pokemon-glitch-edition/`. Por isso
+nada de caminho absoluto no código — um `/assets/...` quebraria a versão web.
+
 ## Aviso legal
 
-Pokémon é marca registrada da Nintendo / Creatures / Game Freak. Este é um fangame
-não oficial, sem fins lucrativos e sem nenhum asset oficial versionado.
+Pokémon é marca registrada da Nintendo / Creatures / Game Freak. Este é um
+fangame não oficial e sem fins lucrativos. A arte e os dados de mapa importados
+do FireRed (`assets/`) **estão versionados neste repositório** para que a versão
+web funcione — eles pertencem à Nintendo / Creatures / Game Freak, não a este
+projeto. Se os detentores pedirem, é só apagar `assets/` e voltar a depender dos
+importadores (`tools/fetch_*.py`), que baixam tudo para a máquina de quem joga.

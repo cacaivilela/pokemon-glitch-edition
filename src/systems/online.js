@@ -12,6 +12,7 @@
 import { DB } from "../data/index.js";
 import { Net } from "../core/net.js";
 import { createMon, recalc } from "./mon.js";
+import { garantirEspecie } from "./fusao.js";
 
 const cfg = () => DB.ONLINE || {};
 const txt = (k, vars = {}) =>
@@ -371,6 +372,10 @@ export const Online = {
   sanea(cru) {
     try {
       if (!cru || typeof cru !== "object") return null;
+      // fusão que vem de outro save: a espécie é remontada a partir do id (os
+      // dois lados estão escritos nele). O que não vem é o miolo guardado —
+      // quem separar depois recebe os dois refeitos no nível da fusão.
+      garantirEspecie(cru.species);
       const sp = DB.SPECIES[cru.species];
       if (!sp || sp.mega) return null;             // MEGA só existe dentro da batalha
       const level = Math.max(1, Math.min(100, Math.round(+cru.level || 1)));

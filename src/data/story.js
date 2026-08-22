@@ -277,6 +277,108 @@ export const STORY = {
     semTime: "VOCÊ AINDA NÃO TEM NENHUM POKÉMON PRA GUARDAR.",
   },
 
+  /** DECODIFICADOR DE GENOMA. O professor entrega na PRIMEIRA conversa, antes
+   *  de qualquer insígnia: é o aparelho que ele usava pra ler genoma e que
+   *  começou a devolver leitura de dois bichos ao mesmo tempo. Ele junta e
+   *  separa — e o que ele junta continua junto depois de salvar. */
+  fusao: {
+    entrega: [
+      "ESPERA UM POUCO. ANTES DE MAIS NADA, LEVA ISTO AQUI.",
+      "É UM DECODIFICADOR DE GENOMA. VELHO, PESADO E, ATÉ SEMANA PASSADA, HONESTO.",
+      "ELE LIA UM POKÉMON E ESCREVIA O GENOMA NA FITA. AGORA ELE LÊ DOIS E ESCREVE UM.",
+      "EU NÃO PEDI ISSO A ELE. ELE COMEÇOU SOZINHO.",
+    ],
+    ganhou: "VOCÊ RECEBEU O DECODIFICADOR DE GENOMA!",
+    explica: [
+      "A CABEÇA QUE VOCÊ ESCOLHER DÁ O ROSTO, O PRIMEIRO TIPO E O LADO ESPECIAL.",
+      "O CORPO DÁ O RESTO DO DESENHO, O SEGUNDO TIPO E A FORÇA BRUTA.",
+      "E ELE DESFAZ. OS DOIS FICAM GUARDADOS INTEIROS LÁ DENTRO — NINGUÉM SOME.",
+      "E TEM A BANCADA: DÁ PRA DESENHAR O BICHO, DAR NOME, ESCOLHER OS TIPOS E DIZER QUANTO ELE CRESCE POR NÍVEL.",
+      "O QUE VOCÊ ESCREVER NA FICHA VALE MAIS QUE O QUE A MÁQUINA CALCULA. ELA ACEITA.",
+      "ABRE PELA MOCHILA QUANDO QUISER. SÓ... NÃO MOSTRA ISSO PRA LIGA, POR FAVOR.",
+    ],
+    // a tela da máquina
+    titulo: "DECODIFICADOR DE GENOMA",
+    menu: ["FUNDIR", "SEPARAR", "OFICINA", "MUNDO", "DESLIGAR"],
+    escolheCabeca: "QUEM ENTRA COMO CABEÇA?",
+    escolheCorpo: "QUEM ENTRA COMO CORPO?",
+    escolheFusao: "QUAL GENOMA EU ABRO?",
+    confirmaFundir: "GRAVAR {CABECA} + {CORPO} COMO {NOME}?",
+    confirmaSeparar: "ABRIR {MON} E DEVOLVER OS DOIS?",
+    sim: ["GRAVAR", "CANCELAR"],
+    simSeparar: ["ABRIR", "CANCELAR"],
+    // resultado
+    fundindo: "A FITA CORRE NOS DOIS SENTIDOS AO MESMO TEMPO.",
+    fundiu: "{CABECA} E {CORPO} VIRARAM {NOME}!",
+    separando: "A FITA VOLTA, LETRA POR LETRA.",
+    separou: "{NOME} SE ABRIU EM {CABECA} E {CORPO}!",
+    foiProBox: "{MON} NÃO COUBE NA EQUIPE E FOI PRO BOX.",
+    // a ficha existe, mas ao contrário (fez A+B e está fundindo B+A)
+    temFichaTag: "FICHA: {NOME}",
+    fichaAoContrario: "FICHA AO CONTRÁRIO",
+    perguntaInverter: "SUA FICHA É {NOME}, COM {CABECA} NA CABEÇA. E VOCÊ PEDIU {OUTRO} NA CABEÇA.",
+    opcoesInverter: ["TROCAR OS LADOS", "FUNDIR DO MEU JEITO", "CANCELAR"],
+    copiarInvertida: "COPIAR A FICHA AO CONTRÁRIO",
+    publicar: "PUBLICAR NO CÓDIGO",
+    confirmaPublicar: "PUBLICAR {NOME} NO CÓDIGO DO JOGO? ELA VIRA UMA VARIANTE DESSA DUPLA PRA QUALQUER PARTIDA DAQUI.",
+    opcoesPublicar: ["PUBLICAR", "AINDA NÃO"],
+    publicou: "{NOME} ENTROU NO CÓDIGO. AGORA ELA APARECE NO C DA MÁQUINA, COMO AS OUTRAS.",
+    // O MUNDO: o repositório de onde todo mundo baixou este jogo. Publicar
+    // deixa a ficha nesta casa; mandar pro mundo põe ela no próprio jogo.
+    mundoBuscando: "PROCURANDO O QUE PUBLICARAM POR AÍ...",
+    semServidor: "ISTO SÓ FUNCIONA NO JOGO RODANDO EM CASA, COM O SERVIDOR LIGADO. AQUI NA WEB DÁ PRA FUNDIR E DESENHAR — MAS A FICHA FICA SÓ NESTE NAVEGADOR.",
+    mundoChegou: "{N} FUSÃO(ÕES) NOVA(S) CHEGARAM DO MUNDO. JÁ ESTÃO NO C DA MÁQUINA.",
+    mundoNada: "NADA NOVO POR LÁ. VOCÊ JÁ TEM TUDO QUE PUBLICARAM.",
+    mundoFalhou: "NÃO DEU PRA FALAR COM O MUNDO: {ERRO}",
+    perguntaMundo: "MANDAR {NOME} PRO MUNDO? ELA VAI PRO CÓDIGO DO JOGO, PRA TODO MUNDO QUE BAIXAR.",
+    opcoesMundo: ["MANDAR PRO MUNDO", "SÓ AQUI"],
+    mundoEnviou: "{NOME} SUBIU. QUEM BAIXAR OU ATUALIZAR O JOGO VAI PODER FUNDIR ESSA DUPLA ASSIM.",
+    mundoRecusou: "O MUNDO NÃO ACEITOU: {ERRO}. A FICHA CONTINUA VALENDO AQUI E NA SUA REDE.",
+    publicouRede: "{N} APARELHO{S} LIGADO{S} NESTE SERVIDOR JÁ RECEBERAM — SEM RECARREGAR NADA. QUEM ENTRAR DEPOIS JÁ NASCE COM ELA.",
+    falhouPublicar: "O SERVIDOR NÃO ACEITOU. ELE ESTÁ NO AR?",
+    precisaGravar: "GRAVE A FICHA ANTES DE PUBLICAR.",
+    copiou: "A FICHA DE {NOME} VEIO PRO OUTRO LADO. O DESENHO VEIO JUNTO.",
+    // recusas
+    poucos: "A MÁQUINA PRECISA DE DOIS POKÉMON NA EQUIPE.",
+    semFusao: "VOCÊ NÃO TEM NENHUM GENOMA GRAVADO PRA ABRIR.",
+    jaFundido: "ESSE JÁ É UMA FUSÃO. A FITA NÃO DOBRA DUAS VEZES.",
+    naoDaParaFundir: "A LEITURA NÃO FECHOU. TENTE OUTRA DUPLA.",
+    ajuda: "Z CONFIRMA   X VOLTA",
+    ajudaCatalogo: "{TOTAL} COMBINAÇÕES   ENDEREÇO {CODIGO}",
+    // a oficina: o editor de fusões (src/scenes/fusaoeditor.js)
+    oficina: "OFICINA DE GENOMA",
+    escolheOficina: "QUAL GENOMA VOU ABRIR NA BANCADA?",
+    // a linha de baixo do editor: elas se revezam, porque não cabem juntas
+    // cada linha cabe nos 40 caracteres da tela; elas se revezam sozinhas
+    ajudaDesenho: [
+      "MOUSE PINTA E CLICA  RODINHA = ZOOM",
+      "SETAS MOVEM  Z PINTA  C FERRAMENTA",
+      "PEÇA ENCAIXA O SPRITE  H VIRA DE LADO",
+      "R PINCEL  1-8 COR  9 FILEIRA  P PALETA",
+      "U DESFAZ  D APAGA TUDO  TAB ABA  X SAI",
+    ],
+    limparTudo: "APAGAR O DESENHO INTEIRO?",
+    opcoesLimpar: ["APAGAR TUDO", "DEIXA PRA LÁ"],
+    limpou: "A TELA FICOU EM BRANCO. (U TRAZ DE VOLTA)",
+    ajudaFicha: [
+      "SETAS ESCOLHEM  LADOS MUDAM O TIPO",
+      "Z EDITA  C APAGA A FICHA  TAB ABA  X SAI",
+    ],
+    ajudaStats: [
+      "LADOS MUDAM  SHIFT PULA DE 10 EM 10",
+      "Z TROCA A COLUNA  C GRAVA  TAB ABA  X SAI",
+    ],
+    ajudaTeclado: "ENTER CONFIRMA   ESC CANCELA",
+    gravarAoSair: "GRAVAR O QUE VOCÊ MEXEU?",
+    opcoesSaida: ["GRAVAR", "JOGAR FORA", "VOLTAR"],
+    gravou: "FICHA DE {NOME} GRAVADA. É ASSIM QUE ESSA DUPLA SAI DAQUI PRA SEMPRE.",
+    apagarFicha: "APAGAR A FICHA E DEIXAR A MÁQUINA CALCULAR SOZINHA?",
+    opcoesApagar: ["APAGAR", "DEIXA PRA LÁ"],
+    apagou: "FICHA APAGADA. A MÁQUINA VOLTOU A CHUTAR.",
+    // examinar o item fora do laboratório
+    olha: "A FITA ESTÁ PARADA NO MEIO DE UMA PALAVRA QUE NÃO É NOME DE NINGUÉM.",
+  },
+
   /** MEGA EVOLUÇÃO. O ANEL MEGA sai da mão do professor; as megapedras estão
    *  espalhadas por Kanto (ver `gift` em src/data/maps.js). */
   mega: {

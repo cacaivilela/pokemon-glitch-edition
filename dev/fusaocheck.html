@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem da fusão</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; }
+  .ok { color:#7f7; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=8000">
+<canvas id="screen" width="240" height="160" hidden></canvas>
+<script type="module">
+// Checagem sem jogo: monta espécies de fusão, funde, separa e confere as contas.
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+try {
+  const { DB } = await import("/src/data/index.js");
+  const { createMon, recalc } = await import("/src/systems/mon.js");
+  const F = await import("/src/systems/fusao.js");
+
+  h("NOMES");
+  for (const [a, b] of [["bulbasaur","charmander"],["charmander","bulbasaur"],["pikachu","squirtle"],
+                        ["squirtle","pikachu"],["mewtwo","mew"],["missingno","gengar"],["gengar","missingno"]]) {
+    const sp = F.montarEspecie(a, b);
+    p(`${a} + ${b} = ${sp.name} [${sp.types.join("/")}] TOTAL ${sp.bst} ${sp.codigo} id=${sp.id}`);
+  }
+
+  h("ATRIBUTOS (2/3 de quem manda)");
+  const sp = F.montarEspecie("bulbasaur", "charmander");
+  const cab = DB.SPECIES.bulbasaur.base, cor = DB.SPECIES.charmander.base;
+  p(`cabeça bulbasaur ${JSON.stringify(cab)}`);
+  p(`corpo charmander ${JSON.stringify(cor)}`);
+  p(`fusão            ${JSON.stringify(sp.base)}`);
+  const espHp = Math.floor((2*cab.hp + cor.hp)/3), espAtk = Math.floor((2*cor.atk + cab.atk)/3);
+  p(`hp ${sp.base.hp}==${espHp} e atk ${sp.base.atk}==${espAtk}`,
+    sp.base.hp === espHp && sp.base.atk === espAtk ? "ok" : "erro");
+  p(`golpes: ${sp.learnset.map(([l,m]) => l+":"+m).join(" ")}`);
+
+  h("FUNDIR / SEPARAR");
+  const estado = { party: [], boxes: [], fusoes: {} };
+  F.ligarEstado(estado);
+  const a = createMon("bulbasaur", 12), b = createMon("charmander", 9);
+  a.hp = Math.round(a.maxHp * 0.5);
+  const fus = F.fundir(a, b);
+  DB.SPECIES[fus.species] = F.montarEspecie("bulbasaur", "charmander");
+  p(`fundiu: ${fus.nickname} nv${fus.level} hp ${fus.hp}/${fus.maxHp} tipos ${fus.types.join("/")}`);
+  p(`golpes da fusão: ${fus.moves.map((m) => m.id).join(", ")}`);
+  p(`nível = max(12,9) -> ${fus.level}`, fus.level === 12 ? "ok" : "erro");
+  p(`guarda os dois dentro: ${!!fus.fusao?.cabeca} ${!!fus.fusao?.corpo}`, fus.fusao ? "ok" : "erro");
+  const [c1, c2] = F.separar(fus);
+  p(`separou: ${c1.nickname} nv${c1.level} hp ${c1.hp}/${c1.maxHp} | ${c2.nickname} nv${c2.level} hp ${c2.hp}/${c2.maxHp}`);
+  p(`voltou como as espécies certas: ${c1.species}/${c2.species}`,
+    c1.species === "bulbasaur" && c2.species === "charmander" ? "ok" : "erro");
+  p(`os dois sobem pro nível da fusão: ${c1.level}/${c2.level}`, c1.level === 12 && c2.level === 12 ? "ok" : "erro");
+
+  h("FICHA DO JOGADOR (oficina)");
+  const ficha = F.fichaParaEditar("bulbasaur", "charmander");
+  p(`ficha automática: ${JSON.stringify(ficha)}`);
+  ficha.nome = "TESTEMON";
+  ficha.tipos = ["FANTASMA", "AÇO"];
+  ficha.crescimento.hp = 3;
+  ficha.crescimento.atk = 2;
+  ficha.inicial.hp = 20;
+  const sp2 = F.salvarFicha(estado, "bulbasaur", "charmander", ficha);
+  p(`espécie com ficha: ${sp2.name} [${sp2.types.join("/")}] TOTAL(nv50) ${sp2.bst}`);
+  const mon = createMon(sp2.id, 10);
+  p(`nv10 -> hp ${mon.maxHp} (esperado ${20 + 3*10}) atk ${mon.stats.atk} (esperado ${5 + 2*10})`,
+    mon.maxHp === 50 && mon.stats.atk === 25 ? "ok" : "erro");
+  mon.level = 50; recalc(mon);
+  p(`nv50 -> hp ${mon.maxHp} atk ${mon.stats.atk}`, mon.maxHp === 170 && mon.stats.atk === 105 ? "ok" : "erro");
+  p(`nome herdado pelo apelido: ${mon.nickname}`, mon.nickname === "TESTEMON" ? "ok" : "erro");
+  F.apagarFicha(estado, "bulbasaur", "charmander");
+  p(`apagou a ficha: ${DB.SPECIES[sp2.id].name}`, DB.SPECIES[sp2.id].name !== "TESTEMON" ? "ok" : "erro");
+
+  h("REGISTRO A PARTIR DO SAVE");
+  const salvo = { player: {}, party: [{ species: fus.species, level: 12, ivs: {}, moves: [] }], boxes: [] };
+  delete DB.SPECIES[fus.species];
+  F.registrarDoEstado(salvo);
+  p(`espécie remontada do id: ${DB.SPECIES[fus.species]?.name}`, DB.SPECIES[fus.species] ? "ok" : "erro");
+
+  h("VARIANTES DA DUPLA");
+  for (const [a3, b3] of [["gengar","rayquaza"],["pikachu","bulbasaur"],["charmander","pidgeot"]]) {
+    const vs = F.variantes(a3, b3);
+    p(`${a3}+${b3}: ${vs.map((v) => v.rotulo + (v.ficha?.nome ? " (" + v.ficha.nome + ")" : "")).join("  |  ")}`);
+    for (const v of vs) {
+      const sp2 = F.montarEspecie(a3, b3, v.variante);
+      p(`   ${v.variante || "(auto)"} -> ${sp2 ? sp2.name + " [" + sp2.types.join("/") + "] id=" + sp2.id : "NULO"}`, sp2 ? "ok" : "erro");
+    }
+  }
+  {
+    const est3 = { player: {}, party: [], boxes: [], fusoes: {} };
+    F.ligarEstado(est3);
+    const idv = F.idFusao("gengar","rayquaza","gengquaza");
+    F.garantirEspecie(idv);
+    const m1 = createMon(idv, 50);
+    p(`GENGQUAZA nv50: ${m1.nickname} hp ${m1.maxHp} atk ${m1.stats.atk} spa ${m1.stats.spa} spe ${m1.stats.spe} [${m1.types.join("/")}]`,
+      m1.maxHp === 12 + Math.floor(2.6*50) ? "ok" : "erro");
+    const a4 = createMon("gengar", 40), b4 = createMon("rayquaza", 40);
+    const fus2 = F.fundir(a4, b4, "gengquaza");
+    p(`fundir com variante: ${fus2.nickname} species=${fus2.species}`, fus2.species.includes("~gengquaza") ? "ok" : "erro");
+    const [p1, p2] = F.separar(fus2);
+    p(`separar devolve ${p1.species} + ${p2.species}`, p1.species === "gengar" && p2.species === "rayquaza" ? "ok" : "erro");
+    delete DB.SPECIES[fus2.species];
+    F.registrarDoEstado({ player: {}, party: [fus2], boxes: [] });
+    p(`variante remontada do save: ${DB.SPECIES[fus2.species]?.name}`, DB.SPECIES[fus2.species] ? "ok" : "erro");
+  }
+
+  h("CONCURSO DE CINNABAR");
+  const K = await import("/src/systems/concurso.js");
+  F.ligarEstado(estado);
+  for (const [a2, b2] of [["charmander","pidgeot"],["gengar","onix"],["magikarp","magikarp"]]) {
+    const j = K.julgar(a2, b2);
+    p(`${j.sp.name}: harmonia ${j.notas.harmonia} potência ${j.notas.potencia} autoria ${j.notas.autoria} = ${j.total}`);
+  }
+  const comFicha = F.fichaParaEditar("charmander", "pidgeot");
+  comFicha.nome = "MEUBICHO"; comFicha.sprite = "data:image/png;base64,x"; comFicha.tipos = ["FOGO","VOADOR"];
+  F.salvarFicha(estado, "charmander", "pidgeot", comFicha);
+  const jf = K.julgar("charmander", "pidgeot");
+  p(`autoria com desenho e nome próprios: ${jf.notas.autoria} (antes 2)`, jf.notas.autoria > 2 ? "ok" : "erro");
+  const est2 = { player: {}, party: [], boxes: [], badges: ["pedra"], flags: {}, items: {}, money: 0 };
+  F.ligarEstado(est2);
+  const r = K.rodada(est2, { ...K.julgar("charmander","pidgeot"), dono: "EU" });
+  p(`rodada: ${r.entradas.length} entradas, você em ${r.colocacao}º`);
+  p(r.ordem.map((e) => `${e.dono || "EU"} ${e.sp.name} ${e.total}`).join(" | "));
+  p(`prêmio 1º: ${JSON.stringify(K.premio(est2, 1))}`);
+  p(`prêmio 1º repetido: ${JSON.stringify(K.premio({ flags: { concursoOuro: true } }, 1))}`);
+  p(`prêmio 5º: ${JSON.stringify(K.premio(est2, 5))}`);
+
+  h("PALCO NO MAPA");
+  p(`NPCs em cinnabar_island: ${(DB.MAPS.cinnabar_island.npcs || []).map((n) => n.id + "@" + n.x + "," + n.y).join(" ")}`);
+
+  h("MÓDULOS CARREGAM");
+  for (const m of ["/src/data/story.js", "/src/data/fusao.js", "/src/scenes/fusion.js",
+                   "/src/scenes/fusaoeditor.js", "/src/scenes/overworld.js", "/src/core/input.js",
+                   "/src/data/concurso.js", "/src/scenes/concurso.js",
+                   "/src/data/fusoes.js", "/src/data/fusoes-feitas.js"]) {
+    try { await import(m); p(`${m}`, "ok"); }
+    catch (e) { p(`${m}: ${e.message}`, "erro"); }
+  }
+
+  h("SPRITE");
+  const { Assets } = await import("/src/core/assets.js");
+  Assets.init();
+  const img = Assets.mon(fus.species, 7);
+  p(`sprite montado: ${img.width}x${img.height}`, img && img.width > 0 ? "ok" : "erro");
+} catch (e) {
+  p("EXPLODIU: " + (e?.stack || e), "erro");
+}
+out.innerHTML = linhas.join("");
+// manda o resultado pro dev server (o --screenshot dispara antes disto terminar)
+try {
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({
+    name: "fusaocheck",
+    log: linhas.join("\n").replace(/<[^>]+>/g, ""),
+    dataUrl: document.getElementById("screen").toDataURL(),
+  }) });
+} catch (e) {}
+document.title = "pronto";
+</script>
+</body>
+</html>
