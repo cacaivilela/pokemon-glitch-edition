@@ -462,8 +462,8 @@ export const FUSOES_FEITAS = {
   ],
   "porygon+xerneas": [
     {
-      "id": "porneas",
-      "nome": "PORNEAS",
+      "id": "porygoneas",
+      "nome": "PORYGONEAS",
       "autor": "",
       "tipos": [
         "NORMAL",
@@ -485,7 +485,7 @@ export const FUSOES_FEITAS = {
         "spd": 1.5,
         "spe": 1.5
       },
-      "sprite": "assets/fusoes/porygon+xerneas~porneas.png",
+      "sprite": "assets/fusoes/porygon+xerneas~porygoneas.png",
       "lore": "PORYGON NA CABEÇA, XERNEAS NO CORPO."
     }
   ]
