@@ -778,5 +778,33 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/krabby+geodude~krade.png",
       "lore": "KRABBY NA CABEÇA, GEODUDE NO CORPO."
     }
+  ],
+  "rotom+pikachu": [
+    {
+      "id": "rochu",
+      "nome": "ROCHU",
+      "autor": "CAIO",
+      "tipos": [
+        "ELÉTRICO"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 5.2,
+        "atk": 6.7,
+        "def": 7.1,
+        "spa": 3.4,
+        "spd": 2.9,
+        "spe": 3.4
+      },
+      "sprite": "assets/fusoes/rotom+pikachu~rochu.png",
+      "lore": "ROTOM NA CABEÇA, PIKACHU NO CORPO."
+    }
   ]
 };
