@@ -348,7 +348,7 @@ export const FUSOES_FEITAS = {
     {
       "id": "flakarp",
       "nome": "FLAKARP",
-      "autor": "",
+      "autor": "CAIO",
       "tipos": [
         "FOGO",
         "ÁGUA"
@@ -377,7 +377,7 @@ export const FUSOES_FEITAS = {
     {
       "id": "magikyrados",
       "nome": "MAGIKYRADOS",
-      "autor": "",
+      "autor": "CAIO",
       "tipos": [
         "ÁGUA",
         "VOADOR"
@@ -406,7 +406,7 @@ export const FUSOES_FEITAS = {
     {
       "id": "blastoijynx",
       "nome": "BLASTOIJYNX",
-      "autor": "",
+      "autor": "CAIO",
       "tipos": [
         "ÁGUA",
         "PSÍQUICO"
@@ -435,7 +435,7 @@ export const FUSOES_FEITAS = {
     {
       "id": "pikarpie",
       "nome": "PIKARPIE",
-      "autor": "",
+      "autor": "CAIO",
       "tipos": [
         "ELÉTRICO",
         "INSETO"
@@ -464,7 +464,7 @@ export const FUSOES_FEITAS = {
     {
       "id": "porygoneas",
       "nome": "PORYGONEAS",
-      "autor": "",
+      "autor": "CAIO",
       "tipos": [
         "NORMAL",
         "FADA"
@@ -609,7 +609,7 @@ export const FUSOES_FEITAS = {
     {
       "id": "hypmuk",
       "nome": "HYPMUK",
-      "autor": "",
+      "autor": "CAIO",
       "tipos": [
         "PSÍQUICO",
         "VENENO"
