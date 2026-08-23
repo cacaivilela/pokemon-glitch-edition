@@ -517,5 +517,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/venusaur+kabutops~venutops.png",
       "lore": "VENUSAUR NA CABEÇA, KABUTOPS NO CORPO."
     }
+  ],
+  "butterfree+eevee": [
+    {
+      "id": "buttervee",
+      "nome": "BUTTERVEE",
+      "autor": "CAIO",
+      "tipos": [
+        "INSETO",
+        "NORMAL"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 3.4,
+        "atk": 7.3,
+        "def": 6.3,
+        "spa": 2.9,
+        "spd": 3.5,
+        "spe": 5.9
+      },
+      "sprite": "assets/fusoes/butterfree+eevee~buttervee.png",
+      "lore": "BUTTERFREE NA CABEÇA, EEVEE NO CORPO."
+    }
   ]
 };
