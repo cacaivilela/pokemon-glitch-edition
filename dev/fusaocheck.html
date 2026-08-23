@@ -122,42 +122,6 @@ try {
     p(`dois shiny: brilhouNaFusao=${!!fz.brilhouNaFusao} (não precisa avisar)`, !fz.brilhouNaFusao ? "ok" : "erro");
   }
 
-  h("A ARTISTA");
-  {
-    const Art = await import("/src/systems/artista.js");
-    const { Assets: A2 } = await import("/src/core/assets.js");
-    A2.init();                       // a artista desenha: precisa da arte pronta
-    const stA = { player: {}, party: [], boxes: [], fusoes: {} };
-    F.ligarEstado(stA);
-    const escolha = Art.escolherDupla(stA);
-    p(`ela escolheu: ${escolha.sp.name} (${escolha.cabeca}+${escolha.corpo}) nota ${escolha.n.toFixed(1)}`,
-      escolha && escolha.n > 0 ? "ok" : "erro");
-    const ficha = Art.inventarFicha(escolha.cabeca, escolha.corpo);
-    p(`ficha: ${ficha.nome} [${ficha.tipos.join("/")}] ${ficha.temperamento.nome}`);
-    p(`crescimento: ${Object.entries(ficha.crescimento).map(([k, v]) => k + " " + v).join("  ")}`);
-    const auto = DB.FUSAO.ficha(escolha.sp);
-    const somaA = Object.values(auto.crescimento).reduce((a, b) => a + b, 0);
-    const somaF = Object.values(ficha.crescimento).reduce((a, b) => a + b, 0);
-    p(`o temperamento não infla o total: ${somaA.toFixed(1)} -> ${somaF.toFixed(1)}`,
-      Math.abs(somaA - somaF) < 0.6 ? "ok" : "erro");
-    p(`e mexeu de verdade nos atributos: ${JSON.stringify(auto.crescimento) !== JSON.stringify(ficha.crescimento)}`,
-      JSON.stringify(auto.crescimento) !== JSON.stringify(ficha.crescimento) ? "ok" : "erro");
-    p(`lore: ${ficha.lore}`);
-    const cv = Art.desenhar(escolha.cabeca, escolha.corpo);
-    p(`desenhou ${cv.width}x${cv.height}`, cv.width === 64 ? "ok" : "erro");
-    const png = cv.toDataURL("image/png");
-    p(`virou PNG de ${Math.round(png.length / 1024)} KB`, png.startsWith("data:image/png") ? "ok" : "erro");
-    const obra = Art.criar(stA);
-    p(`criar() devolve tudo junto: ${obra.ficha.nome} com desenho=${!!obra.ficha.sprite}`,
-      obra?.ficha?.sprite ? "ok" : "erro");
-    // duas vezes a mesma dupla dá o mesmo bicho (semente pela dupla)
-    const a1 = Art.desenhar("pikachu", "onix").toDataURL();
-    const a2 = Art.desenhar("pikachu", "onix").toDataURL();
-    p("a mesma dupla desenha igual todas as vezes", a1 === a2 ? "ok" : "erro");
-    const b1 = Art.desenhar("onix", "pikachu").toDataURL();
-    p("invertendo a dupla, o desenho muda", a1 !== b1 ? "ok" : "erro");
-  }
-
   h("VARIANTES DA DUPLA");
   for (const [a3, b3] of [["gengar","rayquaza"],["pikachu","bulbasaur"],["charmander","pidgeot"]]) {
     const vs = F.variantes(a3, b3);

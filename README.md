@@ -255,30 +255,6 @@ aparelho**: o `dev_server.py` que roda aqui grava a ficha no arquivo, e o
 `MANDAR PRO MUNDO` (que também é o seu computador, com o seu git) leva pro
 repositório quando você quiser.
 
-### A máquina desenha sozinha
-
-`A MÁQUINA DESENHA`, no menu do DECODIFICADOR. Ela faz o que você faz na
-oficina, uma fusão atrás da outra, enquanto você olha — e publica cada uma neste
-aparelho, assinando como **A MÁQUINA**.
-
-Não é sorteio. Cada passo tem critério (`src/systems/artista.js`):
-
-- **escolher** — sorteia dezenas de duplas e fica com a **melhor**: tipos que se
-  cobrem (a mesma conta da HARMONIA do concurso), nome que soa bem (nada de três
-  letras iguais nem três vogais seguidas), atributos que não desandam, e que
-  ninguém tenha feito ainda;
-- **pintar** — corpo recolorido com a paleta da cabeça, cabeça por cima num
-  corte que muda de dupla pra dupla, **contorno escuro** em volta (é o contorno
-  que faz parecer desenho, e não recorte) e um detalhe do tipo: brasa, gota,
-  faísca, folha, espinho, cristal, asa, fantasma que some no chão;
-- **ficha** — um **temperamento** (BRUTO, RELÂMPAGO, MURALHA, MÍSTICO,
-  EQUILIBRADO) empurra dois atributos pra cima e um pra baixo **mantendo o
-  total**, então cada ficha dela é diferente sem ser desequilibrada; a linha da
-  Pokédex sai do temperamento e dos dois nomes.
-
-A mesma dupla desenha sempre igual (a semente é a dupla), e invertendo os lados
-o desenho muda. `X` faz ela terminar a que está na bancada e parar.
-
 ### Mandar pro mundo### Mandar pro mundo
 
 Uma casa não é o mundo. Pra ir além do seu servidor existe um caminho só, e ele
@@ -794,7 +770,6 @@ src/
     mon.js  battle-engine.js  encounters.js  loot.js  dialogue.js  glitchfx.js
     mega.js            mega evoluir/desmegar (e a garantia de não gravar megado)
     fusao.js           fundir/separar, a espécie montada na hora e as fichas do jogador
-    artista.js         a máquina inventando e desenhando fusão sozinha
     concurso.js        as notas dos três jurados e a rodada com os rivais
     missoes.js         estado das missões e os checadores de objetivo
     online.js          presença, convites, chat e o filtro do que vem de fora
@@ -803,7 +778,6 @@ src/
     fusion.js          a fusão e a separação acontecendo na tela
     concurso.js        o palco de Cinnabar: entradas, notas e o resultado
     fusaoeditor.js     a oficina: estúdio de sprite, ficha e crescimento por nível
-    artista.js         a tela onde ela desenha, com você olhando
     online.js          a sala e o PRESENTE MISTERIOSO
     trade.js           a troca entre dois jogadores
     linkbattle.js      a batalha link

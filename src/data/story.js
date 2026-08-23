@@ -38,25 +38,6 @@ export const STORY = {
     },
   },
 
-  /** A ARTISTA: a máquina desenhando fusão sozinha, uma atrás da outra, e
-   *  publicando cada uma NESTE aparelho (src/scenes/artista.js). */
-  artista: {
-    titulo: "A MÁQUINA DESENHA SOZINHA",
-    abertura: [
-      "A BANCADA ACENDE SOZINHA E A FITA COMEÇA A CORRER.",
-      "ELA ESCOLHE A DUPLA, DESENHA, DÁ NOME E PUBLICA. DEPOIS COMEÇA OUTRA.",
-      "FIQUE OLHANDO O TANTO QUE QUISER. X FAZ ELA PARAR.",
-    ],
-    pintando: "DESENHANDO...",
-    publicada: "PUBLICADA",
-    ajuda: "X PARA QUANDO ELA TERMINAR ESTA",
-    parou: "ELA PAROU. {N} FUSÃO(ÕES) NOVA(S) SAÍRAM DA BANCADA HOJE.",
-    ondeEstao: "ESTÃO NO C DA MÁQUINA, COMO AS OUTRAS. E NO ARQUIVO, PRA SEMPRE.",
-    semDupla: "ELA OLHOU PRA TODAS AS DUPLAS QUE FALTAM E NÃO ACHOU NENHUMA. JÁ FIZERAM TODAS?",
-    naoPublicou: "A FITA CORREU, MAS NÃO TINHA ONDE GRAVAR. O SERVIDOR DESTE APARELHO ESTÁ LIGADO?",
-    semServidor: "AQUI NA WEB ELA NÃO TEM ONDE GRAVAR O QUE DESENHA. ISTO SÓ FUNCIONA NO JOGO RODANDO EM CASA.",
-  },
-
   /** COMANDOS, na tela de abertura. Fora do jogo eles ficam embaixo do canvas,
    *  mas quem abre o site no celular não vê aquela linha — e quem joga em tela
    *  cheia também não. Então eles moram aqui dentro também. */
@@ -369,7 +350,7 @@ export const STORY = {
     ],
     // a tela da máquina
     titulo: "DECODIFICADOR DE GENOMA",
-    menu: ["FUNDIR", "SEPARAR", "OFICINA", "A MÁQUINA DESENHA", "MUNDO", "DESLIGAR"],
+    menu: ["FUNDIR", "SEPARAR", "OFICINA", "MUNDO", "DESLIGAR"],
     escolheCabeca: "QUEM ENTRA COMO CABEÇA?",
     escolheCorpo: "QUEM ENTRA COMO CORPO?",
     escolheFusao: "QUAL GENOMA EU ABRO?",
