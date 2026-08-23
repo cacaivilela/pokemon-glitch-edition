@@ -430,5 +430,23 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/blastoise+jynx~blastoijynx.png",
       "lore": "BLASTOISE NA CABEÇA, JYNX NO CORPO."
     }
+  ],
+  "onix+ditto": [
+    {
+      "id": "onitto",
+      "nome": "ONITTO",
+      "autor": "TESTE",
+      "tipos": [
+        "PEDRA",
+        "NORMAL"
+      ],
+      "inicial": {
+        "hp": 12
+      },
+      "crescimento": {
+        "hp": 2.4
+      },
+      "sprite": "assets/fusoes/onix+ditto~onitto.png"
+    }
   ]
 };
