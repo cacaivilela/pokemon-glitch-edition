@@ -22,6 +22,7 @@ const POOLS = {
   FANTASMA:   ["lambida", "encarar", "confusao", "bolasombria"],
   "AÇO":      ["investida", "endurecer", "garrademetal", "cabecada"],
   SOMBRIO:    ["investida", "encarar", "mordida", "cabecada"],
+  FADA:       ["investida", "grito", "confusao", "psiquico"],
 };
 
 const SHAPE_BY_TYPE = {
@@ -30,7 +31,7 @@ const SHAPE_BY_TYPE = {
   PLANTA: "quadrupede", VENENO: "quadrupede", TERRA: "quadrupede", LUTADOR: "quadrupede",
   "ELÉTRICO": "roedor", NORMAL: "roedor", "PSÍQUICO": "roedor",
   INSETO: "larva", FANTASMA: "larva", SOMBRIO: "quadrupede",
-  VOADOR: "passaro",
+  VOADOR: "passaro", FADA: "roedor",
 };
 
 /** Espécies do início do jogo, escritas à mão. */

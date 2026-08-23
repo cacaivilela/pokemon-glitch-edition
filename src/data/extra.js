@@ -4,7 +4,10 @@
 //   - fósseis remontados errado: CRANIDOS, SHIELDON, LILEEP, ANORITH,
 //     TIRTOUGA, ARCHEN, DRACOZOLT, DRACOVISH
 //   - coisas que não deviam caber aqui: LUNATONE, SOLROCK, CRYOGONAL, GOLETT
-// Os lendários ficam por último (ver WEATHER_TRIO e RARE_LEGEND).
+// Os lendários ficam por último (ver WEATHER_TRIO, RARE_LEGEND e TEMPESTADE).
+// TORNADUS, THUNDURUS e LANDORUS não aparecem na grama de lugar nenhum: eles
+// moram na tempestade que não acaba, no mar perto de BIRTH ISLAND, e só se
+// chega lá de barco (as side quests do marinheiro — src/data/missoes.js).
 // Formato igual ao de gen1.js: dex NOME TIPO1[/TIPO2] HP ATK DEF SPA SPD SPE
 const TABLE = `
 233 PORYGON2 NORMAL 85 80 90 105 95 60
@@ -36,6 +39,12 @@ const TABLE = `
 606 BEHEEYEM PSÍQUICO 75 75 75 125 95 40
 649 GENESECT INSETO/AÇO 71 120 95 120 95 99
 235 SMEARGLE NORMAL 55 20 35 20 45 75
+716 XERNEAS FADA 126 131 95 131 98 99
+717 YVELTAL SOMBRIO/VOADOR 126 131 95 131 98 99
+718 ZYGARDE DRAGÃO/TERRA 108 100 121 81 95 95
+641 TORNADUS VOADOR 79 115 70 125 80 111
+642 THUNDURUS ELÉTRICO/VOADOR 79 115 70 125 80 111
+645 LANDORUS TERRA/VOADOR 89 125 90 115 80 101
 386 DEOXYS-ATAQUE PSÍQUICO 50 180 20 180 20 150
 386 DEOXYS-DEFESA PSÍQUICO 50 70 160 70 160 90
 386 DEOXYS-VELOCIDADE PSÍQUICO 50 95 90 95 90 180
@@ -155,3 +164,50 @@ export const TRIO_CHANCE = 0.003;
 
 /** a cada N Pokémon vistos na dimensão, um vem shiny */
 export const SHINY_EVERY = 2956;
+
+/** As três forças da natureza, na ordem em que a tempestade entrega:
+ *  o vento primeiro, o raio quando o vento sai, e o chão quando os dois somem
+ *  — que é o que acalma os outros dois. */
+export const TEMPESTADE = ["tornadus", "thundurus", "landorus"];
+
+/** OS TRÊS PARADOS EM KANTO.
+ *  XERNEAS, YVELTAL e ZYGARDE não aparecem na grama nem vêm da fenda: eles
+ *  estão PARADOS, cada um num lugar, esperando. Você anda até lá e encosta.
+ *
+ *  Só que o lugar não se acha sozinho: cada um tem uma missão que conta ONDE
+ *  procurar (O X MARCA O LUGAR, O Y DA MORTE, O Z DO DNA — src/data/missoes.js),
+ *  e enquanto o pedido não for aceito a clareira é só clareira, a usina é só
+ *  usina e o túnel é só túnel.
+ *  Derrubar sem capturar não resolve — saia do mapa e volte, e ele está lá de
+ *  novo, no mesmo lugar. (A tela que monta esses NPCs é src/scenes/overworld.js;
+ *  o nível e as falas saem daqui e têm hot-swap.)
+ */
+export const ESTATICOS = [
+  {
+    id: "xerneas", mapa: "viridian_forest", x: 23, y: 31, nivel: 60,
+    missao: "x-marca-o-lugar",
+    lines: [
+      "NO FUNDO DA FLORESTA TEM UMA CLAREIRA QUE NINGUÉM ABRIU.",
+      "O MATO EM VOLTA ESTÁ MAIS VERDE DO QUE DEVIA, EM CÍRCULO.",
+      "OS CHIFRES DELE ESTÃO ACESOS E NÃO É LUZ DO SOL.",
+    ],
+  },
+  {
+    id: "yveltal", mapa: "power_plant", x: 24, y: 16, nivel: 60,
+    missao: "y-da-morte",
+    lines: [
+      "A USINA NUNCA VOLTOU A FUNCIONAR — E NINGUÉM EXPLICOU POR QUÊ.",
+      "AS ASAS DELE ESTÃO ABERTAS EM CIMA DO GERADOR MORTO.",
+      "AS PONTAS BRILHAM VERMELHO. É A ÚNICA COISA COM ENERGIA AQUI DENTRO.",
+    ],
+  },
+  {
+    id: "zygarde", mapa: "rock_tunnel_b1f", x: 24, y: 20, nivel: 60,
+    missao: "z-do-dna",
+    lines: [
+      "O TÚNEL SE ABRE NUMA SALA QUE NÃO ESTÁ EM MAPA NENHUM.",
+      "O CHÃO ESTÁ COBERTO DE PONTINHOS VERDES QUE SE MEXEM JUNTOS.",
+      "ELES SE JUNTAM QUANDO VOCÊ CHEGA PERTO. AGORA É UM SÓ, E ELE OLHA PRA VOCÊ.",
+    ],
+  },
+];

@@ -11,6 +11,57 @@ export const STORY = {
     after: "A TELA VOLTA AO NORMAL COMO SE NADA TIVESSE ACONTECIDO.",
   },
 
+  /** A TEMPESTADE QUE NÃO ACABA: o mar perto de BIRTH ISLAND onde moram as três
+   *  forças da natureza. Só se chega de barco, com o marinheiro de VERMILION
+   *  (as side quests em src/data/missoes.js). O mapa é gerado em código. */
+  tempestade: {
+    nome: "TEMPESTADE",
+    nivel: 50,
+    espera: [
+      "EU FICO AQUI COM O BARCO. NÃO SAIO DELE NEM MORTO.",
+      "QUANDO QUISER VOLTAR, É SÓ FALAR COMIGO.",
+    ],
+    encontro: {
+      padrao: ["A CHUVA PAROU NUM CÍRCULO EM VOLTA DELE."],
+      tornadus: [
+        "O VENTO TODO DA TEMPESTADE ESTÁ SAINDO DAQUELE PONTO ALI.",
+        "NÃO É QUE ELE VOA NO VENTO. O VENTO É O RABO DELE.",
+      ],
+      thundurus: [
+        "O RAIO CAIU DE NOVO NO MESMO LUGAR. E DE NOVO. E DE NOVO.",
+        "NÃO É O RAIO QUE ACHA ELE: É ELE QUE VOLTA PRO MESMO PONTO.",
+      ],
+      landorus: [
+        "O RECIFE ESTÁ QUENTE E ELE ESTÁ NO MEIO, PARADO, COMO SE ESTIVESSE ESPERANDO.",
+        "COM O VENTO E O RAIO FORA DAQUI, SOBROU O CHÃO. E O CHÃO VEIO VER.",
+      ],
+    },
+  },
+
+  /** COMANDOS, na tela de abertura. Fora do jogo eles ficam embaixo do canvas,
+   *  mas quem abre o site no celular não vê aquela linha — e quem joga em tela
+   *  cheia também não. Então eles moram aqui dentro também. */
+  comandos: {
+    titulo: "COMANDOS",
+    ajuda: "CIMA/BAIXO ROLA   X VOLTA",
+    // cada linha da direita cabe em 23 letras: mais que isso, some na borda
+    lista: [
+      ["SETAS / WASD", "ANDAR"],
+      ["Z / ENTER", "CONFIRMAR E ATACAR"],
+      ["X / ESC", "VOLTAR, ABRIR O MENU"],
+      ["SHIFT", "CORRER"],
+      ["C", "MEGA NA BATALHA"],
+      ["C", "FERRAMENTA NA OFICINA"],
+      ["MOUSE", "PINTAR NA OFICINA"],
+      ["TAB", "TROCAR DE ABA"],
+      ["Q / E     R", "ZOOM      PINCEL"],
+      ["1-8  P  U  D", "COR PALETA DESFAZ LIMPA"],
+      ["M", "MUDO"],
+      ["F", "FPS E POSIÇÃO"],
+      ["G", "SACUDIR O GLITCH"],
+    ],
+  },
+
   /** o professor confere se você entendeu antes de contar o capítulo */
   oakCheck: {
     ask: "CALCULEI CERTO O TEMPO. OBRIGADO, CONOR. {NOME}, VOCÊ RECEBEU MINHA MENSAGEM?",
@@ -313,6 +364,9 @@ export const STORY = {
     separando: "A FITA VOLTA, LETRA POR LETRA.",
     separou: "{NOME} SE ABRIU EM {CABECA} E {CORPO}!",
     foiProBox: "{MON} NÃO COUBE NA EQUIPE E FOI PRO BOX.",
+    // shiny + comum: a cor rara pega nos dois, e não volta atrás
+    brilhoPegou: "O BRILHO DE UM PASSOU PRO OUTRO! OS DOIS ESTÃO SHINY LÁ DENTRO AGORA.",
+    saiuBrilhando: "OS DOIS SAÍRAM BRILHANDO.",
     // a ficha existe, mas ao contrário (fez A+B e está fundindo B+A)
     temFichaTag: "FICHA: {NOME}",
     fichaAoContrario: "FICHA AO CONTRÁRIO",
@@ -325,7 +379,10 @@ export const STORY = {
     publicou: "{NOME} ENTROU NO CÓDIGO. AGORA ELA APARECE NO C DA MÁQUINA, COMO AS OUTRAS.",
     // O MUNDO: o repositório de onde todo mundo baixou este jogo. Publicar
     // deixa a ficha nesta casa; mandar pro mundo põe ela no próprio jogo.
+    // o botão no menu do jogador: puxa tudo que foi publicado no mundo
+    atualizar: "ATUALIZAR",
     mundoBuscando: "PROCURANDO O QUE PUBLICARAM POR AÍ...",
+    mundoDesenhos: "{N} DELAS VIERAM COM O DESENHO DE QUEM FEZ.",
     semServidor: "ISTO SÓ FUNCIONA NO JOGO RODANDO EM CASA, COM O SERVIDOR LIGADO. AQUI NA WEB DÁ PRA FUNDIR E DESENHAR — MAS A FICHA FICA SÓ NESTE NAVEGADOR.",
     mundoChegou: "{N} FUSÃO(ÕES) NOVA(S) CHEGARAM DO MUNDO. JÁ ESTÃO NO C DA MÁQUINA.",
     mundoNada: "NADA NOVO POR LÁ. VOCÊ JÁ TEM TUDO QUE PUBLICARAM.",
@@ -348,6 +405,21 @@ export const STORY = {
     // a oficina: o editor de fusões (src/scenes/fusaoeditor.js)
     oficina: "OFICINA DE GENOMA",
     escolheOficina: "QUAL GENOMA VOU ABRIR NA BANCADA?",
+    // dá pra desenhar uma dupla que você não tem: é só dizer quais são
+    oficinaComo: "DE ONDE VÊM OS DOIS?",
+    oficinaOpcoes: ["DA MINHA EQUIPE", "DIGITAR NÚMERO OU NOME"],
+    digitarTitulo: "BANCADA LIVRE",
+    digitarCabeca: "CABEÇA",
+    digitarCorpo: "CORPO",
+    digitarAbrir: "ABRIR A BANCADA",
+    digitarVazio: "— NÚMERO OU NOME —",
+    digitarNaoAchou: "NÃO ACHEI NINGUÉM COM ESSE NÚMERO OU NOME.",
+    digitarFaltam: "PRECISO DOS DOIS LADOS PRA ABRIR A BANCADA.",
+    digitarAjuda: [
+      "Z DIGITA   CIMA/BAIXO ESCOLHE   X SAI",
+      "VALE O NÚMERO DA POKÉDEX (025) OU O NOME (PIKACHU)",
+      "NÃO PRECISA TER OS DOIS: AQUI É SÓ O DESENHO",
+    ],
     // a linha de baixo do editor: elas se revezam, porque não cabem juntas
     // cada linha cabe nos 40 caracteres da tela; elas se revezam sozinhas
     ajudaDesenho: [

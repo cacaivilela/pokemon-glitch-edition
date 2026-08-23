@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, online, gifts, maps, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, online, gifts, maps, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -24,6 +24,8 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./fusoes.js" + V),
   import("./fusoes-feitas.js" + V),
   import("./concurso.js" + V),
+  import("./idiomas.js" + V),
+  import("./missoes.js" + V),
   import("./online.js" + V),
   import("./gifts.js" + V),
   import("./maps.js" + V),
@@ -148,6 +150,36 @@ function islandMap() {
   };
 }
 
+/** A TEMPESTADE QUE NÃO ACABA: mar aberto perto de BIRTH ISLAND, com um
+ *  recife de pedra no meio onde dá pra ficar de pé. Não é mapa do FireRed, não
+ *  existe caminho por terra e não tem porta: só se chega de barco (as side
+ *  quests do marinheiro) e só se sai falando com ele de novo. */
+const TEMPESTADE = { w: 20, h: 16 };
+export const TEMPESTADE_PIER = { x: 10, y: 10, dir: "up" };
+
+function stormMap(story) {
+  const { w, h } = TEMPESTADE;
+  const cx = (w - 1) / 2, cy = (h - 1) / 2;
+  let tags = "", terrain = "";
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      // o recife é uma mancha irregular no meio; o resto é mar bravo
+      const d = ((x - cx) / 4.6) ** 2 + ((y - cy) / 3.4) ** 2;
+      const ruido = hash2(x, y, 7717) * 0.5;
+      const pedra = d + ruido * 0.35 <= 1;
+      terrain += "g";
+      tags += pedra ? "0" : "3";
+    }
+  }
+  return {
+    w, h, tags, terrain, warps: [], connections: [], signs: [], objects: [],
+    content: {
+      name: story.tempestade?.nome || "TEMPESTADE", music: "cave",
+      interior: false, npcs: [], encounters: [],
+    },
+  };
+}
+
 /** true quando a ilha está sendo desenhada aqui, e não veio do decomp */
 export const ILHA_GERADA = !kanto?.birth_island;
 
@@ -170,6 +202,8 @@ export function buildDB() {
     WEATHER_TRIO: extra.WEATHER_TRIO,
     RARE_LEGEND: extra.RARE_LEGEND,
     DEOXYS_FORMS: extra.DEOXYS_FORMS,
+    TEMPESTADE: extra.TEMPESTADE,
+    ESTATICOS: extra.ESTATICOS,
     TRIO_CHANCE: extra.TRIO_CHANCE,
     SHINY_EVERY: extra.SHINY_EVERY,
     FRAGMENT_SPOTS: frags.FRAGMENT_SPOTS,
@@ -201,15 +235,22 @@ export function buildDB() {
     FUSOES: fusoes.FUSOES,
     FUSOES_FEITAS: feitas.FUSOES_FEITAS,
     CONCURSO: concurso.CONCURSO,
+    MISSOES: missoes.MISSOES,
+    MISSAO_TEXTO: missoes.MISSAO_TEXTO,
+    IDIOMAS: idiomas.IDIOMAS,
+    DICIONARIOS: idiomas.DICIONARIOS,
+    AVISO_IDIOMA: idiomas.AVISO_IDIOMA,
     ONLINE: online.ONLINE,
     FRASES: online.FRASES,
     EMOTES: online.EMOTES,
     ONLINE_TEXTO: online.ONLINE_TEXTO,
     GIFT_CODES: gifts.GIFT_CODES,
     GIFT_TEXTO: gifts.GIFT_TEXTO,
-    MAPS: mergeMaps({ ...kanto, ...ilhaFallback, glitchdim: dimensionMap(story.STORY) }, maps.MAPS),
+    MAPS: mergeMaps({ ...kanto, ...ilhaFallback, glitchdim: dimensionMap(story.STORY),
+                     tempestade: stormMap(story.STORY) }, maps.MAPS),
     STORY: story.STORY,
-    KANTO: { ...(kanto || {}), ...ilhaFallback, glitchdim: dimensionMap(story.STORY) },
+    KANTO: { ...(kanto || {}), ...ilhaFallback, glitchdim: dimensionMap(story.STORY),
+             tempestade: stormMap(story.STORY) },
     TAG: maps.TAG,
     LEDGE_DIR: maps.LEDGE_DIR,
     START_MAP: maps.START_MAP,

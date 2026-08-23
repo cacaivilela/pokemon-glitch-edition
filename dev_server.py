@@ -378,6 +378,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                                        "aviso": "ninguem publicou nada por la ainda"})
             de_la, aqui = self._fichas_do_texto(texto), self._le_fichas()
             novas = 0
+            desenhos = 0
             for chave, lista in de_la.items():
                 minhas = aqui.setdefault(chave, [])
                 ids = {f.get("id") for f in minhas}
@@ -385,9 +386,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     if f.get("id") not in ids:
                         minhas.append(f)
                         novas += 1
+                        if f.get("sprite"):
+                            desenhos += 1   # veio com o desenho de quem fez
             if novas:
                 self._grava_fichas(aqui)     # o watcher avisa todo mundo: hot-swap
-            return self._responde({"ok": True, "novas": novas,
+            return self._responde({"ok": True, "novas": novas, "desenhos": desenhos,
                                    "total": sum(len(v) for v in aqui.values())})
 
         if acao == "enviar":

@@ -115,6 +115,8 @@ export class FusionScene {
       msgs.push(F.fundiu
         .replace("{CABECA}", this.nomes[0]).replace("{CORPO}", this.nomes[1])
         .replace("{NOME}", this.fus.nickname));
+      // o brilho de um passou pro outro: vale dizer, porque muda os dois pra sempre
+      if (this.fus.brilhouNaFusao) msgs.push(F.brilhoPegou);
     } else {
       const [cabeca, corpo] = this.partido;
       const i = st.party.indexOf(this.mon);
@@ -122,6 +124,7 @@ export class FusionScene {
       msgs.push(F.separou
         .replace("{NOME}", this.mon.nickname)
         .replace("{CABECA}", cabeca.nickname).replace("{CORPO}", corpo.nickname));
+      if (cabeca.shiny && corpo.shiny) msgs.push(F.saiuBrilhando);
       if (st.party.length < 6) {
         st.party.splice(i + 1, 0, corpo);
       } else {

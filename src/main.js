@@ -4,6 +4,8 @@ import { Assets } from "./core/assets.js";
 import { initInput, Input } from "./core/input.js";
 import { Audio2 } from "./core/audio.js";
 import { Save } from "./core/save.js";
+import { Opcoes } from "./core/opcoes.js";
+import { usarIdioma } from "./core/idioma.js";
 import { setTextVars } from "./systems/dialogue.js";
 import { SceneStack } from "./core/scene.js";
 import { initHot } from "./core/hot.js";
@@ -145,9 +147,16 @@ const game = {
     Audio2.playMusic(alias, song);
   },
 
+  /** liga o idioma guardado nas opções (e o dicionário novo, no hot-swap) */
+  aplicarIdioma() {
+    const id = Opcoes.get("idioma") || "pt";
+    usarIdioma(id, DB.DICIONARIOS?.[id] || null);
+  },
+
   /** chamado pelo live update quando src/data/* muda */
   applyData(next) {
     Object.assign(DB, next);
+    this.aplicarIdioma();               // o dicionário pode ter sido reescrito
     registrarDoEstado(this.state);      // o DB novo veio sem as fusões desta partida
     this.state.party.forEach(recalc);
     this.state.box?.forEach(recalc);
@@ -166,6 +175,7 @@ const game = {
 
 Assets.init();
 initInput(window);
+game.aplicarIdioma();
 
 // sprites externos (assets/sprites/**) entram por cima da arte provisoria.
 // A lista sai dos proprios mapas — todo NPC, os oito lideres de ginasio inclusos —
@@ -350,6 +360,7 @@ if (q.has("give")) {
 }
 
 SpriteStore.maps.glitchdim = Assets.glitchRoom(DB.KANTO.glitchdim);
+SpriteStore.maps.tempestade = Assets.stormArt(DB.KANTO.tempestade);
 // só desenha a ilha em código quando o mapa do decomp não foi importado
 if (ILHA_GERADA) SpriteStore.maps.birth_island = Assets.islandArt(DB.KANTO.birth_island);
 mapArt(game.state.player.map); // começa a carregar a arte do mapa atual

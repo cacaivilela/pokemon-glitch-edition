@@ -6,6 +6,7 @@
 //
 // As coordenadas dos NPCs são as mesmas do jogo original (x,y em tiles).
 import { CONCURSO } from "./concurso.js";
+import { MISSOES } from "./missoes.js";
 
 /** O palco do CONCURSO DE FUSÃO, na praça do sul de Cinnabar: a anfitriã na
  *  beira e os três jurados de frente pra plateia. Os nomes e as falas de
@@ -580,3 +581,25 @@ export const TAG = { FREE: 0, BLOCK: 1, GRASS: 2, WATER: 3, LEDGE_S: 4, LEDGE_E:
 // original não deixa o jogador andar por cima da máquina.
 export const PC_CENTRO = ["11,0", "11,1", "11,2"];
 export const LEDGE_DIR = { 4: "down", 5: "right", 6: "left", 7: "up" };
+
+// ---------------------------------------------------------------- side quests
+// Os NPCs das missões (src/data/missoes.js) entram aqui, cada um no mapa dele.
+// Fica assim, e não escrito à mão mapa por mapa, porque o pedido, a fala e o
+// lugar são a MESMA coisa: escrever a missão já é colocar o NPC no mundo.
+const jaPosto = new Set();
+for (const q of MISSOES) {
+  // várias missões no mesmo tile são o MESMO NPC (o marinheiro tem três): ele
+  // entra uma vez só, e o jogo escolhe qual pedido ele faz (ver `daVez`).
+  const lugar = `${q.mapa}.${q.x},${q.y}`;
+  if (jaPosto.has(lugar)) continue;
+  jaPosto.add(lugar);
+  const mapa = (MAPS[q.mapa] ||= {});
+  const npc = {
+    id: `missao_${q.id}`, x: q.x, y: q.y, dir: q.dir || "down",
+    sprite: q.sprite, missao: q.id, lines: q.oferta,
+  };
+  // Mapa que escreve a lista `npcs` inteira ignora `addNpcs` (ver mergeMaps em
+  // src/data/index.js): nesse caso o NPC da missão entra na lista dele.
+  if (Array.isArray(mapa.npcs)) mapa.npcs.push(npc);
+  else (mapa.addNpcs ||= []).push(npc);
+}

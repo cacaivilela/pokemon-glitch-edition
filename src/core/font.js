@@ -2,6 +2,8 @@
 // Minusculas sao mapeadas para maiusculas (estetica Gen 1). Acentos sao
 // derivados: o glifo base desce 1px e a marca e desenhada na linha 0.
 
+import { traduz } from "./idioma.js";
+
 const G = {
   A: [" ### ", "#   #", "#   #", "#####", "#   #", "#   #", "#   #"],
   B: ["#### ", "#   #", "#   #", "#### ", "#   #", "#   #", "#### "],
@@ -115,7 +117,8 @@ function atlasFor(color) {
 
 /** Desenha texto (sempre em caixa alta). opts: { shadow, maxChars } */
 export function drawText(ctx, text, x, y, color = "#20242c", opts = {}) {
-  const s = String(text).toUpperCase();
+  // o idioma entra aqui: o que não tiver tradução sai como foi escrito
+  const s = traduz(text).toUpperCase();
   const n = opts.maxChars == null ? s.length : Math.min(s.length, Math.max(0, opts.maxChars));
   if (opts.shadow) blit(ctx, s, x + 1, y + 1, opts.shadow, n);
   blit(ctx, s, x, y, color, n);

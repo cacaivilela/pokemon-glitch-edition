@@ -208,6 +208,15 @@ export function fundir(cabeca, corpo, variante = "") {
   mon.status = cabeca.status || corpo.status || null;
   mon.hp = Math.max(1, Math.round(mon.maxHp * ((fracao(cabeca) + fracao(corpo)) / 2)));
   mon.fusao = { cabeca: clone(cabeca), corpo: clone(corpo) };
+  // O BRILHO PEGA. Fundir um shiny com um comum não deixa a cor de um deles
+  // pra trás: a fusão sai shiny e os DOIS que estão guardados lá dentro saem
+  // shiny também — separar depois devolve os dois brilhando. É a única coisa
+  // que a máquina escreve por cima do que entrou.
+  if (mon.shiny) {
+    mon.fusao.cabeca.shiny = true;
+    mon.fusao.corpo.shiny = true;
+    mon.brilhouNaFusao = !(cabeca.shiny && corpo.shiny);   // um só era: pegou no outro
+  }
   return mon;
 }
 
@@ -250,6 +259,30 @@ export function previsao(cabeca, corpo, variante = "") {
   // você confirmar (Assets.mon monta o sprite a partir da espécie)
   if (sp) DB.SPECIES[sp.id] = sp;
   return sp;
+}
+
+/** Acha a espécie por NÚMERO da Pokédex ou por NOME — é assim que a oficina
+ *  deixa você desenhar uma dupla que você não tem (e talvez nunca tenha).
+ *  Aceita "025", "25", "PIKACHU", "pikachu", "MR. MIME", "NIDORAN M". Formas
+ *  MEGA e fusões ficam de fora: elas não são ponto de partida de nada. */
+export function especiePorTexto(texto) {
+  const cru = String(texto || "").trim();
+  if (!cru) return null;
+  const candidatos = Object.values(DB.SPECIES || {}).filter((sp) => !sp.mega && !partes(sp.id));
+
+  if (/^\d+$/.test(cru)) {
+    const n = parseInt(cru, 10);
+    // número da Pokédex: a espécie base ganha da forma alternativa (DEOXYS)
+    const iguais = candidatos.filter((sp) => sp.dex === n);
+    return iguais.find((sp) => !sp.name.includes("-")) || iguais[0] || null;
+  }
+
+  const limpa = (t) => String(t).toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const alvo = limpa(cru);
+  if (!alvo) return null;
+  return candidatos.find((sp) => sp.id === alvo || limpa(sp.name) === alvo)
+    || candidatos.find((sp) => sp.id.startsWith(alvo) || limpa(sp.name).startsWith(alvo))
+    || null;
 }
 
 // ---------------------------------------------------------------- oficina

@@ -792,6 +792,45 @@ export const Assets = {
     return cv;
   },
 
+  /** A TEMPESTADE QUE NÃO ACABA, desenhada em runtime: mar escuro com crista de
+   *  espuma, chuva atravessando a tela na diagonal e o recife de pedra molhada.
+   *  O mapa não vem do FireRed — ele é gerado em src/data/index.js. */
+  stormArt(geo, seed = 6411) {
+    const r = makeRng(seed);
+    const { w: tw, h: th, tags } = geo;
+    const { cv, ctx } = makeCanvas(tw * 16, th * 16);
+    const MAR = ["#0b1a2e", "#12263f", "#081422", "#183351"];
+    const PEDRA = ["#2f3138", "#3d4049", "#24262b", "#4a4e59"];
+    for (let y = 0; y < th; y++) {
+      for (let x = 0; x < tw; x++) {
+        const pedra = tags[y * tw + x] === "0";
+        const pal = pedra ? PEDRA : MAR;
+        for (let py = 0; py < 16; py += 4) {
+          for (let px2 = 0; px2 < 16; px2 += 4) {
+            ctx.fillStyle = r.pick(pal);
+            ctx.fillRect(x * 16 + px2, y * 16 + py, 4, 4);
+          }
+        }
+        if (!pedra && r.chance(0.3)) {          // crista de onda
+          ctx.fillStyle = r.chance(0.5) ? "#8fb6d8" : "#5b7fa8";
+          ctx.fillRect(x * 16 + r.int(8), y * 16 + r.int(14), 6 + r.int(5), 1);
+        }
+        if (pedra && r.chance(0.35)) {          // poça em cima da pedra
+          ctx.fillStyle = "#1b2b3d";
+          ctx.fillRect(x * 16 + r.int(10), y * 16 + r.int(10), 4 + r.int(4), 2);
+        }
+      }
+    }
+    // a chuva: riscos na diagonal, atravessando o mapa inteiro
+    for (let i = 0; i < cv.width * 0.9; i++) {
+      const x = r.int(cv.width + 40) - 20, y = r.int(cv.height);
+      const n = 5 + r.int(7);
+      ctx.fillStyle = r.chance(0.25) ? "#cfe4f5" : "#7f9dbc";
+      for (let k = 0; k < n; k++) ctx.fillRect(x + k, y + k * 2, 1, 1);
+    }
+    return cv;
+  },
+
   glitchRoom(geo, seed = 4242) {
     const r = makeRng(seed);
     const { w: tw, h: th, tags, terrain } = geo;

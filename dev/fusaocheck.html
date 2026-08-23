@@ -85,6 +85,43 @@ try {
   F.registrarDoEstado(salvo);
   p(`espécie remontada do id: ${DB.SPECIES[fus.species]?.name}`, DB.SPECIES[fus.species] ? "ok" : "erro");
 
+  h("BANCADA LIVRE (DIGITAR)");
+  for (const t of ["025", "25", "PIKACHU", "pikachu", "MEWTWO", "1", "151", "641", "TORNADUS", "mr mime", "MR. MIME", "nidoran m", "PORYGON-Z", "XYZ", "999", ""]) {
+    const sp = F.especiePorTexto(t);
+    p(`  "${t}" -> ${sp ? sp.name + " (" + sp.id + ", dex " + sp.dex + ")" : "não achou"}`);
+  }
+  {
+    const achou = (t, id) => F.especiePorTexto(t)?.id === id;
+    p("número e nome dão o mesmo bicho",
+      achou("025", "pikachu") && achou("PIKACHU", "pikachu") ? "ok" : "erro");
+    p("aceita espécie de fora de Kanto pelo número (641)", achou("641", "tornadus") ? "ok" : "erro");
+    p("lixo não vira espécie", !F.especiePorTexto("XYZ") && !F.especiePorTexto("") ? "ok" : "erro");
+    const sp = F.montarEspecie("mewtwo", "tornadus");
+    p(`dupla que ninguém tem: ${sp.name} [${sp.types.join("/")}]`, sp ? "ok" : "erro");
+  }
+
+  h("O BRILHO PEGA (SHINY)");
+  {
+    const estS = { player: {}, party: [], boxes: [], fusoes: {} };
+    F.ligarEstado(estS);
+    const comum = createMon("pikachu", 20);
+    const brilha = createMon("bulbasaur", 22, { shiny: true });
+    p(`antes: pikachu shiny=${!!comum.shiny}, bulbasaur shiny=${!!brilha.shiny}`);
+    const fx = F.fundir(comum, brilha);
+    DB.SPECIES[fx.species] = F.montarEspecie("pikachu", "bulbasaur");
+    p(`a fusão saiu shiny: ${!!fx.shiny}`, fx.shiny ? "ok" : "erro");
+    p(`os dois guardados dentro: cabeça=${!!fx.fusao.cabeca.shiny} corpo=${!!fx.fusao.corpo.shiny}`,
+      fx.fusao.cabeca.shiny && fx.fusao.corpo.shiny ? "ok" : "erro");
+    p(`avisa que o brilho pegou: ${!!fx.brilhouNaFusao}`, fx.brilhouNaFusao ? "ok" : "erro");
+    const [c1, c2] = F.separar(fx);
+    p(`separou: ${c1.species} shiny=${!!c1.shiny} | ${c2.species} shiny=${!!c2.shiny}`,
+      c1.shiny && c2.shiny ? "ok" : "erro");
+    const fy = F.fundir(createMon("rattata", 10), createMon("pidgey", 10));
+    p(`dois comuns continuam comuns: ${!!fy.shiny}`, !fy.shiny ? "ok" : "erro");
+    const fz = F.fundir(createMon("abra", 10, { shiny: true }), createMon("kadabra", 10, { shiny: true }));
+    p(`dois shiny: brilhouNaFusao=${!!fz.brilhouNaFusao} (não precisa avisar)`, !fz.brilhouNaFusao ? "ok" : "erro");
+  }
+
   h("VARIANTES DA DUPLA");
   for (const [a3, b3] of [["gengar","rayquaza"],["pikachu","bulbasaur"],["charmander","pidgeot"]]) {
     const vs = F.variantes(a3, b3);
@@ -136,11 +173,165 @@ try {
   h("PALCO NO MAPA");
   p(`NPCs em cinnabar_island: ${(DB.MAPS.cinnabar_island.npcs || []).map((n) => n.id + "@" + n.x + "," + n.y).join(" ")}`);
 
+  h("SIDE QUESTS");
+  const Q = await import("/src/systems/missoes.js");
+  p(`${DB.MISSOES.length} missões: ${DB.MISSOES.map((m) => m.nome).join(" | ")}`);
+  const vistos = new Set();
+  for (const m of DB.MISSOES) {
+    const mapa = DB.MAPS[m.mapa];
+    const lugar = `${m.mapa}.${m.x},${m.y}`;
+    // NPC com fila de pedidos entra uma vez só: o segundo em diante é o mesmo
+    const primeiro = !vistos.has(lugar);
+    vistos.add(lugar);
+    const npc = (mapa?.npcs || []).find((n) => n.missao && n.x === m.x && n.y === m.y);
+    if (!primeiro) { p(`  ${m.nome}: mesmo NPC de ${lugar}`, npc ? "ok" : "erro"); continue; }
+    const geo = DB.KANTO[m.mapa];
+    const tag = geo ? geo.tags[m.y * geo.w + m.x] : "?";
+    const vizinhos = (mapa?.npcs || []).filter((n) => n.x === m.x && n.y === m.y);
+    const portas = (geo?.warps || []).some((wp) => wp.x === m.x && wp.y === m.y - 1);
+    p(`  ${m.mapa} (${m.x},${m.y}) tag=${tag} npc=${npc ? "no mapa" : "SUMIU"}` +
+      `${vizinhos.length > 1 ? " EM CIMA DE OUTRO NPC" : ""}${portas ? " NA FRENTE DE UMA PORTA" : ""}`,
+      npc && tag === "0" && vizinhos.length === 1 && !portas ? "ok" : "erro");
+  }
+  {
+    const st = { party: [], boxes: [], caught: {}, items: {}, money: 0, flags: {}, fusoes: {}, missoes: {} };
+    p(`antes de falar com ninguém: diário tem ${Q.diario(st).length} linha(s)`, Q.diario(st).length === 0 ? "ok" : "erro");
+    Q.aceitar(st, "isca");
+    p(`aceitou ISCA -> ${Q.estado(st, "isca")}`, Q.estado(st, "isca") === "ativa" ? "ok" : "erro");
+    st.party.push(createMon("magikarp", 5));
+    p(`com um MAGIKARP -> ${Q.estado(st, "isca")}`, Q.estado(st, "isca") === "pronta" ? "ok" : "erro");
+    const linhas = Q.entregar(st, "isca");
+    p(`entregou: ${linhas.join(" / ")}`);
+    p(`dinheiro ${st.money}, itens ${JSON.stringify(st.items)} -> ${Q.estado(st, "isca")}`,
+      st.money === 1200 && st.items["doce raro"] === 2 && Q.estado(st, "isca") === "feita" ? "ok" : "erro");
+
+    for (const id of ["caterpie", "weedle", "paras", "venonat", "scyther"]) st.caught[id] = true;
+    const ins = Q.progresso(st, "insetos");
+    p(`insetos: ${ins.atual}/${ins.alvo}`, ins.feito ? "ok" : "erro");
+    st.caught.porygon2 = true;
+    p(`espécie de fora capturada: ${Q.progresso(st, "fenda").feito}`, Q.progresso(st, "fenda").feito ? "ok" : "erro");
+    st.flags.concursoRecorde = 21.4;
+    p(`troféu (20 pontos): ${Q.progresso(st, "trofeu").atual}/${Q.progresso(st, "trofeu").alvo}`,
+      Q.progresso(st, "trofeu").feito ? "ok" : "erro");
+    const fus3 = F.fundir(createMon("gengar", 30), createMon("haunter", 28));
+    st.party.push(fus3);
+    p(`fusão na equipe: ${Q.progresso(st, "primeira-fusao").feito}`, Q.progresso(st, "primeira-fusao").feito ? "ok" : "erro");
+    st.fusoes["gengar+haunter"] = { nome: "X", sprite: "data:image/png;base64,x" };
+    p(`ficha desenhada: ${Q.progresso(st, "retrato").feito}`, Q.progresso(st, "retrato").feito ? "ok" : "erro");
+    st.party.push(createMon("bulbasaur", 5), createMon("charmander", 5), createMon("squirtle", 5));
+    const tri = Q.progresso(st, "trio");
+    p(`trio inicial: ${tri.atual}/${tri.alvo}`, tri.feito ? "ok" : "erro");
+    Q.aceitar(st, "trio"); Q.aceitar(st, "insetos");
+    p(`diário: ${Q.diario(st).map((l) => l.missao.nome + "=" + l.estado).join(", ")}`);
+  }
+
+  h("PARADOS EM KANTO");
+  for (const e of DB.ESTATICOS || []) {
+    const sp = DB.SPECIES[e.id];
+    const geo = DB.KANTO[e.mapa];
+    const tag = geo ? geo.tags[e.y * geo.w + e.x] : "?";
+    const frente = geo ? geo.tags[(e.y + 1) * geo.w + e.x] : "?";
+    const outro = (DB.MAPS[e.mapa]?.npcs || []).some((n) => n.x === e.x && n.y === e.y);
+    p(`  ${sp?.name} [${sp?.types.join("/")}] em ${e.mapa} (${e.x},${e.y}) nv${e.nivel} ` +
+      `tag=${tag} chega-por=${frente}${outro ? " EM CIMA DE OUTRO NPC" : ""}`,
+      sp && tag === "0" && frente === "0" && !outro ? "ok" : "erro");
+  }
+  {
+    // o pedido é a chave: sem ele, o lugar é só o lugar
+    const stX = { party: [], boxes: [], caught: {}, items: {}, money: 0, flags: {}, badges: [], missoes: {} };
+    const visivel = (e) => (!e.missao || stX.missoes[e.missao]) && !stX.caught[e.id];
+    p(`sem nenhuma missão aceita, aparecem: ${(DB.ESTATICOS || []).filter(visivel).length}`,
+      (DB.ESTATICOS || []).filter(visivel).length === 0 ? "ok" : "erro");
+    stX.badges = ["a","b","c","d"];
+    const vX = Q.daVez(stX, "x-marca-o-lugar");
+    p(`com 4 insígnias o museu oferece: ${vX.missao?.nome}`, vX.missao?.id === "x-marca-o-lugar" && !vX.travada ? "ok" : "erro");
+    Q.aceitar(stX, "x-marca-o-lugar");
+    p(`aceitou -> aparece só o XERNEAS: ${(DB.ESTATICOS || []).filter(visivel).map((e) => e.id).join(",")}`,
+      (DB.ESTATICOS || []).filter(visivel).length === 1 ? "ok" : "erro");
+    stX.caught.xerneas = true;
+    p(`capturou -> missão ${Q.estado(stX, "x-marca-o-lugar")} e ele some do mapa: ${(DB.ESTATICOS || []).filter(visivel).length === 0}`,
+      Q.estado(stX, "x-marca-o-lugar") === "pronta" ? "ok" : "erro");
+    const linhas = Q.entregar(stX, "x-marca-o-lugar");
+    p(`entregou: $${stX.money}`, stX.money === 9000 ? "ok" : "erro");
+    p(`Y e Z travados sem insígnia: ${Q.daVez(stX, "y-da-morte").travada} / ${Q.daVez(stX, "z-do-dna").travada}`,
+      Q.daVez(stX, "y-da-morte").travada && Q.daVez(stX, "z-do-dna").travada ? "ok" : "erro");
+  }
+  {
+    const ef = DB.effectiveness;
+    p(`FADA existe: ${DB.TYPES.includes("FADA")}`, DB.TYPES.includes("FADA") ? "ok" : "erro");
+    p(`FADA em DRAGÃO = ${ef("FADA", ["DRAGÃO"])}x, DRAGÃO em FADA = ${ef("DRAGÃO", ["FADA"])}x`,
+      ef("FADA", ["DRAGÃO"]) === 2 && ef("DRAGÃO", ["FADA"]) === 0 ? "ok" : "erro");
+    p(`VENENO e AÇO em FADA = ${ef("VENENO", ["FADA"])}x / ${ef("AÇO", ["FADA"])}x`,
+      ef("VENENO", ["FADA"]) === 2 && ef("AÇO", ["FADA"]) === 2 ? "ok" : "erro");
+    p(`LUTADOR, INSETO e SOMBRIO em FADA = ${ef("LUTADOR", ["FADA"])}/${ef("INSETO", ["FADA"])}/${ef("SOMBRIO", ["FADA"])}`,
+      ef("LUTADOR", ["FADA"]) === 0.5 && ef("SOMBRIO", ["FADA"]) === 0.5 ? "ok" : "erro");
+    p(`YVELTAL contra ZYGARDE: ${ef("SOMBRIO", DB.SPECIES.zygarde.types)}x`);
+    p(`cor do tipo: ${DB.TYPE_COLOR.FADA}`, DB.TYPE_COLOR.FADA ? "ok" : "erro");
+    const m = createMon("xerneas", 60);
+    p(`XERNEAS nv60: hp ${m.maxHp} atk ${m.stats.atk} golpes ${m.moves.map((g) => g.id).join(",")}`,
+      m.maxHp > 0 && m.moves.length ? "ok" : "erro");
+  }
+
+  h("A TEMPESTADE (LENDÁRIOS)");
+  {
+    const geo = DB.KANTO.tempestade;
+    const pedra = (x, y) => geo.tags[y * geo.w + x] === "0";
+    p(`mapa ${geo.w}x${geo.h}, recife com ${[...geo.tags].filter((t) => t === "0").length} tiles`);
+    p(`chegada (10,10) e barco (11,10) em pedra: ${pedra(10,10)} / ${pedra(11,10)}`, pedra(10,10) && pedra(11,10) ? "ok" : "erro");
+    p(`o lendário (9,6) em pedra: ${pedra(9,6)}`, pedra(9,6) ? "ok" : "erro");
+    for (const id of DB.TEMPESTADE || ["tornadus","thundurus","landorus"]) {
+      const sp = DB.SPECIES[id];
+      p(`  ${sp?.name} [${sp?.types.join("/")}] dex ${sp?.dex} total ${sp?.bst}`, sp ? "ok" : "erro");
+    }
+    const st2 = { party: [], boxes: [], caught: {}, items: {}, money: 0, flags: {}, badges: [], missoes: {} };
+    p(`sem insígnia: ${JSON.stringify(Q.daVez(st2, "tempestade").travada)} (travada)`,
+      Q.daVez(st2, "tempestade").travada ? "ok" : "erro");
+    st2.badges = ["pedra", "cascata", "trovao"];
+    const v1 = Q.daVez(st2, "tempestade");
+    p(`com 3 insígnias, o marinheiro oferece: ${v1.missao.nome}`, v1.missao.id === "tempestade" && !v1.travada ? "ok" : "erro");
+    Q.aceitar(st2, "tempestade");
+    st2.caught.tornadus = true;
+    p(`capturou TORNADUS -> ${Q.estado(st2, "tempestade")}`, Q.estado(st2, "tempestade") === "pronta" ? "ok" : "erro");
+    Q.entregar(st2, "tempestade");
+    const v2 = Q.daVez(st2, "tempestade");
+    p(`agora ele oferece: ${v2.missao.nome}`, v2.missao.id === "tempestade-raio" ? "ok" : "erro");
+    st2.caught.thundurus = true; Q.aceitar(st2, "tempestade-raio"); Q.entregar(st2, "tempestade-raio");
+    const v3 = Q.daVez(st2, "tempestade");
+    p(`e depois: ${v3.missao.nome}`, v3.missao.id === "tempestade-chao" ? "ok" : "erro");
+    st2.caught.landorus = true; Q.aceitar(st2, "tempestade-chao"); Q.entregar(st2, "tempestade-chao");
+    p(`os três entregues -> ${JSON.stringify(Q.daVez(st2, "tempestade").missao)}`,
+      Q.daVez(st2, "tempestade").missao === null ? "ok" : "erro");
+    p(`dinheiro somado das três: $${st2.money}`, st2.money === 25000 ? "ok" : "erro");
+  }
+
+  h("IDIOMA E VELOCIDADE");
+  const { usarIdioma, traduz, idiomaAtual } = await import("/src/core/idioma.js");
+  const { Opcoes } = await import("/src/core/opcoes.js");
+  p(`sem dicionário: "${traduz("MOCHILA")}" (fica igual)`, traduz("MOCHILA") === "MOCHILA" ? "ok" : "erro");
+  usarIdioma("en", DB.DICIONARIOS.en);
+  p(`en: MOCHILA -> ${traduz("MOCHILA")} | FUNDIR -> ${traduz("FUNDIR")} | ÁGUA -> ${traduz("ÁGUA")}`,
+    traduz("MOCHILA") === "BAG" && traduz("FUNDIR") === "FUSE" ? "ok" : "erro");
+  p(`sem tradução volta o original: "${traduz("CHARMANDER")}"`, traduz("CHARMANDER") === "CHARMANDER" ? "ok" : "erro");
+  p(`traduzir duas vezes não estraga: "${traduz(traduz("MOCHILA"))}"`, traduz(traduz("MOCHILA")) === "BAG" ? "ok" : "erro");
+  usarIdioma("es", DB.DICIONARIOS.es);
+  p(`es: NOVO JOGO -> ${traduz("NOVO JOGO")} | INSÍGNIAS -> ${traduz("INSÍGNIAS")}`,
+    traduz("NOVO JOGO") === "JUEGO NUEVO" ? "ok" : "erro");
+  usarIdioma("pt", null);
+  p(`de volta ao pt: ${traduz("MOCHILA")} (${idiomaAtual()})`, traduz("MOCHILA") === "MOCHILA" ? "ok" : "erro");
+  const antes = Opcoes.get("velocidade");
+  Opcoes.set("velocidade", 1.5);
+  p(`opções gravam: velocidade ${Opcoes.get("velocidade")}`, Opcoes.get("velocidade") === 1.5 ? "ok" : "erro");
+  const quadros = (base, v) => Math.max(2, Math.round(base / v));
+  p(`andar 1 tile: ${[0.5,1,1.5,2].map((v) => v + "x=" + quadros(16, v) + "q").join("  ")}`);
+  Opcoes.set("velocidade", antes ?? 1);
+
   h("MÓDULOS CARREGAM");
   for (const m of ["/src/data/story.js", "/src/data/fusao.js", "/src/scenes/fusion.js",
                    "/src/scenes/fusaoeditor.js", "/src/scenes/overworld.js", "/src/core/input.js",
                    "/src/data/concurso.js", "/src/scenes/concurso.js",
-                   "/src/data/fusoes.js", "/src/data/fusoes-feitas.js"]) {
+                   "/src/data/fusoes.js", "/src/data/fusoes-feitas.js",
+                   "/src/data/idiomas.js", "/src/core/idioma.js", "/src/core/opcoes.js",
+                   "/src/scenes/title.js", "/src/data/missoes.js", "/src/systems/missoes.js", "/src/data/extra.js"]) {
     try { await import(m); p(`${m}`, "ok"); }
     catch (e) { p(`${m}: ${e.message}`, "erro"); }
   }

@@ -4,9 +4,10 @@
 import { DB } from "../data/index.js";
 import { Assets, TILE } from "../core/assets.js";
 import { mapArt, mapOverlay } from "../core/sprites.js";
-import { Input } from "../core/input.js";
+import { Input, Texto } from "../core/input.js";
 import { Audio2 } from "../core/audio.js";
 import { Save } from "../core/save.js";
+import { Opcoes } from "../core/opcoes.js";
 import { panel, drawText, cursor, bar, hpColor, fade, sinal, PAL, LINE_H } from "../core/gfx.js";
 import { Dialogue } from "../systems/dialogue.js";
 import { Online } from "../systems/online.js";
@@ -20,8 +21,10 @@ import {
 } from "../systems/mon.js";
 import { scatterDimLoot } from "../systems/loot.js";
 import { pedrasIniciaisDevidas } from "../systems/mega.js";
+import { estado as estadoMissao, progresso, aceitar, entregar, diario, feitas, missaoPorId, daVez }
+  from "../systems/missoes.js";
 import { ehFusao, fundivel, previsao, partes, temFicha, fichaInvertida, variantes,
-         buscarDoMundo } from "../systems/fusao.js";
+         buscarDoMundo, especiePorTexto, montarEspecie } from "../systems/fusao.js";
 import { BattleScene } from "./battle.js";
 import { EvolutionScene } from "./evolution.js";
 import { FusionScene } from "./fusion.js";
@@ -32,6 +35,11 @@ const W = 240, H = 160;
 // tempos do FireRed, contados em quadros (o loop roda fixo em 60fps):
 // 16 quadros por tile andando, 8 correndo, 6 pra virar no lugar.
 const WALK = 16, RUN = 8, TURN = 6, HOP = 20;
+// Quantos quadros aquele passo leva, já com a VELOCIDADE das opções. O jogo
+// roda travado em 60fps: andar mais rápido é dar o passo em menos quadros, não
+// acelerar o relógio. Nunca menos de 2 quadros — abaixo disso o passo some e o
+// jogador teleporta de tile em tile.
+const passo = (base) => Math.max(2, Math.round(base / (Opcoes.get("velocidade") || 1)));
 const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 const BOX_LINHAS = 9;          // linhas visíveis em cada lado da tela da BOX
 // ------------------------------------------------------- painel de fios (gym)
@@ -176,6 +184,7 @@ export class OverworldScene {
     }
     this.snapCamera();
     if (this.st.flags.escortPending) this.spawnEscort();
+    this.reporEstaticos();
     this.checkMissionDone();
   }
 
@@ -314,6 +323,8 @@ export class OverworldScene {
     if (boss) extra.push(boss);
     const deo = this.deoxysNpc();
     if (deo) extra.push(deo);
+    extra.push(...this.tempestadeNpcs());
+    extra.push(...this.estaticosNpcs());
     if (this.st.mission && this.st.player.map === "glitchdim") {
       extra.push({ id: "portal", x: 22, y: 30, sprite: "portal", portal: true, dir: "down" });
       (this.st.dimLoot || []).forEach((b, i) => {
@@ -522,7 +533,7 @@ export class OverworldScene {
     const ledge = DB.LEDGE_DIR[this.tagAt(nx, ny)];
     if (ledge === dir && !this.blocked(nx + dx, ny + dy)) {
       Audio2.tone(700, 0.06, "square", 0.6);
-      this.move = { dx: dx * 2, dy: dy * 2, n: 0, total: HOP, hop: true };
+      this.move = { dx: dx * 2, dy: dy * 2, n: 0, total: passo(HOP), hop: true };
       return;
     }
     const obst = this.obstaculoEm(nx, ny);
@@ -533,7 +544,7 @@ export class OverworldScene {
       if (!this.bumpCd) { Audio2.bump(); this.bumpCd = 0.35; }
       return;
     }
-    this.move = { dx, dy, n: 0, total: Input.held("run") ? RUN : WALK };
+    this.move = { dx, dy, n: 0, total: passo(Input.held("run") ? RUN : WALK) };
   }
 
   onArrive() {
@@ -880,6 +891,8 @@ export class OverworldScene {
     if (npc.fragment) return this.useFragment();
     if (npc.id === "carvalho") return this.talkOak(npc, state);
     if (npc.concurso) return this.talkConcurso(npc, state);
+    if (npc.voltaBarco) return this.voltarDeBarco(npc);
+    if (npc.missao) return this.talkMissao(npc);
 
     if (npc.trainer && !state.defeated) {
       if (!this.st.party.length) {
@@ -1294,7 +1307,7 @@ export class OverworldScene {
     (this.st.blocos[this.st.player.map] ||= {})[obst.id] = { x: nx, y: ny };
     Audio2.tone(150, 0.14, "square", 0.9);
     this.game.autosave?.();
-    this.move = { dx, dy, n: 0, total: WALK };     // você entra no lugar do bloco
+    this.move = { dx, dy, n: 0, total: passo(WALK) };   // você entra no lugar do bloco
   }
 
   // ------------------------------------------------------ painel de fios (gym)
@@ -1467,9 +1480,33 @@ export class OverworldScene {
     this.menu = { type: "fusaoCabeca", index: 0, lista, modo };
   }
 
-  /** OFICINA: a bancada onde a fusão vira desenho, nome, tipos e crescimento. */
+  /** OFICINA: a bancada onde a fusão vira desenho, nome, tipos e crescimento.
+   *  Dá pra trazer dois da sua equipe ou simplesmente DIZER quais são — pra
+   *  desenhar uma dupla que você não tem (e talvez nunca tenha). */
   abrirOficina() {
-    this.escolherCabeca("oficina");
+    const F = DB.STORY.fusao;
+    this.menu = null;
+    this.dlg.ask(F.oficinaComo, F.oficinaOpcoes, (i) => {
+      if (i === 0) return this.escolherCabeca("oficina");
+      if (i === 1) {
+        Audio2.select();
+        this.menu = { type: "oficinaDigitar", linha: 0, textos: ["", ""], ids: [null, null] };
+      }
+    });
+  }
+
+  /** Resolve o que foi digitado num dos dois campos da bancada livre. */
+  resolveDigitado(m) {
+    const F = DB.STORY.fusao;
+    const sp = especiePorTexto(m.textos[m.linha]);
+    if (!sp) {
+      m.ids[m.linha] = null;
+      Audio2.cancel();
+      return void this.dlg.say(F.digitarNaoAchou);
+    }
+    m.ids[m.linha] = sp.id;
+    m.textos[m.linha] = sp.name;
+    Audio2.select();
   }
 
   /** CONCURSO DE CINNABAR: a anfitriã, os três jurados e a dupla que você
@@ -1502,6 +1539,139 @@ export class OverworldScene {
     this.game.scenes.push(new ConcursoScene(), { cabeca, corpo, variante });
   }
 
+  /** SIDE QUEST: oferecer, lembrar e entregar. O objetivo é conferido na hora
+   *  (src/systems/missoes.js), então dá pra cumprir antes mesmo de aceitar —
+   *  aí ele já entrega na primeira conversa. */
+  talkMissao(npc) {
+    const T = DB.MISSAO_TEXTO;
+    const st = this.st;
+    // um NPC pode ter uma fila de pedidos (o marinheiro tem três): pega o da vez
+    const { missao, travada } = daVez(st, npc.missao);
+    if (!missao) return void this.dlg.say(T.jaFeita);
+    if (travada) return void this.dlg.say(T.travada);
+    const agora = estadoMissao(st, missao.id);
+
+    if (agora === "pronta") return this.entregarMissao(missao);
+    // missão de viagem: enquanto ela estiver aberta, ele é o barco
+    if (agora === "ativa" && missao.viagem) return this.oferecerViagem(missao);
+    if (agora === "ativa") return void this.dlg.say(missao.lembrete);
+
+    this.dlg.say(missao.oferta, () => {
+      this.dlg.ask(T.aceitar, T.opcoes, (i) => {
+        if (i !== 0) return void this.dlg.say(T.recusou);
+        aceitar(st, missao.id);
+        Audio2.select();
+        this.game.autosave?.(true);
+        // já estava cumprida antes de aceitar: entrega na hora
+        if (progresso(st, missao.id).feito) return this.entregarMissao(missao);
+        if (missao.viagem) return this.oferecerViagem(missao);
+        this.dlg.say(T.aceitou);
+      });
+    });
+  }
+
+  /** O barco: ele pergunta, você aceita, a tela apaga e vocês estão lá. */
+  oferecerViagem(missao) {
+    const v = missao.viagem;
+    this.dlg.ask(v.pergunta, v.opcoes || ["VAMOS", "AGORA NÃO"], (i) => {
+      if (i !== 0) return;
+      this.dlg.say(v.indo, () => {
+        Audio2.tone(220, 0.12, "sawtooth", 0.5);
+        this.transition(() => {
+          const p = this.st.player;
+          // de onde ele te tirou: é pra cá que o barco volta
+          this.st.barco = { map: p.map, x: p.x, y: p.y, dir: p.dir, missao: missao.id };
+          this.st.surfando = null;
+          p.map = v.mapa; p.x = v.x; p.y = v.y; p.dir = v.dir || "up";
+          this.justWarped = true;
+          this.afterTravel();
+          this.game.autosave?.(true);
+        });
+      });
+    });
+  }
+
+  /** O marinheiro esperando no recife, pra voltar. */
+  voltarDeBarco(npc) {
+    const barco = this.st.barco;
+    const missao = missaoPorId(barco?.missao);
+    const v = missao?.viagem;
+    this.dlg.say(v?.voltando || ["VAMOS EMBORA."], () => {
+      this.transition(() => {
+        const p = this.st.player;
+        Object.assign(p, { map: barco.map, x: barco.x, y: barco.y, dir: barco.dir });
+        delete this.st.npcState["tempestade.lendario"];   // na volta ele está lá de novo
+        this.st.barco = null;
+        this.justWarped = true;
+        this.afterTravel();
+        this.game.autosave?.(true);
+      });
+    });
+  }
+
+  /** XERNEAS, YVELTAL e ZYGARDE: parados, cada um no lugar dele, esperando.
+   *  Nada de grama e nada de sorteio — você anda até lá e encosta. Capturou,
+   *  some pra sempre; derrubou sem capturar, ele volta quando você sair do mapa
+   *  e voltar (o `defeated` daquele NPC é limpo em `afterTravel`). */
+  estaticosNpcs() {
+    const aqui = this.st.player.map;
+    return (DB.ESTATICOS || [])
+      .filter((e) => e.mapa === aqui && DB.SPECIES[e.id] && !this.st.caught[e.id])
+      // quem tem missão só está lá depois que alguém te contou onde procurar
+      .filter((e) => !e.missao || this.st.missoes?.[e.missao])
+      .filter((e) => !this.st.npcState[`${aqui}.estatico_${e.id}`]?.defeated)
+      .map((e) => ({
+        id: `estatico_${e.id}`, x: e.x, y: e.y, dir: "down", sprite: `mon:${e.id}`,
+        boss: { id: e.id, lvl: e.nivel || 60 },
+        lines: e.lines || [],
+      }));
+  }
+
+  /** Saiu do mapa e voltou: quem foi derrubado sem ser capturado está de pé no
+   *  mesmo lugar de novo. */
+  reporEstaticos() {
+    for (const e of DB.ESTATICOS || []) {
+      if (e.mapa === this.st.player.map) continue;      // só repõe os dos OUTROS mapas
+      delete this.st.npcState[`${e.mapa}.estatico_${e.id}`];
+    }
+  }
+
+  /** O recife da tempestade: quem está lá é o lendário da missão da vez e o
+   *  marinheiro, que fica no barco esperando. O lendário some quando é
+   *  capturado — derrubar não resolve, ele volta na próxima viagem. */
+  tempestadeNpcs() {
+    if (this.st.player.map !== "tempestade") return [];
+    const lista = [];
+    const barco = this.st.barco;
+    if (barco) {
+      lista.push({
+        id: "barco", x: 11, y: 10, dir: "left", sprite: "marinheiro",
+        voltaBarco: true, lines: DB.STORY.tempestade?.espera || ["EU FICO NO BARCO."],
+      });
+    }
+    const missao = missaoPorId(barco?.missao) || null;
+    const alvo = missao?.objetivo?.especie;
+    // derrubado sem capturar: ele não volta agora. Volta na PRÓXIMA viagem —
+    // é o mar inteiro entre você e a segunda chance.
+    const caiu = this.st.npcState["tempestade.lendario"]?.defeated;
+    if (alvo && DB.SPECIES[alvo] && !this.st.caught[alvo] && !caiu) {
+      const nivel = DB.STORY.tempestade?.nivel || 50;
+      lista.push({
+        id: "lendario", x: 9, y: 6, dir: "down", sprite: `mon:${alvo}`,
+        boss: { id: alvo, lvl: nivel },
+        lines: DB.STORY.tempestade?.encontro?.[alvo] || DB.STORY.tempestade?.encontro?.padrao || [],
+      });
+    }
+    return lista;
+  }
+
+  entregarMissao(missao) {
+    const linhas = entregar(this.st, missao.id);
+    Audio2.heal();
+    this.game.autosave?.(true);
+    this.dlg.say([...(missao.entrega || []), ...linhas]);
+  }
+
   /** MUNDO: traz as fusões que outras pessoas publicaram no código do jogo. O
    *  que chega entra na lista de variantes na hora, por hot-swap — e chega em
    *  todo aparelho ligado neste servidor junto. */
@@ -1521,7 +1691,9 @@ export class OverworldScene {
     }
     Audio2.heal();
     Glitch.hit(1.2);
-    this.dlg.say(F.mundoChegou.replace("{N}", r.novas));
+    const chegaram = [F.mundoChegou.replace("{N}", r.novas)];
+    if (r.desenhos) chegaram.push(F.mundoDesenhos.replace("{N}", r.desenhos));
+    this.dlg.say(chegaram);
   }
 
   /** Abre o editor daquele par (os dois ids de espécie). */
@@ -1825,9 +1997,38 @@ export class OverworldScene {
   // ---------------------------------------------------------------- menu
   openMenu() { Audio2.select(); this.menu = { type: "main", index: 0 }; }
 
+  /** VELOCIDADE: quantos passos por segundo o jogador dá. Ela é do aparelho,
+   *  não da partida (mora nas opções do navegador), então vale pra qualquer
+   *  save aberto aqui. */
+  nomeVelocidade() {
+    const v = Opcoes.get("velocidade") || 1;
+    return v <= 0.5 ? "DEVAGAR" : v < 1 ? "CALMA" : v === 1 ? "NORMAL" : v <= 1.5 ? "RÁPIDA" : "TURBO";
+  }
+
+  mudaVelocidade(d) {
+    const escala = [0.5, 0.75, 1, 1.5, 2];
+    const i = escala.indexOf(Opcoes.get("velocidade") || 1);
+    const novo = escala[(Math.max(0, i) + d + escala.length) % escala.length];
+    Opcoes.set("velocidade", novo);
+    Audio2.blip();
+  }
+
+  /** IDIOMA: troca o dicionário na hora. O que não estiver traduzido continua
+   *  aparecendo em português (ver src/core/idioma.js). */
+  mudaIdioma(d) {
+    const lista = DB.IDIOMAS || [{ id: "pt" }];
+    const i = lista.findIndex((l) => l.id === Opcoes.get("idioma"));
+    const novo = lista[(Math.max(0, i) + d + lista.length) % lista.length];
+    Opcoes.set("idioma", novo.id);
+    this.game.aplicarIdioma();
+    Audio2.select();
+  }
+
   /** itens do menu principal: VOAR entra quando alguém da equipe sabe voar */
   itensMenu() {
     const base = ["POKÉMON", "BOX", "MOCHILA", "INSÍGNIAS"];
+    if (diario(this.st).length) base.push(DB.MISSAO_TEXTO.titulo);   // só depois do primeiro pedido
+    base.push(DB.STORY.fusao.atualizar);   // baixa as fusões publicadas no mundo
     if (this.quemSabe("voar")) base.push("VOAR");
     if (DB.ONLINE?.ativo) base.push("ONLINE");
     return [...base, "SALVAR", "OPÇÕES", "SAIR"];
@@ -1935,6 +2136,8 @@ export class OverworldScene {
         else if (pick === "BOX") this.menu = { type: "box", lado: "box", index: 0, top: 0 };
         else if (pick === "MOCHILA") this.menu = { type: "bag", index: 0 };
         else if (pick === "INSÍGNIAS") this.menu = { type: "badges", index: 0 };
+        else if (pick === DB.MISSAO_TEXTO.titulo) this.menu = { type: "missoes", index: 0, top: 0 };
+        else if (pick === DB.STORY.fusao.atualizar) { this.menu = null; return void this.baixarDoMundo(); }
         else if (pick === "SALVAR") {
           this.menu = null;
           this.game.save().then((r) => this.dlg.say(
@@ -2002,6 +2205,38 @@ export class OverworldScene {
           Audio2.select();
           this.menu = { type: "qty", item, n: 1, max: Math.min(999, owned), next: "use" };
         } else Audio2.cancel();
+      }
+      return;
+    }
+    if (m.type === "oficinaDigitar") {
+      const F = DB.STORY.fusao;
+      if (Texto.ativo()) {                     // o teclado virou texto
+        if (!Texto.estado()) return;
+        const escrito = Texto.termina();
+        if (escrito !== null) { m.textos[m.linha] = escrito; this.resolveDigitado(m); }
+        return;
+      }
+      if (Input.consume("up")) { m.linha = (m.linha + 2) % 3; Audio2.blip(); }
+      if (Input.consume("down")) { m.linha = (m.linha + 1) % 3; Audio2.blip(); }
+      if (Input.consume("b")) { this.menu = { type: "genoma", index: 2 }; Audio2.cancel(); }
+      if (Input.consume("a")) {
+        if (m.linha < 2) { Texto.comeca(m.textos[m.linha] || "", 12); Audio2.select(); return; }
+        if (!m.ids[0] || !m.ids[1]) { Audio2.cancel(); return void this.dlg.say(F.digitarFaltam); }
+        return void this.editarFicha(m.ids[0], m.ids[1]);
+      }
+      return;
+    }
+    if (m.type === "missoes") {
+      const lista = diario(this.st);
+      const n = Math.max(1, lista.length);
+      if (Input.consume("up")) { m.index = (m.index + n - 1) % n; Audio2.blip(); }
+      if (Input.consume("down")) { m.index = (m.index + 1) % n; Audio2.blip(); }
+      m.top = Math.max(0, Math.min(m.top ?? 0, Math.max(0, lista.length - 4)));
+      if (m.index < m.top) m.top = m.index;
+      if (m.index > m.top + 3) m.top = m.index - 3;
+      if (Input.consume("b") || Input.consume("a")) {
+        this.menu = { type: "main", index: this.itensMenu().indexOf(DB.MISSAO_TEXTO.titulo) };
+        Audio2.cancel();
       }
       return;
     }
@@ -2212,17 +2447,23 @@ export class OverworldScene {
       return;
     }
     if (m.type === "opts") {
-      const opts = ["SCANLINES", "SOM", "LIMPAR SAVE"];
-      if (Input.consume("up")) m.index = (m.index + opts.length - 1) % opts.length;
-      if (Input.consume("down")) m.index = (m.index + 1) % opts.length;
+      const n = 5;
+      if (Input.consume("up")) m.index = (m.index + n - 1) % n;
+      if (Input.consume("down")) m.index = (m.index + 1) % n;
       if (Input.consume("b")) {
         this.menu = { type: "main", index: this.itensMenu().indexOf("OPÇÕES") };
         Audio2.cancel();
       }
+      // velocidade e idioma andam pros dois lados; o resto é liga/desliga no Z
+      const lado = Input.consume("right") ? 1 : Input.consume("left") ? -1 : 0;
+      if (lado && m.index === 2) this.mudaVelocidade(lado);
+      if (lado && m.index === 3) this.mudaIdioma(lado);
       if (Input.consume("a")) {
         Audio2.select();
         if (m.index === 0) Glitch.scanlines = !Glitch.scanlines;
         else if (m.index === 1) Audio2.toggleMute();
+        else if (m.index === 2) this.mudaVelocidade(1);
+        else if (m.index === 3) this.mudaIdioma(1);
         else { Save.clear(); this.menu = null; this.dlg.say("SAVE APAGADO. RECARREGUE A PÁGINA."); }
       }
     }
@@ -2450,6 +2691,62 @@ export class OverworldScene {
         if (mon.corrupt) drawText(ctx, "!", 200, y + 2, PAL.glitch);
       });
       drawText(ctx, "X VOLTA", 180, H - 20, PAL.ink2);
+      return;
+    }
+    if (m.type === "oficinaDigitar") {
+      const F = DB.STORY.fusao;
+      panel(ctx, 4, 4, W - 8, H - 8);
+      drawText(ctx, F.digitarTitulo, 12, 10, PAL.glitch);
+      [F.digitarCabeca, F.digitarCorpo].forEach((rot, i) => {
+        const y = 30 + i * 24;
+        if (m.linha === i) cursor(ctx, 10, y);
+        drawText(ctx, rot, 22, y, PAL.ink);
+        const sp = m.ids[i] && DB.SPECIES[m.ids[i]];
+        const escrevendo = Texto.ativo() && m.linha === i;
+        const txt = escrevendo ? Texto.buf() + ((this.animT * 3) % 1 > 0.5 ? "_" : "")
+          : (m.textos[i] || F.digitarVazio);
+        drawText(ctx, String(txt).slice(0, 14), 72, y, sp ? PAL.glitch : PAL.ink2);
+        if (sp) {
+          ctx.drawImage(Assets.mon(sp.id, 7), 158, y - 8, 24, 24);
+          drawText(ctx, `${String(sp.dex || 0).padStart(3, "0")}`, 188, y, PAL.ink2);
+        }
+      });
+      // a prévia: o que sai dessa dupla, mesmo sem ter nenhum dos dois
+      const preview = m.ids[0] && m.ids[1] ? montarEspecie(m.ids[0], m.ids[1]) : null;
+      if (preview) {
+        DB.SPECIES[preview.id] = preview;
+        ctx.drawImage(Assets.mon(preview.id, 7), 20, 84, 40, 40);
+        drawText(ctx, preview.name, 68, 92, PAL.glitch);
+        drawText(ctx, preview.types.join("/"), 68, 104, PAL.ink2);
+        drawText(ctx, preview.codigo, 68, 116, PAL.ink2);
+      }
+      if (m.linha === 2) cursor(ctx, 10, 132);
+      drawText(ctx, F.digitarAbrir, 22, 132, preview ? PAL.ink : PAL.ink2);
+      const ajuda = [].concat(F.digitarAjuda);
+      drawText(ctx, ajuda[Math.floor(this.animT / 3) % ajuda.length], 8, H - 12, PAL.ink2);
+      return;
+    }
+    if (m.type === "missoes") {
+      const T = DB.MISSAO_TEXTO;
+      const lista = diario(this.st);
+      panel(ctx, 4, 4, W - 8, H - 8);
+      drawText(ctx, T.titulo, 12, 10, PAL.glitch);
+      drawText(ctx, `${feitas(this.st)}/${(DB.MISSOES || []).length}`, 200, 10, PAL.ink2);
+      if (!lista.length) drawText(ctx, T.vazio, 20, 34, PAL.ink2);
+      lista.slice(m.top || 0, (m.top || 0) + 4).forEach((l, i) => {
+        const idx = (m.top || 0) + i;
+        const y = 26 + i * 30;
+        if (idx === m.index) cursor(ctx, 8, y + 4);
+        const cor = l.estado === "pronta" ? "#00ffcc" : l.estado === "feita" ? PAL.ink2 : PAL.ink;
+        drawText(ctx, l.missao.nome.slice(0, 24), 18, y, cor);
+        drawText(ctx, T.estados[l.estado] || "", 18, y + 10, l.estado === "pronta" ? "#00ffcc" : PAL.ink2);
+        // contador só quando o objetivo é de juntar mais de um
+        if (l.progresso.alvo > 1 && l.estado !== "feita") {
+          drawText(ctx, `${l.progresso.atual}/${l.progresso.alvo}`, 200, y + 10, PAL.glitch);
+        }
+        drawText(ctx, l.missao.resumo.slice(0, 38), 18, y + 20, PAL.ink2);
+      });
+      drawText(ctx, T.ajuda, 190, H - 18, PAL.ink2);
       return;
     }
     if (m.type === "genoma") {
@@ -2731,13 +3028,24 @@ export class OverworldScene {
       return;
     }
     if (m.type === "opts") {
-      const opts = [`SCANLINES: ${Glitch.scanlines ? "ON" : "OFF"}`, `SOM: ${Audio2.muted ? "OFF" : "ON"}`, "LIMPAR SAVE"];
-      panel(ctx, 40, 40, 160, opts.length * LINE_H + 24);
-      drawText(ctx, `CORRUPÇÃO: ${Math.round(this.st.corruption)}%`, 50, 46, PAL.glitch);
-      opts.forEach((o, i) => {
-        drawText(ctx, o, 60, 62 + i * LINE_H, PAL.ink);
-        if (i === m.index) cursor(ctx, 50, 62 + i * LINE_H);
+      const idioma = DB.IDIOMAS?.find((l) => l.id === Opcoes.get("idioma")) || { nome: "PORTUGUÊS" };
+      const linhas = [
+        ["SCANLINES", Glitch.scanlines ? "ON" : "OFF"],
+        ["SOM", Audio2.muted ? "OFF" : "ON"],
+        ["VELOCIDADE", this.nomeVelocidade()],
+        ["IDIOMA", idioma.nome],
+        ["LIMPAR SAVE", ""],
+      ];
+      panel(ctx, 30, 32, 180, linhas.length * LINE_H + 32);
+      drawText(ctx, `CORRUPÇÃO: ${Math.round(this.st.corruption)}%`, 40, 38, PAL.glitch);
+      linhas.forEach(([rot, val], i) => {
+        const y = 54 + i * LINE_H;
+        drawText(ctx, rot, 50, y, PAL.ink);
+        drawText(ctx, val, 140, y, PAL.glitch);
+        if (i === m.index) cursor(ctx, 40, y);
       });
+      const aviso = DB.AVISO_IDIOMA?.[Opcoes.get("idioma")];
+      if (aviso) drawText(ctx, aviso.slice(0, 38), 12, 150, PAL.ink2);
     }
   }
 }

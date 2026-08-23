@@ -53,6 +53,8 @@ qualquer PNG colocado à mão nas pastas de `assets/sprites/` é usado no lugar.
 | F | HUD de debug (FPS, coordenadas) |
 | C | na batalha: arma a MEGA EVOLUÇÃO |
 | M | mudo |
+| X → OPÇÕES | velocidade do jogador e idioma |
+| X → ATUALIZAR | baixa as fusões (e os desenhos) publicados no mundo |
 | Mouse | na oficina de genoma: pinta, clica nos botões e a rodinha dá zoom |
 | ENTER / ESC | no chat e no nome da sala: manda / desiste (ali o teclado vira texto) |
 
@@ -72,6 +74,37 @@ aprender golpe, troca de Pokémon, item e captura com a fórmula de chacoalhada.
 deslizando, avanço no golpe, piscada ao levar dano, queda ao desmaiar, barra de
 HP animada, tufo de grama ao pisar na grama alta, caminhada de 4 quadros e Poké
 Bola chacoalhando na captura.
+
+## Configurações
+
+No menu `X` → **OPÇÕES** (e o idioma também na tela de título, antes de começar
+qualquer partida):
+
+- **VELOCIDADE** — DEVAGAR, CALMA, NORMAL, RÁPIDA, TURBO. O jogo roda travado
+  em 60fps: andar mais rápido é dar o passo em menos quadros, não acelerar o
+  relógio. Um tile leva 32 quadros no DEVAGAR, 16 no NORMAL (o do FireRed) e 8
+  no TURBO — a mesma velocidade de quando você segura SHIFT.
+- **IDIOMA** — PORTUGUÊS, ENGLISH, ESPAÑOL.
+
+As duas ficam no navegador (`localStorage`), não no save: são de quem está na
+frente da tela. Apagar a partida não muda o idioma, e o idioma escolhido na tela
+de título já vale antes de existir save nenhum.
+
+### Como a tradução funciona
+
+O jogo foi escrito em português e continua assim nos arquivos — trocar cada
+frase por um código transformaria `story.js`, que hoje se lê como roteiro, numa
+lista de identificadores. Então a tradução é **por frase e no último instante**:
+`src/data/idiomas.js` tem um dicionário por idioma (português → outro), e o
+texto passa por ele na hora de desenhar (`drawText`) e na hora de quebrar a
+linha da caixa de diálogo.
+
+Duas consequências: nenhum arquivo de dados precisa saber que existe tradução, e
+**o que ainda não foi traduzido aparece em português** em vez de virar buraco na
+tela — as opções avisam isso no rodapé. Hoje o dicionário cobre as telas, os
+menus, os tipos, a máquina de fusão, a oficina e o concurso; os diálogos longos
+seguem em português. Escrever mais tradução é acrescentar linha em
+`src/data/idiomas.js`, com hot-swap: a tela muda com o jogo aberto.
 
 ## Mega evolução
 
@@ -117,6 +150,10 @@ faz três coisas:
   **CORPO** dá o resto do desenho, o tipo secundário, o fim do nome e a parte
   física (ATK, DEF, VELOCIDADE). Cada atributo é 2/3 de quem manda nele e 1/3
   do outro, e o learnset é o dos dois juntos.
+- **O BRILHO PEGA** — fundir um **shiny** com um comum não deixa a cor rara pra
+  trás: a fusão sai shiny e os **dois** que ficam guardados lá dentro saem shiny
+  também, então separar depois devolve os dois brilhando. É a única coisa que a
+  máquina escreve por cima do que entrou — e não tem volta.
 - **SEPARAR** — desfaz. Os dois originais ficam **guardados inteiros** dentro da
   fusão (`mon.fusao`), então voltam com apelido, IVs e golpes que tinham — no
   nível que a fusão alcançou. Se a equipe estiver cheia, o segundo vai pro PC.
@@ -141,7 +178,18 @@ online (do outro lado a espécie é remontada pelo id).
 
 ### A oficina (estúdio de sprite)
 
-`OFICINA` na máquina. Três abas, trocadas com `TAB` ou clicando no nome:
+`OFICINA` na máquina pergunta de onde vêm os dois:
+
+- **DA MINHA EQUIPE** — escolhe dois da equipe (ou uma fusão pronta, que abre a
+  ficha dela).
+- **DIGITAR NÚMERO OU NOME** — a **bancada livre**: você só diz quais são. Vale
+  o número da Pokédex (`025`) ou o nome (`PIKACHU`, `mr. mime`, `PORYGON-Z`), e
+  vale qualquer espécie do jogo, inclusive as de fora de Kanto. **Não precisa
+  ter nenhum dos dois**: a oficina é sobre o desenho e a ficha, não sobre quem
+  está na sua mochila. A tela mostra o sprite dos dois e a prévia da fusão
+  enquanto você digita.
+
+Três abas, trocadas com `TAB` ou clicando no nome:
 
 - **DESENHO** — uma tela de **64x64**: o mesmo tamanho que a batalha desenha,
   então o que você pinta é pixel por pixel o que aparece no jogo, sem redução no
@@ -208,6 +256,10 @@ endereço** — o repositório de onde todo mundo baixou ele.
   `src/data/fusoes-feitas.js`** e `git push origin HEAD:main`. Nenhum outro
   arquivo seu entra no commit. Precisa de permissão de escrita no repositório;
   sem ela o jogo diz o motivo e a ficha continua valendo aqui e na sua rede.
+- No menu `X` do jogador tem **ATUALIZAR**: é o mesmo caminho, à mão de quem
+  está jogando. Ele baixa **tudo que foi publicado no mundo** — as fichas e os
+  desenhos que vieram com elas — e diz quantas chegaram e quantas trouxeram
+  desenho. O que chega já está no `C` da máquina no quadro seguinte.
 - Na máquina, **MUNDO → BAIXAR AS FUSÕES DO MUNDO** faz `git fetch` e **junta**
   o que os outros publicaram com o que você tem: ficha sua nunca é
   sobrescrita, e nenhum outro arquivo é tocado. O que chega entra no `C` na
@@ -231,6 +283,105 @@ apaga a ficha e devolve o par pro cálculo da máquina. O desenho é gravado no
 save como PNG.
 
 Atalho de dev: `?fusao=1` na URL põe a máquina na mochila.
+
+## Os três parados em Kanto
+
+**XERNEAS**, **YVELTAL** e **ZYGARDE** não aparecem na grama e não vêm da fenda:
+eles estão **parados**, cada um num lugar, esperando você chegar e encostar.
+
+| Quem | Onde | O que você vê antes |
+|---|---|---|
+| **XERNEAS** | fundo da **Floresta Viridian** (23,31) | uma clareira que ninguém abriu, com o mato mais verde em círculo |
+| **YVELTAL** | **Usina** (24,16) | as asas abertas em cima do gerador morto, as pontas vermelhas — a única coisa com energia ali |
+| **ZYGARDE** | **Túnel Rocha B1F** (24,20) | pontinhos verdes no chão que se juntam quando você chega perto |
+
+Nível 60, batalha de chefe: dá pra capturar e não dá pra fugir. Capturou, some
+pra sempre; **derrubou sem capturar, ele volta** — saia do mapa e volte, e ele
+está de pé no mesmo lugar.
+
+**Mas o lugar não se acha sozinho.** Cada um tem uma missão que conta onde
+procurar, e enquanto o pedido não for aceito a clareira é só clareira, a usina é
+só usina e o túnel é só túnel:
+
+| Missão | Quem pede | Insígnias | Abre |
+|---|---|---|---|
+| **O X MARCA O LUGAR** | um cataloguista do museu de **Pewter**, com um mapa de 1802 que tem um X e nenhuma legenda | 4 | XERNEAS |
+| **O Y DA MORTE** | um ex-técnico da usina, em **Cerulean**: no dia em que ela morreu ficou uma marca queimada do tamanho da parede | 5 | YVELTAL |
+| **O Z DO DNA** | uma geneticista de **Cinnabar**: chegou uma amostra que não é fita dupla, é um Z — e ela se mexe sozinha no pote | 6 | ZYGARDE |
+
+A ligação é o campo `missao` de cada entrada em `ESTATICOS`: é ela que decide se
+o bicho está lá.
+
+O **XERNEAS trouxe o tipo FADA** junto: ele não existe sem ela. A tabela entrou
+inteira, dos dois lados — FADA bate em DRAGÃO, LUTADOR e SOMBRIO, apanha de
+VENENO e AÇO, e **DRAGÃO não encosta nela** (0x). Nenhum dos 151 é FADA nem
+SOMBRIO: esses dois tipos só encostam no jogo pelo que vem de fora.
+
+Os três estão em `ESTATICOS`, no fim de `src/data/extra.js` — lugar, nível e as
+falas, com hot-swap. Mover um deles é mudar dois números.
+
+## Side quests
+
+Catorze pedidos espalhados por Kanto, cada um com o NPC dele parado num mapa. Você
+aceita, cumpre quando quiser e volta pra receber — e o menu `X` ganha um
+**diário** assim que o primeiro pedido é aceito, com o estado de cada um
+(EM ANDAMENTO / PRONTA — VOLTE LÁ / ENTREGUE) e o contador de quem pede mais de
+um.
+
+| Missão | Onde | O que ele quer |
+|---|---|---|
+| PESCADOR SEM ISCA | Rota 11 | ver um MAGIKARP de perto |
+| O COLECIONADOR | Vila Paleta | os três iniciais de Kanto ao mesmo tempo |
+| A DUPLA IMPOSSÍVEL | Cinnabar | aparecer com uma fusão pronta |
+| O RETRATISTA | Celadon | uma fusão **desenhada por você** na oficina |
+| O TROFÉU DE CINNABAR | Fuchsia | 20 de 30 no concurso de fusão |
+| A COLEÇÃO DE INSETOS | Floresta Viridian | 5 espécies diferentes de INSETO |
+| QUEM ESTÁ NO CORREDOR | Vila Lavanda | capturar um FANTASMA |
+| O QUE NÃO ESTÁ NA POKÉDEX | Saffron | capturar uma espécie que não é das 151 |
+| A TEMPESTADE SEM FIM (+2) | Vermilion | ir de barco à tempestade e capturar TORNADUS, THUNDURUS e LANDORUS |
+| O X MARCA O LUGAR | Pewter | seguir o X do mapa até a clareira (XERNEAS) |
+| O Y DA MORTE | Cerulean | entrar na usina e achar a marca em Y (YVELTAL) |
+| O Z DO DNA | Cinnabar | seguir as células até o fundo do Túnel Rocha (ZYGARDE) |
+
+### A tempestade que não acaba (as três forças da natureza)
+
+Em **VERMILION** tem um marinheiro com um barco e sem coragem de ir sozinho.
+Com **3 insígnias** ele te leva até uma tempestade no mar perto de **BIRTH
+ISLAND** que nunca passa — nem de dia, nem no verão, nem quando o resto do mar
+está liso. No meio dela tem um recife de pedra, e no recife tem alguém.
+
+São três viagens, uma de cada vez:
+
+| Missão | Quem está lá | Depois |
+|---|---|---|
+| A TEMPESTADE SEM FIM | **TORNADUS** — "não é que ele voa no vento: o vento é o rabo dele" | tirando o vento, sobra o raio |
+| O RAIO QUE FICOU | **THUNDURUS** — cai sempre no mesmo ponto do recife | com os dois fora, o recife cresce |
+| O CHÃO QUE RESPONDE | **LANDORUS** — o chão veio ver o que houve | o mar volta a ser só mar |
+
+O mapa da tempestade **é gerado em código** (`stormMap`, em
+`src/data/index.js`), como a fenda e a BIRTH ISLAND: mar bravo, chuva na
+diagonal e o recife desenhado em runtime (`Assets.stormArt`). Não tem porta e
+não tem caminho por terra — quem te leva e quem te traz é o marinheiro, que
+fica no barco esperando.
+
+O lendário é uma batalha de chefe: dá pra capturar e não dá pra fugir.
+Derrubar sem capturar não resolve — ele só volta na **próxima viagem**, com o
+mar inteiro entre você e a segunda chance. Os três entram na Pokédex como
+espécies de fora de Kanto (`src/data/extra.js`), e os sprites vêm com
+`python3 tools/fetch_sprites.py --extra`.
+
+**Nenhuma missão tem gatilho espalhado pelo código.** Cada objetivo é uma
+pergunta que se responde olhando o save agora — "você tem um MAGIKARP?", "já
+capturou cinco insetos diferentes?" — e ela é feita quando você fala com o NPC
+ou abre o diário. Duas consequências boas: dá pra cumprir uma missão **sem saber
+que ela existe** (aí o NPC aceita e entrega na mesma conversa), e save de uma
+versão antiga não quebra nada — a missão só fica esperando.
+
+Os pedidos, as falas, o lugar e o prêmio ficam em `src/data/missoes.js`; os
+tipos de objetivo (`tem-especie`, `capturou-tipo`, `tem-fusao`,
+`tem-ficha-desenhada`, `recorde-concurso`…) estão em `src/systems/missoes.js`.
+Escrever uma missão nova já põe o NPC no mundo: o fim de `src/data/maps.js`
+percorre a lista e coloca cada um no mapa dele. Tudo com hot-swap.
 
 ## Concurso de fusão (CINNABAR)
 
@@ -581,6 +732,9 @@ src/
     font.js            fonte bitmap 5x7 desenhada à mão (acentos derivados)
     gfx.js             painéis, barras, cursor, fade — visual GBA
     net.js             a conexão com a sala (SSE pra receber, POST pra falar)
+    idioma.js          o interruptor da tradução (drawText passa por ele)
+    opcoes.js          velocidade e idioma, no navegador
+    base.js            a raiz do jogo (`/` em casa, `/pokemon-glitch-edition/` na web)
     input.js  audio.js  scene.js  save.js  hot.js  rng.js
   data/                <- tudo aqui tem hot-swap
     config.js          modo glitch, velocidade de animação, taxa de encontro
@@ -595,6 +749,8 @@ src/
     mega.js            as 16 formas MEGA, as megapedras e o ANEL MEGA
     fusao.js           regras da fusão: nome, atributos, tipos, paletas, editor
     concurso.js        o concurso de Cinnabar: jurados, rivais, prêmios, critérios
+    idiomas.js         os dicionários de tradução (pt -> en/es)
+    missoes.js         as side quests: pedido, lugar, objetivo e prêmio
     fusoes.js          as fusões escritas à mão (GENGQUAZA, ALAKAGAR, PIKASAUR...)
     fusoes-feitas.js   as fichas que jogadores publicaram (escrito pelo jogo)
     online.js          sala, chat, emotes e as frases das funções online
@@ -605,6 +761,7 @@ src/
     mega.js            mega evoluir/desmegar (e a garantia de não gravar megado)
     fusao.js           fundir/separar, a espécie montada na hora e as fichas do jogador
     concurso.js        as notas dos três jurados e a rodada com os rivais
+    missoes.js         estado das missões e os checadores de objetivo
     online.js          presença, convites, chat e o filtro do que vem de fora
   scenes/
     title.js  overworld.js  battle.js

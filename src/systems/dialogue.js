@@ -1,5 +1,6 @@
 // Caixa de texto estilo GBA: fila de falas, efeito maquina de escrever e menu de escolha.
 import { Input } from "../core/input.js";
+import { traduz } from "../core/idioma.js";
 import { Audio2 } from "../core/audio.js";
 import { panel, drawText, wrapText, cursor, PAL, LINE_H } from "../core/gfx.js";
 
@@ -50,7 +51,9 @@ export class Dialogue {
       cb?.();
       return;
     }
-    const linhas = wrapText(fill(t), COLS);
+    // traduz a frase inteira antes de quebrar: a quebra tem que contar as
+    // letras do texto que vai aparecer, não as do original
+    const linhas = wrapText(fill(traduz(t)), COLS);
     this.lines = linhas.slice(0, 3);
     // não cabe na caixa: o resto vira a próxima página em vez de sumir
     const resto = linhas.slice(3).join(" ").trim();
