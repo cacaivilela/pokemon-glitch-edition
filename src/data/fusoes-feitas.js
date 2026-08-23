@@ -580,7 +580,7 @@ export const FUSOES_FEITAS = {
     {
       "id": "gloltorb",
       "nome": "GLOLTORB",
-      "autor": "",
+      "autor": "CAIO",
       "tipos": [
         "PLANTA",
         "ELÉTRICO"
