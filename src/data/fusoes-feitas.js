@@ -430,5 +430,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/blastoise+jynx~blastoijynx.png",
       "lore": "BLASTOISE NA CABEÇA, JYNX NO CORPO."
     }
+  ],
+  "pikachu+caterpie": [
+    {
+      "id": "pikarpie",
+      "nome": "PIKARPIE",
+      "autor": "",
+      "tipos": [
+        "ELÉTRICO",
+        "INSETO"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 2,
+        "atk": 1.5,
+        "def": 1.5,
+        "spa": 1.5,
+        "spd": 1.5,
+        "spe": 1.5
+      },
+      "sprite": "assets/fusoes/pikachu+caterpie~pikarpie.png",
+      "lore": "PIKACHU NA CABEÇA, CATERPIE NO CORPO."
+    }
   ]
 };
