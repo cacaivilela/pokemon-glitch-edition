@@ -604,5 +604,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/gloom+voltorb~gloltorb.png",
       "lore": "GLOOM NA CABEÇA, VOLTORB NO CORPO."
     }
+  ],
+  "hypno+muk": [
+    {
+      "id": "hypmuk",
+      "nome": "HYPMUK",
+      "autor": "",
+      "tipos": [
+        "PSÍQUICO",
+        "VENENO"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 2.8,
+        "atk": 4.9,
+        "def": 4.4,
+        "spa": 1.5,
+        "spd": 3.2,
+        "spe": 7.4
+      },
+      "sprite": "assets/fusoes/hypno+muk~hypmuk.png",
+      "lore": "HYPNO NA CABEÇA, MUK NO CORPO."
+    }
   ]
 };
