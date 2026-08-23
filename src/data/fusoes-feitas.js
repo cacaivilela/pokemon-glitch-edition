@@ -488,5 +488,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/porygon+xerneas~porygoneas.png",
       "lore": "PORYGON NA CABEÇA, XERNEAS NO CORPO."
     }
+  ],
+  "venusaur+kabutops": [
+    {
+      "id": "venutops",
+      "nome": "VENUTOPS",
+      "autor": "CAIO",
+      "tipos": [
+        "PLANTA",
+        "PEDRA"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 3.4,
+        "atk": 7.3,
+        "def": 6.3,
+        "spa": 2.9,
+        "spd": 3.5,
+        "spe": 5.9
+      },
+      "sprite": "assets/fusoes/venusaur+kabutops~venutops.png",
+      "lore": "VENUSAUR NA CABEÇA, KABUTOPS NO CORPO."
+    }
   ]
 };
