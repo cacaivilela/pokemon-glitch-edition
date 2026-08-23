@@ -806,5 +806,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/rotom+pikachu~rochu.png",
       "lore": "ROTOM ENTROU NO PIKACHU E NÃO SAIU MAIS. A DESCARGA CORRE POR FORA DO CORPO, AZUL."
     }
+  ],
+  "abra+psyduck": [
+    {
+      "id": "abbrduck",
+      "nome": "ABBRDUCK",
+      "autor": "CAIO",
+      "tipos": [
+        "PSÍQUICO",
+        "ÁGUA"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 5.9,
+        "atk": 4.1,
+        "def": 5.8,
+        "spa": 7.5,
+        "spd": 6.2,
+        "spe": 3.5
+      },
+      "sprite": "assets/fusoes/abra+psyduck~abbrduck.png",
+      "lore": "ABRA NA CABEÇA, PSYDUCK NO CORPO."
+    }
   ]
 };
