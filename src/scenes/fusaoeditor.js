@@ -490,27 +490,21 @@ export class FusaoEditorScene {
           F.publicouMundo.replace("{N}", r.total || "?"),
         ]);
       }
+      // Um clique só: gravou no aparelho e já segue pro código. Isto era uma
+      // pergunta ("mandar pro mundo?") — dois passos pra uma coisa que sempre
+      // ia junto. Se o código recusar (sem internet, sem permissão), a ficha
+      // continua valendo aqui e ele diz por quê.
       this.dlg.say([
         F.publicou.replace("{NOME}", nome),
         F.publicouRede.replace("{N}", r.aparelhos).replace("{S}", r.aparelhos === 1 ? "" : "S"),
-      ], () => this.oferecerMundo(nome));
-    });
-  }
-
-  /** O passo seguinte do publicar: mandar a ficha pro repositório do jogo — o
-   *  "mundo" daqui. Quem baixar ou atualizar o jogo recebe ela junto. Não deu
-   *  (sem permissão de escrita lá, sem internet), a ficha continua valendo
-   *  nesta casa: o publicar já aconteceu. */
-  oferecerMundo(nome) {
-    const F = DB.STORY.fusao;
-    this.dlg.ask(F.perguntaMundo.replace("{NOME}", nome), F.opcoesMundo, async (i) => {
-      if (i !== 0) return;
-      this.dlg.say(F.mundoBuscando);
-      const r = await mandarProMundo(nome, this.game.state.player?.name || "");
-      Audio2[r.ok ? "heal" : "cancel"]();
-      if (r.ok) Glitch.hit(2);
-      this.dlg.say(r.ok ? F.mundoEnviou.replace("{NOME}", nome)
-                        : F.mundoRecusou.replace("{ERRO}", r.erro || "?"));
+        F.mandandoCodigo,
+      ], async () => {
+        const m = await mandarProMundo(nome, this.game.state.player?.name || "");
+        Audio2[m.ok ? "heal" : "cancel"]();
+        if (m.ok) Glitch.hit(2);
+        this.dlg.say(m.ok ? F.mundoEnviou.replace("{NOME}", nome)
+                          : F.mundoRecusou.replace("{ERRO}", m.erro || "?"));
+      });
     });
   }
 

@@ -157,7 +157,7 @@
 
     <button class="grande principal" id="baixar">⬇ BAIXAR A FICHA</button>
     <button class="grande" id="copiar">📋 Copiar o código</button>
-    <button class="grande" id="publicar">📡 Publicar no meu jogo</button>
+    <button class="grande" id="publicar">📡 Publicar (jogo + código)</button>
     <div class="recado" id="recado"></div>
   </div>
 </div>
@@ -166,9 +166,10 @@
   <strong>Como levar pro jogo:</strong> clique em <strong>BAIXAR A FICHA</strong> e guarde o arquivo.
   No jogo, abra o <code>DECODIFICADOR DE GENOMA</code> → <code>OFICINA</code> → <code>IMPORTAR FICHA</code> e escolha o arquivo.
   A fusão passa a existir na sua partida, com o desenho, o nome, os tipos e o crescimento que você deu.
-  O botão <strong>Publicar no meu jogo</strong> grava direto, sem arquivo no meio, quando o jogo está rodando
-  na sua máquina (<code>./run.sh</code>) — e é o caminho de sempre quando você abre esta página
-  <strong>pelo próprio jogo</strong>, em <code>localhost:5173/fusionglitch/</code>.
+  O botão <strong>Publicar no meu jogo</strong> faz tudo de uma vez: grava no jogo que está rodando na sua
+  máquina <em>e</em> manda a ficha pro código, no repositório. Um clique, e quem baixar o jogo já vem com ela.
+  (Ele funciona sempre que a página é aberta <strong>pelo próprio jogo</strong>, em
+  <code>localhost:5173/fusionglitch/</code>.)
   <br><br>
   Fangame não oficial, sem fins lucrativos e sem nenhuma ligação com a Nintendo, a Creatures ou a Game Freak.
   Os sprites vêm do <a href="https://cacaivilela.github.io/pokemon-glitch-edition/" style="color:var(--neon)">Pokémon Glitch Edition</a>.
@@ -567,9 +568,18 @@ $("publicar").onclick = async () => {
       const r = await fetch(url, { method: "POST", body: corpo });
       if (!r.ok) continue;
       const dado = await r.json().catch(() => ({}));
-      const onde = url.startsWith("http") ? url.replace(/\/__ficha$/, "") : "no jogo desta máquina";
-      return recado(`Publicada ${onde}! ${dado.aparelhos ? dado.aparelhos + " aparelho(s) já receberam." : ""}`
-        + " Ela já está no C da máquina.", "ok");
+      const aparelhos = dado.aparelhos ? ` ${dado.aparelhos} aparelho(s) já receberam.` : "";
+      recado(`Publicada no jogo!${aparelhos} Mandando pro código...`, "ok");
+      // Um clique só: publicada aqui, ela já vai pro repositório do jogo. Quem
+      // baixar ou atualizar o jogo recebe ela junto — sem mais nenhum passo.
+      const mundo = await fetch(url.replace(/__ficha$/, "__mundo"), {
+        method: "POST",
+        body: JSON.stringify({ acao: "enviar", nome: f.ficha.nome, autor: f.ficha.autor }),
+      }).then((x) => x.json()).catch(() => ({ ok: false, erro: "não deu pra falar com o git" }));
+      return recado(mundo.ok
+        ? `Pronto! ${f.ficha.nome} está no jogo e no código. Quem baixar o jogo vai ter ela.`
+        : `${f.ficha.nome} está no seu jogo.${aparelhos} No código não foi: ${mundo.erro}.`,
+        mundo.ok ? "ok" : "erro");
     } catch { /* não tem jogo aí: tenta o próximo */ }
   }
   recado("Não achei o jogo rodando. Use BAIXAR A FICHA e importe pelo jogo — funciona sempre.", "erro");
