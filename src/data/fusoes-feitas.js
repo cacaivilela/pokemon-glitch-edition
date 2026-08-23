@@ -748,5 +748,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/rotom+ditto~rotto.png",
       "lore": "ROTOM NA CABEÇA, DITTO NO CORPO."
     }
+  ],
+  "rotom+voltorb": [
+    {
+      "id": "roltorb",
+      "nome": "ROLTORB",
+      "autor": "CAIO",
+      "tipos": [
+        "ELÉTRICO",
+        "FANTASMA"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 5.9,
+        "atk": 4.1,
+        "def": 5.8,
+        "spa": 7.5,
+        "spd": 6.2,
+        "spe": 3.5
+      },
+      "sprite": "assets/fusoes/rotom+voltorb~roltorb.png",
+      "lore": "ROTOM NA CABEÇA, VOLTORB NO CORPO."
+    }
   ]
 };
