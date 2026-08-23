@@ -489,35 +489,6 @@ export const FUSOES_FEITAS = {
       "lore": "PORYGON NA CABEÇA, XERNEAS NO CORPO."
     }
   ],
-  "venusaur+kabutops": [
-    {
-      "id": "venutops",
-      "nome": "VENUTOPS",
-      "autor": "CAIO",
-      "tipos": [
-        "PLANTA",
-        "PEDRA"
-      ],
-      "inicial": {
-        "hp": 10,
-        "atk": 5,
-        "def": 5,
-        "spa": 5,
-        "spd": 5,
-        "spe": 5
-      },
-      "crescimento": {
-        "hp": 3.4,
-        "atk": 7.3,
-        "def": 6.3,
-        "spa": 2.9,
-        "spd": 3.5,
-        "spe": 5.9
-      },
-      "sprite": "assets/fusoes/venusaur+kabutops~venutops.png",
-      "lore": "VENUSAUR NA CABEÇA, KABUTOPS NO CORPO."
-    }
-  ],
   "butterfree+eevee": [
     {
       "id": "buttervee",
@@ -576,35 +547,6 @@ export const FUSOES_FEITAS = {
       "lore": "ELECTABUZZ NA CABEÇA, POLIWAG NO CORPO."
     }
   ],
-  "gloom+voltorb": [
-    {
-      "id": "gloltorb",
-      "nome": "GLOLTORB",
-      "autor": "CAIO",
-      "tipos": [
-        "PLANTA",
-        "ELÉTRICO"
-      ],
-      "inicial": {
-        "hp": 10,
-        "atk": 5,
-        "def": 5,
-        "spa": 5,
-        "spd": 5,
-        "spe": 5
-      },
-      "crescimento": {
-        "hp": 2.8,
-        "atk": 4.9,
-        "def": 4.4,
-        "spa": 1.5,
-        "spd": 3.2,
-        "spe": 7.4
-      },
-      "sprite": "assets/fusoes/gloom+voltorb~gloltorb.png",
-      "lore": "GLOOM NA CABEÇA, VOLTORB NO CORPO."
-    }
-  ],
   "hypno+muk": [
     {
       "id": "hypmuk",
@@ -632,35 +574,6 @@ export const FUSOES_FEITAS = {
       },
       "sprite": "assets/fusoes/hypno+muk~hypmuk.png",
       "lore": "HYPNO NA CABEÇA, MUK NO CORPO."
-    }
-  ],
-  "tangela+meowth": [
-    {
-      "id": "tangemeowth",
-      "nome": "TANGEMEOWTH",
-      "autor": "CAIO",
-      "tipos": [
-        "PLANTA",
-        "NORMAL"
-      ],
-      "inicial": {
-        "hp": 10,
-        "atk": 5,
-        "def": 5,
-        "spa": 5,
-        "spd": 5,
-        "spe": 5
-      },
-      "crescimento": {
-        "hp": 2.8,
-        "atk": 4.9,
-        "def": 4.4,
-        "spa": 1.5,
-        "spd": 3.2,
-        "spe": 7.4
-      },
-      "sprite": "assets/fusoes/tangela+meowth~tangemeowth.png",
-      "lore": "TANGELA NA CABEÇA, MEOWTH NO CORPO."
     }
   ],
   "unown+staryu": [
@@ -805,35 +718,6 @@ export const FUSOES_FEITAS = {
       },
       "sprite": "assets/fusoes/rotom+pikachu~rochu.png",
       "lore": "ROTOM ENTROU NO PIKACHU E NÃO SAIU MAIS. A DESCARGA CORRE POR FORA DO CORPO, AZUL."
-    }
-  ],
-  "abra+psyduck": [
-    {
-      "id": "abbrduck",
-      "nome": "ABBRDUCK",
-      "autor": "CAIO",
-      "tipos": [
-        "PSÍQUICO",
-        "ÁGUA"
-      ],
-      "inicial": {
-        "hp": 10,
-        "atk": 5,
-        "def": 5,
-        "spa": 5,
-        "spd": 5,
-        "spe": 5
-      },
-      "crescimento": {
-        "hp": 5.9,
-        "atk": 4.1,
-        "def": 5.8,
-        "spa": 7.5,
-        "spd": 6.2,
-        "spe": 3.5
-      },
-      "sprite": "assets/fusoes/abra+psyduck~abbrduck.png",
-      "lore": "ABRA NA CABEÇA, PSYDUCK NO CORPO."
     }
   ]
 };

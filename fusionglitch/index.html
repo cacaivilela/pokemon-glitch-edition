@@ -508,6 +508,44 @@ function recado(txt, tipo = "") {
   el.className = "recado " + tipo;
 }
 
+/** O quanto o desenho de agora difere da montagem automática, em % dos pixels.
+ *  Serve pra oficina não deixar publicar "metade um, metade outro" sem querer:
+ *  a montagem é o PONTO DE PARTIDA, não a obra. */
+async function quantoMexi() {
+  const { cabeca, corpo } = estado;
+  if (!cabeca || !corpo) return 100;
+  const meu = ctx.getImageData(0, 0, LADO, LADO).data;
+  const guardado = document.createElement("canvas");
+  guardado.width = guardado.height = LADO;
+  const g = guardado.getContext("2d", { willReadFrequently: true });
+  g.imageSmoothingEnabled = false;
+  const antes = ctx.getImageData(0, 0, LADO, LADO);
+  await montarAuto();                      // desenha a automática na tela...
+  const auto = ctx.getImageData(0, 0, LADO, LADO).data;
+  ctx.putImageData(antes, 0, 0);           // ...e devolve o seu na hora
+  estado.undos.pop();                      // (o undo daquele passo não conta)
+  let dif = 0, pintados = 0;
+  for (let i = 0; i < meu.length; i += 4) {
+    const a1 = meu[i + 3] > 40, a2 = auto[i + 3] > 40;
+    if (a1 || a2) pintados++;
+    if (a1 !== a2) { dif++; continue; }
+    if (!a1) continue;
+    if (Math.abs(meu[i] - auto[i]) > 12 || Math.abs(meu[i + 1] - auto[i + 1]) > 12
+        || Math.abs(meu[i + 2] - auto[i + 2]) > 12) dif++;
+  }
+  return pintados ? Math.round((dif * 100) / pintados) : 100;
+}
+
+/** true = pode seguir. Pergunta antes quando o desenho ainda é a montagem. */
+async function conferirDesenho() {
+  const mexido = await quantoMexi();
+  if (mexido >= 8) return true;
+  return confirm(
+    `Você quase não desenhou por cima — está ${mexido}% diferente da montagem automática,\n` +
+    "que é o que o jogo já faz sozinho com essa dupla.\n\n" +
+    "Publicar assim mesmo?");
+}
+
 function montarFicha() {
   const { cabeca, corpo } = estado;
   if (!cabeca || !corpo) { recado("Escolha a cabeça e o corpo.", "erro"); return null; }
@@ -557,6 +595,7 @@ $("copiar").onclick = async () => {
 $("publicar").onclick = async () => {
   const f = montarFicha();
   if (!f) return;
+  if (!await conferirDesenho()) return recado("Tudo bem — desenhe mais um pouco e volte aqui.", "");
   recado("Procurando o jogo...");
   const corpo = JSON.stringify(f);
   // 1º: o servidor DESTA página. Quando ela é servida pelo dev_server (o jogo

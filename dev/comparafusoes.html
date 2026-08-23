@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>quem desenhou de verdade</title>
+<style>body{background:#111;color:#9fd;font:12px ui-monospace;margin:0;padding:8px}.igual{color:#f66}.feito{color:#7f7}</style>
+</head><body>
+<div id="out">comparando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=25000">
+<canvas id="screen" width="240" height="160" hidden></canvas>
+<script type="module">
+// Compara o desenho publicado de cada fusão com a MONTAGEM AUTOMÁTICA da mesma
+// dupla. Igual (ou quase) = ninguém pintou por cima: é só metade um, metade
+// outro. A montagem é feita em canvas pelo jogo, então a comparação acontece
+// aqui, com o código de verdade, e não com uma imitação em outra linguagem.
+const linhas = [];
+const p = (t, c = "") => linhas.push(`<div class="${c}">${t}</div>`);
+try {
+  const { DB } = await import("/src/data/index.js");
+  const { Assets } = await import("/src/core/assets.js");
+  const { pedirMon } = await import("/src/core/sprites.js");
+  const F = await import("/src/systems/fusao.js");
+  Assets.init();
+
+  const publicadas = JSON.parse(JSON.stringify(DB.FUSOES_FEITAS || {}));
+  const pares = Object.entries(publicadas).flatMap(([k, v]) => v.map((f) => [k, f]));
+
+  for (const [k] of pares) {
+    for (const id of k.split("+")) {
+      const sp = DB.SPECIES[id];
+      if (sp) pedirMon(sp.id || id, sp.spriteDex || sp.dex);
+    }
+  }
+  await new Promise((r) => setTimeout(r, 4000));   // esperar os sprites chegarem
+
+  const pixels = (img, lado = 64) => {
+    const cv = document.createElement("canvas");
+    cv.width = cv.height = lado;
+    const c = cv.getContext("2d", { willReadFrequently: true });
+    c.imageSmoothingEnabled = false;
+    c.drawImage(img, 0, 0, lado, lado);
+    return c.getImageData(0, 0, lado, lado).data;
+  };
+
+  const carregar = (src) => new Promise((r) => {
+    const i = new Image();
+    i.onload = () => r(i);
+    i.onerror = () => r(null);
+    i.src = src;
+  });
+
+  // sem as fichas publicadas, `Assets.mon` do id da dupla devolve a montagem
+  // automática — é com ela que a comparação é feita
+  DB.FUSOES_FEITAS = {};
+  const resultado = [];
+  for (const [k, f] of pares) {
+    const [cab, cor] = k.split("+");
+    const sp = F.montarEspecie(cab, cor);
+    if (!sp) { p(`${f.nome}: a dupla não monta`, "igual"); continue; }
+    DB.SPECIES[sp.id] = sp;
+    const auto = pixels(Assets.mon(sp.id, 7));
+    const img = await carregar("/" + f.sprite);
+    if (!img) { p(`${f.nome}: o desenho não abriu`, "igual"); continue; }
+    const meu = pixels(img);
+    let dif = 0, desenhados = 0;
+    for (let i = 0; i < meu.length; i += 4) {
+      const a1 = meu[i + 3] > 40, a2 = auto[i + 3] > 40;
+      if (a1 || a2) desenhados++;
+      if (a1 !== a2) { dif++; continue; }
+      if (!a1) continue;
+      if (Math.abs(meu[i] - auto[i]) > 12 || Math.abs(meu[i + 1] - auto[i + 1]) > 12
+          || Math.abs(meu[i + 2] - auto[i + 2]) > 12) dif++;
+    }
+    resultado.push({ k, nome: f.nome, id: f.id, pct: desenhados ? Math.round((dif * 100) / desenhados) : 0 });
+  }
+  resultado.sort((a, b) => a.pct - b.pct);
+  p("<b>quanto cada desenho difere da montagem automática</b>");
+  for (const r of resultado) {
+    p(`${String(r.pct).padStart(3)}%  ${r.nome}  (${r.k})  id=${r.id}`, r.pct < 8 ? "igual" : "feito");
+  }
+  const so = resultado.filter((r) => r.pct < 8);
+  p(`<b>${so.length} parecem só metade-um-metade-outro:</b> ${so.map((r) => r.k + "/" + r.id).join(", ") || "nenhuma"}`);
+  document.getElementById("out").innerHTML = linhas.join("");
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({
+    name: "comparafusoes", log: linhas.join("\n").replace(/<[^>]+>/g, ""),
+    dataUrl: document.getElementById("screen").toDataURL(),
+  }) });
+} catch (e) {
+  document.getElementById("out").textContent = "EXPLODIU: " + (e?.stack || e);
+}
+</script></body></html>
