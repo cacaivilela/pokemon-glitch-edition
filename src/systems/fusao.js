@@ -42,6 +42,16 @@ export const temFicha = (cabeca, corpo) => !!fichaDe(cabeca, corpo);
  *  avisar em vez de ignorar o desenho calada. */
 export const fichaInvertida = (cabeca, corpo) => fichaDe(corpo, cabeca);
 
+/** Quantas versões existem com os lados TROCADOS — a sua ficha e as escritas
+ *  (do jogo ou publicadas). Fazer a fusão de A+B e depois fundir B+A é o erro
+ *  mais fácil daqui, e antes o aviso só olhava pra sua própria ficha: uma
+ *  versão publicada no par invertido não aparecia e ninguém dizia nada. */
+export function versoesInvertidas(cabeca, corpo) {
+  const lista = fichasProntas(corpo, cabeca);
+  const minha = fichaDe(corpo, cabeca);
+  return { quantas: lista.length + (minha ? 1 : 0), nome: (minha || lista[0])?.nome || "" };
+}
+
 // O id da fusão carrega a dupla e, depois do ~, a VARIANTE: qual das fusões
 // daquela dupla é esta. Sem variante é a fusão da própria partida — a que a
 // máquina calcula, ou a ficha que você fez na oficina. Com variante é uma das

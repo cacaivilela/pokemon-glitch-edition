@@ -23,9 +23,9 @@ import { scatterDimLoot } from "../systems/loot.js";
 import { pedrasIniciaisDevidas } from "../systems/mega.js";
 import { estado as estadoMissao, progresso, aceitar, entregar, diario, feitas, missaoPorId, daVez }
   from "../systems/missoes.js";
-import { ehFusao, fundivel, previsao, partes, temFicha, fichaInvertida, variantes,
+import { ehFusao, fundivel, previsao, partes, temFicha, fichaInvertida, fichasProntas, variantes,
          buscarDoMundo, especiePorTexto, montarEspecie, servidorMundo,
-         importarFicha, trocarVariante } from "../systems/fusao.js";
+         importarFicha, trocarVariante, versoesInvertidas } from "../systems/fusao.js";
 import { BattleScene } from "./battle.js";
 import { EvolutionScene } from "./evolution.js";
 import { FusionScene } from "./fusion.js";
@@ -1789,8 +1789,12 @@ export class OverworldScene {
     // Você fez a ficha de A+B e está fundindo B+A: sem isto a máquina jogava o
     // seu desenho fora sem falar nada e caía no cálculo automático.
     // (só vale pra fusão da sua partida: variante escrita no código é outra coisa)
-    const outra = !variante && !temFicha(cabeca.species, corpo.species)
-      && fichaInvertida(cabeca.species, corpo.species);
+    // vale pra QUALQUER versão do par invertido: a sua ficha, uma do jogo ou
+    // uma publicada — não adianta avisar só das suas
+    const temAqui = temFicha(cabeca.species, corpo.species)
+      || fichasProntas(cabeca.species, corpo.species).length > 0;
+    const inverso = versoesInvertidas(cabeca.species, corpo.species);
+    const outra = !variante && !temAqui && inverso.quantas ? inverso : null;
     if (outra && !jaPerguntou) {
       const pergunta = F.perguntaInverter
         .replace("{NOME}", outra.nome || "?")
@@ -2886,7 +2890,8 @@ export class OverworldScene {
           drawText(ctx, sp.name, 148, 78, PAL.ink);
           drawText(ctx, sp.types.join("/").slice(0, 14), 148, 90, PAL.ink2);
           drawText(ctx, `TOTAL ${sp.bst}`, 148, 100, PAL.ink2);
-          const avessa = atual.origem === "auto" && fichaInvertida(m.cabeca.species, escolhido.species);
+          const avessa = atual.origem === "auto" && vs.length === 1
+            && versoesInvertidas(m.cabeca.species, escolhido.species).quantas > 0;
           const cor = atual.origem === "sua" ? "#00ffcc"
             : atual.origem === "jogo" ? "#f0c419"
             : atual.origem === "jogador" ? "#59d99b"

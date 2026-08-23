@@ -122,6 +122,20 @@ try {
     p(`dois shiny: brilhouNaFusao=${!!fz.brilhouNaFusao} (não precisa avisar)`, !fz.brilhouNaFusao ? "ok" : "erro");
   }
 
+  h("AVISO DE LADOS TROCADOS");
+  {
+    const stW = { player: {}, party: [], boxes: [], fusoes: {} };
+    F.ligarEstado(stW);
+    // o jogo tem UNOWNIE publicada em unown+staryu
+    const certo = F.versoesInvertidas("staryu", "unown");
+    p(`fundindo STARYU+UNOWN, existe(m) ${certo.quantas} versão(ões) do contrário: ${certo.nome}`,
+      certo.quantas > 0 && certo.nome ? "ok" : "erro");
+    const inverso = F.versoesInvertidas("unown", "staryu");
+    p(`e na ordem certa não avisa nada: ${inverso.quantas}`, inverso.quantas === 0 ? "ok" : "erro");
+    p(`a dupla certa tem versão: ${F.variantes("unown","staryu").map((v) => v.rotulo).join(" | ")}`,
+      F.variantes("unown","staryu").length > 1 ? "ok" : "erro");
+  }
+
   h("TROCAR A VERSÃO DE QUEM JÁ ESTÁ FUNDIDO");
   {
     const stV = { player: {}, party: [], boxes: [], fusoes: {} };
