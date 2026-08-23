@@ -301,7 +301,12 @@ export function importarFicha(st, texto) {
   };
 
   const sprite = typeof ficha.sprite === "string" ? ficha.sprite : "";
-  if (sprite && !sprite.startsWith("data:image/png;base64,")) return { ok: false, erro: "O DESENHO NÃO É PNG" };
+  // vale o desenho embutido (o que vem do site) e o caminho de arquivo (o que
+  // as fichas publicadas usam desde que os PNGs saíram de dentro do código)
+  const ehArquivo = /^assets\/fusoes\/[\w+~.-]+\.png$/.test(sprite);
+  if (sprite && !sprite.startsWith("data:image/png;base64,") && !ehArquivo) {
+    return { ok: false, erro: "O DESENHO NÃO É PNG" };
+  }
   if (sprite.length > 96 * 1024) return { ok: false, erro: "O DESENHO É GRANDE DEMAIS" };
 
   const limpa = {
@@ -423,7 +428,8 @@ export async function publicarFicha(cabecaId, corpoId, ficha, autor = "") {
     // o servidor diz quantos aparelhos estavam ligados na hora: são eles que
     // recebem a variante nova sem recarregar nada (live update)
     const resposta = await r.json().catch(() => ({}));
-    return { ok: true, aparelhos: resposta.aparelhos || 0 };
+    // `codigo` = o servidor já está levando ela pro repositório sozinho
+    return { ok: true, aparelhos: resposta.aparelhos || 0, codigo: !!resposta.codigo };
   } catch { return { ok: false, aparelhos: 0 }; }
 }
 

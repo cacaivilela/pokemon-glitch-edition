@@ -569,17 +569,11 @@ $("publicar").onclick = async () => {
       if (!r.ok) continue;
       const dado = await r.json().catch(() => ({}));
       const aparelhos = dado.aparelhos ? ` ${dado.aparelhos} aparelho(s) já receberam.` : "";
-      recado(`Publicada no jogo!${aparelhos} Mandando pro código...`, "ok");
-      // Um clique só: publicada aqui, ela já vai pro repositório do jogo. Quem
-      // baixar ou atualizar o jogo recebe ela junto — sem mais nenhum passo.
-      const mundo = await fetch(url.replace(/__ficha$/, "__mundo"), {
-        method: "POST",
-        body: JSON.stringify({ acao: "enviar", nome: f.ficha.nome, autor: f.ficha.autor }),
-      }).then((x) => x.json()).catch(() => ({ ok: false, erro: "não deu pra falar com o git" }));
-      return recado(mundo.ok
-        ? `Pronto! ${f.ficha.nome} está no jogo e no código. Quem baixar o jogo vai ter ela.`
-        : `${f.ficha.nome} está no seu jogo.${aparelhos} No código não foi: ${mundo.erro}.`,
-        mundo.ok ? "ok" : "erro");
+      // O servidor manda pro código sozinho, logo depois de gravar — a página
+      // não precisa pedir (e uma página velha no navegador de alguém deixava a
+      // fusão só no arquivo, sem ninguém saber).
+      return recado(`${f.ficha.nome} está no jogo!${aparelhos}` +
+        (dado.codigo ? " E já está indo pro código sozinha — quem baixar o jogo vai ter ela." : ""), "ok");
     } catch { /* não tem jogo aí: tenta o próximo */ }
   }
   recado("Não achei o jogo rodando. Use BAIXAR A FICHA e importe pelo jogo — funciona sempre.", "erro");

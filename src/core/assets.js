@@ -3,6 +3,7 @@
 import { makeRng } from "./rng.js";
 import { DB } from "../data/index.js";
 import { SpriteStore } from "./sprites.js";
+import { url as arquivo } from "./base.js";
 
 export const TILE = 16;
 
@@ -593,6 +594,11 @@ function desenhoDoJogador(url) {
   if (!desenhos.has(url)) {
     desenhos.set(url, null);
     const img = new Image();
+    // O desenho pode vir de dois jeitos: um arquivo (assets/fusoes/...), que é
+    // como as fichas publicadas guardam hoje, ou embutido em data: — que é como
+    // ele chega de uma ficha importada de fora. Arquivo é resolvido pela raiz
+    // do jogo, senão quebra na versão publicada, que mora numa subpasta.
+    const endereco = url.startsWith("data:") ? url : arquivo(url);
     img.onload = () => {
       const lado = DB.FUSAO?.editor?.tamanho || 64;
       const { cv, ctx } = makeCanvas(lado, lado);
@@ -604,8 +610,8 @@ function desenhoDoJogador(url) {
       ctx.drawImage(img, 0, 0, lado, lado);
       desenhos.set(url, cv);
     };
-    img.onerror = () => console.warn("[fusão] o desenho gravado não abriu");
-    img.src = url;
+    img.onerror = () => console.warn("[fusão] o desenho gravado não abriu:", endereco);
+    img.src = endereco;
   }
   return desenhos.get(url);
 }

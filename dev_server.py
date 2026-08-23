@@ -28,6 +28,14 @@ _clients = []
 _lock = threading.Lock()
 _save_lock = threading.Lock()
 _versoes = {}          # perfil -> versao do save (um save por maquina, ver save_file)
+_git_lock = threading.Lock()
+
+# Publicar uma ficha manda ela pro codigo SOZINHO: commit + push, aqui no
+# servidor, logo depois de gravar. Antes isso dependia de a pagina aberta pedir
+# o segundo passo — e uma pagina velha no navegador de alguem simplesmente nao
+# pedia, entao a fusao ficava so no arquivo e ninguem sabia. Desligue aqui se
+# um dia quiser publicar a mao.
+AUTO_PUBLICAR = True
 
 
 def snapshot():
@@ -397,10 +405,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             nome = re.sub(r"[^\w .-]", "", str(payload.get("nome", "fusao")))[:40] or "fusao"
             autor = re.sub(r"[^\w .-]", "", str(payload.get("autor", "")))[:20]
             msg = f"fusao: {nome}" + (f" (por {autor})" if autor else "")
-            cod, _, err = self._git("add", "--", self.FICHAS_REL)
+            # o desenho agora e arquivo: ele vai no mesmo commit da ficha,
+            # senao o codigo teria a linha apontando pra um PNG que nao existe
+            cod, _, err = self._git("add", "--", self.FICHAS_REL, "assets/fusoes")
             if cod:
                 return self._responde({"ok": False, "erro": err[:120] or "git add falhou"})
-            cod, saida, err = self._git("commit", "-m", msg, "--", self.FICHAS_REL)
+            cod, saida, err = self._git("commit", "-m", msg, "--", self.FICHAS_REL, "assets/fusoes")
             if cod and "nothing to commit" not in (saida + err).lower():
                 pista = (err or saida).splitlines()[-1][:120] if (err or saida) else "commit falhou"
                 return self._responde({"ok": False, "erro": pista})
@@ -441,6 +451,24 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         except (OSError, IndexError, ValueError):
             atual = {}
 
+        # O DESENHO VIRA ARQUIVO. Ele chega como data:image/png;base64,... e,
+        # guardado dentro do JS, cada ficha engordava o modulo em alguns KB —
+        # e o modulo inteiro e lido quando o jogo abre. Como arquivo, o JS fica
+        # com uma linha de caminho e o PNG so e baixado quando aquela fusao
+        # aparece na tela.
+        sprite = str(ficha.get("sprite") or "")
+        if sprite.startswith("data:image/png;base64,"):
+            import base64
+            pasta = os.path.join(ROOT, "assets", "fusoes")
+            os.makedirs(pasta, exist_ok=True)
+            nome = re.sub(r"[^a-z0-9+]", "", chave) + "~" + re.sub(r"[^a-z0-9]", "", ficha["id"]) + ".png"
+            try:
+                with open(os.path.join(pasta, nome), "wb") as fh:
+                    fh.write(base64.b64decode(sprite.split(",", 1)[1]))
+                ficha["sprite"] = "assets/fusoes/" + nome
+            except (OSError, ValueError):
+                pass          # nao deu pra gravar o arquivo: fica embutido mesmo
+
         lista = [f for f in atual.get(chave, []) if f.get("id") != ficha["id"]]
         lista.append(ficha)
         atual[chave] = lista
@@ -468,7 +496,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             aparelhos = len(_clients)
         print(f"\033[35m[ficha]\033[0m {chave}: {ficha.get('nome')} publicada "
               f"({aparelhos} aparelho(s) ligado(s))", flush=True)
-        corpo = json.dumps({"ok": True, "aparelhos": aparelhos}).encode()
+        # e daqui ela segue sozinha pro codigo do jogo
+        if AUTO_PUBLICAR:
+            self.publicar_sozinho(ficha.get("nome"), ficha.get("autor"))
+        corpo = json.dumps({"ok": True, "aparelhos": aparelhos, "codigo": bool(AUTO_PUBLICAR)}).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         # A oficina de fora (o FUSIONGLITCH publicado) fala com ESTE servidor de
@@ -480,6 +511,33 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(corpo)))
         self.end_headers()
         self.wfile.write(corpo)
+
+    def publicar_sozinho(self, nome, autor):
+        """Commit + push da ficha recem-gravada, numa thread propria.
+
+        Numa thread porque o `git push` fala com a internet e demora: quem
+        clicou em publicar nao pode ficar esperando a tela travada por causa
+        disso. O lock evita dois pushes ao mesmo tempo quando alguem publica
+        varias seguidas.
+        """
+        def tarefa():
+            with _git_lock:
+                limpo = re.sub(r"[^\w .-]", "", str(nome))[:40] or "fusao"
+                quem = re.sub(r"[^\w .-]", "", str(autor or ""))[:20]
+                msg = f"fusao: {limpo}" + (f" (por {quem})" if quem else "")
+                cod, saida, _ = self._git("rev-parse", "--is-inside-work-tree")
+                if cod or saida != "true":
+                    return print("\033[33m[codigo]\033[0m esta copia nao e um repositorio git", flush=True)
+                self._git("add", "--", self.FICHAS_REL, "assets/fusoes")
+                cod, saida, err = self._git("commit", "-m", msg, "--", self.FICHAS_REL, "assets/fusoes")
+                if cod and "nothing to commit" not in (saida + err).lower():
+                    return print(f"\033[33m[codigo]\033[0m nao deu pra gravar: {(err or saida).splitlines()[-1][:120]}", flush=True)
+                cod, saida, err = self._git("push", "origin", "HEAD:main", timeout=120)
+                if cod:
+                    return print(f"\033[33m[codigo]\033[0m commit feito, push nao: {(err or saida).splitlines()[-1][:120]}", flush=True)
+                print(f"\033[32m[codigo]\033[0m {msg} -> no jogo publicado", flush=True)
+
+        threading.Thread(target=tarefa, daemon=True).start()
 
     def do_OPTIONS(self):
         """O navegador pergunta antes de mandar a ficha de outro endereco."""

@@ -19,6 +19,7 @@ import { Assets, makeCanvas } from "../core/assets.js";
 import { Audio2 } from "../core/audio.js";
 import { Input, Texto, Mouse } from "../core/input.js";
 import { Save } from "../core/save.js";
+import { url as arquivo } from "../core/base.js";
 import { Glitch } from "../systems/glitchfx.js";
 import { Dialogue } from "../systems/dialogue.js";
 import { fichaParaEditar, salvarFicha, apagarFicha, temFicha, montarEspecie,
@@ -105,7 +106,7 @@ export class FusaoEditorScene {
         this.ctx.imageSmoothingEnabled = false;
       };
       img.onerror = () => this.semearAuto();
-      img.src = this.ficha.sprite;
+      img.src = this.ficha.sprite.startsWith("data:") ? this.ficha.sprite : arquivo(this.ficha.sprite);
       return;
     }
     this.semearAuto();
@@ -490,21 +491,15 @@ export class FusaoEditorScene {
           F.publicouMundo.replace("{N}", r.total || "?"),
         ]);
       }
-      // Um clique só: gravou no aparelho e já segue pro código. Isto era uma
-      // pergunta ("mandar pro mundo?") — dois passos pra uma coisa que sempre
-      // ia junto. Se o código recusar (sem internet, sem permissão), a ficha
-      // continua valendo aqui e ele diz por quê.
+      // Um clique só: gravou no aparelho, e o SERVIDOR leva pro código sozinho
+      // (commit + push, numa thread dele). A tela não espera por isso — push
+      // fala com a internet e demora; e não dá pra depender de a página pedir,
+      // porque uma página velha simplesmente não pedia.
       this.dlg.say([
         F.publicou.replace("{NOME}", nome),
         F.publicouRede.replace("{N}", r.aparelhos).replace("{S}", r.aparelhos === 1 ? "" : "S"),
-        F.mandandoCodigo,
-      ], async () => {
-        const m = await mandarProMundo(nome, this.game.state.player?.name || "");
-        Audio2[m.ok ? "heal" : "cancel"]();
-        if (m.ok) Glitch.hit(2);
-        this.dlg.say(m.ok ? F.mundoEnviou.replace("{NOME}", nome)
-                          : F.mundoRecusou.replace("{ERRO}", m.erro || "?"));
-      });
+        ...(r.codigo ? [F.indoProCodigo] : []),
+      ]);
     });
   }
 
