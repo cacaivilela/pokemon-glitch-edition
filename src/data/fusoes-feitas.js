@@ -720,5 +720,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/rotom+rattata~rota.png",
       "lore": "ROTOM NA CABEÇA, RATTATA NO CORPO."
     }
+  ],
+  "primeape+poliwhirl": [
+    {
+      "id": "primeawhirl",
+      "nome": "PRIMEAWHIRL",
+      "autor": "CAIO",
+      "tipos": [
+        "LUTADOR",
+        "ÁGUA"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 7.1,
+        "atk": 6.7,
+        "def": 2.6,
+        "spa": 7.1,
+        "spd": 5.6,
+        "spe": 5.6
+      },
+      "sprite": "assets/fusoes/primeape+poliwhirl~primeawhirl.png",
+      "lore": "PRIMEAPE NA CABEÇA, POLIWHIRL NO CORPO."
+    }
   ]
 };
