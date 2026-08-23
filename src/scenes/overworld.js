@@ -30,6 +30,7 @@ import { EvolutionScene } from "./evolution.js";
 import { FusionScene } from "./fusion.js";
 import { FusaoEditorScene } from "./fusaoeditor.js";
 import { ConcursoScene } from "./concurso.js";
+import { ArtistaScene } from "./artista.js";
 
 const W = 240, H = 160;
 // tempos do FireRed, contados em quadros (o loop roda fixo em 60fps):
@@ -2249,7 +2250,8 @@ export class OverworldScene {
         if (m.index === 0) this.escolherCabeca();
         else if (m.index === 1) this.escolherFusao();
         else if (m.index === 2) this.abrirOficina();
-        else if (m.index === 3) this.baixarDoMundo();
+        else if (m.index === 3) { this.menu = null; this.game.scenes.push(new ArtistaScene()); }
+        else if (m.index === 4) this.baixarDoMundo();
         else { this.menu = null; Audio2.cancel(); }
       }
       return;
