@@ -459,5 +459,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/pikachu+caterpie~pikarpie.png",
       "lore": "PIKACHU NA CABEÇA, CATERPIE NO CORPO."
     }
+  ],
+  "porygon+xerneas": [
+    {
+      "id": "porneas",
+      "nome": "PORNEAS",
+      "autor": "",
+      "tipos": [
+        "NORMAL",
+        "FADA"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 2,
+        "atk": 1.5,
+        "def": 1.5,
+        "spa": 1.5,
+        "spd": 1.5,
+        "spe": 1.5
+      },
+      "sprite": "assets/fusoes/porygon+xerneas~porneas.png",
+      "lore": "PORYGON NA CABEÇA, XERNEAS NO CORPO."
+    }
   ]
 };
