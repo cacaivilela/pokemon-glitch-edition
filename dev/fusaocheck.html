@@ -339,6 +339,34 @@ try {
       m.maxHp > 0 && m.moves.length ? "ok" : "erro");
   }
 
+  h("ARCEUS, O POKÉMON DIVINO");
+  {
+    const sp = DB.SPECIES.arceus;
+    p(`espécie: ${sp?.name} [${sp?.types.join("/")}] dex ${sp?.dex} total ${sp?.bst}`, sp ? "ok" : "erro");
+    const e = (DB.ESTATICOS || []).find((x) => x.id === "arceus");
+    const geo = DB.KANTO[e.mapa];
+    const tag = geo.tags[e.y * geo.w + e.x];
+    const terreno = geo.terrain[e.y * geo.w + e.x];
+    p(`fica em ${e.mapa} (${e.x},${e.y}) nv${e.nivel}: tag=${tag} terreno=${terreno} (a = o vazio)`,
+      tag === "0" && terreno === "a" ? "ok" : "erro");
+    const m = Q.missaoPorId("pokemon-divino");
+    p(`missão: ${m.nome} — pede ${m.requer.insignias} insígnias, abre ${m.libera}`,
+      m && m.libera === "arceus" ? "ok" : "erro");
+    const stD = { party: [], boxes: [], caught: {}, items: {}, money: 0, flags: {}, badges: [], missoes: {} };
+    p(`sem as 8 insígnias, o pedido está travado: ${Q.daVez(stD, "pokemon-divino").travada}`,
+      Q.daVez(stD, "pokemon-divino").travada ? "ok" : "erro");
+    const visivel = (st) => (DB.ESTATICOS || []).filter((x) => (!x.missao || st.missoes[x.missao]) && !st.caught[x.id]);
+    p(`e ele não está na fenda antes disso: ${visivel(stD).some((x) => x.id === "arceus") === false}`,
+      !visivel(stD).some((x) => x.id === "arceus") ? "ok" : "erro");
+    stD.badges = ["1","2","3","4","5","6","7","8"];
+    Q.aceitar(stD, "pokemon-divino");
+    p(`aceitou -> ele aparece: ${visivel(stD).some((x) => x.id === "arceus")}`,
+      visivel(stD).some((x) => x.id === "arceus") ? "ok" : "erro");
+    stD.caught.arceus = true;
+    Q.entregar(stD, "pokemon-divino");
+    p(`capturou e entregou: $${stD.money} + ${JSON.stringify(stD.items)}`, stD.money === 20000 ? "ok" : "erro");
+  }
+
   h("A TEMPESTADE (LENDÁRIOS)");
   {
     const geo = DB.KANTO.tempestade;

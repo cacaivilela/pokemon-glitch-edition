@@ -111,19 +111,38 @@ export const TILE_FILES = {
   T: "balcao", B: "cama", C: "pc", t: "tv", p: "planta", ">": "escada",
 };
 
-/** Roda em segundo plano; o jogo já está rodando enquanto isso. */
-export async function loadExternalSprites(speciesList, actorNames) {
+// Quem já foi pedido, pra não pedir duas vezes. O sprite de um Pokémon só é
+// baixado quando ele PRECISA aparecer — antes o jogo pedia os quase 200 de uma
+// vez no boot (uns 400 arquivos), e ficava esperando por bicho que talvez não
+// entrasse na tela naquela partida inteira.
+const pedidos = new Set();
+
+/** Pede o sprite daquela espécie (frente e costas), uma vez só. Enquanto ele
+ *  não chega, quem desenha usa a arte provisória — nada fica preto. */
+export function pedirMon(id, dex) {
+  if (!id || pedidos.has(id)) return;
+  pedidos.add(id);
+  findMon("pokemon", id, dex).then((img) => {
+    if (img) { SpriteStore.pokemon[id] = img; SpriteStore.loaded++; }
+    else SpriteStore.missing.add(id);
+  });
+  findMon("pokemon/back", id, dex).then((img) => {
+    if (img) SpriteStore.pokemonBack[id] = img;
+  });
+}
+
+/** Adianta o que já se sabe que vai aparecer (a sua equipe, o que mora no mapa
+ *  em que você está). O resto chega sozinho, na hora. */
+export function adiantarMons(lista) {
+  for (const { id, dex } of lista || []) pedirMon(id, dex);
+}
+
+/** Roda em segundo plano; o jogo já está rodando enquanto isso.
+ *  Aqui ficam só os que são precisos SEMPRE: os personagens do mapa e os
+ *  tiles. Pokémon é pedido por `pedirMon`, quando aparece. */
+export async function loadExternalSprites(actorNames) {
   const jobs = [];
 
-  for (const { id, dex } of speciesList) {
-    jobs.push(findMon("pokemon", id, dex).then((img) => {
-      if (img) { SpriteStore.pokemon[id] = img; SpriteStore.loaded++; }
-      else SpriteStore.missing.add(id);
-    }));
-    jobs.push(findMon("pokemon/back", id, dex).then((img) => {
-      if (img) SpriteStore.pokemonBack[id] = img;
-    }));
-  }
   for (const name of actorNames) {
     jobs.push(loadImage(url(`assets/sprites/overworld/${name}.png`)).then((img) => {
       if (img) { SpriteStore.overworld[name] = sliceActorSheet(img); SpriteStore.loaded++; }

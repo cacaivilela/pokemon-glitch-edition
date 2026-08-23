@@ -39,6 +39,7 @@ const TABLE = `
 606 BEHEEYEM PSÍQUICO 75 75 75 125 95 40
 649 GENESECT INSETO/AÇO 71 120 95 120 95 99
 235 SMEARGLE NORMAL 55 20 35 20 45 75
+493 ARCEUS NORMAL 120 120 120 120 120 120
 716 XERNEAS FADA 126 131 95 131 98 99
 717 YVELTAL SOMBRIO/VOADOR 126 131 95 131 98 99
 718 ZYGARDE DRAGÃO/TERRA 108 100 121 81 95 95
@@ -183,6 +184,19 @@ export const TEMPESTADE = ["tornadus", "thundurus", "landorus"];
  *  o nível e as falas saem daqui e têm hot-swap.)
  */
 export const ESTATICOS = [
+  {
+    // O POKÉMON DIVINO. Ele não está num mapa de Kanto: aparece no meio da
+    // 011GLITCHDIMENSION110, no vazio entre as ilhas — o único lugar deste jogo
+    // que não foi feito por ninguém. E só depois que a missão o encontra.
+    id: "arceus", mapa: "glitchdim", x: 20, y: 20, nivel: 70,
+    missao: "pokemon-divino",
+    lines: [
+      "O CHÃO ACABA E ELE ESTÁ PARADO EM CIMA DE NADA.",
+      "NÃO É QUE ELE FLUTUE: O VAZIO É QUE ENCOSTA NELE COMO SE FOSSE CHÃO.",
+      "AS PLACAS DO ANEL GIRAM SOZINHAS, UMA DE CADA COR, E NENHUMA REPETE.",
+      "ELE ESTAVA AQUI ANTES DA FENDA. TALVEZ ANTES DO JOGO.",
+    ],
+  },
   {
     id: "xerneas", mapa: "viridian_forest", x: 23, y: 31, nivel: 60,
     missao: "x-marca-o-lugar",

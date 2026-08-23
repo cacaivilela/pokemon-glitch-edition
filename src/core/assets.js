@@ -2,7 +2,7 @@
 // Trocar por PNGs depois e so mudar Assets.tiles / Assets.mons.
 import { makeRng } from "./rng.js";
 import { DB } from "../data/index.js";
-import { SpriteStore } from "./sprites.js";
+import { SpriteStore, pedirMon } from "./sprites.js";
 import { url as arquivo } from "./base.js";
 
 export const TILE = 16;
@@ -751,6 +751,8 @@ export const Assets = {
     if (sp?.fusao) return fusaoSprite(sp, "frente", seed);
     const ext = SpriteStore.pokemon[id];
     if (ext) return ext;
+    // ainda não foi pedido: pede agora e mostra a arte provisória enquanto vem
+    if (sp) pedirMon(sp.id || id, sp.spriteDex || sp.dex);
     return this.placeholder(id, seed);
   },
 
@@ -758,6 +760,7 @@ export const Assets = {
   monBack(id, seed) {
     const sp = DB.SPECIES[id];
     if (sp?.fusao) return fusaoSprite(sp, "costas", seed);
+    if (sp && !SpriteStore.pokemonBack[id]) pedirMon(sp.id || id, sp.spriteDex || sp.dex);
     // nunca espelha: sprite espelhado deixa o jogo com cara de bug
     return SpriteStore.pokemonBack[id] || this.mon(id, seed);
   },

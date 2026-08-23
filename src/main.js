@@ -18,7 +18,7 @@ import { TitleScene } from "./scenes/title.js";
 import { OverworldScene } from "./scenes/overworld.js";
 import { BattleScene } from "./scenes/battle.js";
 import { drawText } from "./core/gfx.js";
-import { loadExternalSprites, mapArt, SpriteStore } from "./core/sprites.js";
+import { loadExternalSprites, adiantarMons, mapArt, SpriteStore } from "./core/sprites.js";
 
 const W = 240, H = 160;
 
@@ -192,13 +192,20 @@ const ATORES = [...new Set([
   ...Object.values(DB.MAPS).flatMap((m) => (m.npcs || []).map((n) => n.sprite)),
 ])].filter((n) => n && n !== "ball" && n !== "portal");   // esses dois sao desenhados em codigo
 
-loadExternalSprites(
-  // `spriteDex` existe nas formas MEGA: o arquivo delas é o id da PokeAPI da
-  // forma (10033.png), não o número da Pokédex da espécie de origem
-  Object.values(DB.SPECIES).map((sp) => ({ id: sp.id || slugFallback(sp), dex: sp.spriteDex || sp.dex })),
-  ATORES,
-);
-function slugFallback(sp) { return sp.name.toLowerCase().replace(/[^a-z0-9]+/g, ""); }
+// No boot vão só os personagens e os tiles — eles aparecem em toda tela. Os
+// Pokémon são pedidos quando entram em cena (ver `pedirMon`): antes o jogo
+// abria pedindo quase 400 arquivos de bicho que talvez nem aparecesse.
+loadExternalSprites(ATORES);
+
+/** O que já se sabe que vai aparecer: a sua equipe e quem mora neste mapa. */
+function adiantarDoMapa(state) {
+  const ids = new Set((state?.party || []).map((m) => m.species));
+  for (const e of DB.MAPS?.[state?.player?.map]?.encounters || []) ids.add(e.id);
+  adiantarMons([...ids].map((id) => {
+    const sp = DB.SPECIES[id];
+    return sp ? { id: sp.id || id, dex: sp.spriteDex || sp.dex } : null;
+  }).filter(Boolean));
+}
 game.scenes = new SceneStack(game);
 
 // Sem a geometria de Kanto (assets/maps/kanto.json) não existe mapa nenhum pra
@@ -364,6 +371,7 @@ SpriteStore.maps.tempestade = Assets.stormArt(DB.KANTO.tempestade);
 // só desenha a ilha em código quando o mapa do decomp não foi importado
 if (ILHA_GERADA) SpriteStore.maps.birth_island = Assets.islandArt(DB.KANTO.birth_island);
 mapArt(game.state.player.map); // começa a carregar a arte do mapa atual
+adiantarDoMapa(game.state);    // e adianta a equipe e os bichos daqui
 
 setTextVars({ NOME: game.state.player?.name || "VERMELHO" });
 

@@ -250,6 +250,33 @@ export const MISSOES = [
     premio: { dinheiro: 12000, item: "doce raro", qtd: 6 },
   },
 
+  {
+    // A última: ele não está em Kanto, e nem no mapa. A missão é o que faz o
+    // vazio da fenda virar chão embaixo dos pés dele.
+    id: "pokemon-divino",
+    nome: "O POKÉMON DIVINO",
+    mapa: "pallet", x: 13, y: 10, sprite: "prof",
+    requer: { insignias: 8 },
+    objetivo: { tipo: "capturou-especie", especie: "arceus" },
+    libera: "arceus",
+    resumo: "ACHAR O QUE ESTAVA NA FENDA ANTES DA FENDA.",
+    oferta: [
+      "EU NÃO DEVIA ESTAR CONTANDO ISTO, E O PROFESSOR NÃO SABE QUE EU ANOTEI.",
+      "TODA VEZ QUE ALGUÉM ATRAVESSA A FENDA, A MÁQUINA GRAVA O QUE TEM DO OUTRO LADO.",
+      "TEM UMA LEITURA QUE APARECE EM TODAS AS VISITAS, DESDE A PRIMEIRA. NO MESMO PONTO. PARADA.",
+      "NÃO É BICHO DA FENDA: OS DA FENDA ENTRARAM DEPOIS. ESSE JÁ ESTAVA.",
+      "VÁ ATÉ O MEIO DO VAZIO, ONDE NÃO TEM CHÃO. E OLHE PRA BAIXO ANTES DE PISAR.",
+    ],
+    lembrete: ["NO MEIO DA FENDA, ONDE O CHÃO ACABA. ELE NÃO SE MEXE — VOCÊ É QUE CHEGA."],
+    entrega: [
+      "ENTÃO ELE DEIXOU. ELE PODIA NÃO TER DEIXADO.",
+      "MIL PLACAS GIRANDO, UMA PRA CADA TIPO QUE EXISTE E ALGUMAS PRA TIPO QUE NÃO EXISTE.",
+      "EU PASSEI A VIDA CATALOGANDO O QUE CABE NA POKÉDEX. ESSE NÃO CABE, E ESTÁ AÍ.",
+      "GUARDE ISTO. E NÃO CONTE PRO PROFESSOR QUE FUI EU.",
+    ],
+    premio: { dinheiro: 20000, item: "doce raro", qtd: 10 },
+  },
+
   // ------------------------------------------------------- as três da tempestade
   // Um marinheiro em VERMILION leva você de barco até a tempestade que não
   // acaba, no mar perto de BIRTH ISLAND. Cada uma das três só aparece depois
