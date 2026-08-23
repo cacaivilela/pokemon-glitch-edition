@@ -276,6 +276,23 @@ Ela vale pra **qualquer partida deste computador**, inclusive um jogo novo, do
 mesmo jeito que as fusões que já vêm no jogo. O desenho vai junto, em PNG. Pra tirar uma, edite o
 arquivo à mão; pra tirar todas, deixe `export const FUSOES_FEITAS = {};`.
 
+### A faxina do mês
+
+Uma vez por mês, ao abrir o DECODIFICADOR, a máquina revisa o acervo e aponta a
+fusão mais fraca. "Fraca" não é gosto: é **o quanto o desenho difere da montagem
+automática** — a montagem (corpo de um, cabeça do outro) é o ponto de partida da
+oficina, e uma ficha que continua igual a ela é uma ficha que ninguém chegou a
+fazer. A conta é feita com o código de verdade do jogo, comparando pixel a
+pixel (`src/systems/faxina.js`).
+
+**Ela não apaga sozinha**: mostra qual é, com o número na tela ("4% diferente da
+montagem automática"), e pergunta. Jogar fora desenho — seu ou de outra pessoa —
+sem perguntar é o tipo de coisa que um programa não deve fazer calado. Quem
+recusa não é perguntado de novo até o mês virar.
+
+O que sai vai pro git como qualquer outra mudança (`faxina: fora <NOME>`), então
+nada se perde de verdade: dá pra voltar qualquer uma pelo histórico.
+
 ### Por que não existe um servidor de fusões
 
 Existiu por um tempo um serviço aberto onde qualquer pessoa publicava, e ele foi
@@ -803,6 +820,7 @@ src/
     fusao.js           fundir/separar, a espécie montada na hora e as fichas do jogador
     concurso.js        as notas dos três jurados e a rodada com os rivais
     missoes.js         estado das missões e os checadores de objetivo
+    faxina.js          a revisão mensal do acervo de fusões
     online.js          presença, convites, chat e o filtro do que vem de fora
   scenes/
     title.js  overworld.js  battle.js

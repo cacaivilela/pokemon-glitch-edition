@@ -423,6 +423,45 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         return self.send_error(400)
 
+    def ficha_apagar(self, chave, ficha_id):
+        """A faxina do mes: tira uma ficha do codigo e apaga o desenho dela.
+
+        Vai pro git igual a publicacao — o historico guarda tudo, entao nada e
+        perdido de verdade: da pra voltar qualquer uma depois.
+        """
+        caminho = os.path.join(ROOT, self.FICHAS_REL)
+        try:
+            with open(caminho, encoding="utf-8") as fh:
+                texto = fh.read()
+            cabecalho, corpo = texto.split("export const FUSOES_FEITAS =", 1)
+            atual = json.loads(corpo.rsplit(";", 1)[0].strip())
+        except (OSError, IndexError, ValueError):
+            return self._responde({"ok": False, "erro": "nao consegui ler o arquivo"})
+
+        fora = None
+        for f in atual.get(chave, []):
+            if f.get("id") == ficha_id:
+                fora = f
+        if not fora:
+            return self._responde({"ok": False, "erro": "essa ficha nao esta aqui"})
+
+        atual[chave] = [f for f in atual.get(chave, []) if f.get("id") != ficha_id]
+        if not atual[chave]:
+            del atual[chave]
+        with open(caminho, "w", encoding="utf-8") as fh:
+            fh.write(cabecalho + "export const FUSOES_FEITAS = "
+                     + json.dumps(atual, ensure_ascii=False, indent=2) + ";\n")
+        desenho = str(fora.get("sprite") or "")
+        if desenho.startswith("assets/fusoes/"):
+            try:
+                os.remove(os.path.join(ROOT, desenho))
+            except OSError:
+                pass
+        print(f"\033[33m[faxina]\033[0m {chave}: {fora.get('nome')} apagada", flush=True)
+        if AUTO_PUBLICAR:
+            self.publicar_sozinho(f"faxina: fora {fora.get('nome')}", "")
+        return self._responde({"ok": True, "nome": fora.get("nome")})
+
     def ficha_post(self):
         """A oficina publicou uma ficha de fusao: ela vira CODIGO.
 
@@ -440,6 +479,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         ficha = payload.get("ficha") or {}
         if not re.fullmatch(r"[a-z0-9]+\+[a-z0-9]+", chave) or not ficha.get("id"):
             return self.send_error(400)
+        if payload.get("acao") == "apagar":
+            return self.ficha_apagar(chave, str(ficha["id"]))
 
         caminho = os.path.join(ROOT, "src", "data", "fusoes-feitas.js")
         atual = {}

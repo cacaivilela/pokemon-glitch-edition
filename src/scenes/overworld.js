@@ -23,6 +23,7 @@ import { scatterDimLoot } from "../systems/loot.js";
 import { pedrasIniciaisDevidas } from "../systems/mega.js";
 import { estado as estadoMissao, progresso, aceitar, entregar, diario, feitas, missaoPorId, daVez }
   from "../systems/missoes.js";
+import { estaNaHora, marcarFeita, piores, apagarDoCodigo } from "../systems/faxina.js";
 import { ehFusao, fundivel, previsao, partes, temFicha, fichaInvertida, fichasProntas, variantes,
          buscarDoMundo, especiePorTexto, montarEspecie, servidorMundo,
          importarFicha, trocarVariante, versoesInvertidas } from "../systems/fusao.js";
@@ -1458,11 +1459,38 @@ export class OverworldScene {
   }
 
   /** A máquina, aberta pela mochila. Junta dois da equipe num só, e abre de
-   *  volta o que ela juntou. */
+   *  volta o que ela juntou. Uma vez por mês, ela abre com a faxina. */
   abrirDecodificador() {
     Audio2.select();
     Glitch.hit(0.5);
+    if (!Save.offline() && estaNaHora(this.st)) return this.faxinaDoMes();
     this.menu = { type: "genoma", index: 0 };
+  }
+
+  /** A FAXINA: a máquina aponta a fusão que menos foi desenhada e pergunta se
+   *  é pra jogar fora. Ela nunca apaga sozinha — o histórico guarda tudo, mas
+   *  desenho dos outros não se joga fora calado. */
+  async faxinaDoMes() {
+    const F = DB.STORY.fusao;
+    this.menu = null;
+    marcarFeita(this.st);
+    this.game.autosave?.(true);
+    this.dlg.say([...F.faxinaAviso, F.faxinaPensando]);
+    const lista = await piores(1);
+    const pior = lista[0];
+    if (!pior) return void this.dlg.say(F.faxinaVazio);
+    const nome = pior.ficha.nome;
+    this.dlg.ask(
+      F.faxinaPergunta.replace("{NOME}", nome).replace("{PCT}", pior.desenhado),
+      F.faxinaOpcoes,
+      async (i) => {
+        if (i !== 0) return void this.dlg.say(F.faxinaFicou);
+        const r = await apagarDoCodigo(pior.chave, pior.ficha.id);
+        Audio2[r.ok ? "cancel" : "cancel"]();
+        Glitch.hit(1);
+        this.dlg.say(r.ok ? F.faxinaFora.replace("{NOME}", nome)
+                          : F.faxinaErro.replace("{ERRO}", r.erro || "?"));
+      });
   }
 
   /** A lista de quem pode entrar. Fundir só aceita quem ainda não é fusão; a

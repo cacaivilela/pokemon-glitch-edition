@@ -458,6 +458,20 @@ export const STORY = {
     apagarFicha: "APAGAR A FICHA E DEIXAR A MÁQUINA CALCULAR SOZINHA?",
     opcoesApagar: ["APAGAR", "DEIXA PRA LÁ"],
     apagou: "FICHA APAGADA. A MÁQUINA VOLTOU A CHUTAR.",
+    // A FAXINA DO MÊS: uma vez por mês a máquina aponta a fusão mais fraca do
+    // acervo — a que menos foi desenhada por cima da montagem automática.
+    faxinaTitulo: "FAXINA DO MÊS",
+    faxinaAviso: [
+      "PASSOU UM MÊS. A MÁQUINA REVISOU O ACERVO SOZINHA.",
+      "ELA MEDE UMA COISA SÓ: O QUANTO CADA DESENHO FOI FEITO À MÃO, EM CIMA DA MONTAGEM QUE ELA JÁ FAZ.",
+    ],
+    faxinaPergunta: "A MAIS FRACA É {NOME} — {PCT}% DIFERENTE DA MONTAGEM AUTOMÁTICA. JOGAR FORA?",
+    faxinaOpcoes: ["JOGAR FORA", "DEIXAR FICAR"],
+    faxinaFora: "{NOME} SAIU DO ACERVO. (O HISTÓRICO GUARDA — DÁ PRA VOLTAR.)",
+    faxinaFicou: "TUDO BEM. ELA FICA — E A MÁQUINA SÓ PERGUNTA DE NOVO NO MÊS QUE VEM.",
+    faxinaErro: "NÃO DEU PRA APAGAR: {ERRO}",
+    faxinaVazio: "O ACERVO ESTÁ LIMPO. NADA A JOGAR FORA ESTE MÊS.",
+    faxinaPensando: "MEDINDO OS DESENHOS...",
     // examinar o item fora do laboratório
     olha: "A FITA ESTÁ PARADA NO MEIO DE UMA PALAVRA QUE NÃO É NOME DE NINGUÉM.",
   },
