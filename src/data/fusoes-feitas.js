@@ -662,5 +662,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/tangela+meowth~tangemeowth.png",
       "lore": "TANGELA NA CABEÇA, MEOWTH NO CORPO."
     }
+  ],
+  "unown+staryu": [
+    {
+      "id": "unownie",
+      "nome": "UNOWNIE",
+      "autor": "CAIO",
+      "tipos": [
+        "PSÍQUICO",
+        "ÁGUA"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 7.1,
+        "atk": 6.7,
+        "def": 2.6,
+        "spa": 7.1,
+        "spd": 5.6,
+        "spe": 5.6
+      },
+      "sprite": "assets/fusoes/unown+staryu~unownie.png",
+      "lore": "UNOWN NA CABEÇA, STARYU NO CORPO."
+    }
   ]
 };
