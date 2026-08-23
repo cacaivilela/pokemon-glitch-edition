@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FUSIONGLITCH — crie fusões para o Pokémon Glitch Edition</title>
+<meta name="description" content="Oficina de fusões do Pokémon Glitch Edition: escolha dois Pokémon, desenhe a fusão pixel a pixel, dê nome, tipos e crescimento por nível, e leve a ficha pro jogo.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230e0b18'/><text y='.9em' font-size='78'>🧬</text></svg>">
+<meta property="og:title" content="FUSIONGLITCH">
+<meta property="og:description" content="Crie e publique fusões de Pokémon para o Pokémon Glitch Edition.">
+<meta property="og:type" content="website">
+<style>
+  :root {
+    --bg: #0e0b18; --painel: #171426; --linha: #2c2743; --ink: #e8e6f2;
+    --fraco: #9a94b8; --acento: #b455ff; --neon: #00ffcc; --ok: #59d99b; --erro: #ff6a8a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--ink); min-height: 100vh; padding: 16px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 14px;
+  }
+  h1 { font-size: 20px; letter-spacing: 2px; color: var(--acento); }
+  h1 small { display: block; font-size: 12px; letter-spacing: 0; color: var(--fraco); margin-top: 4px; font-weight: normal; }
+  .topo { max-width: 1080px; margin: 0 auto 16px; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+  .topo a { color: var(--neon); font-size: 12px; }
+  .grade { max-width: 1080px; margin: 0 auto; display: grid; gap: 14px; grid-template-columns: 260px 1fr 260px; align-items: start; }
+  @media (max-width: 940px) { .grade { grid-template-columns: 1fr; } }
+  .caixa { background: var(--painel); border: 1px solid var(--linha); border-radius: 10px; padding: 12px; }
+  .caixa h2 { font-size: 12px; letter-spacing: 1px; color: var(--fraco); margin-bottom: 8px; text-transform: uppercase; }
+  label { display: block; font-size: 11px; color: var(--fraco); margin: 8px 0 3px; letter-spacing: .5px; }
+  input, select, textarea, button { font-family: inherit; font-size: 13px; }
+  input, select, textarea {
+    width: 100%; background: #0d0a17; color: var(--ink);
+    border: 1px solid var(--linha); border-radius: 6px; padding: 7px 8px;
+  }
+  input:focus, select:focus, textarea:focus { outline: 1px solid var(--acento); }
+  button {
+    background: #241d3c; color: var(--ink); border: 1px solid var(--linha);
+    border-radius: 6px; padding: 7px 10px; cursor: pointer;
+  }
+  button:hover { border-color: var(--acento); }
+  button.on { background: var(--acento); color: #12101c; border-color: var(--acento); }
+  button.grande { width: 100%; padding: 11px; margin-top: 10px; font-size: 14px; letter-spacing: 1px; }
+  button.principal { background: var(--neon); color: #0b1a17; border-color: var(--neon); font-weight: bold; }
+  .linha-botoes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .escolha { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+  .escolha img { width: 48px; height: 48px; image-rendering: pixelated; background: #0d0a17; border-radius: 6px; }
+  .escolha .quem { font-size: 12px; }
+  .escolha .quem b { color: var(--neon); display: block; }
+  .telaWrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  #tela {
+    image-rendering: pixelated; cursor: crosshair; border-radius: 8px;
+    background:
+      repeating-conic-gradient(#1b1730 0% 25%, #221d3a 0% 50%) 0 0 / 24px 24px;
+    border: 1px solid var(--linha); touch-action: none;
+  }
+  .paleta { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin-top: 8px; }
+  .paleta button { height: 22px; padding: 0; border-radius: 4px; }
+  .stat { display: grid; grid-template-columns: 58px 1fr 42px; gap: 6px; align-items: center; margin-bottom: 5px; }
+  .stat span { font-size: 11px; color: var(--fraco); }
+  .stat input[type=range] { padding: 0; }
+  .stat b { font-size: 12px; text-align: right; color: var(--neon); }
+  .previa { font-size: 11px; color: var(--fraco); margin-top: 6px; line-height: 1.6; }
+  .previa b { color: var(--ink); }
+  .aviso { font-size: 11px; color: var(--fraco); line-height: 1.6; margin-top: 10px; }
+  .recado { margin-top: 10px; font-size: 12px; min-height: 34px; line-height: 1.5; }
+  .recado.ok { color: var(--ok); }
+  .recado.erro { color: var(--erro); }
+  .rodape { max-width: 1080px; margin: 20px auto 0; font-size: 11px; color: var(--fraco); line-height: 1.7; }
+  .rodape strong { color: var(--ink); }
+  code { background: #0d0a17; padding: 1px 5px; border-radius: 4px; color: var(--neon); }
+</style>
+</head>
+<body>
+
+<div class="topo">
+  <h1>🧬 FUSIONGLITCH
+    <small>a oficina de fusões do POKÉMON GLITCH EDITION — escolha dois, desenhe, e leve pro jogo</small>
+  </h1>
+  <a href="https://cacaivilela.github.io/pokemon-glitch-edition/" target="_blank" rel="noopener">▶ abrir o jogo</a>
+</div>
+
+<div class="grade">
+  <!-- ------------------------------------------------------------ os dois -->
+  <div class="caixa">
+    <h2>Quem entra</h2>
+
+    <label for="cabeca">CABEÇA — dá o rosto, o 1º tipo e o lado especial</label>
+    <input id="cabeca" list="lista" placeholder="número (025) ou nome (PIKACHU)" autocomplete="off">
+    <div class="escolha"><img id="imgCabeca" alt=""><div class="quem"><b id="nomeCabeca">—</b><span id="tipoCabeca"></span></div></div>
+
+    <label for="corpo">CORPO — dá o resto, o 2º tipo e a força física</label>
+    <input id="corpo" list="lista" placeholder="número (006) ou nome (CHARIZARD)" autocomplete="off">
+    <div class="escolha"><img id="imgCorpo" alt=""><div class="quem"><b id="nomeCorpo">—</b><span id="tipoCorpo"></span></div></div>
+
+    <datalist id="lista"></datalist>
+
+    <div class="linha-botoes">
+      <button id="sortear">🎲 Sortear dupla</button>
+      <button id="inverter">⇄ Inverter</button>
+    </div>
+
+    <h2 style="margin-top:16px">Peças pra encaixar</h2>
+    <div class="linha-botoes">
+      <button data-peca="cabeca">Cabeça inteira</button>
+      <button data-peca="corpo">Corpo inteiro</button>
+      <button data-peca="topo">Só o topo</button>
+      <button data-peca="base">Só a base</button>
+      <button id="auto">↺ Montagem automática</button>
+    </div>
+    <p class="aviso">A montagem automática é o que o jogo faria sozinho: o corpo com a cor da cabeça, e a cabeça por cima. Daí em diante o desenho é seu.</p>
+  </div>
+
+  <!-- --------------------------------------------------------- o desenho -->
+  <div class="caixa telaWrap">
+    <h2 style="align-self:flex-start">O desenho — 64x64, o tamanho da batalha</h2>
+    <canvas id="tela" width="64" height="64" style="width:384px;height:384px"></canvas>
+
+    <div class="linha-botoes" style="justify-content:center">
+      <button class="ferramenta on" data-ferramenta="pincel">✏️ Pincel</button>
+      <button class="ferramenta" data-ferramenta="borracha">🧽 Borracha</button>
+      <button class="ferramenta" data-ferramenta="balde">🪣 Balde</button>
+      <button class="ferramenta" data-ferramenta="pipeta">💧 Conta-gotas</button>
+      <button id="desfazer">↶ Desfazer</button>
+      <button id="limpar">🗑 Limpar</button>
+    </div>
+
+    <div class="linha-botoes" style="justify-content:center;align-items:center">
+      <span style="font-size:11px;color:var(--fraco)">Pincel</span>
+      <button class="grosso on" data-grosso="1">1</button>
+      <button class="grosso" data-grosso="2">2</button>
+      <button class="grosso" data-grosso="4">4</button>
+      <button class="grosso" data-grosso="8">8</button>
+      <span style="font-size:11px;color:var(--fraco);margin-left:8px">Paleta</span>
+      <select id="paletaEscolha" style="width:auto"></select>
+    </div>
+    <div class="paleta" id="paleta" style="width:100%"></div>
+  </div>
+
+  <!-- ----------------------------------------------------------- a ficha -->
+  <div class="caixa">
+    <h2>A ficha</h2>
+    <label for="nome">Nome (até 11 letras)</label>
+    <input id="nome" maxlength="11" placeholder="BULBANDER">
+
+    <label for="tipo1">Tipo 1</label>
+    <select id="tipo1"></select>
+    <label for="tipo2">Tipo 2</label>
+    <select id="tipo2"></select>
+
+    <label for="autor">Quem desenhou</label>
+    <input id="autor" maxlength="10" placeholder="SEU NOME">
+
+    <h2 style="margin-top:14px">Quanto sobe por nível</h2>
+    <div id="stats"></div>
+    <div class="previa" id="previa"></div>
+
+    <button class="grande principal" id="baixar">⬇ BAIXAR A FICHA</button>
+    <button class="grande" id="copiar">📋 Copiar o código</button>
+    <button class="grande" id="publicar">📡 Publicar no meu jogo</button>
+    <div class="recado" id="recado"></div>
+  </div>
+</div>
+
+<p class="rodape">
+  <strong>Como levar pro jogo:</strong> clique em <strong>BAIXAR A FICHA</strong> e guarde o arquivo.
+  No jogo, abra o <code>DECODIFICADOR DE GENOMA</code> → <code>OFICINA</code> → <code>IMPORTAR FICHA</code> e escolha o arquivo.
+  A fusão passa a existir na sua partida, com o desenho, o nome, os tipos e o crescimento que você deu.
+  O botão <strong>Publicar no meu jogo</strong> grava direto, sem arquivo no meio, quando o jogo está rodando
+  na sua máquina (<code>./run.sh</code>) — e é o caminho de sempre quando você abre esta página
+  <strong>pelo próprio jogo</strong>, em <code>localhost:5173/fusionglitch/</code>.
+  <br><br>
+  Fangame não oficial, sem fins lucrativos e sem nenhuma ligação com a Nintendo, a Creatures ou a Game Freak.
+  Os sprites vêm do <a href="https://cacaivilela.github.io/pokemon-glitch-edition/" style="color:var(--neon)">Pokémon Glitch Edition</a>.
+</p>
+
+<script type="module">
+import { ESPECIES } from "./especies.js";
+
+// De onde vêm os sprites e pra onde vai a ficha.
+//
+// Esta página mora DENTRO do jogo (`fusionglitch/`), então quando ela é servida
+// pelo dev_server — ou pelo site do jogo — o caminho é o vizinho de cima: os
+// sprites são do mesmo endereço e a rota /__ficha também. É isso que faz o
+// PUBLICAR funcionar sem pedir licença a ninguém.
+//
+// Aberta de outro lugar (o atalho cacaivilela.github.io/fusionglitch), ela
+// aponta pro jogo publicado, que manda `access-control-allow-origin: *` — dá
+// pra ler os pixels dos sprites e exportar o desenho mesmo assim.
+const DENTRO_DO_JOGO = /\/fusionglitch\/?$/.test(location.pathname) && location.pathname !== "/fusionglitch/";
+const JOGO = DENTRO_DO_JOGO ? ".." : "https://cacaivilela.github.io/pokemon-glitch-edition";
+const LADO = 64;
+
+const TIPOS = ["NORMAL","LUTADOR","VOADOR","VENENO","TERRA","PEDRA","INSETO","FANTASMA",
+  "AÇO","FOGO","ÁGUA","PLANTA","ELÉTRICO","PSÍQUICO","GELO","DRAGÃO","SOMBRIO","FADA","GLITCH"];
+const STATS = [["hp","HP"],["atk","ATAQUE"],["def","DEFESA"],["spa","ESP.ATK"],["spd","ESP.DEF"],["spe","VELOC."]];
+
+const PALETAS = {
+  "PADRÃO": ["#000000","#ffffff","#5a6270","#a8b0bc","#e0524a","#f5a05a","#f0c419","#8a5a2f",
+             "#4cd06a","#1f7a3a","#4f8ce0","#1c3f8a","#b455ff","#ff0066","#00ffcc","#f2d0b0"],
+  "GAME BOY": ["#0f380f","#306230","#8bac0f","#9bbc0f","#1e5128","#4b8a3a","#c6de8a","#081808",
+               "#204020","#68a038","#d8e8a0","#000000","#2c4c2c","#7ea850","#e8f0c0","#ffffff"],
+  "PELE E PELO": ["#3a2418","#5c3a24","#8a5a34","#b98a52","#e0b98a","#f2d0b0","#fbe8d0","#ffffff",
+                  "#2a1a12","#4a2c1c","#6e4526","#9c6a3c","#c99a62","#e8c79a","#3f3f46","#12100e"],
+  "FOGO": ["#2a0a06","#5c1408","#8c2408","#c43c0c","#e86818","#f59c28","#ffd35c","#fff2b0",
+           "#1a0a12","#4a1030","#8a1c4c","#d43060","#ff6a8a","#ffffff","#6a2a10","#000000"],
+  "ÁGUA E GELO": ["#04121f","#0a2440","#124070","#1c62a8","#2f8ad4","#5cb4ea","#9adcf6","#e6faff",
+                  "#0a2a2a","#12484a","#1c7a72","#2fb09c","#7fe0cc","#ffffff","#3a4a5a","#000000"],
+  "MATO E PEDRA": ["#0c1a08","#16300f","#22521a","#31782a","#4c9c3c","#79c45a","#b2e68a","#e8f8c8",
+                   "#241c14","#3d3226","#5e5040","#877560","#b0a088","#d8ccb4","#000000","#ffffff"],
+  "GLITCH": ["#000000","#101018","#2a1040","#5a1a86","#b455ff","#e0a0ff","#00ffcc","#7dffe8",
+             "#ff0066","#ff6a9c","#ffffff","#c8c8d8","#ffd166","#3f7dff","#0a3a30","#1a0a24"],
+};
+
+const $ = (id) => document.getElementById(id);
+const tela = $("tela");
+const ctx = tela.getContext("2d", { willReadFrequently: true });
+ctx.imageSmoothingEnabled = false;
+
+const estado = {
+  cabeca: null, corpo: null,
+  ferramenta: "pincel", grosso: 1, cor: "#000000",
+  paleta: "PADRÃO", undos: [], pintando: false,
+  crescimento: { hp: 2, atk: 1.5, def: 1.5, spa: 1.5, spd: 1.5, spe: 1.5 },
+  inicial: { hp: 10, atk: 5, def: 5, spa: 5, spd: 5, spe: 5 },
+};
+
+// ------------------------------------------------------------- as espécies
+const porId = new Map(ESPECIES.map((sp) => [sp.id, sp]));
+$("lista").innerHTML = ESPECIES
+  .map((sp) => `<option value="${String(sp.dex).padStart(3, "0")} ${sp.nome}">`).join("");
+
+const limpaTexto = (t) => String(t).toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+function acharEspecie(texto) {
+  const cru = String(texto || "").trim();
+  if (!cru) return null;
+  const so = cru.split(" ")[0];
+  if (/^\d+$/.test(so)) return ESPECIES.find((sp) => sp.dex === parseInt(so, 10)) || null;
+  const alvo = limpaTexto(cru);
+  return ESPECIES.find((sp) => sp.id === alvo || limpaTexto(sp.nome) === alvo)
+      || ESPECIES.find((sp) => sp.id.startsWith(alvo)) || null;
+}
+
+const spriteUrl = (sp) => `${JOGO}/assets/sprites/pokemon/${String(sp.dex).padStart(3, "0")}.png`;
+
+const cacheImg = new Map();
+function carregar(sp) {
+  if (cacheImg.has(sp.id)) return cacheImg.get(sp.id);
+  const p = new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = spriteUrl(sp);
+  });
+  cacheImg.set(sp.id, p);
+  return p;
+}
+
+async function escolher(lado, texto) {
+  const sp = acharEspecie(texto);
+  estado[lado] = sp;
+  $(lado === "cabeca" ? "nomeCabeca" : "nomeCorpo").textContent = sp ? sp.nome : "—";
+  $(lado === "cabeca" ? "tipoCabeca" : "tipoCorpo").textContent = sp ? sp.tipos.join("/") : "";
+  const img = $(lado === "cabeca" ? "imgCabeca" : "imgCorpo");
+  img.src = sp ? spriteUrl(sp) : "";
+  if (estado.cabeca && estado.corpo) {
+    sugerirFicha();
+    await montarAuto();
+  }
+}
+
+// ----------------------------------------------------------- o nome e tipos
+const VOGAIS = "AEIOUÁÂÃÉÊÍÓÔÕÚ";
+function ultimaSilaba(s) {
+  let i = s.length - 1;
+  while (i >= 0 && !VOGAIS.includes(s[i])) i--;
+  while (i >= 0 && VOGAIS.includes(s[i])) i--;
+  while (i >= 0 && !VOGAIS.includes(s[i])) i--;
+  return i + 1;
+}
+function nomeFusao(a, b) {
+  const A = a.replace(/[^A-ZÁÂÃÉÊÍÓÔÕÚ0-9]/g, ""), B = b.replace(/[^A-ZÁÂÃÉÊÍÓÔÕÚ0-9]/g, "");
+  let corte = ultimaSilaba(A);
+  if (corte < 2) corte = Math.max(2, Math.ceil(A.length / 2));
+  let ini = ultimaSilaba(B);
+  if (B.length - ini < 2) ini = Math.max(0, B.length - Math.max(2, Math.floor(B.length / 2)));
+  return (A.slice(0, corte) + B.slice(ini)).slice(0, 11);
+}
+
+function sugerirFicha() {
+  const { cabeca, corpo } = estado;
+  if (!cabeca || !corpo) return;
+  if (!$("nome").dataset.mexido) $("nome").value = nomeFusao(cabeca.nome, corpo.nome);
+  if (!$("tipo1").dataset.mexido) $("tipo1").value = cabeca.tipos[0];
+  if (!$("tipo2").dataset.mexido) $("tipo2").value = corpo.tipos[1] || corpo.tipos[0];
+  atualizarPrevia();
+}
+
+// --------------------------------------------------------------- o desenho
+function guardarUndo() {
+  estado.undos.push(ctx.getImageData(0, 0, LADO, LADO));
+  if (estado.undos.length > 20) estado.undos.shift();
+}
+
+async function montarAuto() {
+  const { cabeca, corpo } = estado;
+  if (!cabeca || !corpo) return;
+  const [ic, ib] = await Promise.all([carregar(cabeca), carregar(corpo)]);
+  guardarUndo();
+  ctx.clearRect(0, 0, LADO, LADO);
+  if (ib) {
+    ctx.drawImage(ib, 0, 0, LADO, LADO);
+    const cor = corMedia(ic);
+    if (cor) {
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      ctx.globalCompositeOperation = "color";
+      ctx.fillStyle = cor;
+      ctx.fillRect(0, 0, LADO, LADO);
+      ctx.globalCompositeOperation = "destination-in";
+      ctx.globalAlpha = 1;
+      ctx.drawImage(ib, 0, 0, LADO, LADO);
+      ctx.restore();
+    }
+  }
+  if (ic) {
+    const alturaCab = Math.round(ic.height * 0.46);
+    ctx.drawImage(ic, 0, 0, ic.width, alturaCab, 0, 0, LADO, Math.round(LADO * 0.46));
+    ctx.save();
+    ctx.globalCompositeOperation = "source-atop";
+    ctx.fillStyle = "rgba(0,0,0,.22)";
+    ctx.fillRect(0, Math.round(LADO * 0.46) - 1, LADO, 1);
+    ctx.restore();
+  }
+}
+
+function corMedia(img) {
+  if (!img) return null;
+  const c = document.createElement("canvas");
+  c.width = c.height = 16;
+  const x = c.getContext("2d", { willReadFrequently: true });
+  x.drawImage(img, 0, 0, 16, 16);
+  let r = 0, g = 0, b = 0, n = 0;
+  const d = x.getImageData(0, 0, 16, 16).data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 128) continue;
+    r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
+  }
+  return n ? `rgb(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)})` : null;
+}
+
+async function encaixar(qual) {
+  const { cabeca, corpo } = estado;
+  const sp = qual === "cabeca" || qual === "topo" ? cabeca : corpo;
+  if (!sp) return recado("Escolha os dois primeiro.", "erro");
+  const img = await carregar(sp);
+  if (!img) return recado("Não consegui carregar esse sprite.", "erro");
+  guardarUndo();
+  const meio = qual === "topo" ? 0.46 : qual === "base" ? 0.54 : 1;
+  if (qual === "topo") ctx.drawImage(img, 0, 0, img.width, img.height * 0.46, 0, 0, LADO, LADO * 0.46);
+  else if (qual === "base") ctx.drawImage(img, 0, img.height * 0.46, img.width, img.height * 0.54, 0, LADO * 0.46, LADO, LADO * 0.54);
+  else ctx.drawImage(img, 0, 0, LADO, LADO);
+}
+
+function pontoDoMouse(ev) {
+  const r = tela.getBoundingClientRect();
+  const x = Math.floor((ev.clientX - r.left) * (LADO / r.width));
+  const y = Math.floor((ev.clientY - r.top) * (LADO / r.height));
+  return { x: Math.max(0, Math.min(LADO - 1, x)), y: Math.max(0, Math.min(LADO - 1, y)) };
+}
+
+function pintar(x, y) {
+  const n = estado.grosso;
+  const px = Math.max(0, Math.min(LADO - n, x - (n >> 1)));
+  const py = Math.max(0, Math.min(LADO - n, y - (n >> 1)));
+  if (estado.ferramenta === "borracha") ctx.clearRect(px, py, n, n);
+  else { ctx.fillStyle = estado.cor; ctx.fillRect(px, py, n, n); }
+}
+
+function balde(x, y) {
+  const img = ctx.getImageData(0, 0, LADO, LADO);
+  const d = img.data;
+  const i0 = (y * LADO + x) * 4;
+  const alvo = [d[i0], d[i0 + 1], d[i0 + 2], d[i0 + 3]];
+  const c = document.createElement("canvas").getContext("2d");
+  c.fillStyle = estado.cor;
+  const hex = c.fillStyle;
+  const novo = estado.ferramenta === "borracha" ? [0, 0, 0, 0]
+    : [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16), 255];
+  const igual = (i, k) => Math.abs(d[i] - k[0]) < 10 && Math.abs(d[i + 1] - k[1]) < 10
+    && Math.abs(d[i + 2] - k[2]) < 10 && Math.abs(d[i + 3] - k[3]) < 10;
+  if (igual(i0, novo)) return;
+  const pilha = [y * LADO + x];
+  while (pilha.length) {
+    const p = pilha.pop(), i = p * 4;
+    if (!igual(i, alvo)) continue;
+    d[i] = novo[0]; d[i + 1] = novo[1]; d[i + 2] = novo[2]; d[i + 3] = novo[3];
+    const px = p % LADO, py = (p / LADO) | 0;
+    if (px > 0) pilha.push(p - 1);
+    if (px < LADO - 1) pilha.push(p + 1);
+    if (py > 0) pilha.push(p - LADO);
+    if (py < LADO - 1) pilha.push(p + LADO);
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+function pipeta(x, y) {
+  const d = ctx.getImageData(x, y, 1, 1).data;
+  if (d[3] < 8) return;
+  estado.cor = "#" + [d[0], d[1], d[2]].map((v) => v.toString(16).padStart(2, "0")).join("");
+  desenharPaleta();
+}
+
+tela.addEventListener("pointerdown", (ev) => {
+  const { x, y } = pontoDoMouse(ev);
+  if (estado.ferramenta === "pipeta") return pipeta(x, y);
+  guardarUndo();
+  if (estado.ferramenta === "balde") return balde(x, y);
+  estado.pintando = true;
+  tela.setPointerCapture(ev.pointerId);
+  pintar(x, y);
+});
+tela.addEventListener("pointermove", (ev) => {
+  if (!estado.pintando) return;
+  const { x, y } = pontoDoMouse(ev);
+  pintar(x, y);
+});
+addEventListener("pointerup", () => { estado.pintando = false; });
+
+// ---------------------------------------------------------------- a paleta
+function desenharPaleta() {
+  const cores = PALETAS[estado.paleta];
+  $("paleta").innerHTML = cores
+    .map((c) => `<button data-cor="${c}" style="background:${c};${c === estado.cor ? "outline:2px solid #fff" : ""}"></button>`)
+    .join("");
+}
+$("paleta").addEventListener("click", (ev) => {
+  const c = ev.target.dataset.cor;
+  if (!c) return;
+  estado.cor = c;
+  if (estado.ferramenta === "borracha") escolherFerramenta("pincel");
+  desenharPaleta();
+});
+$("paletaEscolha").innerHTML = Object.keys(PALETAS).map((n) => `<option>${n}</option>`).join("");
+$("paletaEscolha").onchange = (ev) => { estado.paleta = ev.target.value; desenharPaleta(); };
+
+function escolherFerramenta(f) {
+  estado.ferramenta = f;
+  document.querySelectorAll(".ferramenta").forEach((b) => b.classList.toggle("on", b.dataset.ferramenta === f));
+}
+document.querySelectorAll(".ferramenta").forEach((b) => { b.onclick = () => escolherFerramenta(b.dataset.ferramenta); });
+document.querySelectorAll(".grosso").forEach((b) => {
+  b.onclick = () => {
+    estado.grosso = +b.dataset.grosso;
+    document.querySelectorAll(".grosso").forEach((o) => o.classList.toggle("on", o === b));
+  };
+});
+document.querySelectorAll("[data-peca]").forEach((b) => { b.onclick = () => encaixar(b.dataset.peca); });
+$("auto").onclick = montarAuto;
+$("desfazer").onclick = () => {
+  const img = estado.undos.pop();
+  if (img) ctx.putImageData(img, 0, 0);
+};
+$("limpar").onclick = () => { guardarUndo(); ctx.clearRect(0, 0, LADO, LADO); };
+
+// ----------------------------------------------------------------- a ficha
+$("tipo1").innerHTML = TIPOS.map((t) => `<option>${t}</option>`).join("");
+$("tipo2").innerHTML = ["—", ...TIPOS].map((t) => `<option>${t}</option>`).join("");
+["nome", "tipo1", "tipo2"].forEach((id) => {
+  $(id).addEventListener("input", (ev) => { ev.target.dataset.mexido = "1"; atualizarPrevia(); });
+});
+
+$("stats").innerHTML = STATS.map(([k, rot]) => `
+  <div class="stat">
+    <span>${rot}</span>
+    <input type="range" min="0" max="9" step="0.1" value="${estado.crescimento[k]}" data-stat="${k}">
+    <b id="v-${k}">${estado.crescimento[k].toFixed(1)}</b>
+  </div>`).join("");
+$("stats").addEventListener("input", (ev) => {
+  const k = ev.target.dataset.stat;
+  if (!k) return;
+  estado.crescimento[k] = +ev.target.value;
+  $(`v-${k}`).textContent = (+ev.target.value).toFixed(1);
+  atualizarPrevia();
+});
+
+const valorNo = (k, nv) => Math.max(1, Math.min(999,
+  Math.floor((estado.inicial[k] ?? (k === "hp" ? 10 : 5)) + estado.crescimento[k] * nv)));
+
+function atualizarPrevia() {
+  const nome = $("nome").value || "—";
+  const t1 = $("tipo1").value, t2 = $("tipo2").value;
+  const tipos = t2 && t2 !== "—" && t2 !== t1 ? `${t1}/${t2}` : t1;
+  const linha = (nv) => STATS.map(([k]) => valorNo(k, nv)).join(" ");
+  $("previa").innerHTML =
+    `<b>${nome}</b> — ${tipos}<br>` +
+    `HP ATK DEF SPA SPD SPE<br>` +
+    `nível 5: <b>${linha(5)}</b><br>nível 50: <b>${linha(50)}</b><br>nível 100: <b>${linha(100)}</b>`;
+}
+
+// -------------------------------------------------------------- levar embora
+function recado(txt, tipo = "") {
+  const el = $("recado");
+  el.textContent = txt;
+  el.className = "recado " + tipo;
+}
+
+function montarFicha() {
+  const { cabeca, corpo } = estado;
+  if (!cabeca || !corpo) { recado("Escolha a cabeça e o corpo.", "erro"); return null; }
+  const nome = ($("nome").value || nomeFusao(cabeca.nome, corpo.nome)).toUpperCase().slice(0, 11);
+  const t1 = $("tipo1").value, t2 = $("tipo2").value;
+  const tipos = t2 && t2 !== "—" && t2 !== t1 ? [t1, t2] : [t1];
+  return {
+    chave: `${cabeca.id}+${corpo.id}`,
+    ficha: {
+      id: limpaTexto(nome) || "ficha",
+      nome,
+      autor: ($("autor").value || "").toUpperCase().slice(0, 10),
+      tipos,
+      inicial: { ...estado.inicial },
+      crescimento: { ...estado.crescimento },
+      sprite: tela.toDataURL("image/png"),
+      lore: `${cabeca.nome} NA CABEÇA, ${corpo.nome} NO CORPO.`,
+    },
+  };
+}
+
+$("baixar").onclick = () => {
+  const f = montarFicha();
+  if (!f) return;
+  const blob = new Blob([JSON.stringify(f, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${f.ficha.id || "fusao"}.fusao.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  recado(`Baixei ${a.download}. No jogo: DECODIFICADOR → OFICINA → IMPORTAR FICHA.`, "ok");
+};
+
+$("copiar").onclick = async () => {
+  const f = montarFicha();
+  if (!f) return;
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(f));
+    recado("Código copiado. Cole num arquivo de texto ou mande pra quem quiser.", "ok");
+  } catch {
+    recado("Este navegador não deixou copiar — use o BAIXAR A FICHA.", "erro");
+  }
+};
+
+// Publicar direto só faz sentido quando o jogo está rodando NESTA máquina: aí
+// existe um dev_server escutando, e ele grava a ficha no arquivo do jogo.
+$("publicar").onclick = async () => {
+  const f = montarFicha();
+  if (!f) return;
+  recado("Procurando o jogo...");
+  const corpo = JSON.stringify(f);
+  // 1º: o servidor DESTA página. Quando ela é servida pelo dev_server (o jogo
+  // rodando aqui), é o caminho mais curto e sempre funciona — mesma origem,
+  // sem CORS, sem porta pra adivinhar.
+  const tentativas = [`${JOGO}/__ficha`, ...[5173, 5178, 5190, 8000].map((p) => `http://localhost:${p}/__ficha`)];
+  for (const url of tentativas) {
+    try {
+      const r = await fetch(url, { method: "POST", body: corpo });
+      if (!r.ok) continue;
+      const dado = await r.json().catch(() => ({}));
+      const onde = url.startsWith("http") ? url.replace(/\/__ficha$/, "") : "no jogo desta máquina";
+      return recado(`Publicada ${onde}! ${dado.aparelhos ? dado.aparelhos + " aparelho(s) já receberam." : ""}`
+        + " Ela já está no C da máquina.", "ok");
+    } catch { /* não tem jogo aí: tenta o próximo */ }
+  }
+  recado("Não achei o jogo rodando. Use BAIXAR A FICHA e importe pelo jogo — funciona sempre.", "erro");
+};
+
+$("sortear").onclick = () => {
+  const a = ESPECIES[Math.floor(Math.random() * ESPECIES.length)];
+  let b = ESPECIES[Math.floor(Math.random() * ESPECIES.length)];
+  while (b.id === a.id) b = ESPECIES[Math.floor(Math.random() * ESPECIES.length)];
+  $("cabeca").value = `${String(a.dex).padStart(3, "0")} ${a.nome}`;
+  $("corpo").value = `${String(b.dex).padStart(3, "0")} ${b.nome}`;
+  delete $("nome").dataset.mexido;
+  delete $("tipo1").dataset.mexido;
+  delete $("tipo2").dataset.mexido;
+  escolher("cabeca", $("cabeca").value);
+  escolher("corpo", $("corpo").value);
+};
+
+$("inverter").onclick = () => {
+  const a = $("cabeca").value, b = $("corpo").value;
+  $("cabeca").value = b; $("corpo").value = a;
+  delete $("nome").dataset.mexido;
+  delete $("tipo1").dataset.mexido;
+  delete $("tipo2").dataset.mexido;
+  escolher("cabeca", b);
+  escolher("corpo", a);
+};
+
+$("cabeca").addEventListener("change", (ev) => escolher("cabeca", ev.target.value));
+$("corpo").addEventListener("change", (ev) => escolher("corpo", ev.target.value));
+
+desenharPaleta();
+atualizarPrevia();
+$("sortear").click();     // abre já com uma dupla na bancada
+</script>
+</body>
+</html>

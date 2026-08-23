@@ -471,9 +471,28 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         corpo = json.dumps({"ok": True, "aparelhos": aparelhos}).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
+        # A oficina de fora (o FUSIONGLITCH publicado) fala com ESTE servidor de
+        # outro endereco. Servido daqui, `fusionglitch/` e mesma origem e nada
+        # disto e preciso; aberto pelo atalho publico, e isto que deixa o
+        # PUBLICAR chegar. So a rota da ficha responde assim.
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Private-Network", "true")
         self.send_header("Content-Length", str(len(corpo)))
         self.end_headers()
         self.wfile.write(corpo)
+
+    def do_OPTIONS(self):
+        """O navegador pergunta antes de mandar a ficha de outro endereco."""
+        if self.path.split("?")[0] != "/__ficha":
+            return self.send_error(404)
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Private-Network", "true")
+        self.send_header("Access-Control-Max-Age", "600")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def do_POST(self):
         """/__capture — a pagina de teste manda o canvas e o log de volta pro disco."""

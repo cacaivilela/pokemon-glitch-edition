@@ -229,8 +229,9 @@ devolve os dois de sempre, não importa a variante.
 
 ### FUSIONGLITCH: fazer fusão fora do jogo
 
-**[cacaivilela.github.io/fusionglitch](https://cacaivilela.github.io/fusionglitch/)**
-é a mesma oficina, numa página só, no navegador: escolhe os dois pelo número ou
+A oficina também existe **fora do jogo**, numa página só:
+[`fusionglitch/`](https://cacaivilela.github.io/pokemon-glitch-edition/fusionglitch/)
+(o endereço curto **cacaivilela.github.io/fusionglitch** leva pra ela). Ali dá pra: escolhe os dois pelo número ou
 pelo nome, monta a fusão automática, deixa desenhar por cima com o mouse (tela
 grande, pincel de 1 a 8, balde, conta-gotas, sete paletas, desfazer), e a ficha
 sai como um arquivo `.fusao.json` — o desenho vai dentro.
@@ -240,10 +241,15 @@ Ela é conferida antes de entrar (a dupla existe, o nome cabe, os tipos existem,
 os números estão na faixa, o desenho é PNG) e vira uma variante daquela dupla,
 com o `C` da máquina mostrando o nome de quem desenhou.
 
-O site **não tem servidor**: nada é enviado pra lugar nenhum, e nada entra no
-seu jogo sem você escolher o arquivo. Quem estiver com o jogo rodando na própria
-máquina ainda tem o atalho `Publicar no meu jogo`, que grava direto pelo
-`dev_server`.
+E tem o **PUBLICAR**, que grava direto sem arquivo no meio. Ele funciona porque
+a página mora **dentro do jogo**: aberta em `localhost:5173/fusionglitch/` ela é
+a mesma origem do `dev_server` e fala com ele sem pedir licença a ninguém.
+Aberta pelo endereço público, ela procura o jogo nas portas de sempre (e a rota
+`/__ficha` responde com CORS pra isso funcionar).
+
+O site **não tem servidor próprio**: nada é enviado pra lugar nenhum, não existe
+lista pública, e nada entra no seu jogo sem você escolher o arquivo ou apertar
+publicar.
 
 ### Publicar uma ficha no código
 
