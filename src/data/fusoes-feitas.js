@@ -575,5 +575,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/electabuzz+poliwag~electawag.png",
       "lore": "ELECTABUZZ NA CABEÇA, POLIWAG NO CORPO."
     }
+  ],
+  "gloom+voltorb": [
+    {
+      "id": "gloltorb",
+      "nome": "GLOLTORB",
+      "autor": "",
+      "tipos": [
+        "PLANTA",
+        "ELÉTRICO"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 2.8,
+        "atk": 4.9,
+        "def": 4.4,
+        "spa": 1.5,
+        "spd": 3.2,
+        "spe": 7.4
+      },
+      "sprite": "assets/fusoes/gloom+voltorb~gloltorb.png",
+      "lore": "GLOOM NA CABEÇA, VOLTORB NO CORPO."
+    }
   ]
 };
