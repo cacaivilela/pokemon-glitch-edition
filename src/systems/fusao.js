@@ -223,6 +223,28 @@ export function fundir(cabeca, corpo, variante = "") {
   return mon;
 }
 
+/** TROCAR A VERSÃO de quem já está fundido.
+ *
+ *  Fundir escolhe a versão no `C` — mas quem já fundiu (ou publicou uma ficha
+ *  depois de fundir) ficava preso na que pegou. Aqui a espécie do Pokémon passa
+ *  a ser a outra variante da MESMA dupla: ele continua sendo ele (nível, HP,
+ *  golpes, e os dois guardados lá dentro), muda o que a variante manda — nome,
+ *  tipos, desenho e crescimento. */
+export function trocarVariante(mon, variante = "") {
+  const p = partes(mon?.species);
+  if (!p) return null;
+  const sp = montarEspecie(p.cabeca, p.corpo, variante);
+  if (!sp) return null;
+  DB.SPECIES[sp.id] = sp;
+  const nomeAntigo = mon.name;
+  const frac = fracao(mon);
+  mon.species = sp.id;
+  if (mon.nickname === nomeAntigo) mon.nickname = sp.name;   // apelido próprio fica
+  recalc(mon);
+  mon.hp = Math.max(mon.hp > 0 ? 1 : 0, Math.round(mon.maxHp * frac));
+  return sp;
+}
+
 /** SEPARAR: devolve [cabeça, corpo] como eram — mas com o que a fusão viveu.
  *  Nível, HP e status voltam pros dois; ninguém sai da máquina mais fraco do
  *  que entrou nem curado de graça. */

@@ -227,6 +227,13 @@ por todas elas (a vitrine mostra qual está escolhida e quantas existem):
 O id da espécie carrega qual é: `fus-gengar-rayquaza~gengquaza`. Separar
 devolve os dois de sempre, não importa a variante.
 
+E quem **já está fundido** não fica preso na versão que pegou: `TROCAR A VERSÃO`,
+no menu da máquina, lista as versões daquela dupla (com a atual marcada) e
+reescreve o Pokémon pra outra. Ele continua sendo ele — nível, HP, golpes e os
+dois guardados lá dentro; o que muda é o que a versão manda: nome, tipos,
+desenho e crescimento. É o caminho pra quando você desenha uma ficha **depois**
+de já ter fundido aquela dupla.
+
 ### FUSIONGLITCH: fazer fusão fora do jogo
 
 A oficina também existe **fora do jogo**, numa página só:

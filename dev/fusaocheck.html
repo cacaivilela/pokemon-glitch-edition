@@ -122,6 +122,30 @@ try {
     p(`dois shiny: brilhouNaFusao=${!!fz.brilhouNaFusao} (não precisa avisar)`, !fz.brilhouNaFusao ? "ok" : "erro");
   }
 
+  h("TROCAR A VERSÃO DE QUEM JÁ ESTÁ FUNDIDO");
+  {
+    const stV = { player: {}, party: [], boxes: [], fusoes: {} };
+    F.ligarEstado(stV);
+    const fus = F.fundir(createMon("electabuzz", 40), createMon("poliwag", 36));
+    DB.SPECIES[fus.species] = F.montarEspecie("electabuzz", "poliwag");
+    fus.hp = Math.round(fus.maxHp * 0.5);
+    p(`fundiu: ${fus.nickname} nv${fus.level} hp ${fus.hp}/${fus.maxHp} (versão automática)`);
+    const vs = F.variantes("electabuzz", "poliwag");
+    p(`versões dessa dupla: ${vs.map((v) => v.rotulo + (v.ficha?.nome ? " (" + v.ficha.nome + ")" : "")).join(" | ")}`,
+      vs.length > 1 ? "ok" : "erro");
+    const outra = vs.find((v) => v.variante);
+    const sp = F.trocarVariante(fus, outra.variante);
+    p(`trocou pra: ${sp.name} [${sp.types.join("/")}] species=${fus.species}`,
+      fus.species.includes("~" + outra.variante) ? "ok" : "erro");
+    p(`continua sendo ele: nv${fus.level} hp ${fus.hp}/${fus.maxHp} e guarda os dois: ${!!fus.fusao}`,
+      fus.level === 40 && fus.fusao ? "ok" : "erro");
+    const voltou = F.trocarVariante(fus, "");
+    p(`e dá pra voltar pra automática: ${voltou.name}`, !fus.species.includes("~") ? "ok" : "erro");
+    const [c1, c2] = F.separar(fus);
+    p(`separar continua devolvendo os dois: ${c1.species} + ${c2.species}`,
+      c1.species === "electabuzz" && c2.species === "poliwag" ? "ok" : "erro");
+  }
+
   h("IMPORTAR FICHA (DO FUSIONGLITCH)");
   {
     const stI = { player: {}, party: [], boxes: [], fusoes: {} };

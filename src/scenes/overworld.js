@@ -25,7 +25,7 @@ import { estado as estadoMissao, progresso, aceitar, entregar, diario, feitas, m
   from "../systems/missoes.js";
 import { ehFusao, fundivel, previsao, partes, temFicha, fichaInvertida, variantes,
          buscarDoMundo, especiePorTexto, montarEspecie, servidorMundo,
-         importarFicha } from "../systems/fusao.js";
+         importarFicha, trocarVariante } from "../systems/fusao.js";
 import { BattleScene } from "./battle.js";
 import { EvolutionScene } from "./evolution.js";
 import { FusionScene } from "./fusion.js";
@@ -1742,7 +1742,7 @@ export class OverworldScene {
     this.game.scenes.push(new FusaoEditorScene(), { cabeca, corpo });
   }
 
-  escolherFusao() {
+  escolherFusao(modo = "") {
     const F = DB.STORY.fusao;
     const lista = this.st.party.filter(ehFusao);
     if (!lista.length) {
@@ -1751,7 +1751,33 @@ export class OverworldScene {
       return void this.dlg.say(F.semFusao);
     }
     Audio2.select();
-    this.menu = { type: "fusaoAbrir", index: 0, lista };
+    this.menu = { type: "fusaoAbrir", index: 0, lista, modo };
+  }
+
+  /** As versões daquela dupla, pra trocar a de quem já está fundido. */
+  escolherVersao(mon) {
+    const F = DB.STORY.fusao;
+    const p = partes(mon.species);
+    const vs = variantes(p.cabeca, p.corpo);
+    if (vs.length < 2) {
+      Audio2.cancel();
+      this.menu = null;
+      return void this.dlg.say(F.semOutraVersao);
+    }
+    Audio2.select();
+    this.menu = { type: "fusaoVersao", index: 0, mon, lista: vs };
+  }
+
+  trocarPorVersao(mon, v) {
+    const F = DB.STORY.fusao;
+    const antes = mon.nickname;
+    const sp = trocarVariante(mon, v.variante);
+    this.menu = null;
+    if (!sp) { Audio2.cancel(); return void this.dlg.say(F.naoDaParaFundir); }
+    Audio2.heal();
+    Glitch.hit(0.8);
+    this.game.autosave?.(true);
+    this.dlg.say(F.trocou.replace("{MON}", antes).replace("{NOME}", sp.name).replace("{ROTULO}", v.rotulo));
   }
 
   /** Confirma e manda pra tela da máquina (src/scenes/fusion.js). */
@@ -2286,10 +2312,19 @@ export class OverworldScene {
       if (Input.consume("a")) {
         if (m.index === 0) this.escolherCabeca();
         else if (m.index === 1) this.escolherFusao();
-        else if (m.index === 2) this.abrirOficina();
-        else if (m.index === 3) this.baixarDoMundo();
+        else if (m.index === 2) this.escolherFusao("versao");
+        else if (m.index === 3) this.abrirOficina();
+        else if (m.index === 4) this.baixarDoMundo();
         else { this.menu = null; Audio2.cancel(); }
       }
+      return;
+    }
+    if (m.type === "fusaoVersao") {
+      const n = m.lista.length;
+      if (Input.consume("up")) { m.index = (m.index + n - 1) % n; Audio2.blip(); }
+      if (Input.consume("down")) { m.index = (m.index + 1) % n; Audio2.blip(); }
+      if (Input.consume("b")) { this.menu = { type: "genoma", index: 2 }; Audio2.cancel(); }
+      if (Input.consume("a")) this.trocarPorVersao(m.mon, m.lista[m.index]);
       return;
     }
     if (m.type === "fusaoCabeca" || m.type === "fusaoCorpo" || m.type === "fusaoAbrir") {
@@ -2338,7 +2373,8 @@ export class OverworldScene {
           if (m.modo === "oficina") this.editarFicha(m.cabeca.species, escolhido.species);
           else if (m.modo === "concurso") this.entrarNoPalco(m.cabeca.species, escolhido.species, v);
           else this.confirmaFusao(m.cabeca, escolhido, v);
-        } else this.confirmaSeparacao(escolhido);
+        } else if (m.modo === "versao") this.escolherVersao(escolhido);
+        else this.confirmaSeparacao(escolhido);
       }
       return;
     }
@@ -2802,10 +2838,30 @@ export class OverworldScene {
       drawText(ctx, F.ajuda, 12, H - 22, PAL.ink2);
       return;
     }
+    if (m.type === "fusaoVersao") {
+      const F = DB.STORY.fusao;
+      const p = partes(m.mon.species);
+      panel(ctx, 4, 4, W - 8, H - 8);
+      drawText(ctx, F.escolheVersao, 12, 10, PAL.glitch);
+      m.lista.forEach((v, i) => {
+        const y = 26 + i * 20;
+        if (y > 118) return;
+        if (i === m.index) cursor(ctx, 8, y + 4);
+        const sp = previsao({ species: p.cabeca }, { species: p.corpo }, v.variante);
+        if (sp) ctx.drawImage(Assets.mon(sp.id, m.mon.seed), 16, y - 2, 20, 20);
+        const atual = m.mon.species === (sp?.id || "");
+        drawText(ctx, (sp?.name || "?").slice(0, 12), 42, y + 2,
+                 atual ? PAL.ink2 : v.origem === "jogo" ? "#f0c419" : v.origem === "auto" ? PAL.ink : "#59d99b");
+        drawText(ctx, v.rotulo.slice(0, 12), 130, y + 2, PAL.ink2);
+        if (atual) drawText(ctx, "*", 224, y + 2, "#00ffcc");
+      });
+      drawText(ctx, F.ajuda, 12, H - 22, PAL.ink2);
+      return;
+    }
     if (m.type === "fusaoCabeca" || m.type === "fusaoCorpo" || m.type === "fusaoAbrir") {
       const F = DB.STORY.fusao;
       panel(ctx, 4, 4, W - 8, H - 8);
-      const titulo = m.type === "fusaoAbrir" ? F.escolheFusao
+      const titulo = m.type === "fusaoAbrir" ? (m.modo === "versao" ? F.escolheTrocar : F.escolheFusao)
         : m.type === "fusaoCorpo" ? F.escolheCorpo
         : m.modo === "concurso" ? DB.CONCURSO.anfitria.escolha
         : m.modo === "oficina" ? F.escolheOficina : F.escolheCabeca;

@@ -350,10 +350,15 @@ export const STORY = {
     ],
     // a tela da máquina
     titulo: "DECODIFICADOR DE GENOMA",
-    menu: ["FUNDIR", "SEPARAR", "OFICINA", "MUNDO", "DESLIGAR"],
+    menu: ["FUNDIR", "SEPARAR", "TROCAR A VERSÃO", "OFICINA", "MUNDO", "DESLIGAR"],
     escolheCabeca: "QUEM ENTRA COMO CABEÇA?",
     escolheCorpo: "QUEM ENTRA COMO CORPO?",
     escolheFusao: "QUAL GENOMA EU ABRO?",
+    // trocar a versão de quem já está fundido
+    escolheTrocar: "QUAL FUSÃO VOU REESCREVER?",
+    escolheVersao: "PARA QUAL VERSÃO?",
+    trocou: "{MON} AGORA É {NOME} ({ROTULO}).",
+    semOutraVersao: "SÓ EXISTE UMA VERSÃO DESSA DUPLA. FAÇA UMA NA OFICINA.",
     confirmaFundir: "GRAVAR {CABECA} + {CORPO} COMO {NOME}?",
     confirmaSeparar: "ABRIR {MON} E DEVOLVER OS DOIS?",
     sim: ["GRAVAR", "CANCELAR"],
