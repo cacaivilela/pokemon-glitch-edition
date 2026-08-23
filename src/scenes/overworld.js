@@ -24,7 +24,7 @@ import { pedrasIniciaisDevidas } from "../systems/mega.js";
 import { estado as estadoMissao, progresso, aceitar, entregar, diario, feitas, missaoPorId, daVez }
   from "../systems/missoes.js";
 import { ehFusao, fundivel, previsao, partes, temFicha, fichaInvertida, variantes,
-         buscarDoMundo, especiePorTexto, montarEspecie } from "../systems/fusao.js";
+         buscarDoMundo, especiePorTexto, montarEspecie, servidorMundo } from "../systems/fusao.js";
 import { BattleScene } from "./battle.js";
 import { EvolutionScene } from "./evolution.js";
 import { FusionScene } from "./fusion.js";
@@ -1678,7 +1678,7 @@ export class OverworldScene {
   async baixarDoMundo() {
     const F = DB.STORY.fusao;
     this.menu = null;
-    if (Save.offline()) { Audio2.cancel(); return void this.dlg.say(F.semServidor); }
+    if (Save.offline() && !servidorMundo()) { Audio2.cancel(); return void this.dlg.say(F.semServidor); }
     Audio2.select();
     this.dlg.say(F.mundoBuscando);
     const r = await buscarDoMundo();

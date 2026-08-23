@@ -22,7 +22,8 @@ import { Save } from "../core/save.js";
 import { Glitch } from "../systems/glitchfx.js";
 import { Dialogue } from "../systems/dialogue.js";
 import { fichaParaEditar, salvarFicha, apagarFicha, temFicha, montarEspecie,
-         fichaInvertida, copiarInvertida, publicarFicha, mandarProMundo } from "../systems/fusao.js";
+         fichaInvertida, copiarInvertida, publicarFicha, mandarProMundo,
+         servidorMundo } from "../systems/fusao.js";
 import { panel, drawText, cursor, PAL } from "../core/gfx.js";
 
 const W = 240, H = 160;
@@ -471,7 +472,7 @@ export class FusaoEditorScene {
   /** PUBLICAR: a ficha vira código (src/data/fusoes-feitas.js), pelo servidor. */
   async publicar() {
     const F = DB.STORY.fusao;
-    if (Save.offline()) return void this.dlg.say(F.semServidor);
+    if (Save.offline() && !servidorMundo()) return void this.dlg.say(F.semServidor);
     if (!temFicha(this.cabeca, this.corpo)) return void this.dlg.say(F.precisaGravar);
     const nome = this.ficha.nome || "?";
     this.dlg.ask(F.confirmaPublicar.replace("{NOME}", nome), F.opcoesPublicar, async (i) => {
@@ -479,8 +480,16 @@ export class FusaoEditorScene {
       const r = await publicarFicha(this.cabeca, this.corpo, this.ficha,
                                     this.game.state.player?.name || "");
       Audio2[r.ok ? "heal" : "cancel"]();
-      if (!r.ok) return void this.dlg.say(F.falhouPublicar);
+      if (!r.ok) return void this.dlg.say(r.erro ? F.mundoFalhou.replace("{ERRO}", r.erro) : F.falhouPublicar);
       Glitch.hit(1.4);
+      // foi direto pro servidor do mundo: já está no mundo, não tem o que
+      // empurrar depois
+      if (r.mundo) {
+        return void this.dlg.say([
+          F.publicou.replace("{NOME}", nome),
+          F.publicouMundo.replace("{N}", r.total || "?"),
+        ]);
+      }
       this.dlg.say([
         F.publicou.replace("{NOME}", nome),
         F.publicouRede.replace("{N}", r.aparelhos).replace("{S}", r.aparelhos === 1 ? "" : "S"),

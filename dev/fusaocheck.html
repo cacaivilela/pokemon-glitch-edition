@@ -122,6 +122,36 @@ try {
     p(`dois shiny: brilhouNaFusao=${!!fz.brilhouNaFusao} (não precisa avisar)`, !fz.brilhouNaFusao ? "ok" : "erro");
   }
 
+  h("O MUNDO (SERVIDOR)");
+  {
+    const { Mundo } = await import("/src/core/mundo.js");
+    if (!F.servidorMundo()) {
+      p("sem servidor do mundo configurado — pulei esta parte (ponha a URL em src/data/mundo.js)");
+    } else {
+    Mundo.limpar();
+    p(`servidor configurado: ${F.servidorMundo()}`, "ok");
+    const ficha = { nome: "TESTEMUNDO", tipos: ["FOGO", "ÁGUA"], inicial: { hp: 12 },
+                    crescimento: { hp: 2.5, atk: 2 }, sprite: "data:image/png;base64,iVBORw0KGgo=" };
+    const env = await F.publicarFicha("charmander", "squirtle", ficha, "TESTADOR");
+    p(`publicou pro mundo: ${JSON.stringify(env)}`, env.ok && env.mundo ? "ok" : "erro");
+    Mundo.limpar();
+    const baixou = await F.buscarDoMundo();
+    p(`baixou: ${baixou.novas} nova(s), ${baixou.desenhos} com desenho`, baixou.ok && baixou.novas === 1 ? "ok" : "erro");
+    const vs = F.variantes("charmander", "squirtle");
+    p(`variantes da dupla: ${vs.map((v) => v.rotulo + (v.ficha?.nome ? " (" + v.ficha.nome + ")" : "")).join(" | ")}`,
+      vs.some((v) => v.origem === "mundo") ? "ok" : "erro");
+    const sp = F.montarEspecie("charmander", "squirtle", "testemundo");
+    p(`a fusão do mundo monta: ${sp?.name} [${sp?.types.join("/")}]`, sp?.name === "TESTEMUNDO" ? "ok" : "erro");
+    DB.SPECIES[sp.id] = sp;
+    const m = createMon(sp.id, 20);
+    p(`nv20 pelo crescimento dela: hp ${m.maxHp}`, m.maxHp === 12 + Math.floor(2.5 * 20) ? "ok" : "erro");
+    const dnv = await F.buscarDoMundo();
+    p(`baixar de novo não duplica: ${dnv.novas} nova(s)`, dnv.novas === 0 ? "ok" : "erro");
+    p(`guardado no navegador: ${Mundo.total()} ficha(s)`, Mundo.total() === 1 ? "ok" : "erro");
+    Mundo.limpar();
+    }
+  }
+
   h("VARIANTES DA DUPLA");
   for (const [a3, b3] of [["gengar","rayquaza"],["pikachu","bulbasaur"],["charmander","pidgeot"]]) {
     const vs = F.variantes(a3, b3);

@@ -245,6 +245,40 @@ Ela vale pra **qualquer partida deste computador**, inclusive um jogo novo, do
 mesmo jeito que as fusões que já vêm no jogo. O desenho vai junto, em PNG. Pra tirar uma, edite o
 arquivo à mão; pra tirar todas, deixe `export const FUSOES_FEITAS = {};`.
 
+### O servidor do mundo (publicar de qualquer lugar)
+
+Publicar em casa escreve num arquivo e empurra pelo git — o que exige a sua
+máquina e a sua permissão no repositório. **No jogo publicado no GitHub Pages
+nada disso existe**: Pages só entrega arquivo pronto, não tem processo, não tem
+disco e não tem git. Por isso quem joga pelo site vê "isto só funciona no jogo
+rodando em casa".
+
+`servidor/mundo.ts` é o pedaço que faltava: um serviço de um arquivo só, sem
+dependência, com duas rotas —
+
+```
+GET  /fichas   -> { fichas: { "cabeca+corpo": [ficha, ...] }, total }
+POST /fichas   -> { chave, ficha }
+```
+
+Com o endereço dele preenchido em `servidor`, em `src/data/mundo.js`, o jogo
+passa a usar o serviço em vez do git: **PUBLICAR e ATUALIZAR funcionam em
+qualquer lugar, inclusive no site**. O que é baixado não vira arquivo (no site
+não há onde escrever) — fica no navegador (`src/core/mundo.js`) e entra na lista
+de variantes junto com as que vieram no código, como **DE \<NOME\>**.
+
+Pra subir (Deno Deploy, de graça, sem cartão): crie um projeto em
+`dash.deno.com` ligado a este repositório, aponte o entrypoint pra
+`servidor/mundo.ts`, crie a variável `MUNDO_ADMIN` com uma senha sua e cole a
+URL em `src/data/mundo.js`. Local, pra testar:
+`deno run -A --unstable-kv servidor/mundo.ts`.
+
+O endereço é aberto — qualquer pessoa publica —, então o serviço recusa o que
+não parece ficha (chave fora do formato, tipo que não existe, crescimento fora
+da faixa, desenho que não é PNG ou passa de 48 KB), limita 12 fichas por IP por
+hora, tem teto de acervo e um `DELETE /fichas/<chave>/<id>` com o cabeçalho
+`X-Admin` pra tirar do ar o que não devia estar lá.
+
 ### Mandar pro mundo
 
 Uma casa não é o mundo. Pra ir além do seu servidor existe um caminho só, e ele
@@ -774,6 +808,7 @@ src/
 assets/
   sprites/             PNGs externos (vazio por padrão): pokemon/, overworld/, trainers/, tiles/
   maps/                mapas renderizados + kanto.json (geometria e colisão)
+servidor/mundo.ts      o serviço das fusões publicadas (Deno Deploy, opcional)
 tools/                 fetch_sprites / fetch_overworld / fetch_trainers / fetch_maps / slice_sheet / png_io
 dev/smoke.html         teste headless com roteiro de teclas
 giveglitch/            versão web do mesmo terminal (fora do jogo)

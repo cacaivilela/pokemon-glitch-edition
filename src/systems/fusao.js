@@ -14,6 +14,7 @@
 import { DB } from "../data/index.js";
 import { createMon, recalc, xpForLevel, learnableMoves } from "./mon.js";
 import { todosGuardados } from "./box.js";
+import { Mundo } from "../core/mundo.js";
 
 const cfg = () => DB.FUSAO || {};
 const PREFIXO = "fus";
@@ -62,10 +63,16 @@ export function partes(id) {
  *  que jogadores publicaram pela oficina. */
 export function fichasProntas(cabeca, corpo) {
   const k = chaveFicha(cabeca, corpo);
-  return [
+  const lista = [
     ...(DB.FUSOES?.[k] || []).map((f) => ({ ...f, origem: "jogo" })),
     ...(DB.FUSOES_FEITAS?.[k] || []).map((f) => ({ ...f, origem: "jogador" })),
+    // as que foram BAIXADAS do mundo: elas não viram arquivo (no site não tem
+    // disco), moram no navegador e entram na lista como qualquer outra
+    ...Mundo.de(k).map((f) => ({ ...f, origem: "mundo" })),
   ].filter((f) => f?.id);
+  // mesma ficha no arquivo e no download: a do arquivo manda
+  const vistas = new Set();
+  return lista.filter((f) => !vistas.has(f.id) && vistas.add(f.id));
 }
 
 export const fichaPronta = (cabeca, corpo, variante) =>
@@ -81,7 +88,7 @@ export function variantes(cabeca, corpo) {
   for (const f of fichasProntas(cabeca, corpo)) {
     lista.push({
       variante: f.id, ficha: f, origem: f.origem,
-      rotulo: f.origem === "jogador" ? `DE ${(f.autor || "ALGUÉM").slice(0, 8)}` : "DO JOGO",
+      rotulo: f.origem === "jogo" ? "DO JOGO" : `DE ${(f.autor || "ALGUÉM").slice(0, 8)}`,
     });
   }
   return lista;
@@ -338,6 +345,9 @@ export function copiarInvertida(st, cabecaId, corpoId) {
  *  src/data/fusoes-feitas.js. Dali em diante ela é uma variante daquela dupla
  *  em qualquer partida deste computador — inclusive num jogo novo. O hot-swap
  *  faz ela aparecer sem recarregar nada. */
+/** O endereço do serviço do mundo (src/data/mundo.js). Vazio = só o de casa. */
+export const servidorMundo = () => String(DB.MUNDO?.servidor || "").replace(/\/+$/, "");
+
 export async function publicarFicha(cabecaId, corpoId, ficha, autor = "") {
   const corpo = {
     chave: chaveFicha(cabecaId, corpoId),
@@ -352,6 +362,23 @@ export async function publicarFicha(cabecaId, corpoId, ficha, autor = "") {
       lore: ficha.lore,
     },
   };
+  // Com servidor do mundo configurado, a ficha vai DIRETO pra lá — e aí publicar
+  // funciona em qualquer lugar, inclusive no jogo aberto pelo site, que não tem
+  // dev_server nenhum atrás.
+  const fora = servidorMundo();
+  if (fora) {
+    try {
+      const r = await fetch(`${fora}/fichas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(corpo),
+      });
+      const dado = await r.json().catch(() => ({}));
+      if (!r.ok || !dado.ok) return { ok: false, aparelhos: 0, erro: dado.erro || "o mundo recusou" };
+      Mundo.juntar({ [corpo.chave]: [dado.ficha || corpo.ficha] }, DB.MUNDO?.maxFichas);
+      return { ok: true, aparelhos: 0, mundo: true, total: dado.total || 0 };
+    } catch { return { ok: false, aparelhos: 0, erro: "o mundo não respondeu" }; }
+  }
   try {
     const r = await fetch("/__ficha", { method: "POST", body: JSON.stringify(corpo) });
     if (!r.ok) return { ok: false, aparelhos: 0 };
@@ -378,6 +405,16 @@ export async function mandarProMundo(nome, autor = "") {
 /** Traz o que os outros publicaram. Junta com o que já existe aqui: ficha sua
  *  não é sobrescrita, e nenhum outro arquivo do jogo é tocado. */
 export async function buscarDoMundo() {
+  const fora = servidorMundo();
+  if (fora) {
+    try {
+      const r = await fetch(`${fora}/fichas`, { cache: "no-store" });
+      const dado = await r.json().catch(() => ({}));
+      if (!r.ok || !dado.ok) return { ok: false, erro: dado.erro || "o mundo recusou" };
+      const { novas, desenhos } = Mundo.juntar(dado.fichas, DB.MUNDO?.maxFichas);
+      return { ok: true, novas, desenhos, total: dado.total || Mundo.total() };
+    } catch { return { ok: false, erro: "o mundo não respondeu" }; }
+  }
   return chamarMundo({ acao: "buscar" });
 }
 
