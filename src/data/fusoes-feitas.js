@@ -777,5 +777,22 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/rotom+voltorb~roltorb.png",
       "lore": "ROTOM NA CABEÇA, VOLTORB NO CORPO."
     }
+  ],
+  "onix+onix": [
+    {
+      "id": "testefaxina",
+      "nome": "TESTEFAXINA",
+      "autor": "TESTE",
+      "tipos": [
+        "PEDRA"
+      ],
+      "inicial": {
+        "hp": 10
+      },
+      "crescimento": {
+        "hp": 2
+      },
+      "sprite": "assets/fusoes/onix+onix~testefaxina.png"
+    }
   ]
 };
