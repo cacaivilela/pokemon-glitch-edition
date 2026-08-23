@@ -691,5 +691,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/unown+staryu~unownie.png",
       "lore": "UNOWN NA CABEÇA, STARYU NO CORPO."
     }
+  ],
+  "rotom+rattata": [
+    {
+      "id": "rota",
+      "nome": "ROTA",
+      "autor": "CAIO",
+      "tipos": [
+        "ELÉTRICO",
+        "NORMAL"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 7.1,
+        "atk": 6.7,
+        "def": 2.6,
+        "spa": 7.1,
+        "spd": 5.6,
+        "spe": 5.6
+      },
+      "sprite": "assets/fusoes/rotom+rattata~rota.png",
+      "lore": "ROTOM NA CABEÇA, RATTATA NO CORPO."
+    }
   ]
 };
