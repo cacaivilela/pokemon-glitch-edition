@@ -546,5 +546,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/butterfree+eevee~buttervee.png",
       "lore": "BUTTERFREE NA CABEÇA, EEVEE NO CORPO."
     }
+  ],
+  "electabuzz+poliwag": [
+    {
+      "id": "electawag",
+      "nome": "ELECTAWAG",
+      "autor": "CAIO",
+      "tipos": [
+        "ELÉTRICO",
+        "ÁGUA"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 3.4,
+        "atk": 7.3,
+        "def": 6.3,
+        "spa": 2.9,
+        "spd": 3.5,
+        "spe": 5.9
+      },
+      "sprite": "assets/fusoes/electabuzz+poliwag~electawag.png",
+      "lore": "ELECTABUZZ NA CABEÇA, POLIWAG NO CORPO."
+    }
   ]
 };
