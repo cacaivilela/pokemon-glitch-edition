@@ -24,7 +24,8 @@ import { pedrasIniciaisDevidas } from "../systems/mega.js";
 import { estado as estadoMissao, progresso, aceitar, entregar, diario, feitas, missaoPorId, daVez }
   from "../systems/missoes.js";
 import { ehFusao, fundivel, previsao, partes, temFicha, fichaInvertida, variantes,
-         buscarDoMundo, especiePorTexto, montarEspecie, servidorMundo } from "../systems/fusao.js";
+         buscarDoMundo, especiePorTexto, montarEspecie, servidorMundo,
+         importarFicha } from "../systems/fusao.js";
 import { BattleScene } from "./battle.js";
 import { EvolutionScene } from "./evolution.js";
 import { FusionScene } from "./fusion.js";
@@ -1492,7 +1493,44 @@ export class OverworldScene {
         Audio2.select();
         this.menu = { type: "oficinaDigitar", linha: 0, textos: ["", ""], ids: [null, null] };
       }
+      if (i === 2) return this.importarDoArquivo();
     });
+  }
+
+  /** IMPORTAR: a ficha que veio do FUSIONGLITCH (o site de fazer fusão fora do
+   *  jogo) é um arquivo. Abre o seletor do sistema, lê, confere e grava. */
+  importarDoArquivo() {
+    const F = DB.STORY.fusao;
+    this.menu = null;
+    this.dlg.say(F.importar);
+    const entrada = document.createElement("input");
+    entrada.type = "file";
+    entrada.accept = "application/json,.json";
+    entrada.style.display = "none";
+    document.body.appendChild(entrada);
+    entrada.onchange = () => {
+      const arquivo = entrada.files?.[0];
+      entrada.remove();
+      if (!arquivo) return void this.dlg.say(F.importouCancelou);
+      const leitor = new FileReader();
+      leitor.onload = () => {
+        const r = importarFicha(this.st, leitor.result);
+        if (!r.ok) {
+          Audio2.cancel();
+          return void this.dlg.say(F.importouErro.replace("{ERRO}", r.erro));
+        }
+        Audio2.heal();
+        Glitch.hit(1);
+        this.game.autosave?.(true);
+        this.dlg.say(F.importou
+          .replace("{NOME}", r.sp.name)
+          .replace("{CABECA}", DB.SPECIES[r.cabeca].name)
+          .replace("{CORPO}", DB.SPECIES[r.corpo].name));
+      };
+      leitor.onerror = () => this.dlg.say(F.importouErro.replace("{ERRO}", "NÃO DEU PRA LER"));
+      leitor.readAsText(arquivo);
+    };
+    entrada.click();
   }
 
   /** Resolve o que foi digitado num dos dois campos da bancada livre. */

@@ -122,6 +122,35 @@ try {
     p(`dois shiny: brilhouNaFusao=${!!fz.brilhouNaFusao} (não precisa avisar)`, !fz.brilhouNaFusao ? "ok" : "erro");
   }
 
+  h("IMPORTAR FICHA (DO FUSIONGLITCH)");
+  {
+    const stI = { player: {}, party: [], boxes: [], fusoes: {} };
+    F.ligarEstado(stI);
+    const arquivo = JSON.stringify({
+      chave: "pikachu+onix",
+      ficha: { id: "pikonix", nome: "PIKONIX", autor: "SITE", tipos: ["ELÉTRICO", "PEDRA"],
+               inicial: { hp: 14 }, crescimento: { hp: 3, atk: 2.2, def: 4, spa: 1.5, spd: 1.5, spe: 1.2 },
+               sprite: "data:image/png;base64,iVBORw0KGgo=", lore: "VEIO DO SITE." },
+    });
+    const r = F.importarFicha(stI, arquivo);
+    p(`importou: ${r.ok ? r.sp.name + " [" + r.sp.types.join("/") + "]" : r.erro}`, r.ok ? "ok" : "erro");
+    p(`entrou nas variantes: ${F.variantes("pikachu", "onix").map((v) => v.rotulo).join(" | ")}`,
+      F.temFicha("pikachu", "onix") ? "ok" : "erro");
+    const m2 = createMon(F.idFusao("pikachu", "onix"), 30);
+    p(`nv30 pelo crescimento da ficha: hp ${m2.maxHp} def ${m2.stats.def}`,
+      m2.maxHp === 14 + 3 * 30 && m2.stats.def === 5 + 4 * 30 ? "ok" : "erro");
+    for (const [caso, txt] of [
+      ["arquivo de outra coisa", '{"oi":1}'],
+      ["texto quebrado", "{{{"],
+      ["dupla que não existe", '{"chave":"xyz+abc","ficha":{"nome":"X","tipos":["FOGO"]}}'],
+      ["tipo inventado", '{"chave":"pikachu+onix","ficha":{"nome":"X","tipos":["PIZZA"]}}'],
+      ["desenho que não é PNG", '{"chave":"pikachu+onix","ficha":{"nome":"X","tipos":["FOGO"],"sprite":"data:text/html,<b>"}}'],
+    ]) {
+      const rr = F.importarFicha(stI, txt);
+      p(`  recusa ${caso}: ${rr.erro || "DEIXOU PASSAR!"}`, !rr.ok ? "ok" : "erro");
+    }
+  }
+
   h("VARIANTES DA DUPLA");
   for (const [a3, b3] of [["gengar","rayquaza"],["pikachu","bulbasaur"],["charmander","pidgeot"]]) {
     const vs = F.variantes(a3, b3);

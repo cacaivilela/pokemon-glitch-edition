@@ -264,6 +264,60 @@ export function previsao(cabeca, corpo, variante = "") {
   return sp;
 }
 
+/** IMPORTAR uma ficha que veio de fora (o arquivo que o FUSIONGLITCH baixa).
+ *  Confere tudo antes de deixar entrar: a dupla existe, o nome cabe, os tipos
+ *  existem, os números estão na faixa e o desenho é PNG. Um arquivo estragado
+ *  (ou de outra coisa) não vira nada — devolve o motivo. */
+export function importarFicha(st, texto) {
+  let cru;
+  try {
+    cru = typeof texto === "string" ? JSON.parse(texto) : texto;
+  } catch { return { ok: false, erro: "NÃO É UM ARQUIVO DE FICHA" }; }
+
+  const chave = String(cru?.chave || "");
+  const ficha = cru?.ficha;
+  if (!/^[a-z0-9]+\+[a-z0-9]+$/.test(chave)) return { ok: false, erro: "SEM A DUPLA DENTRO" };
+  if (!ficha || typeof ficha !== "object") return { ok: false, erro: "SEM A FICHA DENTRO" };
+
+  const [cabeca, corpo] = chave.split("+");
+  if (!DB.SPECIES[cabeca] || !DB.SPECIES[corpo]) return { ok: false, erro: "ESSA DUPLA NÃO EXISTE AQUI" };
+
+  const nome = String(ficha.nome || "").toUpperCase().slice(0, cfg().nomeMax || 11).trim();
+  if (!nome) return { ok: false, erro: "FICHA SEM NOME" };
+
+  const tipos = (Array.isArray(ficha.tipos) ? ficha.tipos : [])
+    .map((t) => String(t).toUpperCase())
+    .filter((t) => (DB.TYPES || []).includes(t))
+    .slice(0, 2);
+  if (!tipos.length) return { ok: false, erro: "TIPO QUE NÃO EXISTE" };
+
+  const numeros = (fonte, min, max) => {
+    const out = {};
+    for (const k of ["hp", "atk", "def", "spa", "spd", "spe"]) {
+      const v = Number((fonte || {})[k]);
+      if (Number.isFinite(v)) out[k] = Math.max(min, Math.min(max, Math.round(v * 10) / 10));
+    }
+    return out;
+  };
+
+  const sprite = typeof ficha.sprite === "string" ? ficha.sprite : "";
+  if (sprite && !sprite.startsWith("data:image/png;base64,")) return { ok: false, erro: "O DESENHO NÃO É PNG" };
+  if (sprite.length > 96 * 1024) return { ok: false, erro: "O DESENHO É GRANDE DEMAIS" };
+
+  const limpa = {
+    nome,
+    tipos,
+    inicial: numeros(ficha.inicial, 0, 200),
+    crescimento: numeros(ficha.crescimento, 0, 9),
+    ...(sprite ? { sprite } : {}),
+    ...(ficha.lore ? { lore: String(ficha.lore).slice(0, 200) } : {}),
+    ...(ficha.autor ? { autor: String(ficha.autor).toUpperCase().slice(0, 10) } : {}),
+  };
+  const sp = salvarFicha(st, cabeca, corpo, limpa);
+  if (!sp) return { ok: false, erro: "NÃO DEU PRA MONTAR A ESPÉCIE" };
+  return { ok: true, sp, cabeca, corpo };
+}
+
 /** Acha a espécie por NÚMERO da Pokédex ou por NOME — é assim que a oficina
  *  deixa você desenhar uma dupla que você não tem (e talvez nunca tenha).
  *  Aceita "025", "25", "PIKACHU", "pikachu", "MR. MIME", "NIDORAN M". Formas

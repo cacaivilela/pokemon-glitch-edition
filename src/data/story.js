@@ -408,7 +408,12 @@ export const STORY = {
     escolheOficina: "QUAL GENOMA VOU ABRIR NA BANCADA?",
     // dá pra desenhar uma dupla que você não tem: é só dizer quais são
     oficinaComo: "DE ONDE VÊM OS DOIS?",
-    oficinaOpcoes: ["DA MINHA EQUIPE", "DIGITAR NÚMERO OU NOME"],
+    oficinaOpcoes: ["DA MINHA EQUIPE", "DIGITAR NÚMERO OU NOME", "IMPORTAR FICHA"],
+    // ficha vinda do FUSIONGLITCH (o site de fazer fusão fora do jogo)
+    importar: "ESCOLHA O ARQUIVO DA FICHA (.FUSAO.JSON).",
+    importou: "{NOME} ENTROU NO JOGO! ELA JÁ ESTÁ NO C DA MÁQUINA, EM {CABECA} + {CORPO}.",
+    importouErro: "ESSE ARQUIVO NÃO É UMA FICHA DE FUSÃO: {ERRO}",
+    importouCancelou: "TUDO BEM. A BANCADA CONTINUA AQUI.",
     digitarTitulo: "BANCADA LIVRE",
     digitarCabeca: "CABEÇA",
     digitarCorpo: "CORPO",

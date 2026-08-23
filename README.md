@@ -227,6 +227,24 @@ por todas elas (a vitrine mostra qual está escolhida e quantas existem):
 O id da espécie carrega qual é: `fus-gengar-rayquaza~gengquaza`. Separar
 devolve os dois de sempre, não importa a variante.
 
+### FUSIONGLITCH: fazer fusão fora do jogo
+
+**[cacaivilela.github.io/fusionglitch](https://cacaivilela.github.io/fusionglitch/)**
+é a mesma oficina, numa página só, no navegador: escolhe os dois pelo número ou
+pelo nome, monta a fusão automática, deixa desenhar por cima com o mouse (tela
+grande, pincel de 1 a 8, balde, conta-gotas, sete paletas, desfazer), e a ficha
+sai como um arquivo `.fusao.json` — o desenho vai dentro.
+
+No jogo: `DECODIFICADOR` → `OFICINA` → **IMPORTAR FICHA**, e escolha o arquivo.
+Ela é conferida antes de entrar (a dupla existe, o nome cabe, os tipos existem,
+os números estão na faixa, o desenho é PNG) e vira uma variante daquela dupla,
+com o `C` da máquina mostrando o nome de quem desenhou.
+
+O site **não tem servidor**: nada é enviado pra lugar nenhum, e nada entra no
+seu jogo sem você escolher o arquivo. Quem estiver com o jogo rodando na própria
+máquina ainda tem o atalho `Publicar no meu jogo`, que grava direto pelo
+`dev_server`.
+
 ### Publicar uma ficha no código
 
 Terminou a ficha na oficina? Grave e escolha **PUBLICAR NO CÓDIGO**. O jogo
