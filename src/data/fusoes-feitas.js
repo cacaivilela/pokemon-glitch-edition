@@ -782,7 +782,7 @@ export const FUSOES_FEITAS = {
   "rotom+pikachu": [
     {
       "id": "rochu",
-      "nome": "ROCHU",
+      "nome": "ROTOM CHU",
       "autor": "CAIO",
       "tipos": [
         "ELÉTRICO"
@@ -804,7 +804,7 @@ export const FUSOES_FEITAS = {
         "spe": 3.4
       },
       "sprite": "assets/fusoes/rotom+pikachu~rochu.png",
-      "lore": "ROTOM NA CABEÇA, PIKACHU NO CORPO."
+      "lore": "ROTOM ENTROU NO PIKACHU E NÃO SAIU MAIS. A DESCARGA CORRE POR FORA DO CORPO, AZUL."
     }
   ]
 };
