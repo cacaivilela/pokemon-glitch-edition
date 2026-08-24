@@ -1009,7 +1009,8 @@ export const FUSOES_FEITAS = {
         "spe": 2.1
       },
       "sprite": "assets/fusoes/machamp+electrode~made.png",
-      "lore": "MACHAMP NA CABEÇA, ELECTRODE NO CORPO."
+      "lore": "MACHAMP NA CABEÇA, ELECTRODE NO CORPO.",
+      "protegida": true
     }
   ],
   "rotom+victreebel": [
