@@ -835,5 +835,150 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/articuno+lapras~laprocuno.png",
       "lore": "ARTICUNO NA CABEÇA, LAPRAS NO CORPO."
     }
+  ],
+  "bulbasaur+arceus": [
+    {
+      "id": "bulbaceus",
+      "nome": "BULBACEUS",
+      "autor": "CAIO",
+      "tipos": [
+        "PLANTA",
+        "NORMAL"
+      ],
+      "inicial": {
+        "hp": 14,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 2.8,
+        "atk": 2.2,
+        "def": 2.4,
+        "spa": 2.6,
+        "spd": 2.6,
+        "spe": 2.0
+      },
+      "sprite": "assets/fusoes/bulbasaur+arceus~bulbaceus.png",
+      "lore": "A SEMENTE DAS COSTAS É A PRIMEIRA QUE EXISTIU. TUDO QUE É VERDE NO MUNDO VEIO DELA."
+    }
+  ],
+  "gengar+chandelure": [
+    {
+      "id": "gengalure",
+      "nome": "GENGALURE",
+      "autor": "CAIO",
+      "tipos": [
+        "FANTASMA",
+        "FOGO"
+      ],
+      "inicial": {
+        "hp": 11,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 2.0,
+        "atk": 1.6,
+        "def": 1.8,
+        "spa": 3.2,
+        "spd": 2.0,
+        "spe": 2.8
+      },
+      "sprite": "assets/fusoes/gengar+chandelure~gengalure.png",
+      "lore": "AS TRÊS CHAMAS SÃO SOMBRAS ACESAS. QUEM OLHA MUITO TEMPO ESQUECE ONDE DEIXOU A PRÓPRIA."
+    }
+  ],
+  "arcanine+zapdos": [
+    {
+      "id": "arcados",
+      "nome": "ARCADOS",
+      "autor": "CAIO",
+      "tipos": [
+        "FOGO",
+        "ELÉTRICO"
+      ],
+      "inicial": {
+        "hp": 13,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 2.4,
+        "atk": 2.8,
+        "def": 2.0,
+        "spa": 2.6,
+        "spd": 2.0,
+        "spe": 3.0
+      },
+      "sprite": "assets/fusoes/arcanine+zapdos~arcados.png",
+      "lore": "CORRE NA FRENTE DA TEMPESTADE E CHEGA ANTES DO TROVÃO. A JUBA NUNCA ABAIXA."
+    }
+  ],
+  "mewtwo+missingno": [
+    {
+      "id": "mewtwno",
+      "nome": "MEWTWNO",
+      "autor": "CAIO",
+      "tipos": [
+        "PSÍQUICO",
+        "GLITCH"
+      ],
+      "inicial": {
+        "hp": 12,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 2.2,
+        "atk": 2.4,
+        "def": 1.8,
+        "spa": 3.4,
+        "spd": 2.0,
+        "spe": 3.0
+      },
+      "sprite": "assets/fusoes/mewtwo+missingno~mewtwno.png",
+      "lore": "O EXPERIMENTO DEU CERTO DEMAIS: METADE DELE SAIU DA FITA E NÃO VOLTOU."
+    }
+  ],
+  "lapras+articuno": [
+    {
+      "id": "lapracuno",
+      "nome": "LAPRACUNO",
+      "autor": "CAIO",
+      "tipos": [
+        "ÁGUA",
+        "GELO"
+      ],
+      "inicial": {
+        "hp": 15,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 3.0,
+        "atk": 2.0,
+        "def": 2.4,
+        "spa": 2.6,
+        "spd": 2.8,
+        "spe": 1.8
+      },
+      "sprite": "assets/fusoes/lapras+articuno~lapracuno.png",
+      "lore": "ATRAVESSA O MAR CONGELANDO O CAMINHO ATRÁS DE SI. NINGUÉM CONSEGUE SEGUIR."
+    }
   ]
 };
