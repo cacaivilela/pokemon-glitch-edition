@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, online, gifts, maps, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -27,6 +27,7 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./idiomas.js" + V),
   import("./missoes.js" + V),
   import("./rival.js" + V),
+  import("./versao.js" + V),
   import("./online.js" + V),
   import("./gifts.js" + V),
   import("./maps.js" + V),
@@ -238,6 +239,7 @@ export function buildDB() {
     CONCURSO: concurso.CONCURSO,
     MISSOES: missoes.MISSOES,
     RIVAL: rival.RIVAL,
+    VERSAO: versao.VERSAO,
     MISSAO_TEXTO: missoes.MISSAO_TEXTO,
     IDIOMAS: idiomas.IDIOMAS,
     DICIONARIOS: idiomas.DICIONARIOS,

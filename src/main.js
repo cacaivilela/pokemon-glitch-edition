@@ -368,6 +368,27 @@ adiantarOResto();              // e o resto entra sozinho, de pouquinho em pouqu
 
 setTextVars({ NOME: game.state.player?.name || "VERMELHO" });
 
+/** O jogo publicado no Pages pode ficar com metade dos arquivos velhos por até
+ *  dez minutos depois de uma atualização (cada um tem o próprio cache), e aí um
+ *  arquivo novo chama uma função que o velho não tem — o erro aparece no meio
+ *  de uma batalha e some sozinho depois. Em vez de deixar isso parecer um bug do
+ *  jogo, ele confere a versão e avisa. */
+async function conferirVersao() {
+  if (!Save.offline()) return;                 // em casa não existe cache velho
+  try {
+    const r = await fetch(new URL("data/versao.js", import.meta.url).href, { cache: "no-store" });
+    const texto = await r.text();
+    const doServidor = texto.match(/VERSAO\s*=\s*"([^"]+)"/)?.[1];
+    if (!doServidor || doServidor === DB.VERSAO) return;
+    const aviso = document.createElement("div");
+    aviso.id = "desatualizado";
+    aviso.innerHTML = "O jogo foi atualizado enquanto esta página estava aberta."
+      + "<br>Aperte <b>Ctrl+Shift+R</b> (ou puxe a tela pra baixo, no celular) pra pegar a versão nova.";
+    document.body.appendChild(aviso);
+  } catch { /* sem rede: o jogo continua, é offline mesmo */ }
+}
+conferirVersao();
+
 initHot(game);
 // Funções online (sala, presença, troca, batalha link, presente misterioso).
 // Se o servidor não responder, o jogo segue igual: nada aqui é obrigatório.
