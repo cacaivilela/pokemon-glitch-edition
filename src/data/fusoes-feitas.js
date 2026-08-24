@@ -806,5 +806,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/rotom+lampent~rompent.png",
       "lore": "ROTOM NA CABEÇA, LAMPENT NO CORPO."
     }
+  ],
+  "rotom+zapdos": [
+    {
+      "id": "rapdos",
+      "nome": "RAPDOS",
+      "autor": "CAIO",
+      "tipos": [
+        "ELÉTRICO",
+        "FANTASMA"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 2,
+        "atk": 1.5,
+        "def": 1.5,
+        "spa": 1.5,
+        "spd": 1.5,
+        "spe": 1.5
+      },
+      "sprite": "assets/fusoes/rotom+zapdos~rapdos.png",
+      "lore": "ROTOM NA CABEÇA, ZAPDOS NO CORPO."
+    }
   ]
 };
