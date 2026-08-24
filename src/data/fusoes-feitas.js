@@ -1038,7 +1038,8 @@ export const FUSOES_FEITAS = {
         "spe": 3.9
       },
       "sprite": "assets/fusoes/rotom+victreebel~robel.png",
-      "lore": "ROTOM NA CABEÇA, VICTREEBEL NO CORPO."
+      "lore": "ROTOM NA CABEÇA, VICTREEBEL NO CORPO.",
+      "protegida": true
     }
   ]
 };
