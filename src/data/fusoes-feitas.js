@@ -777,5 +777,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/rotom+voltorb~roltorb.png",
       "lore": "ROTOM NA CABEÇA, VOLTORB NO CORPO."
     }
+  ],
+  "rotom+lampent": [
+    {
+      "id": "rompent",
+      "nome": "ROMPENT",
+      "autor": "CAIO",
+      "tipos": [
+        "ELÉTRICO",
+        "FOGO"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 2,
+        "atk": 1.5,
+        "def": 1.5,
+        "spa": 1.5,
+        "spd": 1.5,
+        "spe": 1.5
+      },
+      "sprite": "assets/fusoes/rotom+lampent~rompent.png",
+      "lore": "ROTOM NA CABEÇA, LAMPENT NO CORPO."
+    }
   ]
 };
