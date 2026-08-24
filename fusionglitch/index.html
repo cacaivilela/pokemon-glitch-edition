@@ -238,17 +238,47 @@ function acharEspecie(texto) {
   if (!cru) return null;
   const so = cru.split(" ")[0];
   if (/^\d+$/.test(so)) return ESPECIES.find((sp) => sp.dex === parseInt(so, 10)) || null;
+  if (limpaTexto(cru) === "missingno") return ESPECIES.find((sp) => sp.id === "missingno") || null;
   const alvo = limpaTexto(cru);
   return ESPECIES.find((sp) => sp.id === alvo || limpaTexto(sp.nome) === alvo)
       || ESPECIES.find((sp) => sp.id.startsWith(alvo)) || null;
 }
 
-const spriteUrl = (sp) => `${JOGO}/assets/sprites/pokemon/${String(sp.dex).padStart(3, "0")}.png`;
+/** O MISSINGNO. não tem arquivo: ele é desenhado em código, aqui como no jogo —
+ *  um bloco de dado corrompido, sempre o mesmo (a semente é fixa, senão ele
+ *  mudaria a cada quadro e não daria pra desenhar em cima). */
+function nullmon(lado = 64) {
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = lado;
+  const c = cv.getContext("2d");
+  c.imageSmoothingEnabled = false;
+  const pal = ["#b455ff", "#00ffcc", "#ff0066", "#ffffff", "#101018", "#101018"];
+  let semente = 20250824;
+  const r = () => (semente = (semente * 1103515245 + 12345) % 2147483648) / 2147483648;
+  const bloco = lado / 16;
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      if (r() < 0.32) continue;
+      c.fillStyle = pal[Math.floor(r() * pal.length)];
+      c.fillRect(x * bloco, y * bloco, bloco, bloco);
+    }
+  }
+  for (let i = 0; i < 4; i++) {                  // as fatias arrancadas
+    c.fillStyle = pal[Math.floor(r() * pal.length)];
+    c.fillRect(0, Math.floor(r() * 16) * bloco, lado, bloco);
+  }
+  return cv;
+}
+
+const spriteUrl = (sp) =>
+  sp.dex ? `${JOGO}/assets/sprites/pokemon/${String(sp.dex).padStart(3, "0")}.png`
+         : nullmon().toDataURL();
 
 const cacheImg = new Map();
 function carregar(sp) {
   if (cacheImg.has(sp.id)) return cacheImg.get(sp.id);
   const p = new Promise((resolve) => {
+    if (!sp.dex) return resolve(nullmon());     // o que não tem arquivo, desenha
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
