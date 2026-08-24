@@ -6,18 +6,46 @@
 // e some quando já foi vencido — sem precisar de um NPC morto em cinco mapas
 // esperando a hora de acordar.
 import { DB } from "../data/index.js";
-import { garantirEspecie, idFusao } from "./fusao.js";
+import { garantirEspecie, idFusao, partes } from "./fusao.js";
+import { todosGuardados } from "./box.js";
 
 const cfg = () => DB.RIVAL || {};
+
+/** Qual foi o SEU inicial.
+ *
+ *  Normalmente está gravado (`flags.meuInicial`, escrito na hora da escolha).
+ *  Um save começado antes dessa marca existir não tem nada ali — e era isso que
+ *  quebrava a primeira batalha do AZUL: sem o seu inicial ele não tinha o dele,
+ *  e ia pro combate com um Pokémon vazio. Então, faltando a marca, o jogo
+ *  DESCOBRE olhando quem você tem: equipe e PC, contando os dois lados de cada
+ *  fusão — um CHARIZARD fundido continua dizendo que você começou com
+ *  CHARMANDER. */
+function meuInicial(st) {
+  if (st?.flags?.meuInicial) return st.flags.meuInicial;
+  const linhas = cfg().linhas || {};
+  const vistos = [];
+  for (const mon of [...(st?.party || []), ...todosGuardados(st)]) {
+    const p = partes(mon.species);
+    vistos.push(...(p ? [p.cabeca, p.corpo] : [mon.megaDe || mon.species]));
+  }
+  for (const id of Object.keys(st?.caught || {})) vistos.push(id);
+  for (const [base, linha] of Object.entries(linhas)) {
+    if (vistos.some((id) => linha.includes(id))) {
+      (st.flags ||= {}).meuInicial = base;      // achou: grava, e nunca mais procura
+      return base;
+    }
+  }
+  return null;
+}
 
 /** O inicial dele. Ele escolhe o que PERDE pro seu achando que ganha, e a
  *  escolha fica gravada no save — se um dia a tabela mudar, o AZUL daquela
  *  partida continua com o bicho que ele já tinha. */
 export function inicialDoRival(st) {
   if (st?.flags?.rivalInicial) return st.flags.rivalInicial;
-  const meu = st?.flags?.meuInicial;
+  const meu = meuInicial(st);
   const dele = cfg().escolhe?.[meu];
-  if (!meu || !dele) return null;
+  if (!dele) return null;
   (st.flags ||= {}).rivalInicial = dele;
   return dele;
 }
@@ -49,7 +77,10 @@ export function montarTime(st, enc) {
   const out = [];
   for (const p of enc.time || []) {
     if (p.id === "INICIAL") {
-      out.push({ ...p, id: formaDoInicial(st) });
+      const forma = formaDoInicial(st);
+      // sem inicial não dá pra montar o time dele: melhor o AZUL não aparecer
+      // do que aparecer com um lugar vazio e derrubar a batalha
+      if (forma && DB.SPECIES[forma]) out.push({ ...p, id: forma });
       continue;
     }
     if (String(p.id).startsWith("FUSAO:")) {
@@ -67,6 +98,7 @@ export function montarTime(st, enc) {
  *  ele ainda não perdeu. Devolve um NPC pronto (ou null). */
 export function rivalNpc(st) {
   const R = cfg();
+  if (!inicialDoRival(st)) return null;     // sem inicial dele, não tem rival
   const aqui = st?.player?.map;
   if (!R.encontros || !aqui) return null;
 

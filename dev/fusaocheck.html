@@ -412,6 +412,32 @@ try {
     p(`fusão com GENGAR: ${f.name} [${f.types.join("/")}]`, f ? "ok" : "erro");
   }
 
+  h("O AZUL COM SAVE VELHO (SEM A MARCA DO INICIAL)");
+  {
+    const R = await import("/src/systems/rival.js");
+    F.ligarEstado({ player: {}, party: [], boxes: [], fusoes: {} });
+    // a equipe do CAIO: três fusões, e nenhuma marca de qual foi o inicial
+    const equipe = ["fus-lapras-kabutops", "fus-charizard-charmeleon", "fus-ditto-charizard"];
+    for (const id of equipe) F.garantirEspecie(id);
+    const st = { flags: { starterChosen: true }, badges: [], npcState: {}, caught: {},
+                 party: equipe.map((id) => createMon(id, 30)), boxes: [], player: { map: "lab" } };
+    const dele = R.inicialDoRival(st);
+    p(`descobriu o inicial pelo CHARIZARD fundido: você ${st.flags.meuInicial} -> ele ${dele}`,
+      st.flags.meuInicial === "charmander" && dele === "bulbasaur" ? "ok" : "erro");
+    const npc = R.rivalNpc(st);
+    const time = npc.trainer.party;
+    p(`time montado: ${time.map((x) => x.id + ":" + x.lvl).join(", ")}`,
+      time.length && time.every((x) => DB.SPECIES[x.id]) ? "ok" : "erro");
+    const mons = time.map((x) => createMon(x.id, x.lvl));
+    p(`e todos viram Pokémon de verdade (a batalha não estoura): ${mons.map((m) => m.nickname).join(", ")}`,
+      mons.every((m) => m.maxHp > 0) ? "ok" : "erro");
+    // save sem inicial NENHUM: ele simplesmente não aparece, em vez de quebrar
+    const vazio = { flags: { starterChosen: true }, badges: [], npcState: {}, caught: {},
+                    party: [], boxes: [], player: { map: "lab" } };
+    p(`sem nenhum inicial rastreável, o AZUL não aparece: ${R.rivalNpc(vazio) === null}`,
+      R.rivalNpc(vazio) === null ? "ok" : "erro");
+  }
+
   h("O AZUL (RIVAL)");
   {
     const R = await import("/src/systems/rival.js");
