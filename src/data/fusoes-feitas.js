@@ -1009,5 +1009,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/onix+magneton~oniton.png",
       "lore": "OS ANÉIS DO MEIO VIRARAM ÍMÃ. TUDO QUE É DE METAL NA CAVERNA GRUDA NELE."
     }
+  ],
+  "butterfree+muk": [
+    {
+      "id": "buttemuk",
+      "nome": "BUTTEMUK",
+      "autor": "",
+      "tipos": [
+        "INSETO",
+        "VENENO"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 2,
+        "atk": 1.5,
+        "def": 1.5,
+        "spa": 1.5,
+        "spd": 1.5,
+        "spe": 1.5
+      },
+      "sprite": "assets/fusoes/butterfree+muk~buttemuk.png",
+      "lore": "BUTTERFREE NA CABEÇA, MUK NO CORPO."
+    }
   ]
 };
