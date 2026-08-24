@@ -71,7 +71,7 @@ export const EVOLUTIONS = {
   // por pedra
   // as velas da fenda: a segunda troca é por pedra, como no jogo de origem
   litwick: [{ lvl: 41, to: "lampent" }],
-  lampent: [{ item: "pedra da lua", to: "chandelure" }],
+  lampent: [{ item: "pedra do crepúsculo", to: "chandelure" }],
 
   pikachu: [{ item: "pedra do trovão", to: "raichu" }],
   nidorina: [{ item: "pedra da lua", to: "nidoqueen" }],
@@ -100,6 +100,9 @@ export const EVOLUTIONS = {
 /** as cinco pedras: o preço fica na loja, em src/data/maps.js */
 export const STONES = [
   "pedra do fogo", "pedra da água", "pedra do trovão", "pedra da folha", "pedra da lua",
+  // a do crepúsculo não é de Kanto: ela cai na fenda, junto com as velas que
+  // precisam dela (ver DIM_LOOT em src/data/loot.js)
+  "pedra do crepúsculo",
 ];
 
 /** item -> { espécie atual: espécie nova } (é o formato que a mochila usa) */

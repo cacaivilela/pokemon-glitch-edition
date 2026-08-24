@@ -21,6 +21,7 @@ export const DIM_LOOT = [
   { item: "up-grade",    qty: [1, 1], w: 6, rare: true },
   { item: "dubious disc", qty: [1, 1], w: 4, rare: true },
   { item: "bilhete voo",  qty: [1, 1], w: 8, rare: true },     // um já serve pra sempre
+  { item: "pedra do crepúsculo", qty: [1, 1], w: 5, rare: true },  // o que a LAMPENT espera
 ];
 
 /** texto que aparece ao achar um item estrangeiro pela primeira vez */
@@ -28,4 +29,5 @@ export const ITEM_LORE = {
   "up-grade": "UM DISPOSITIVO ESTRANHO CHEIO DE DADOS. NÃO FOI FEITO EM KANTO.",
   "dubious disc": "UM DISCO TRANSPARENTE COM DADOS SUSPEITOS DENTRO. PISCA SOZINHO.",
   "bilhete voo": "UM BILHETE DE VOO COM O CAMPO \"PARA\" EM BRANCO. VALE PRA KANTO INTEIRA.",
+  "pedra do crepúsculo": "UMA PEDRA PRETA QUE NÃO REFLETE NADA — NEM A SUA MÃO SEGURANDO ELA. FICA MORNA PERTO DE FOGO QUE NÃO QUEIMA.",
 };
