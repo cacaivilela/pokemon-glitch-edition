@@ -34,7 +34,8 @@ export const FUSOES_FEITAS = {
         "spd": 1.4,
         "spe": 9
       },
-      "sprite": "assets/fusoes/butterfree+pikachu~butterchuu.png"
+      "sprite": "assets/fusoes/butterfree+pikachu~butterchuu.png",
+      "protegida": true
     }
   ],
   "bulbasaur+vileplume": [
@@ -62,7 +63,8 @@ export const FUSOES_FEITAS = {
         "spd": 1.7,
         "spe": 1.1
       },
-      "sprite": "assets/fusoes/bulbasaur+vileplume~bulbaplume.png"
+      "sprite": "assets/fusoes/bulbasaur+vileplume~bulbaplume.png",
+      "protegida": true
     }
   ],
   "magneton+magnemite": [
@@ -90,7 +92,8 @@ export const FUSOES_FEITAS = {
         "spd": 1.6,
         "spe": 1.4
       },
-      "sprite": "assets/fusoes/magneton+magnemite~magnet.png"
+      "sprite": "assets/fusoes/magneton+magnemite~magnet.png",
+      "protegida": true
     }
   ],
   "lapras+kabutops": [
@@ -118,7 +121,8 @@ export const FUSOES_FEITAS = {
         "spd": 1.7,
         "spe": 1.5
       },
-      "sprite": "assets/fusoes/lapras+kabutops~laprutops.png"
+      "sprite": "assets/fusoes/lapras+kabutops~laprutops.png",
+      "protegida": true
     }
   ],
   "pidgeotto+clefairy": [
@@ -145,7 +149,8 @@ export const FUSOES_FEITAS = {
         "spd": 1.2,
         "spe": 1.1
       },
-      "sprite": "assets/fusoes/pidgeotto+clefairy~pidgeotairy.png"
+      "sprite": "assets/fusoes/pidgeotto+clefairy~pidgeotairy.png",
+      "protegida": true
     }
   ],
   "rattata+pidgey": [
@@ -173,7 +178,8 @@ export const FUSOES_FEITAS = {
         "spd": 1,
         "spe": 2.6
       },
-      "sprite": "assets/fusoes/rattata+pidgey~rattadgey.png"
+      "sprite": "assets/fusoes/rattata+pidgey~rattadgey.png",
+      "protegida": true
     }
   ],
   "metapod+butterfree": [
@@ -201,7 +207,8 @@ export const FUSOES_FEITAS = {
         "spd": 1.4,
         "spe": 1.1
       },
-      "sprite": "assets/fusoes/metapod+butterfree~metarfree.png"
+      "sprite": "assets/fusoes/metapod+butterfree~metarfree.png",
+      "protegida": true
     }
   ],
   "rayquaza+kyogre": [
@@ -229,7 +236,8 @@ export const FUSOES_FEITAS = {
         "spd": 2.1,
         "spe": 1.8
       },
-      "sprite": "assets/fusoes/rayquaza+kyogre~rayogre.png"
+      "sprite": "assets/fusoes/rayquaza+kyogre~rayogre.png",
+      "protegida": true
     }
   ],
   "unown+unown": [
@@ -257,7 +265,8 @@ export const FUSOES_FEITAS = {
         "spd": 1,
         "spe": 1
       },
-      "sprite": "assets/fusoes/unown+unown~kingunown.png"
+      "sprite": "assets/fusoes/unown+unown~kingunown.png",
+      "protegida": true
     }
   ],
   "ditto+charizard": [
@@ -285,7 +294,8 @@ export const FUSOES_FEITAS = {
         "spd": 1.6,
         "spe": 1.7
       },
-      "sprite": "assets/fusoes/ditto+charizard~dizard.png"
+      "sprite": "assets/fusoes/ditto+charizard~dizard.png",
+      "protegida": true
     }
   ],
   "pikachu+arbok": [
@@ -313,7 +323,8 @@ export const FUSOES_FEITAS = {
         "spd": 1.5,
         "spe": 3
       },
-      "sprite": "assets/fusoes/pikachu+arbok~pikarbok.png"
+      "sprite": "assets/fusoes/pikachu+arbok~pikarbok.png",
+      "protegida": true
     }
   ],
   "snorlax+ditto": [
@@ -341,7 +352,8 @@ export const FUSOES_FEITAS = {
         "spd": 1.8,
         "spe": 0.6
       },
-      "sprite": "assets/fusoes/snorlax+ditto~snotto.png"
+      "sprite": "assets/fusoes/snorlax+ditto~snotto.png",
+      "protegida": true
     }
   ],
   "flareon+magikarp": [
@@ -370,7 +382,8 @@ export const FUSOES_FEITAS = {
         "spe": 9
       },
       "sprite": "assets/fusoes/flareon+magikarp~flakarp.png",
-      "lore": "FLAREON NA CABEÇA, MAGIKARP NO CORPO."
+      "lore": "FLAREON NA CABEÇA, MAGIKARP NO CORPO.",
+      "protegida": true
     }
   ],
   "magikarp+gyarados": [
@@ -399,7 +412,8 @@ export const FUSOES_FEITAS = {
         "spe": 9
       },
       "sprite": "assets/fusoes/magikarp+gyarados~magikyrados.png",
-      "lore": "MAGIKARP NA CABEÇA, GYARADOS NO CORPO."
+      "lore": "MAGIKARP NA CABEÇA, GYARADOS NO CORPO.",
+      "protegida": true
     }
   ],
   "blastoise+jynx": [
@@ -428,7 +442,8 @@ export const FUSOES_FEITAS = {
         "spe": 9
       },
       "sprite": "assets/fusoes/blastoise+jynx~blastoijynx.png",
-      "lore": "BLASTOISE NA CABEÇA, JYNX NO CORPO."
+      "lore": "BLASTOISE NA CABEÇA, JYNX NO CORPO.",
+      "protegida": true
     }
   ],
   "pikachu+caterpie": [
@@ -457,7 +472,8 @@ export const FUSOES_FEITAS = {
         "spe": 1.5
       },
       "sprite": "assets/fusoes/pikachu+caterpie~pikarpie.png",
-      "lore": "PIKACHU NA CABEÇA, CATERPIE NO CORPO."
+      "lore": "PIKACHU NA CABEÇA, CATERPIE NO CORPO.",
+      "protegida": true
     }
   ],
   "porygon+xerneas": [
@@ -486,7 +502,8 @@ export const FUSOES_FEITAS = {
         "spe": 1.5
       },
       "sprite": "assets/fusoes/porygon+xerneas~porygoneas.png",
-      "lore": "PORYGON NA CABEÇA, XERNEAS NO CORPO."
+      "lore": "PORYGON NA CABEÇA, XERNEAS NO CORPO.",
+      "protegida": true
     }
   ],
   "butterfree+eevee": [
@@ -515,7 +532,8 @@ export const FUSOES_FEITAS = {
         "spe": 5.9
       },
       "sprite": "assets/fusoes/butterfree+eevee~buttervee.png",
-      "lore": "BUTTERFREE NA CABEÇA, EEVEE NO CORPO."
+      "lore": "BUTTERFREE NA CABEÇA, EEVEE NO CORPO.",
+      "protegida": true
     }
   ],
   "electabuzz+poliwag": [
@@ -544,7 +562,8 @@ export const FUSOES_FEITAS = {
         "spe": 5.9
       },
       "sprite": "assets/fusoes/electabuzz+poliwag~electawag.png",
-      "lore": "ELECTABUZZ NA CABEÇA, POLIWAG NO CORPO."
+      "lore": "ELECTABUZZ NA CABEÇA, POLIWAG NO CORPO.",
+      "protegida": true
     }
   ],
   "hypno+muk": [
@@ -573,7 +592,8 @@ export const FUSOES_FEITAS = {
         "spe": 7.4
       },
       "sprite": "assets/fusoes/hypno+muk~hypmuk.png",
-      "lore": "HYPNO NA CABEÇA, MUK NO CORPO."
+      "lore": "HYPNO NA CABEÇA, MUK NO CORPO.",
+      "protegida": true
     }
   ],
   "unown+staryu": [
@@ -602,7 +622,8 @@ export const FUSOES_FEITAS = {
         "spe": 5.6
       },
       "sprite": "assets/fusoes/unown+staryu~unownie.png",
-      "lore": "UNOWN NA CABEÇA, STARYU NO CORPO."
+      "lore": "UNOWN NA CABEÇA, STARYU NO CORPO.",
+      "protegida": true
     }
   ],
   "rotom+rattata": [
@@ -631,7 +652,8 @@ export const FUSOES_FEITAS = {
         "spe": 5.6
       },
       "sprite": "assets/fusoes/rotom+rattata~rota.png",
-      "lore": "ROTOM NA CABEÇA, RATTATA NO CORPO."
+      "lore": "ROTOM NA CABEÇA, RATTATA NO CORPO.",
+      "protegida": true
     }
   ],
   "primeape+poliwhirl": [
@@ -660,7 +682,8 @@ export const FUSOES_FEITAS = {
         "spe": 5.6
       },
       "sprite": "assets/fusoes/primeape+poliwhirl~primeawhirl.png",
-      "lore": "PRIMEAPE NA CABEÇA, POLIWHIRL NO CORPO."
+      "lore": "PRIMEAPE NA CABEÇA, POLIWHIRL NO CORPO.",
+      "protegida": true
     }
   ],
   "krabby+geodude": [
@@ -689,7 +712,8 @@ export const FUSOES_FEITAS = {
         "spe": 3.4
       },
       "sprite": "assets/fusoes/krabby+geodude~krade.png",
-      "lore": "KRABBY NA CABEÇA, GEODUDE NO CORPO."
+      "lore": "KRABBY NA CABEÇA, GEODUDE NO CORPO.",
+      "protegida": true
     }
   ],
   "rotom+pikachu": [
@@ -717,7 +741,8 @@ export const FUSOES_FEITAS = {
         "spe": 3.4
       },
       "sprite": "assets/fusoes/rotom+pikachu~rochu.png",
-      "lore": "ROTOM ENTROU NO PIKACHU E NÃO SAIU MAIS. A DESCARGA CORRE POR FORA DO CORPO, AZUL."
+      "lore": "ROTOM ENTROU NO PIKACHU E NÃO SAIU MAIS. A DESCARGA CORRE POR FORA DO CORPO, AZUL.",
+      "protegida": true
     }
   ],
   "rotom+ditto": [
@@ -746,7 +771,8 @@ export const FUSOES_FEITAS = {
         "spe": 3.5
       },
       "sprite": "assets/fusoes/rotom+ditto~rotto.png",
-      "lore": "ROTOM NA CABEÇA, DITTO NO CORPO."
+      "lore": "ROTOM NA CABEÇA, DITTO NO CORPO.",
+      "protegida": true
     }
   ],
   "rotom+voltorb": [
@@ -775,7 +801,8 @@ export const FUSOES_FEITAS = {
         "spe": 3.5
       },
       "sprite": "assets/fusoes/rotom+voltorb~roltorb.png",
-      "lore": "ROTOM NA CABEÇA, VOLTORB NO CORPO."
+      "lore": "ROTOM NA CABEÇA, VOLTORB NO CORPO.",
+      "protegida": true
     }
   ],
   "rotom+lampent": [
@@ -804,7 +831,8 @@ export const FUSOES_FEITAS = {
         "spe": 1.5
       },
       "sprite": "assets/fusoes/rotom+lampent~rompent.png",
-      "lore": "ROTOM NA CABEÇA, LAMPENT NO CORPO."
+      "lore": "ROTOM NA CABEÇA, LAMPENT NO CORPO.",
+      "protegida": true
     }
   ],
   "articuno+lapras": [
@@ -833,7 +861,8 @@ export const FUSOES_FEITAS = {
         "spe": 1.5
       },
       "sprite": "assets/fusoes/articuno+lapras~laprocuno.png",
-      "lore": "ARTICUNO NA CABEÇA, LAPRAS NO CORPO."
+      "lore": "ARTICUNO NA CABEÇA, LAPRAS NO CORPO.",
+      "protegida": true
     }
   ],
   "bulbasaur+arceus": [
@@ -862,7 +891,8 @@ export const FUSOES_FEITAS = {
         "spe": 2.0
       },
       "sprite": "assets/fusoes/bulbasaur+arceus~bulbaceus.png",
-      "lore": "A SEMENTE DAS COSTAS É A PRIMEIRA QUE EXISTIU. TUDO QUE É VERDE NO MUNDO VEIO DELA."
+      "lore": "A SEMENTE DAS COSTAS É A PRIMEIRA QUE EXISTIU. TUDO QUE É VERDE NO MUNDO VEIO DELA.",
+      "protegida": true
     }
   ],
   "gengar+chandelure": [
@@ -891,7 +921,8 @@ export const FUSOES_FEITAS = {
         "spe": 2.8
       },
       "sprite": "assets/fusoes/gengar+chandelure~gengalure.png",
-      "lore": "AS TRÊS CHAMAS SÃO SOMBRAS ACESAS. QUEM OLHA MUITO TEMPO ESQUECE ONDE DEIXOU A PRÓPRIA."
+      "lore": "AS TRÊS CHAMAS SÃO SOMBRAS ACESAS. QUEM OLHA MUITO TEMPO ESQUECE ONDE DEIXOU A PRÓPRIA.",
+      "protegida": true
     }
   ],
   "arcanine+zapdos": [
@@ -920,7 +951,8 @@ export const FUSOES_FEITAS = {
         "spe": 3.0
       },
       "sprite": "assets/fusoes/arcanine+zapdos~arcados.png",
-      "lore": "CORRE NA FRENTE DA TEMPESTADE E CHEGA ANTES DO TROVÃO. A JUBA NUNCA ABAIXA."
+      "lore": "CORRE NA FRENTE DA TEMPESTADE E CHEGA ANTES DO TROVÃO. A JUBA NUNCA ABAIXA.",
+      "protegida": true
     }
   ],
   "mewtwo+missingno": [
@@ -949,7 +981,8 @@ export const FUSOES_FEITAS = {
         "spe": 3.0
       },
       "sprite": "assets/fusoes/mewtwo+missingno~mewtwno.png",
-      "lore": "O EXPERIMENTO DEU CERTO DEMAIS: METADE DELE SAIU DA FITA E NÃO VOLTOU."
+      "lore": "O EXPERIMENTO DEU CERTO DEMAIS: METADE DELE SAIU DA FITA E NÃO VOLTOU.",
+      "protegida": true
     }
   ],
   "lapras+articuno": [
@@ -978,7 +1011,8 @@ export const FUSOES_FEITAS = {
         "spe": 1.8
       },
       "sprite": "assets/fusoes/lapras+articuno~lapracuno.png",
-      "lore": "ATRAVESSA O MAR CONGELANDO O CAMINHO ATRÁS DE SI. NINGUÉM CONSEGUE SEGUIR."
+      "lore": "ATRAVESSA O MAR CONGELANDO O CAMINHO ATRÁS DE SI. NINGUÉM CONSEGUE SEGUIR.",
+      "protegida": true
     }
   ],
   "onix+magneton": [
@@ -1007,7 +1041,8 @@ export const FUSOES_FEITAS = {
         "spe": 1.4
       },
       "sprite": "assets/fusoes/onix+magneton~oniton.png",
-      "lore": "OS ANÉIS DO MEIO VIRARAM ÍMÃ. TUDO QUE É DE METAL NA CAVERNA GRUDA NELE."
+      "lore": "OS ANÉIS DO MEIO VIRARAM ÍMÃ. TUDO QUE É DE METAL NA CAVERNA GRUDA NELE.",
+      "protegida": true
     }
   ],
   "butterfree+muk": [
@@ -1036,7 +1071,37 @@ export const FUSOES_FEITAS = {
         "spe": 1.5
       },
       "sprite": "assets/fusoes/butterfree+muk~buttemuk.png",
-      "lore": "BUTTERFREE NA CABEÇA, MUK NO CORPO."
+      "lore": "BUTTERFREE NA CABEÇA, MUK NO CORPO.",
+      "protegida": true
+    }
+  ],
+  "magneton+nidorino": [
+    {
+      "id": "magneno",
+      "nome": "MAGNENO",
+      "autor": "CAIO",
+      "tipos": [
+        "ELÉTRICO",
+        "VENENO"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 2,
+        "atk": 1.5,
+        "def": 1.5,
+        "spa": 1.5,
+        "spd": 1.5,
+        "spe": 1.5
+      },
+      "sprite": "assets/fusoes/magneton+nidorino~magneno.png",
+      "lore": "MAGNETON NA CABEÇA, NIDORINO NO CORPO."
     }
   ]
 };
