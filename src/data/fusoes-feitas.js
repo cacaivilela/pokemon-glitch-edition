@@ -988,5 +988,34 @@ export const FUSOES_FEITAS = {
       "lore": "ROTOM NA CABEÇA, VICTREEBEL NO CORPO.",
       "protegida": true
     }
+  ],
+  "tauros+rotom": [
+    {
+      "id": "tautom",
+      "nome": "TAUTOM",
+      "autor": "CAIO",
+      "tipos": [
+        "NORMAL",
+        "FANTASMA"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 7.6,
+        "atk": 3.7,
+        "def": 6.7,
+        "spa": 0.2,
+        "spd": 9,
+        "spe": 3.9
+      },
+      "sprite": "assets/fusoes/tauros+rotom~tautom.png",
+      "lore": "TAUROS NA CABEÇA, ROTOM NO CORPO."
+    }
   ]
 };
