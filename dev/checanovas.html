@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>as fusões novas entram no jogo?</title>
+<style>body{background:#111;color:#9fd;font:12px ui-monospace;margin:0;padding:8px}.mal{color:#f66}</style>
+</head><body><div id="out">conferindo...</div>
+<img alt="" width="1" height="1" src="/__delay?ms=12000">
+<script type="module">
+// As seis fusões desenhadas em tools/fusoes_iradas.py: elas montam espécie de
+// verdade no jogo? O desenho abre? E ele é DESENHO mesmo, ou saiu igual à
+// montagem automática (que é o que a faxina do mês procura pra apagar)?
+const linhas = [];
+try {
+  const { DB } = await import("/src/data/index.js");
+  const { Assets } = await import("/src/core/assets.js");
+  const F = await import("/src/systems/fusao.js");
+  Assets.init();
+  const novas = ["bulbasaur+arceus", "gengar+chandelure", "arcanine+zapdos",
+                 "mewtwo+missingno", "lapras+articuno", "onix+magneton"];
+  const abrir = (src) => new Promise((r) => {
+    const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = "/" + src;
+  });
+  for (const chave of novas) {
+    const [cab, cor] = chave.split("+");
+    const ficha = (DB.FUSOES_FEITAS[chave] || [])[0];
+    const sp = ficha && F.garantirEspecie(F.idFusao(cab, cor) + "~" + ficha.id);
+    if (!sp) { linhas.push(`${chave}: NÃO MONTOU`); continue; }
+    const img = await abrir(ficha.sprite);
+    const nv50 = ["hp", "atk", "def", "spa", "spd", "spe"]
+      .map((k) => Math.floor(ficha.inicial[k] + ficha.crescimento[k] * 50));
+    linhas.push(`${sp.name} [${sp.types.join("/")}] ${img ? img.width + "x" + img.height : "DESENHO NÃO ABRIU"}`
+      + ` nv50 ${nv50.join("/")} total ${nv50.reduce((a, b) => a + b)}`);
+  }
+} catch (e) { linhas.push("EXPLODIU: " + (e?.stack || e)); }
+document.getElementById("out").innerHTML = linhas.join("<br>");
+await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "checanovas", log: linhas.join("\n") }) });
+</script></body></html>
