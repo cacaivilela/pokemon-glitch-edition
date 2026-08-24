@@ -1013,5 +1013,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/weezing+grimer~weemer.png",
       "lore": "WEEZING NA CABEÇA, GRIMER NO CORPO."
     }
+  ],
+  "cranidos+blastoise": [
+    {
+      "id": "cranistoise",
+      "nome": "CRANISTOISE",
+      "autor": "CAIO",
+      "tipos": [
+        "PEDRA",
+        "ÁGUA"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 6.7,
+        "atk": 3.8,
+        "def": 7.1,
+        "spa": 3.6,
+        "spd": 7.1,
+        "spe": 3.8
+      },
+      "sprite": "assets/fusoes/cranidos+blastoise~cranistoise.png",
+      "lore": "CRANIDOS NA CABEÇA, BLASTOISE NO CORPO."
+    }
   ]
 };
