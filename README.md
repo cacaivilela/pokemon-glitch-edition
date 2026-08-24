@@ -276,22 +276,108 @@ Ela vale pra **qualquer partida deste computador**, inclusive um jogo novo, do
 mesmo jeito que as fusões que já vêm no jogo. O desenho vai junto, em PNG. Pra tirar uma, edite o
 arquivo à mão; pra tirar todas, deixe `export const FUSOES_FEITAS = {};`.
 
-### A faxina do mês
+### A faxina da semana
 
-Uma vez por mês, ao abrir o DECODIFICADOR, a máquina revisa o acervo e aponta a
-fusão mais fraca. "Fraca" não é gosto: é **o quanto o desenho difere da montagem
-automática** — a montagem (corpo de um, cabeça do outro) é o ponto de partida da
-oficina, e uma ficha que continua igual a ela é uma ficha que ninguém chegou a
-fazer. A conta é feita com o código de verdade do jogo, comparando pixel a
-pixel (`src/systems/faxina.js`).
+Uma vez por semana, ao abrir o DECODIFICADOR, a máquina revisa o acervo e junta
+as fusões que **mal saíram da montagem automática** — até três por vez. "Mal
+saiu" não é gosto: é **o quanto o desenho difere da montagem automática** — a
+montagem (corpo de um, cabeça do outro) é o ponto de partida da oficina, e uma
+ficha que continua igual a ela é uma ficha que ninguém chegou a fazer. A conta é
+feita com o código de verdade do jogo, comparando pixel a pixel
+(`src/systems/faxina.js`), e só entra quem está em **10% ou menos**: acima disso
+o desenho foi feito, e desenho feito não é assunto da faxina.
 
-**Ela não apaga sozinha**: mostra qual é, com o número na tela ("4% diferente da
-montagem automática"), e pergunta. Jogar fora desenho — seu ou de outra pessoa —
-sem perguntar é o tipo de coisa que um programa não deve fazer calado. Quem
-recusa não é perguntado de novo até o mês virar.
+A semana começa na segunda: a chave gravada no save é a data da segunda-feira
+daquela semana. Quem joga todo dia vê a faxina na segunda; quem só aparece na
+quarta vê na quarta — uma vez por semana, e não duas.
+
+**O acervo que já existia está protegido.** Toda ficha que estava em
+`src/data/fusoes-feitas.js` no dia em que a faxina virou semanal carrega
+`"protegida": true`, e ficha protegida a faxina **nunca** leva: ela não aparece
+na conta, o jogo recusa, e o servidor recusa de novo na rota que apaga — nem uma
+página velha nem um POST feito à mão tiram. Republicar a mesma ficha por cima
+também não solta a marca. Fusão nova, publicada de agora em diante, nasce sem a
+marca — e é essa que a faxina olha.
+
+A marca **põe e tira** pelo site da faxina, com a senha (o mesmo botão faz as
+duas coisas): proteger é uma decisão, e desfazer uma decisão também é uma
+decisão — não um acidente de um clique, porque a senha está no meio.
+
+**As ETERNAS são outra coisa.** Elas não dependem de marca nenhuma: o id está
+escrito no código (`ETERNAS`, em `src/systems/faxina.js` e no `dev_server.py`) e
+a rota que apaga recusa **sempre** — sem proteção, com a senha certa, por POST na
+mão, tanto faz. Hoje tem uma: a **LAPROCUNO**. Dá pra desprotegê-la; apagar, não.
+Soltar uma eterna exige editar as duas listas, à mão, de propósito.
+
+**Ela não apaga sozinha**: mostra quais são, com o número de cada uma na tela
+("4% diferente da montagem automática"), e pergunta uma vez pelo grupo. Jogar
+fora desenho — seu ou de outra pessoa — sem perguntar é o tipo de coisa que um
+programa não deve fazer calado. Quem recusa não é perguntado de novo até a
+semana virar.
 
 O que sai vai pro git como qualquer outra mudança (`faxina: fora <NOME>`), então
 nada se perde de verdade: dá pra voltar qualquer uma pelo histórico.
+
+### A fusão selvagem
+
+Fusão é coisa de máquina: sai do DECODIFICADOR, com dois Pokémon seus dentro. Mas
+uma vez a cada **muitas** a grama devolve uma pronta, que ninguém fundiu — e é a
+**LAPROCUNO**, a do acervo, com o desenho e a ficha dela.
+
+A chance é **1/4096 por encontro** (`FUSAO_SELVAGEM`, em `src/data/extra.js`), na
+mesma hora em que o jogo decide quem sai do mato, antes da tabela do mapa — ela
+não está na tabela de mapa nenhum. Com a grama chamando 11% das vezes, dá um a
+cada ~37 mil passos no mato: é pra ser história de jogador, não item de lista.
+
+A espécie é montada na hora pelo id (`fus-articuno-lapras~laprocuno`), do mesmo
+jeito que o jogo já remonta fusão que vem de save. Se a ficha sumisse do acervo, o
+encontro continuaria funcionando com a montagem automática — mas ela é ETERNA
+(acima), então não some.
+
+### FAXINA MISSINGNO., o site (a senha é `giveglitch`)
+
+A faxina dentro do jogo é uma pergunta de cada vez, no meio da partida. O acervo
+inteiro de uma vez está em **`faxinamissingno/`** (`localhost:5190/faxinamissingno/`) — a FAXINA MISSINGNO.:
+cada ficha com o desenho **ao lado da montagem automática dela**, a dupla, quem
+fez, quantos por cento ela difere dessa montagem (em número e em barra) — e os
+botões de proteger e de jogar fora.
+
+Mostrar as duas lado a lado é o ponto: a porcentagem deixa de ser um número solto
+e vira uma coisa que dá pra conferir com o olho. A montagem que aparece é a MESMA
+que entra na conta (`montagemAutomatica`, em `src/systems/faxina.js`).
+
+No topo, o resumo do acervo: quantas fichas, quantas mal saíram da montagem,
+quantas a faxina pode levar, quantas estão protegidas e a média desenhada. Abaixo,
+busca por nome/dupla/autor, filtro (todas · só as fracas · só as que podem sair ·
+só as protegidas) e ordem (mais fraca, mais desenhada, nome, dupla).
+
+**PROTEGER / DESPROTEGER é o mesmo botão** (rotas `/__ficha`, ações `proteger` e
+`desproteger`, senha exigida nas duas). Quem está protegida aparece com selo roxo;
+quem é **ETERNA** aparece com selo amarelo, com os dois botões desligados — ela não
+sai nem sem proteção. O filtro do topo separa as três: todas · fracas · podem sair ·
+protegidas · eternas.
+
+**Pra usar tem que digitar a senha `giveglitch`.** A senha não está escrita na
+página: o que você digita vai perguntar pro `dev_server.py` (rota `/__faxina`),
+que é quem sabe — quem abre o código do site não acha senha nenhuma lá dentro. E
+não adianta pular a tela: **a rota que apaga confere de novo** (`/__ficha`, ação
+`apagar`), então um POST que não sabe a senha não leva desenho de ninguém. A
+máquina do jogo sabe a senha porque ela é a outra porta da faxina.
+
+Não é segurança de banco — quem lê o código do jogo acha a senha lá. É um passo
+de propósito, igual ao código do giveglitch: apagar desenho nunca deve ser um
+acidente de um clique.
+
+**Protegida continua protegida.** O site mostra as protegidas, com selo, e o
+botão delas nasce desligado; se alguém insistir por fora, o servidor recusa do
+mesmo jeito. Nem a senha certa tira uma protegida — pra isso, só editando
+`src/data/fusoes-feitas.js` à mão.
+
+A página usa os módulos do próprio jogo pra medir (`src/systems/faxina.js`,
+`Assets.mon`): a conta é a mesma da faxina da semana, e ela espera os sprites dos
+dois lados chegarem antes de medir — medir contra a arte provisória daria número
+errado. Ela só funciona servida pelo `dev_server.py`; aberta solta, não tem com
+quem falar.
 
 ### Por que não existe um servidor de fusões
 
@@ -874,7 +960,7 @@ src/
     fusao.js           fundir/separar, a espécie montada na hora e as fichas do jogador
     concurso.js        as notas dos três jurados e a rodada com os rivais
     missoes.js         estado das missões e os checadores de objetivo
-    faxina.js          a revisão mensal do acervo de fusões
+    faxina.js          a revisão semanal do acervo de fusões
     rival.js           monta o AZUL na hora certa, com o inicial que ele errou
     online.js          presença, convites, chat e o filtro do que vem de fora
   scenes/
@@ -891,7 +977,9 @@ assets/
 tools/                 fetch_sprites / fetch_overworld / fetch_trainers / fetch_maps / slice_sheet / png_io
                        compacta.py — reescreve os PNGs em paleta, sem perder pixel
 dev/smoke.html         teste headless com roteiro de teclas
+dev/cutscenecheck.html roda a cutscene de todos os golpes num palco de mentira
 giveglitch/            versão web do mesmo terminal (fora do jogo)
+faxinamissingno/       a FAXINA MISSINGNO.: o acervo medido, com a senha pra jogar fora
 save/save.json         o save (um por máquina; fora do git)
 online/cartoes.json    os cartões que este servidor oferece (fora do git)
 ```

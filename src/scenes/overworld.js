@@ -23,7 +23,7 @@ import { scatterDimLoot } from "../systems/loot.js";
 import { pedrasIniciaisDevidas } from "../systems/mega.js";
 import { estado as estadoMissao, progresso, aceitar, entregar, diario, feitas, missaoPorId, daVez }
   from "../systems/missoes.js";
-import { estaNaHora, marcarFeita, piores, apagarDoCodigo } from "../systems/faxina.js";
+import { estaNaHora, marcarFeita, fracas, apagarDoCodigo } from "../systems/faxina.js";
 import { rivalNpc } from "../systems/rival.js";
 import { ehFusao, fundivel, previsao, partes, temFicha, fichasProntas, variantes,
          buscarDoMundo, especiePorTexto, montarEspecie, servidorMundo,
@@ -1500,37 +1500,44 @@ export class OverworldScene {
   }
 
   /** A máquina, aberta pela mochila. Junta dois da equipe num só, e abre de
-   *  volta o que ela juntou. Uma vez por mês, ela abre com a faxina. */
+   *  volta o que ela juntou. Uma vez por semana, ela abre com a faxina. */
   abrirDecodificador() {
     Audio2.select();
     Glitch.hit(0.5);
-    if (!Save.offline() && estaNaHora(this.st)) return this.faxinaDoMes();
+    if (!Save.offline() && estaNaHora(this.st)) return this.faxinaDaSemana();
     this.menu = { type: "genoma", index: 0 };
   }
 
-  /** A FAXINA: a máquina aponta a fusão que menos foi desenhada e pergunta se
-   *  é pra jogar fora. Ela nunca apaga sozinha — o histórico guarda tudo, mas
-   *  desenho dos outros não se joga fora calado. */
-  async faxinaDoMes() {
+  /** A FAXINA: uma vez por semana a máquina junta as fusões que mal saíram da
+   *  montagem automática e pergunta se é pra jogar fora. Ela nunca apaga
+   *  sozinha — o histórico guarda tudo, mas desenho dos outros não se joga fora
+   *  calado —, e nunca encosta no acervo protegido. */
+  async faxinaDaSemana() {
     const F = DB.STORY.fusao;
     this.menu = null;
     marcarFeita(this.st);
     this.game.autosave?.(true);
     this.dlg.say([...F.faxinaAviso, F.faxinaPensando]);
-    const lista = await piores(1);
-    const pior = lista[0];
-    if (!pior) return void this.dlg.say(F.faxinaVazio);
-    const nome = pior.ficha.nome;
+    const lista = await fracas();
+    if (!lista.length) return void this.dlg.say(F.faxinaVazio);
+    const nomes = lista.map((x) => `${x.ficha.nome} (${x.desenhado}%)`).join(", ");
     this.dlg.ask(
-      F.faxinaPergunta.replace("{NOME}", nome).replace("{PCT}", pior.desenhado),
+      (lista.length > 1 ? F.faxinaPerguntaVarias : F.faxinaPergunta).replace("{LISTA}", nomes),
       F.faxinaOpcoes,
       async (i) => {
         if (i !== 0) return void this.dlg.say(F.faxinaFicou);
-        const r = await apagarDoCodigo(pior.chave, pior.ficha.id);
-        Audio2[r.ok ? "heal" : "cancel"]();
+        const fora = [], erros = [];
+        for (const x of lista) {
+          const r = await apagarDoCodigo(x.chave, x.ficha.id);
+          if (r.ok) fora.push(x.ficha.nome);
+          else erros.push(r.erro || "?");
+        }
+        Audio2[fora.length ? "heal" : "cancel"]();
         Glitch.hit(1);
-        this.dlg.say(r.ok ? F.faxinaFora.replace("{NOME}", nome)
-                          : F.faxinaErro.replace("{ERRO}", r.erro || "?"));
+        this.dlg.say([
+          ...(fora.length ? [F.faxinaFora.replace("{LISTA}", fora.join(", "))] : []),
+          ...(erros.length ? [F.faxinaErro.replace("{ERRO}", erros[0])] : []),
+        ]);
       });
   }
 

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem da faxina missingno. — Pokémon Glitch Edition</title>
+<style>
+  body { background:#111; color:#9aa; font:12px ui-monospace,monospace; margin:0; padding:8px; }
+  iframe { width:900px; height:700px; border:0; background:#14101f; }
+  #log { white-space:pre-wrap; color:#7fd; margin-bottom:8px; }
+</style>
+</head>
+<body>
+<!-- Dirige o SITE DA FAXINA de verdade, num iframe: erra a senha, acerta a senha
+     e espera a lista montar. É o único jeito de testar a página aqui dentro —
+     ela é toda JavaScript de tela, e o resto do projeto usa este mesmo truque
+     (dev/smoke.html). O <img> abaixo segura o evento `load` até o roteiro
+     terminar, então `firefox --screenshot` captura o resultado montado. -->
+<div id="log">rodando...</div>
+<iframe id="fr" src=""></iframe>
+<img id="hold" alt="" width="1" height="1">
+<script>
+  const p = new URLSearchParams(location.search);
+  const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+  const fr = document.getElementById("fr");
+  const log = document.getElementById("log");
+  const errs = [];
+  const linhas = [];
+  window.addEventListener("error", (e) => errs.push("PAI: " + e.message));
+
+  fr.addEventListener("load", async () => {
+   try {
+    const w = fr.contentWindow, d = fr.contentDocument;
+    w.addEventListener("error", (e) => errs.push("SITE: " + e.message));
+    w.addEventListener("unhandledrejection", (e) => errs.push("SITE-PROMISE: " + (e.reason?.stack || e.reason)));
+    await espera(400);
+
+    // 1. a senha errada não pode abrir nada
+    d.getElementById("senha").value = "abacaxi";
+    d.getElementById("form-senha").requestSubmit();
+    await espera(700);
+    linhas.push(`senha errada: aviso="${d.getElementById("aviso-porta").textContent}" `
+              + `acervo escondido=${d.getElementById("acervo").classList.contains("escondido")}`);
+
+    // 2. a senha certa abre e a lista monta sozinha
+    d.getElementById("senha").value = "giveglitch";
+    d.getElementById("form-senha").requestSubmit();
+    const limite = Date.now() + 40000;
+    while (Date.now() < limite && !d.querySelectorAll(".ficha").length) await espera(250);
+    // a lista aparece de uma vez, quando a última foi medida
+    linhas.push(`estado: "${d.getElementById("estado").textContent}"`);
+
+    const fichas = [...d.querySelectorAll(".ficha")];
+    const botao = (f) => f.querySelector("button");
+    const ligados = fichas.filter((f) => !botao(f).disabled);
+    const selados = fichas.filter((f) => f.querySelector(".selo"));
+    linhas.push(`fichas na tela: ${fichas.length} | botão ligado: ${ligados.length} `
+              + `(${ligados.map((f) => f.querySelector(".nome").textContent).join(", ")}) `
+              + `| com selo PROTEGIDA: ${selados.length}`);
+    linhas.push("as cinco primeiras (as mais fracas): "
+      + fichas.slice(0, 5).map((f) => `${f.querySelector(".nome").textContent} `
+        + `[${f.querySelector(".pct").textContent.replace(" diferente da montagem automática", "")}]`).join(" · "));
+    const semDesenho = fichas.filter((f) => !f.querySelector("img").complete
+                                         || !f.querySelector("img").naturalWidth);
+    linhas.push(`desenhos que não carregaram: ${semDesenho.length}`);
+    // a ordem tem que ser da mais fraca pra mais forte
+    const pcts = fichas.map((f) => parseInt(f.querySelector(".pct").textContent, 10));
+    linhas.push(`ordenada da mais fraca pra mais forte: `
+              + `${pcts.every((v, i) => i === 0 || pcts[i - 1] <= v)}`);
+
+    const texto = linhas.join("\n") + "\n" + (errs.length ? "ERROS: " + errs.join(" | ") : "sem erros");
+    log.textContent = texto;
+    try {
+      await fetch("/__capture", {
+        method: "POST",
+        body: JSON.stringify({ name: p.get("name") || "faxinacheck", log: texto }),
+      });
+    } catch (e) { console.error(e); }
+   } catch (e) {
+    // o roteiro quebrou no meio: manda assim mesmo, senão não sobra diagnóstico
+    const texto = linhas.join("\n") + "\nQUEBROU: " + (e && e.stack || e)
+                + "\n" + (errs.length ? "ERROS: " + errs.join(" | ") : "sem erros do site");
+    log.textContent = texto;
+    await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "faxinacheck", log: texto }) })
+      .catch(() => {});
+   }
+  });
+
+  // a src vai por aqui, DEPOIS do listener: posta no HTML o `load` pode chegar antes
+  fr.src = "/faxinamissingno/";
+
+  document.getElementById("hold").src = "/__delay?ms=" + (p.get("hold") || 50000);
+</script>
+</body>
+</html>

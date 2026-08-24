@@ -37,20 +37,59 @@ _git_lock = threading.Lock()
 # um dia quiser publicar a mao.
 AUTO_PUBLICAR = True
 
+# A SENHA DA FAXINA. Apagar fusao so acontece com ela na mao: o site da faxina
+# (faxinamissingno/) pergunta antes de mostrar qualquer botao, e a rota que apaga
+# confere de novo — pedir de novo aqui e o que impede um POST solto de levar
+# desenho embora. Nao e seguranca de banco: e uma senha de acesso, igual ao
+# codigo do giveglitch. Quem mexe no codigo do jogo ve ela; a ideia e que
+# apagar exija um passo de proposito, nao que seja impossivel.
+SENHA_FAXINA = "giveglitch"
+
+# AS ETERNAS. Fusao com id aqui dentro nao sai NUNCA: nem sem a marca
+# `protegida`, nem com a senha certa, nem por um POST na mao. A marca protegida
+# e uma decisao (poe e tira pelo site); isto e uma regra escrita no codigo, e
+# soltar uma exige mexer no codigo dos dois lados (aqui e src/systems/faxina.js).
+ETERNAS = {"laprocuno"}
+
+
+# Pastas que o vigia NAO percorre. `assets/sprites` sao 576 PNGs baixados de
+# fora: eles nao mudam sozinhos, e andar em cima deles quatro vezes por segundo
+# era 72% do trabalho do vigia — trabalho que so cresce conforme a arte chega.
+# Quem roda os tools/fetch_* de proposito da um F5 e pronto.
+WATCH_SKIP = {os.path.join("assets", "sprites"), os.path.join("assets", "music")}
+
 
 def snapshot():
+    """{arquivo: mtime} do que dispara live update.
+
+    Com `scandir` o mtime vem junto da listagem, sem um `stat` por arquivo — o
+    vigia roda 4x por segundo, entao o que ele faz por arquivo importa mais do
+    que parece. Quanto mais o acervo cresce, mais isso conta.
+    """
     out = {}
-    for dirpath, dirnames, filenames in os.walk(ROOT):
-        dirnames[:] = [d for d in dirnames if not d.startswith((".", "__", "node_modules"))]
-        if os.path.basename(dirpath) in ("captures", "save", "online"):
-            continue  # smoke tests / save / cartoes do presente: nao disparam reload
-        for f in filenames:
-            if os.path.splitext(f)[1].lower() in WATCH_EXT:
-                p = os.path.join(dirpath, f)
-                try:
-                    out[p] = os.path.getmtime(p)
-                except OSError:
-                    pass
+    pilha = [ROOT]
+    while pilha:
+        pasta = pilha.pop()
+        try:
+            with os.scandir(pasta) as itens:
+                for it in itens:
+                    if it.is_dir(follow_symlinks=False):
+                        nome = it.name
+                        if nome.startswith((".", "__", "node_modules")):
+                            continue
+                        if nome in ("captures", "save", "online"):
+                            continue  # smoke tests / save / cartoes: nao disparam reload
+                        rel = os.path.relpath(it.path, ROOT)
+                        if rel in WATCH_SKIP:
+                            continue
+                        pilha.append(it.path)
+                    elif os.path.splitext(it.name)[1].lower() in WATCH_EXT:
+                        try:
+                            out[it.path] = it.stat(follow_symlinks=False).st_mtime
+                        except OSError:
+                            pass
+        except OSError:
+            pass
     return out
 
 
@@ -423,12 +462,74 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         return self.send_error(400)
 
-    def ficha_apagar(self, chave, ficha_id):
+    def faxina_post(self):
+        """`{"senha": "..."}` -> `{"ok": true}`. So isso.
+
+        E o portao do site da faxina. A senha nao mora na pagina: ela e digitada
+        e vem perguntar aqui, entao quem abre o codigo do site nao acha senha
+        nenhuma la dentro. Quem erra nao recebe pista de qual e.
+        """
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            payload = json.loads(self.rfile.read(n) or b"{}")
+        except ValueError:
+            return self.send_error(400)
+        ok = str(payload.get("senha") or "") == SENHA_FAXINA
+        return self._responde({"ok": ok}, 200 if ok else 403)
+
+    def ficha_proteger(self, chave, ficha_id, senha="", marcar=True):
+        """Poe ou tira a marca `protegida` de uma ficha.
+
+        Tirar exige a senha igual a apagar: a protecao e uma decisao, e desfazer
+        uma decisao tambem e uma decisao. O que NAO se desfaz sao as ETERNAS —
+        aquelas nao dependem da marca, entao tirar a protecao de uma delas nao
+        libera nada (a rota de apagar continua recusando).
+        """
+        if senha != SENHA_FAXINA:
+            return self._responde({"ok": False, "erro": "senha errada"}, 403)
+        caminho = os.path.join(ROOT, self.FICHAS_REL)
+        try:
+            with open(caminho, encoding="utf-8") as fh:
+                texto = fh.read()
+            cabecalho, corpo = texto.split("export const FUSOES_FEITAS =", 1)
+            atual = json.loads(corpo.rsplit(";", 1)[0].strip())
+        except (OSError, IndexError, ValueError):
+            return self._responde({"ok": False, "erro": "nao consegui ler o arquivo"})
+
+        alvo = next((f for f in atual.get(chave, []) if f.get("id") == ficha_id), None)
+        if not alvo:
+            return self._responde({"ok": False, "erro": "essa ficha nao esta aqui"})
+        if bool(alvo.get("protegida")) == bool(marcar):
+            return self._responde({"ok": True, "nome": alvo.get("nome"), "jaestava": True})
+
+        if marcar:
+            alvo["protegida"] = True
+        else:
+            alvo.pop("protegida", None)
+        with open(caminho, "w", encoding="utf-8") as fh:
+            fh.write(cabecalho + "export const FUSOES_FEITAS = "
+                     + json.dumps(atual, ensure_ascii=False, indent=2) + ";\n")
+        virou = "nao sai mais na faxina" if marcar else "voltou pra fila da faxina"
+        print(f"\033[36m[protege]\033[0m {chave}: {alvo.get('nome')} {virou}", flush=True)
+        if AUTO_PUBLICAR:
+            self.publicar_sozinho(f"{alvo.get('nome')}", "",
+                                  prefixo="protege" if marcar else "desprotege")
+        return self._responde({"ok": True, "nome": alvo.get("nome")})
+
+    def ficha_apagar(self, chave, ficha_id, senha=""):
         """A faxina do mes: tira uma ficha do codigo e apaga o desenho dela.
 
         Vai pro git igual a publicacao — o historico guarda tudo, entao nada e
         perdido de verdade: da pra voltar qualquer uma depois.
+
+        SEM A SENHA NAO APAGA. Quem pede e o site da faxina (que perguntou a
+        senha antes de abrir) ou a propria maquina do jogo; os dois mandam ela
+        junto. Um POST que nao sabe a senha nao leva desenho de ninguem.
         """
+        if senha != SENHA_FAXINA:
+            return self._responde({"ok": False, "erro": "senha errada"}, 403)
+        if ficha_id in ETERNAS:
+            return self._responde({"ok": False, "erro": "essa ficha nao sai nunca"}, 403)
         caminho = os.path.join(ROOT, self.FICHAS_REL)
         try:
             with open(caminho, encoding="utf-8") as fh:
@@ -444,6 +545,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 fora = f
         if not fora:
             return self._responde({"ok": False, "erro": "essa ficha nao esta aqui"})
+        # PROTEGIDA NAO SAI. A faxina passou a ser semanal, e acelerar a faxina
+        # nao pode virar desculpa pra jogar fora o que ja estava feito: todo o
+        # acervo daquele dia esta marcado com "protegida": true. A recusa e AQUI,
+        # e nao so na tela do jogo — assim nem uma pagina velha nem um POST na
+        # mao tiram. Pra soltar uma, apague a marca do arquivo, de proposito.
+        if fora.get("protegida"):
+            return self._responde({"ok": False, "erro": "essa ficha esta protegida"})
 
         atual[chave] = [f for f in atual.get(chave, []) if f.get("id") != ficha_id]
         if not atual[chave]:
@@ -459,7 +567,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 pass
         print(f"\033[33m[faxina]\033[0m {chave}: {fora.get('nome')} apagada", flush=True)
         if AUTO_PUBLICAR:
-            self.publicar_sozinho(f"faxina: fora {fora.get('nome')}", "")
+            self.publicar_sozinho(f"fora {fora.get('nome')}", "", prefixo="faxina")
         return self._responde({"ok": True, "nome": fora.get("nome")})
 
     def ficha_post(self):
@@ -480,7 +588,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if not re.fullmatch(r"[a-z0-9]+\+[a-z0-9]+", chave) or not ficha.get("id"):
             return self.send_error(400)
         if payload.get("acao") == "apagar":
-            return self.ficha_apagar(chave, str(ficha["id"]))
+            return self.ficha_apagar(chave, str(ficha["id"]), str(payload.get("senha") or ""))
+        if payload.get("acao") in ("proteger", "desproteger"):
+            return self.ficha_proteger(chave, str(ficha["id"]), str(payload.get("senha") or ""),
+                                       payload.get("acao") == "proteger")
 
         caminho = os.path.join(ROOT, "src", "data", "fusoes-feitas.js")
         atual = {}
@@ -510,6 +621,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except (OSError, ValueError):
                 pass          # nao deu pra gravar o arquivo: fica embutido mesmo
 
+        # Republicar por cima nao tira a protecao: quem estava protegido continua,
+        # senao bastava publicar de novo pra faxina poder levar.
+        velha = next((f for f in atual.get(chave, []) if f.get("id") == ficha["id"]), None)
+        if velha and velha.get("protegida"):
+            ficha["protegida"] = True
+
         lista = [f for f in atual.get(chave, []) if f.get("id") != ficha["id"]]
         lista.append(ficha)
         atual[chave] = lista
@@ -525,6 +642,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             "//\n"
             "// Da pra editar a mao, e da pra apagar tudo: e so deixar o objeto vazio. O\n"
             "// desenho vem junto, em PNG, dentro do campo `sprite`.\n"
+            "//\n"
+            "// `protegida`: true e ficha que a FAXINA DA SEMANA nunca leva. Esta marcado\n"
+            "// assim todo o acervo que existia quando a faxina virou semanal. Sai so a\n"
+            "// mao, tirando a marca daqui.\n"
             "export const FUSOES_FEITAS = "
         )
         with open(caminho, "w", encoding="utf-8") as fh:
@@ -553,7 +674,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(corpo)
 
-    def publicar_sozinho(self, nome, autor):
+    def publicar_sozinho(self, nome, autor, prefixo="fusao"):
         """Commit + push da ficha recem-gravada, numa thread propria.
 
         Numa thread porque o `git push` fala com a internet e demora: quem
@@ -565,7 +686,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             with _git_lock:
                 limpo = re.sub(r"[^\w .-]", "", str(nome))[:40] or "fusao"
                 quem = re.sub(r"[^\w .-]", "", str(autor or ""))[:20]
-                msg = f"fusao: {limpo}" + (f" (por {quem})" if quem else "")
+                msg = f"{prefixo}: {limpo}" + (f" (por {quem})" if quem else "")
                 cod, saida, _ = self._git("rev-parse", "--is-inside-work-tree")
                 if cod or saida != "true":
                     return print("\033[33m[codigo]\033[0m esta copia nao e um repositorio git", flush=True)
@@ -603,6 +724,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.gift_post()
         if self.path.split("?")[0] == "/__ficha":
             return self.ficha_post()
+        if self.path.split("?")[0] == "/__faxina":
+            return self.faxina_post()
         if self.path.split("?")[0] == "/__mundo":
             return self.mundo_post()
         if self.path.split("?")[0] != "/__capture":

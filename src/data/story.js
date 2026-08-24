@@ -458,19 +458,21 @@ export const STORY = {
     apagarFicha: "APAGAR A FICHA E DEIXAR A MÁQUINA CALCULAR SOZINHA?",
     opcoesApagar: ["APAGAR", "DEIXA PRA LÁ"],
     apagou: "FICHA APAGADA. A MÁQUINA VOLTOU A CHUTAR.",
-    // A FAXINA DO MÊS: uma vez por mês a máquina aponta a fusão mais fraca do
-    // acervo — a que menos foi desenhada por cima da montagem automática.
-    faxinaTitulo: "FAXINA DO MÊS",
+    // A FAXINA DA SEMANA: uma vez por semana a máquina aponta as fusões que MAL
+    // SAÍRAM da montagem automática. O acervo protegido ela nem olha.
+    faxinaTitulo: "FAXINA DA SEMANA",
     faxinaAviso: [
-      "PASSOU UM MÊS. A MÁQUINA REVISOU O ACERVO SOZINHA.",
+      "SEMANA NOVA. A MÁQUINA REVISOU O ACERVO SOZINHA.",
       "ELA MEDE UMA COISA SÓ: O QUANTO CADA DESENHO FOI FEITO À MÃO, EM CIMA DA MONTAGEM QUE ELA JÁ FAZ.",
+      "O QUE JÁ ESTAVA AQUI ESTÁ PROTEGIDO: ELA SÓ ENCOSTA NO QUE CHEGOU DEPOIS.",
     ],
-    faxinaPergunta: "A MAIS FRACA É {NOME} — {PCT}% DIFERENTE DA MONTAGEM AUTOMÁTICA. JOGAR FORA?",
+    faxinaPergunta: "{LISTA} MAL SAIU DA MONTAGEM AUTOMÁTICA. JOGAR FORA?",
+    faxinaPerguntaVarias: "ESTES MAL SAÍRAM DA MONTAGEM AUTOMÁTICA: {LISTA}. JOGAR FORA?",
     faxinaOpcoes: ["JOGAR FORA", "DEIXAR FICAR"],
-    faxinaFora: "{NOME} SAIU DO ACERVO. (O HISTÓRICO GUARDA — DÁ PRA VOLTAR.)",
-    faxinaFicou: "TUDO BEM. ELA FICA — E A MÁQUINA SÓ PERGUNTA DE NOVO NO MÊS QUE VEM.",
+    faxinaFora: "{LISTA} SAIU DO ACERVO. (O HISTÓRICO GUARDA — DÁ PRA VOLTAR.)",
+    faxinaFicou: "TUDO BEM. FICA — E A MÁQUINA SÓ PERGUNTA DE NOVO NA SEMANA QUE VEM.",
     faxinaErro: "NÃO DEU PRA APAGAR: {ERRO}",
-    faxinaVazio: "O ACERVO ESTÁ LIMPO. NADA A JOGAR FORA ESTE MÊS.",
+    faxinaVazio: "NADA A JOGAR FORA ESTA SEMANA. TODO DESENHO NOVO SAIU DA MONTAGEM.",
     faxinaPensando: "MEDINDO OS DESENHOS...",
     // examinar o item fora do laboratório
     olha: "A FITA ESTÁ PARADA NO MEIO DE UMA PALAVRA QUE NÃO É NOME DE NINGUÉM.",

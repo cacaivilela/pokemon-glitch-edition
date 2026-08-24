@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>faxina missingno. — Pokémon Glitch Edition</title>
+<style>
+  :root {
+    --bg: #14101f; --panel: #1e1830; --panel2: #272040; --line: #3d3160;
+    --ink: #f4f2ff; --ink2: #a99ec9; --glitch: #b455ff; --ok: #59d99b; --warn: #ffd166; --bad: #e0524a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  header {
+    padding: 14px 18px; border-bottom: 2px solid var(--line);
+    background: linear-gradient(180deg, #241b3c, #14101f);
+    display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+  }
+  h1 { margin: 0; font-size: 18px; letter-spacing: 2px; text-transform: uppercase; }
+  h1 span { color: var(--glitch); }
+  .sub { color: var(--ink2); }
+  main { padding: 16px; max-width: 980px; margin: 0 auto; }
+  .card { background: var(--panel); border: 2px solid var(--line); border-radius: 8px; padding: 12px; }
+  .card h2 { margin: 0 0 10px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--ink2); }
+  input, button, select {
+    font: inherit; background: var(--panel2); color: var(--ink);
+    border: 2px solid var(--line); border-radius: 6px; padding: 6px 9px;
+  }
+  input:focus, button:focus, select:focus { outline: 2px solid var(--glitch); outline-offset: 1px; }
+  button { cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+  button:hover:enabled { border-color: var(--glitch); }
+  button:disabled { color: var(--ink2); cursor: not-allowed; }
+  button.primary { background: var(--glitch); border-color: var(--glitch); color: #120820; font-weight: bold; }
+  button.primary:disabled { background: var(--panel2); border-color: var(--line); color: var(--ink2); }
+  button.bad { border-color: var(--bad); color: var(--bad); }
+  button.bad:hover:enabled { background: var(--bad); color: #120820; }
+  button.selo-btn { border-color: var(--glitch); color: var(--glitch); }
+  button.selo-btn:hover:enabled { background: var(--glitch); color: #120820; }
+  .porta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .porta input { flex: 1 1 200px; }
+  .msg { margin-top: 10px; padding: 8px; border-radius: 6px; border: 2px solid var(--line); background: var(--panel2); }
+  .msg.ok { border-color: var(--ok); color: var(--ok); }
+  .msg.bad { border-color: var(--bad); color: var(--bad); }
+
+  /* o resumo do acervo, em números grandes */
+  .resumo { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .nota {
+    flex: 1 1 120px; background: var(--panel2); border: 2px solid var(--line);
+    border-radius: 6px; padding: 8px 10px;
+  }
+  .nota b { display: block; font-size: 20px; line-height: 1.2; }
+  .nota span { color: var(--ink2); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+  .nota.fraca b { color: var(--warn); }
+  .nota.prot b { color: var(--glitch); }
+
+  .filtros { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .filtros input[type=search] { flex: 1 1 200px; }
+
+  .lista { display: grid; gap: 8px; }
+  .ficha {
+    display: grid; grid-template-columns: 148px minmax(0, 1fr) auto; gap: 12px; align-items: center;
+    background: var(--panel2); border: 2px solid var(--line); border-radius: 6px; padding: 8px;
+  }
+  .ficha.some { opacity: .35; }
+  .ficha.protegida { border-left: 6px solid var(--glitch); }
+  .ficha.eterna { border-left: 6px solid var(--warn); }
+  .selo.eterna { color: var(--warn); }
+  .duo { display: flex; gap: 6px; }
+  .duo figure { margin: 0; text-align: center; }
+  .duo img, .duo canvas { width: 64px; height: 64px; image-rendering: pixelated; display: block; background: #120c1c; border-radius: 4px; }
+  .duo figcaption { color: var(--ink2); font-size: 9px; letter-spacing: 1px; text-transform: uppercase; }
+  .nome { font-size: 14px; letter-spacing: 1px; }
+  .dupla { color: var(--ink2); font-size: 11px; }
+  .pct { font-size: 11px; margin-top: 4px; }
+  .pct.fraca { color: var(--warn); }
+  .pct.feita { color: var(--ok); }
+  .barra { height: 6px; background: #120c1c; border-radius: 3px; overflow: hidden; margin-top: 3px; max-width: 260px; }
+  .barra i { display: block; height: 100%; background: var(--ok); }
+  .barra i.fraca { background: var(--warn); }
+  .selo { color: var(--glitch); font-size: 10px; letter-spacing: 1px; }
+  .botoes { display: grid; gap: 6px; }
+  .rodape { color: var(--ink2); margin-top: 14px; }
+  .rodape a { color: var(--glitch); }
+  .escondido { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>faxina <span>missingno.</span></h1>
+  <span class="sub">o acervo de fusões, medido — e a porta pra jogar fora</span>
+</header>
+
+<main>
+  <!-- O PORTÃO. A senha não está escrita nesta página: ela é digitada e vai
+       perguntar pro dev_server, que é quem sabe. Errou, não passa — e as rotas
+       que apagam e que protegem conferem de novo, então nem adianta pular. -->
+  <section class="card" id="porta">
+    <h2>senha</h2>
+    <form class="porta" id="form-senha">
+      <input id="senha" type="password" autocomplete="off" placeholder="digite a senha" autofocus>
+      <button class="primary" type="submit">entrar</button>
+    </form>
+    <div class="msg" id="aviso-porta">Sem a senha nada aparece, e nada é apagado.</div>
+  </section>
+
+  <section class="card escondido" id="acervo">
+    <h2>acervo publicado</h2>
+    <div id="estado" class="sub">medindo os desenhos...</div>
+
+    <div class="resumo escondido" id="resumo">
+      <div class="nota"><b id="n-total">0</b><span>fichas no acervo</span></div>
+      <div class="nota fraca"><b id="n-fracas">0</b><span>mal saíram da montagem</span></div>
+      <div class="nota"><b id="n-livres">0</b><span>a faxina pode levar</span></div>
+      <div class="nota prot"><b id="n-prot">0</b><span>protegidas</span></div>
+      <div class="nota"><b id="n-media">0%</b><span>média desenhada</span></div>
+    </div>
+
+    <div class="filtros escondido" id="filtros">
+      <input id="busca" type="search" placeholder="procurar por nome, dupla ou autor">
+      <select id="quais">
+        <option value="tudo">todas</option>
+        <option value="fracas">só as que mal saíram da montagem</option>
+        <option value="livres">só as que a faxina pode levar</option>
+        <option value="prot">só as protegidas</option>
+        <option value="eternas">só as eternas</option>
+      </select>
+      <select id="ordem">
+        <option value="fraca">da mais fraca pra mais desenhada</option>
+        <option value="feita">da mais desenhada pra mais fraca</option>
+        <option value="nome">por nome</option>
+        <option value="dupla">por dupla</option>
+      </select>
+    </div>
+
+    <div class="lista" id="lista"></div>
+    <div class="msg escondido" id="recado"></div>
+  </section>
+
+  <p class="rodape">
+    A porcentagem é <strong>o quanto o desenho difere da montagem automática</strong>,
+    medida com o código de verdade do jogo — a mesma conta da faxina da semana
+    (<code>src/systems/faxina.js</code>). Quem está em <strong id="limite">10</strong>% ou menos
+    mal saiu da montagem: é o que a faxina procura. Cada linha mostra as duas lado a lado,
+    que é exatamente o que a conta compara.
+    <br>Ficha <span class="selo">PROTEGIDA</span> a faxina não leva — e o mesmo botão
+    protege e desprotege, com a senha: a marca é uma decisão, e desfazer uma decisão
+    também é. Já <span class="selo eterna">ETERNA</span> é outra coisa: não sai nem sem
+    proteção, nem com a senha certa, nem por um POST na mão. Soltar uma exige mexer no
+    código dos dois lados. O que sai vai pro git, então dá pra voltar pelo histórico.
+    <br>🧬 <a href="../fusionglitch/">FUSIONGLITCH — criar fusões</a>
+  </p>
+</main>
+
+<script type="module">
+// O SITE DA FAXINA — FAXINA MISSINGNO.
+//
+// A faxina mora dentro do jogo (a máquina abre com ela uma vez por semana), mas
+// lá ela é uma pergunta de cada vez, no meio da partida. Aqui é o acervo INTEIRO
+// de uma vez: cada ficha ao lado da montagem automática dela, com o quanto saiu
+// dessa montagem, e os dois botões — proteger e jogar fora — atrás de uma senha.
+//
+// Ele não recalcula nada por conta própria: importa os módulos do JOGO e usa a
+// mesma conta (`quantoFoiDesenhado`) e a mesma montagem (`montagemAutomatica`).
+// Se a regra mudar lá, muda aqui junto.
+const $ = (id) => document.getElementById(id);
+let senha = "";
+let FX = null;
+let medidas = [];          // [{ chave, ficha, desenhado }], medido uma vez só
+
+const recado = (texto, classe = "") => {
+  const el = $("recado");
+  el.textContent = texto;
+  el.className = `msg ${classe}`;
+};
+
+// --- o portão --------------------------------------------------------------
+$("form-senha").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const tentativa = $("senha").value;
+  const aviso = $("aviso-porta");
+  aviso.textContent = "perguntando pro servidor...";
+  aviso.className = "msg";
+  let ok = false;
+  try {
+    const r = await fetch("/__faxina", { method: "POST", body: JSON.stringify({ senha: tentativa }) });
+    ok = r.ok && (await r.json().catch(() => ({}))).ok;
+  } catch {
+    aviso.textContent = "o servidor não respondeu. esta página só funciona servida pelo dev_server.py.";
+    aviso.className = "msg bad";
+    return;
+  }
+  if (!ok) {
+    aviso.textContent = "senha errada.";
+    aviso.className = "msg bad";
+    $("senha").select();
+    return;
+  }
+  senha = tentativa;
+  $("porta").classList.add("escondido");
+  $("acervo").classList.remove("escondido");
+  abrirAcervo();
+});
+
+// --- medir o acervo (uma vez) ----------------------------------------------
+async function abrirAcervo() {
+  const [{ DB }, { Assets }, sprites, faxina] = await Promise.all([
+    import("/src/data/index.js"),
+    import("/src/core/assets.js"),
+    import("/src/core/sprites.js"),
+    import("/src/systems/faxina.js"),
+  ]);
+  FX = faxina;
+  Assets.init();                       // a arte provisória, pra montagem não sair preta
+  $("limite").textContent = FX.LIMITE;
+
+  const todas = FX.publicadas();
+  if (!todas.length) {
+    $("estado").textContent = "o acervo está vazio: ninguém publicou ficha ainda.";
+    return;
+  }
+
+  // O sprite de cada lado é baixado quando alguém precisa dele (`pedirMon`), e a
+  // conta compara COM a montagem automática — então esperar os dois chegarem não
+  // é capricho: medir antes deles é medir contra a arte provisória.
+  const esperar = (id) => new Promise((pronto) => {
+    const sp = DB.SPECIES[id];
+    if (!sp) return pronto();
+    const chave = sp.id || id;
+    sprites.pedirMon(chave, sp.spriteDex || sp.dex);
+    const inicio = Date.now();
+    const olha = () => (sprites.SpriteStore.pokemon[chave] || sprites.SpriteStore.missing.has(chave)
+      || Date.now() - inicio > 5000) ? pronto() : setTimeout(olha, 60);
+    olha();
+  });
+
+  let feitas = 0;
+  for (const { chave, ficha } of todas) {
+    const [cabeca, corpo] = chave.split("+");
+    await Promise.all([esperar(cabeca), esperar(corpo)]);
+    medidas.push({ chave, ficha, desenhado: await FX.quantoFoiDesenhado(chave, ficha) });
+    $("estado").textContent = `medindo os desenhos... ${++feitas}/${todas.length}`;
+  }
+
+  $("estado").textContent = "medido com o código do jogo, pixel a pixel.";
+  $("resumo").classList.remove("escondido");
+  $("filtros").classList.remove("escondido");
+  for (const el of [$("busca"), $("quais"), $("ordem")]) {
+    el.addEventListener("input", desenhar);
+    el.addEventListener("change", desenhar);
+  }
+  desenhar();
+}
+
+// --- a tela (refaz do zero a cada filtro; são dezenas de linhas, não milhares) --
+function desenhar() {
+  const total = medidas.length;
+  const fracas = medidas.filter((m) => m.desenhado <= FX.LIMITE).length;
+  const livres = medidas.filter((m) => FX.podeSair(m.ficha)).length;
+  const media = total ? Math.round(medidas.reduce((s, m) => s + m.desenhado, 0) / total) : 0;
+  $("n-total").textContent = total;
+  $("n-fracas").textContent = fracas;
+  $("n-livres").textContent = livres;
+  $("n-prot").textContent = total - livres;
+  $("n-media").textContent = media + "%";
+
+  const busca = $("busca").value.trim().toLowerCase();
+  const quais = $("quais").value;
+  const ordem = $("ordem").value;
+
+  let vistas = medidas.filter(({ chave, ficha }) => !busca
+    || `${ficha.nome} ${chave} ${ficha.autor || ""}`.toLowerCase().includes(busca));
+  if (quais === "fracas") vistas = vistas.filter((m) => m.desenhado <= FX.LIMITE);
+  if (quais === "livres") vistas = vistas.filter((m) => FX.podeSair(m.ficha));
+  if (quais === "prot") vistas = vistas.filter((m) => !FX.podeSair(m.ficha) && !FX.ehEterna(m.ficha));
+  if (quais === "eternas") vistas = vistas.filter((m) => FX.ehEterna(m.ficha));
+
+  const porNome = (a, b) => a.ficha.nome.localeCompare(b.ficha.nome);
+  vistas = [...vistas].sort(
+    ordem === "nome" ? porNome
+    : ordem === "dupla" ? (a, b) => a.chave.localeCompare(b.chave)
+    : ordem === "feita" ? (a, b) => b.desenhado - a.desenhado || porNome(a, b)
+    : (a, b) => a.desenhado - b.desenhado || porNome(a, b));
+
+  $("lista").replaceChildren(...vistas.map(linha));
+  if (!vistas.length) {
+    const vazio = document.createElement("div");
+    vazio.className = "sub";
+    vazio.textContent = "nenhuma ficha com esse filtro.";
+    $("lista").append(vazio);
+  }
+}
+
+/** a arte que o jogo montou — canvas ou <img>, depende do caso */
+const arteURL = (arte) => !arte ? "" : (arte.toDataURL ? arte.toDataURL() : arte.src || "");
+
+function linha(medida) {
+  const { chave, ficha, desenhado } = medida;
+  const podeSair = FX.podeSair(ficha);
+  const fraca = desenhado <= FX.LIMITE;
+
+  const eterna = FX.ehEterna(ficha);
+  const el = document.createElement("div");
+  el.className = "ficha" + (eterna ? " eterna" : podeSair ? "" : " protegida");
+
+  // as duas lado a lado: o desenho publicado e a montagem que a conta compara
+  const desenho = ficha.sprite || "";
+  const duo = document.createElement("div");
+  duo.className = "duo";
+  duo.innerHTML = `
+    <figure><img alt="${ficha.nome}" src="${desenho.startsWith("data:") ? desenho : "/" + desenho}">
+      <figcaption>desenho</figcaption></figure>
+    <figure><img alt="montagem automática" src="${arteURL(FX.montagemAutomatica(chave))}">
+      <figcaption>montagem</figcaption></figure>`;
+
+  const meio = document.createElement("div");
+  meio.innerHTML = `<div class="nome">${ficha.nome}</div>`
+    + `<div class="dupla">${chave.replace("+", " + ").toUpperCase()}`
+    + `${ficha.autor ? ` · por ${ficha.autor}` : ""}</div>`
+    + `<div class="pct ${fraca ? "fraca" : "feita"}">${desenhado}% diferente da montagem`
+    + `${fraca ? " — mal saiu dela" : ""}</div>`
+    + `<div class="barra"><i class="${fraca ? "fraca" : ""}" style="width:${desenhado}%"></i></div>`
+    + (eterna ? `<div class="selo eterna">ETERNA — não sai nem sem proteção</div>`
+       : podeSair ? "" : `<div class="selo">PROTEGIDA — a faxina não leva</div>`);
+
+  const botoes = document.createElement("div");
+  botoes.className = "botoes";
+
+  // proteger e desproteger são o mesmo botão: a marca é uma decisão, e desfazer
+  // uma decisão também é uma. As ETERNAS não dependem dela — o botão delas some.
+  const marcada = !!ficha.protegida;
+  const bProteger = document.createElement("button");
+  bProteger.className = "selo-btn";
+  bProteger.textContent = eterna ? "eterna" : marcada ? "desproteger" : "proteger";
+  bProteger.disabled = eterna;
+  bProteger.addEventListener("click", async () => {
+    bProteger.disabled = true;
+    bProteger.textContent = marcada ? "soltando..." : "protegendo...";
+    const r = await FX.marcarProtecao(chave, ficha.id, !marcada, senha);
+    if (!r.ok) {
+      bProteger.disabled = false;
+      bProteger.textContent = marcada ? "desproteger" : "proteger";
+      return recado(`não deu pra ${marcada ? "desproteger" : "proteger"} ${ficha.nome}: `
+                  + `${r.erro || "?"}`, "bad");
+    }
+    recado(marcada
+      ? `${ficha.nome} não está mais protegida: voltou pra fila da faxina.`
+      : `${ficha.nome} está protegida: a faxina não leva mais.`, "ok");
+    desenhar();
+  });
+
+  const bApagar = document.createElement("button");
+  bApagar.className = "bad";
+  bApagar.textContent = eterna ? "eterna" : podeSair ? "jogar fora" : "protegida";
+  bApagar.disabled = !podeSair;
+  bApagar.addEventListener("click", async () => {
+    if (!confirm(`Jogar fora ${ficha.nome}? O desenho sai do acervo `
+               + `(o histórico do git guarda — dá pra voltar).`)) return;
+    bApagar.disabled = true;
+    bApagar.textContent = "jogando fora...";
+    const r = await FX.apagarDoCodigo(chave, ficha.id, senha);
+    if (!r.ok) {
+      bApagar.disabled = false;
+      bApagar.textContent = "jogar fora";
+      return recado(`não deu pra apagar ${ficha.nome}: ${r.erro || "?"}`, "bad");
+    }
+    medidas = medidas.filter((m) => m !== medida);
+    recado(`${ficha.nome} saiu do acervo. dá pra voltar pelo histórico do git.`, "ok");
+    desenhar();
+  });
+
+  botoes.append(bProteger, bApagar);
+  el.append(duo, meio, botoes);
+  return el;
+}
+</script>
+</body>
+</html>
