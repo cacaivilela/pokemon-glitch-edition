@@ -416,8 +416,7 @@ export const FUSOES_FEITAS = {
         "spe": 9
       },
       "sprite": "assets/fusoes/blastoise+jynx~blastoijynx.png",
-      "lore": "BLASTOISE NA CABEÇA, JYNX NO CORPO.",
-      "protegida": true
+      "lore": "BLASTOISE NA CABEÇA, JYNX NO CORPO."
     }
   ],
   "pikachu+caterpie": [
