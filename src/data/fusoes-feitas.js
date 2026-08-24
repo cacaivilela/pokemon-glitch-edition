@@ -1130,5 +1130,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/magneton+nidorino~magnenino.png",
       "lore": "MAGNETON NA CABEÇA, NIDORINO NO CORPO."
     }
+  ],
+  "machamp+electrode": [
+    {
+      "id": "made",
+      "nome": "MADE",
+      "autor": "CAIO",
+      "tipos": [
+        "LUTADOR",
+        "ELÉTRICO"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 4.5,
+        "atk": 6.5,
+        "def": 6.8,
+        "spa": 5.9,
+        "spd": 3.8,
+        "spe": 2.1
+      },
+      "sprite": "assets/fusoes/machamp+electrode~made.png",
+      "lore": "MACHAMP NA CABEÇA, ELECTRODE NO CORPO."
+    }
   ]
 };
