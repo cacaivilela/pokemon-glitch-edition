@@ -2,7 +2,7 @@
 // espera o jogador apertar Z, o que deixa a logica linear e facil de estender.
 import { DB } from "../data/index.js";
 import { Assets } from "../core/assets.js";
-import { trainerArt } from "../core/sprites.js";
+import { trainerArt, adiantarMons } from "../core/sprites.js";
 import { Input } from "../core/input.js";
 import { Audio2 } from "../core/audio.js";
 import { panel, drawText, cursor, bar, hpColor, fade, PAL, LINE_H } from "../core/gfx.js";
@@ -28,6 +28,14 @@ export class BattleScene {
       ? this.trainer.party.map((p) => createMon(p.id, p.lvl, { corrupt: !!p.corrupt }))
       : [args.foe];
     this.foeIdx = 0;
+    // pede os sprites de quem vai lutar ANTES da transição de entrada: ela leva
+    // quase um segundo, e nesse tempo o arquivo chega — senão o bicho aparece
+    // como arte provisória no primeiro quadro da batalha
+    adiantarMons([...this.foeParty, ...st.party]
+      .filter(Boolean)
+      .map((m) => DB.SPECIES[m.species])
+      .filter(Boolean)
+      .map((sp) => ({ id: sp.id, dex: sp.spriteDex || sp.dex })));
     this.playerIdx = st.party.findIndex((m) => !isFainted(m));
     if (this.playerIdx < 0) this.playerIdx = 0;
 

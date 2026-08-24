@@ -3,7 +3,7 @@
 // assets/maps/. Os diálogos, encontros e regras vêm de src/data/maps.js.
 import { DB } from "../data/index.js";
 import { Assets, TILE } from "../core/assets.js";
-import { mapArt, mapOverlay } from "../core/sprites.js";
+import { mapArt, mapOverlay, adiantarDoMapa } from "../core/sprites.js";
 import { Input, Texto } from "../core/input.js";
 import { Audio2 } from "../core/audio.js";
 import { Save } from "../core/save.js";
@@ -187,6 +187,7 @@ export class OverworldScene {
     this.snapCamera();
     if (this.st.flags.escortPending) this.spawnEscort();
     this.reporEstaticos();
+    adiantarDoMapa(this.st);          // os bichos deste mapa, antes de aparecerem
     this.checkMissionDone();
   }
 

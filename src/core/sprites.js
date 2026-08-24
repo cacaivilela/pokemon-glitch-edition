@@ -7,6 +7,7 @@
 //   assets/sprites/overworld/hero.png     folha 4 colunas x 3 linhas (baixo/cima/esquerda)
 //   assets/sprites/tiles/grama.png        tile de 16x16
 import { url } from "./base.js";
+import { DB } from "../data/index.js";
 
 export const SpriteStore = {
   pokemon: {},      // id -> canvas/Image
@@ -135,6 +136,46 @@ export function pedirMon(id, dex) {
  *  em que você está). O resto chega sozinho, na hora. */
 export function adiantarMons(lista) {
   for (const { id, dex } of lista || []) pedirMon(id, dex);
+}
+
+const daEspecie = (id) => {
+  const sp = DB.SPECIES?.[id];
+  return sp ? { id: sp.id || id, dex: sp.spriteDex || sp.dex } : null;
+};
+
+/** Tudo que pode aparecer NESTE mapa: a sua equipe, quem mora na grama, os
+ *  Pokémon dos treinadores e o que estiver guardado no PC. Chamado a cada
+ *  troca de mapa — assim o sprite já está aqui quando o bicho aparece, em vez
+ *  de mostrar a arte provisória por um instante. */
+export function adiantarDoMapa(state) {
+  const ids = new Set();
+  for (const m of state?.party || []) ids.add(m.species);
+  const mapa = DB.MAPS?.[state?.player?.map];
+  for (const e of mapa?.encounters || []) ids.add(e.id);
+  for (const npc of mapa?.npcs || []) {
+    for (const p of npc.trainer?.party || []) ids.add(p.id);
+    if (npc.boss?.id) ids.add(npc.boss.id);
+    if (npc.starter) ids.add(npc.starter);
+  }
+  adiantarMons([...ids].map(daEspecie).filter(Boolean));
+}
+
+/** Depois que o jogo já está rodando, o resto vem sozinho, de pouquinho em
+ *  pouquinho: em uns segundos TODOS os sprites estão aqui, e daí em diante
+ *  ninguém mais vê arte provisória — sem atrasar a abertura, que era o motivo
+ *  de não pedir tudo de uma vez no boot. */
+export function adiantarOResto(porVez = 6, intervalo = 200) {
+  const fila = Object.values(DB.SPECIES || {})
+    .filter((sp) => !sp.fusao && !pedidos.has(sp.id))
+    .map((sp) => ({ id: sp.id, dex: sp.spriteDex || sp.dex }));
+  const passo = () => {
+    for (let i = 0; i < porVez && fila.length; i++) {
+      const sp = fila.shift();
+      pedirMon(sp.id, sp.dex);
+    }
+    if (fila.length) setTimeout(passo, intervalo);
+  };
+  setTimeout(passo, intervalo);
 }
 
 /** Roda em segundo plano; o jogo já está rodando enquanto isso.

@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Compacta os desenhos das fusoes (assets/fusoes/*.png).
+"""Compacta os PNGs do jogo, sem perder um pixel.
 
-Um desenho de 64x64 feito na oficina usa pouquissimas cores — o pincel escolhe
-de uma paleta de dezesseis — mas sai do navegador como PNG de cor verdadeira:
-quatro bytes por pixel antes de comprimir. Reescrevendo o mesmo desenho como
-PNG de PALETA (um indice por pixel + a lista de cores), pixel por pixel
-identico, ele costuma cair pela metade ou menos.
+Quase tudo aqui e arte de Game Boy Advance: sprite de 64x64 e mapa de tile, com
+pouquissimas cores. Mas os arquivos chegam como PNG de cor verdadeira — quatro
+bytes por pixel antes de comprimir. Reescritos como PNG de PALETA (um indice por
+pixel + a lista de cores), com a MENOR profundidade que couber, eles caem pela
+metade ou menos, e sao pixel por pixel identicos.
 
-    python3 tools/compacta_fusoes.py            # compacta todos
-    python3 tools/compacta_fusoes.py --ver      # so mostra quanto daria
+    python3 tools/compacta_fusoes.py                    # tudo em assets/
+    python3 tools/compacta_fusoes.py assets/fusoes      # so uma pasta
+    python3 tools/compacta_fusoes.py --ver              # so mostra quanto daria
 
 Nada e perdido: se o desenho tiver mais de 256 cores (nao acontece com o que
 sai da oficina, mas pode acontecer com um importado), ele fica como esta. O
@@ -23,7 +24,8 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
 from png_io import read_png            # noqa: E402
 
-PASTA = os.path.join(os.path.dirname(AQUI), "assets", "fusoes")
+RAIZ = os.path.dirname(AQUI)
+PADRAO = [os.path.join(RAIZ, "assets")]
 
 
 def _chunk(tipo, dados):
@@ -75,7 +77,9 @@ def png_paleta(w, h, px):
             for i in range(0, w, porbyte):
                 byte = 0
                 for k in range(porbyte):
-                    byte = (byte << depth) | (fila[i + k] if i + k < w else 0)
+                    # a ultima "gaveta" da linha pode nao encher: completa com 0
+                    v = fila[i + k] if (i + k) < len(fila) else 0
+                    byte = (byte << depth) | v
                 linhas.append(byte)
 
     corpo = (b"\x89PNG\r\n\x1a\n"
@@ -103,25 +107,48 @@ def compacta(caminho, so_ver=False):
     return antes, len(novo)
 
 
+def confere(caminho, antes_px):
+    """Le de volta e compara pixel a pixel: compactar nao pode mudar o desenho."""
+    try:
+        _, _, agora = read_png(caminho)
+    except Exception:
+        return False
+    return bytes(agora) == bytes(antes_px)
+
+
 def main():
     so_ver = "--ver" in sys.argv
-    if not os.path.isdir(PASTA):
-        return print("nao ha desenhos de fusao ainda")
-    antes = depois = 0
-    mexidos = 0
-    for nome in sorted(os.listdir(PASTA)):
-        if not nome.endswith(".png"):
+    pastas = [a for a in sys.argv[1:] if not a.startswith("--")] or PADRAO
+    arquivos = []
+    for pasta in pastas:
+        if os.path.isfile(pasta):
+            arquivos.append(pasta)
             continue
-        a, d = compacta(os.path.join(PASTA, nome), so_ver)
+        for base, _, nomes in os.walk(pasta):
+            arquivos += [os.path.join(base, n) for n in sorted(nomes) if n.endswith(".png")]
+    if not arquivos:
+        return print("nenhum PNG por aqui")
+
+    antes = depois = mexidos = quebrados = 0
+    for caminho in sorted(arquivos):
+        try:
+            _, _, original = read_png(caminho)
+        except Exception:
+            original = None
+        a, d = compacta(caminho, so_ver)
         antes += a
         depois += d
         if d < a:
             mexidos += 1
-            print(f"  {nome:<44} {a/1024:5.1f} KB -> {d/1024:5.1f} KB")
+            if not so_ver and original is not None and not confere(caminho, original):
+                quebrados += 1
+                print(f"  !! {caminho} mudou o desenho — ISTO E BUG")
     verbo = "dariam" if so_ver else "viraram"
-    print(f"\n{mexidos} desenho(s) {verbo} menor(es): "
-          f"{antes/1024:.1f} KB -> {depois/1024:.1f} KB "
+    print(f"{mexidos} de {len(arquivos)} arquivo(s) {verbo} menor(es): "
+          f"{antes/1024/1024:.2f} MB -> {depois/1024/1024:.2f} MB "
           f"({100 - (depois * 100 // max(1, antes))}% a menos)")
+    if quebrados:
+        print(f"{quebrados} arquivo(s) sairam diferentes — nao use este resultado")
 
 
 if __name__ == "__main__":
