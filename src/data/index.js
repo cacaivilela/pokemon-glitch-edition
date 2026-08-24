@@ -40,6 +40,31 @@ if (!kanto) {
 
 /** Junta a geometria importada do FireRed com o conteúdo escrito à mão.
  *  O que está em src/data/maps.js sempre ganha. */
+/** ONDE O JOGADOR APARECE NUM MAPA SEM PORTA NENHUMA.
+ *
+ *  Antes era o meio do mapa, sem olhar o que tinha lá. Nas rotas de mar (19 e
+ *  as duas partes da 21) o meio é oceano — e o jogador aparecia DE PÉ em cima
+ *  da água, andando como se fosse chão. Agora o ponto de chegada procura chão
+ *  de verdade, do centro pra fora, e só desiste se o mapa não tiver nenhum. */
+function pontoSeco(geo) {
+  const anda = (x, y) => {
+    if (x < 0 || y < 0 || x >= geo.w || y >= geo.h) return false;
+    const t = geo.tags.charCodeAt(y * geo.w + x) - 48;
+    return t === maps.TAG.FREE || t === maps.TAG.GRASS;
+  };
+  const cx = Math.floor(geo.w / 2), cy = Math.floor(geo.h / 2);
+  if (anda(cx, cy)) return { x: cx, y: cy, dir: "down" };
+  for (let r = 1; r < Math.max(geo.w, geo.h); r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        if (anda(cx + dx, cy + dy)) return { x: cx + dx, y: cy + dy, dir: "down" };
+      }
+    }
+  }
+  return { x: cx, y: cy, dir: "down" };      // mapa 100% água: o jogo põe no surfe
+}
+
 function mergeMaps(kanto, authored) {
   const out = {};
   kanto = kanto || {};
@@ -55,7 +80,7 @@ function mergeMaps(kanto, authored) {
       lockedWarps: {},
       signs: Object.fromEntries((geo.signs || []).map((s) => [`${s.x},${s.y}`, c.name || ""])),
       spawn: first ? { x: first.x, y: first.y, dir: c.interior ? "up" : "down" }
-                   : { x: Math.floor(geo.w / 2), y: Math.floor(geo.h / 2), dir: "down" },
+                   : pontoSeco(geo),
     };
   }
   for (const [id, m] of Object.entries(authored)) {

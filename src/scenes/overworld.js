@@ -162,6 +162,7 @@ export class OverworldScene {
     if (this.st.flags.escortPending) this.spawnEscort();
     this.mapaVisto = this.st.player.map;
     this.banner = 2.2;
+    this.ajeitarNaAgua();
     this.snapCamera();
     this.game.music(this.map.music);
   }
@@ -185,6 +186,7 @@ export class OverworldScene {
       mapArt(this.st.player.map);
       this.banner = 2.2;
     }
+    this.ajeitarNaAgua();
     this.snapCamera();
     if (this.st.flags.escortPending) this.spawnEscort();
     this.reporEstaticos();
@@ -420,6 +422,37 @@ export class OverworldScene {
     if (t === DB.TAG.WATER && !this.st.surfando) return true;
     if (this.obstaculoEm(x, y)) return true;
     return !!this.npcAt(x, y);
+  }
+
+  /** PAROU NA ÁGUA SEM ESTAR SURFANDO.
+   *
+   *  Não deveria dar: a água só passa surfando. Mas dá pra cair nesse estado
+   *  por fora do caminho normal — abrindo o jogo num endereço com x e y no
+   *  mar, voltando de uma viagem de barco pra um ponto que virou água, ou com
+   *  um save de quando o mapa tinha outro formato. E aí o personagem fica DE
+   *  PÉ em cima do mar: sem Pokémon embaixo, sem encontro de água, andando
+   *  como se fosse chão.
+   *
+   *  Então o jogo ajeita na hora que o mapa aparece: se tem alguém na equipe
+   *  pra te carregar, você já entra surfando; se não tem ninguém de pé, ele te
+   *  devolve pro chão firme mais perto (sem cair em cima de uma porta). */
+  ajeitarNaAgua() {
+    const p = this.st.player;
+    if (this.st.surfando || this.tagAt(p.x, p.y) !== DB.TAG.WATER) return;
+    const mon = this.quemSabe("surfar") || this.st.party.find((m) => m.hp > 0);
+    if (mon) return void (this.st.surfando = mon.species);
+    for (let r = 1; r <= 16; r++) {                  // do mais perto pro mais longe
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const x = p.x + dx, y = p.y + dy;
+          if (this.blocked(x, y) || this.warpAt(x, y)) continue;
+          p.x = x; p.y = y;
+          this.snapCamera();
+          return;
+        }
+      }
+    }
   }
 
   /** primeiro da equipe que sabe o golpe (e ainda está de pé) */
@@ -763,6 +796,7 @@ export class OverworldScene {
     this.rollFragment();
     this.mapaVisto = this.st.player.map;
     this.banner = 2.2;
+    this.ajeitarNaAgua();
     this.snapCamera();
     this.game.music(this.map.music);
     mapArt(this.st.player.map);

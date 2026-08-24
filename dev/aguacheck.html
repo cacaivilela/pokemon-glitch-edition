@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>de pé em cima do mar</title>
+<style>body{background:#111;color:#9fd;font:12px ui-monospace;margin:0;padding:8px}.ok{color:#7f7}.erro{color:#f66}</style>
+</head><body><div id="out">conferindo...</div>
+<img alt="" width="1" height="1" src="/__delay?ms=12000">
+<canvas id="screen" width="240" height="160" hidden></canvas>
+<script type="module">
+// O JOGADOR EM CIMA DA ÁGUA SEM ESTAR SURFANDO.
+//
+// Dá pra chegar nesse estado por fora do caminho normal (endereço com x e y no
+// mar, save antigo, mapa que mudou). O jogo tem que ajeitar sozinho quando o
+// mapa aparece: com equipe, você entra surfando; sem ninguém de pé, ele te
+// devolve pro chão firme mais perto.
+const linhas = [];
+const p = (t, c = "") => linhas.push(`<div class="${c}">${t}</div>`);
+let ruins = 0;
+const conferir = (cond, t) => { if (!cond) ruins++; p((cond ? "ok   " : "FALHOU ") + t, cond ? "ok" : "erro"); };
+try {
+  const { DB } = await import("/src/data/index.js");
+  const { createMon } = await import("/src/systems/mon.js");
+  const { OverworldScene } = await import("/src/scenes/overworld.js");
+
+  // um ponto de mar de verdade no mapa da tempestade (fora do recife)
+  const geo = DB.KANTO.tempestade;
+  const agua = (() => {
+    for (let y = 0; y < geo.h; y++)
+      for (let x = 0; x < geo.w; x++)
+        if (geo.tags.charCodeAt(y * geo.w + x) - 48 === DB.TAG.WATER) return { x, y };
+    return null;
+  })();
+  conferir(agua, `achei mar em tempestade: ${JSON.stringify(agua)}`);
+
+  const estado = (party) => ({
+    player: { name: "TESTE", map: "tempestade", x: agua.x, y: agua.y, dir: "down" },
+    party, box: [], items: {}, money: 0, corruption: 0, badges: [], flags: {},
+    npcState: {}, seen: {}, caught: {}, playtime: 0,
+    respawn: { map: "pallet", x: 5, y: 5 },
+  });
+  const cena = (st) => {
+    const c = new OverworldScene();
+    c.game = { state: st, music() {}, autosave() {} };
+    return c;
+  };
+
+  // 1. de pé no mar, a pé: não dá pra andar pra outro pedaço de mar
+  const st1 = estado([]);
+  const c1 = cena(st1);
+  const vizinhos = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+    .filter(([dx, dy]) => c1.tagAt(agua.x + dx, agua.y + dy) === DB.TAG.WATER);
+  conferir(vizinhos.every(([dx, dy]) => c1.blocked(agua.x + dx, agua.y + dy)),
+           `a pé, o mar em volta continua fechado (${vizinhos.length} lados)`);
+
+  // 2. com equipe: entra surfando
+  const st2 = estado([createMon("lapras", 20)]);
+  const c2 = cena(st2);
+  c2.ajeitarNaAgua();
+  conferir(st2.surfando === "lapras", `com equipe vira surfe: surfando=${st2.surfando}`);
+  conferir(st2.player.x === agua.x && st2.player.y === agua.y, "surfando, fica onde estava");
+
+  // 3. sem ninguém de pé: volta pro chão firme
+  const desmaiado = createMon("lapras", 20); desmaiado.hp = 0;
+  const st3 = estado([desmaiado]);
+  const c3 = cena(st3);
+  c3.ajeitarNaAgua();
+  const tag = c3.tagAt(st3.player.x, st3.player.y);
+  conferir(!st3.surfando, "sem ninguém de pé, não sai surfando em cima de um desmaiado");
+  conferir(tag !== DB.TAG.WATER && tag >= 0, `foi pro chão firme: ${st3.player.x},${st3.player.y} tag=${tag}`);
+
+  // 4. em terra, nada muda
+  const st4 = estado([createMon("lapras", 20)]);
+  st4.player.x = Math.floor(geo.w / 2); st4.player.y = Math.floor(geo.h / 2);
+  const c4 = cena(st4);
+  c4.ajeitarNaAgua();
+  conferir(!st4.surfando, "no recife, ninguém sai surfando do nada");
+  // 5. nenhum ponto de chegada do jogo cai no mar: spawn de mapa e ponto de VOAR
+  const tagDe = (mapa, x, y) => {
+    const g = DB.KANTO[mapa];
+    if (!g || x < 0 || y < 0 || x >= g.w || y >= g.h) return -1;
+    return g.tags.charCodeAt(y * g.w + x) - 48;
+  };
+  const molhados = [];
+  for (const [mapa, def] of Object.entries(DB.MAPS)) {
+    if (!def.spawn || !DB.KANTO[mapa]) continue;
+    if (tagDe(mapa, def.spawn.x, def.spawn.y) === DB.TAG.WATER) molhados.push(`spawn ${mapa}`);
+  }
+  for (const [mapa, ponto] of Object.entries(DB.FLY_SPOTS || {})) {
+    const alvo = ponto?.x != null ? ponto : DB.MAPS[mapa]?.spawn;
+    if (alvo && tagDe(mapa, alvo.x, alvo.y) === DB.TAG.WATER) molhados.push(`voar ${mapa}`);
+  }
+  conferir(!molhados.length, `nenhum ponto de chegada cai no mar${molhados.length ? ": " + molhados.join(", ") : ""}`);
+} catch (e) { ruins++; p("EXPLODIU: " + (e?.stack || e), "erro"); }
+p(ruins ? `<b>${ruins} problema(s)</b>` : "<b>tudo certo</b>", ruins ? "erro" : "ok");
+document.getElementById("out").innerHTML = linhas.join("");
+await fetch("/__capture", { method: "POST", body: JSON.stringify({
+  name: "aguacheck", log: linhas.join("\n").replace(/<[^>]+>/g, "") }) });
+</script></body></html>
