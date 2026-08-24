@@ -386,8 +386,7 @@ export const FUSOES_FEITAS = {
         "spe": 9
       },
       "sprite": "assets/fusoes/flareon+magikarp~flakarp.png",
-      "lore": "FLAREON NA CABEÇA, MAGIKARP NO CORPO.",
-      "protegida": true
+      "lore": "FLAREON NA CABEÇA, MAGIKARP NO CORPO."
     }
   ],
   "magikarp+gyarados": [
