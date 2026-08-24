@@ -922,35 +922,6 @@ export const FUSOES_FEITAS = {
       "lore": "O EXPERIMENTO DEU CERTO DEMAIS: METADE DELE SAIU DA FITA E NÃO VOLTOU."
     }
   ],
-  "lapras+articuno": [
-    {
-      "id": "lapracuno",
-      "nome": "LAPRACUNO",
-      "autor": "CAIO",
-      "tipos": [
-        "ÁGUA",
-        "GELO"
-      ],
-      "inicial": {
-        "hp": 15,
-        "atk": 5,
-        "def": 5,
-        "spa": 5,
-        "spd": 5,
-        "spe": 5
-      },
-      "crescimento": {
-        "hp": 3.0,
-        "atk": 2.0,
-        "def": 2.4,
-        "spa": 2.6,
-        "spd": 2.8,
-        "spe": 1.8
-      },
-      "sprite": "assets/fusoes/lapras+articuno~lapracuno.png",
-      "lore": "ATRAVESSA O MAR CONGELANDO O CAMINHO ATRÁS DE SI. NINGUÉM CONSEGUE SEGUIR."
-    }
-  ],
   "onix+magneton": [
     {
       "id": "oniton",
