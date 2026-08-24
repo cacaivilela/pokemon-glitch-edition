@@ -412,6 +412,45 @@ try {
     p(`fusão com GENGAR: ${f.name} [${f.types.join("/")}]`, f ? "ok" : "erro");
   }
 
+  h("O AZUL (RIVAL)");
+  {
+    const R = await import("/src/systems/rival.js");
+    for (const [meu, esperado] of [["bulbasaur","squirtle"],["charmander","bulbasaur"],["squirtle","charmander"]]) {
+      const st = { flags: { meuInicial: meu, starterChosen: true }, badges: [], npcState: {}, party: [] };
+      const dele = R.inicialDoRival(st);
+      const venceQuem = DB.effectiveness(DB.SPECIES[dele].types[0], DB.SPECIES[meu].types);
+      p(`  você ${meu.toUpperCase()} -> ele pega ${dele.toUpperCase()} (o golpe dele em você: ${venceQuem}x — ele acha que é vantagem)`,
+        dele === esperado && venceQuem < 1 ? "ok" : "erro");
+    }
+    const st = { flags: { meuInicial: "charmander", starterChosen: true }, badges: [], npcState: {}, party: [],
+                 player: { map: "lab" } };
+    const npc = R.rivalNpc(st);
+    p(`no laboratório logo depois da escolha: ${npc?.trainer?.name} com ${npc.trainer.party.map((x) => x.id + ":" + x.lvl).join(", ")}`,
+      npc?.trainer?.party?.[0]?.id === "bulbasaur" ? "ok" : "erro");
+    st.npcState["lab.rival_lab"] = { defeated: true };
+    p(`depois de vencido ele some do laboratório: ${R.rivalNpc(st) === null}`, R.rivalNpc(st) === null ? "ok" : "erro");
+    st.player.map = "route22";
+    p(`sem insígnia ele não está na rota 22: ${R.rivalNpc(st) === null}`, R.rivalNpc(st) === null ? "ok" : "erro");
+    st.badges = ["pedra"];
+    p(`com 1 insígnia ele aparece: ${!!R.rivalNpc(st)}`, R.rivalNpc(st) ? "ok" : "erro");
+    // as fusões dele existem de verdade?
+    st.badges = ["1","2","3","4"]; st.player.map = "lavender_town";
+    const lav = R.rivalNpc(st);
+    const fus = lav.trainer.party.find((x) => x.id.startsWith("fus-"));
+    const spf = DB.SPECIES[fus.id];
+    p(`em Lavanda ele leva uma fusão: ${spf?.name} [${spf?.types.join("/")}] nível ${fus.lvl}`, spf ? "ok" : "erro");
+    const m = createMon(fus.id, fus.lvl);
+    p(`e ela vira Pokémon de verdade: ${m.nickname} hp ${m.maxHp}`, m.maxHp > 0 ? "ok" : "erro");
+    p(`o inicial dele evoluiu junto: ${lav.trainer.party.at(-1).id}`,
+      lav.trainer.party.at(-1).id === "ivysaur" ? "ok" : "erro");
+    st.badges = ["1","2","3","4","5","6","7","8"]; st.player.map = "route23";
+    p(`na rota 23 (8 insígnias): ${R.rivalNpc(st).trainer.party.at(-1).id}`,
+      R.rivalNpc(st).trainer.party.at(-1).id === "venusaur" ? "ok" : "erro");
+    st.player.map = "glitchdim"; st.flags.glitchWorld = true;
+    const fenda = R.rivalNpc(st);
+    p(`na fenda ele aparece sem batalha: ${!fenda.trainer && fenda.lines.length} falas`, !fenda.trainer ? "ok" : "erro");
+  }
+
   h("ARCEUS, O POKÉMON DIVINO");
   {
     const sp = DB.SPECIES.arceus;

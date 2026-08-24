@@ -24,6 +24,7 @@ import { pedrasIniciaisDevidas } from "../systems/mega.js";
 import { estado as estadoMissao, progresso, aceitar, entregar, diario, feitas, missaoPorId, daVez }
   from "../systems/missoes.js";
 import { estaNaHora, marcarFeita, piores, apagarDoCodigo } from "../systems/faxina.js";
+import { rivalNpc } from "../systems/rival.js";
 import { ehFusao, fundivel, previsao, partes, temFicha, fichasProntas, variantes,
          buscarDoMundo, especiePorTexto, montarEspecie, servidorMundo,
          importarFicha, trocarVariante, versoesInvertidas } from "../systems/fusao.js";
@@ -318,7 +319,10 @@ export class OverworldScene {
     const mapa = this.st.player.map;
     const base = (this.map.npcs || [])
       // chefe e guarda de porta somem depois de perder; o resto continua no mapa
-      .filter((n) => !((n.boss || n.sumirDepois) && this.st.npcState[`${mapa}.${n.id}`]?.defeated));
+      .filter((n) => !((n.boss || n.sumirDepois) && this.st.npcState[`${mapa}.${n.id}`]?.defeated))
+      // `someComFlag`: o NPC sai de cena quando aquilo já aconteceu (o AZUL do
+      // laboratório some assim que você escolhe, e volta montado em runtime)
+      .filter((n) => !(n.someComFlag && this.st.flags?.[n.someComFlag]));
     const extra = [];
     const e = this.st.escort;
     if (e && e.map === this.st.player.map) extra.push(this.escortNpc(e));
@@ -328,6 +332,8 @@ export class OverworldScene {
     if (deo) extra.push(deo);
     extra.push(...this.tempestadeNpcs());
     extra.push(...this.estaticosNpcs());
+    const azul = rivalNpc(this.st);        // o AZUL aparece quando é a vez dele
+    if (azul) extra.push(azul);
     if (this.st.mission && this.st.player.map === "glitchdim") {
       extra.push({ id: "portal", x: 22, y: 30, sprite: "portal", portal: true, dir: "down" });
       (this.st.dimLoot || []).forEach((b, i) => {
@@ -2082,6 +2088,7 @@ export class OverworldScene {
       const mon = this.game.giveStarter(npc.starter);
       state.hidden = true;
       this.st.flags.starterChosen = true;
+      this.st.flags.meuInicial = npc.starter;    // o AZUL escolhe a partir disto
       Audio2.heal();
       this.dlg.say([
         `VOCÊ RECEBEU ${mon.nickname}!`,

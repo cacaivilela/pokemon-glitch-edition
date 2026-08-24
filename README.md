@@ -378,6 +378,37 @@ SOMBRIO: esses dois tipos só encostam no jogo pelo que vem de fora.
 Os três estão em `ESTATICOS`, no fim de `src/data/extra.js` — lugar, nível e as
 falas, com hot-swap. Mover um deles é mudar dois números.
 
+## AZUL, o rival
+
+Ele já estava no laboratório, com duas falas e nada pra fazer. Agora atravessa o
+jogo inteiro, em cinco batalhas e uma conversa:
+
+| Onde | Quando |
+|---|---|
+| **Laboratório** | assim que você escolhe o inicial |
+| **Rota 22** | 1 insígnia |
+| **Cerulean** | 2 insígnias |
+| **Vila Lavanda** | 4 insígnias |
+| **Rota 23** | 8 insígnias |
+| **A fenda** | depois que o mundo buga — sem batalha |
+
+**Ele escolhe o inicial que PERDE pro seu**, convencido de que fez a conta
+certa: se você pega CHARMANDER, ele pega BULBASAUR e diz que é matemática, não
+sorte. E nunca admite — a cada derrota aparece um motivo novo (o terreno, o
+vento, o último golpe), nunca a tabela de tipos. É o mesmo erro cinco vezes, e é
+disso que ele é feito.
+
+A segunda linha é o **DECODIFICADOR DE GENOMA**: o professor entrega um a ele
+depois de muito pedido, e daí em diante o AZUL leva **fusão pra batalha** — a
+máquina que ele chamou de "remendo" vira a coisa em que ele mais confia. Em
+Lavanda ele aparece com uma; na Rota 23, com outra, e explica que juntou "os
+dois que ganhavam do seu".
+
+Ele não é um NPC parado em cinco mapas esperando a vez: é montado em runtime
+(`src/systems/rival.js`), como o DEOXYS da ilha — aparece no lugar certo, com as
+insígnias certas, e some quando perde. O time dele evolui junto com o seu jogo:
+o inicial vira a forma do meio com 3 insígnias e a final com 6.
+
 ## Side quests
 
 Catorze pedidos espalhados por Kanto, cada um com o NPC dele parado num mapa. Você
@@ -831,6 +862,7 @@ src/
     concurso.js        o concurso de Cinnabar: jurados, rivais, prêmios, critérios
     idiomas.js         os dicionários de tradução (pt -> en/es)
     missoes.js         as side quests: pedido, lugar, objetivo e prêmio
+    rival.js           o AZUL: onde ele aparece, o que fala e o time dele
     fusoes.js          as fusões escritas à mão (GENGQUAZA, ALAKAGAR, PIKASAUR...)
     fusoes-feitas.js   as fichas que jogadores publicaram (escrito pelo jogo)
     online.js          sala, chat, emotes e as frases das funções online
@@ -843,6 +875,7 @@ src/
     concurso.js        as notas dos três jurados e a rodada com os rivais
     missoes.js         estado das missões e os checadores de objetivo
     faxina.js          a revisão mensal do acervo de fusões
+    rival.js           monta o AZUL na hora certa, com o inicial que ele errou
     online.js          presença, convites, chat e o filtro do que vem de fora
   scenes/
     title.js  overworld.js  battle.js

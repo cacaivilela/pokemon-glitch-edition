@@ -260,8 +260,13 @@ export const MAPS = {
       { id: "ball1", x: 9, y: 4, sprite: "ball", starter: "charmander" },
       { id: "ball2", x: 10, y: 4, sprite: "ball", starter: "squirtle" },
       {
-        id: "azul", x: 5, y: 4, dir: "right", sprite: "rival",
-        lines: ["VOCÊ DE NOVO? EU CHEGUEI PRIMEIRO, COMO SEMPRE.", "VOU ESCOLHER O MEU DEPOIS DE VOCÊ. SORTE A SUA."],
+        // Antes de você escolher, ele está aqui, esperando a sua vez. Depois da
+        // escolha some daqui e reaparece na porta (montado em runtime, com time
+        // e batalha — ver src/systems/rival.js).
+        id: "azul", x: 5, y: 4, dir: "right", sprite: "rival", someComFlag: "starterChosen",
+        lines: ["VOCÊ DE NOVO? EU CHEGUEI PRIMEIRO, COMO SEMPRE.",
+                "VOU ESCOLHER DEPOIS DE VOCÊ — ASSIM EU PEGO O QUE GANHA DO SEU.",
+                "É CONTA, NÃO É SORTE."],
       },
       {
         id: "assistente", x: 3, y: 11, dir: "right", sprite: "cientista",
