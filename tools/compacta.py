@@ -108,12 +108,25 @@ def compacta(caminho, so_ver=False):
 
 
 def confere(caminho, antes_px):
-    """Le de volta e compara pixel a pixel: compactar nao pode mudar o desenho."""
+    """Le de volta e compara pixel a pixel: compactar nao pode mudar o desenho.
+
+    Pixel invisivel nao conta: a paleta junta todo transparente numa cor so
+    (era isso ou guardar uma cor de paleta pra cada tom de "nao aparece"), entao
+    o RGB embaixo do alfa 0 muda — e nao existe jeito de isso mudar a tela.
+    O que nao pode mudar e o que se ve.
+    """
     try:
         _, _, agora = read_png(caminho)
     except Exception:
         return False
-    return bytes(agora) == bytes(antes_px)
+    if len(agora) != len(antes_px):
+        return False
+    for i in range(0, len(antes_px), 4):
+        if antes_px[i + 3] == 0 and agora[i + 3] == 0:
+            continue                              # os dois invisiveis: tudo bem
+        if antes_px[i:i + 4] != agora[i:i + 4]:
+            return False
+    return True
 
 
 def main():
@@ -142,7 +155,7 @@ def main():
             mexidos += 1
             if not so_ver and original is not None and not confere(caminho, original):
                 quebrados += 1
-                print(f"  !! {caminho} mudou o desenho — ISTO E BUG")
+                print(f"  !! {caminho} mudou algum pixel VISIVEL — ISTO E BUG")
     verbo = "dariam" if so_ver else "viraram"
     print(f"{mexidos} de {len(arquivos)} arquivo(s) {verbo} menor(es): "
           f"{antes/1024/1024:.2f} MB -> {depois/1024/1024:.2f} MB "

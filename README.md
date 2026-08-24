@@ -766,6 +766,25 @@ cheio — e X sai. As espécies da fenda aparecem em roxo.
 A mesma coisa existe fora do jogo em `giveglitch/` (`/giveglitch/` no dev server),
 útil quando o jogo nem está aberto: os dois escrevem no mesmo `save/save.json`.
 
+## O tamanho dos arquivos
+
+Quase tudo aqui é arte de Game Boy Advance: sprite de 64x64 e mapa de tile, com
+pouquíssimas cores. Mas os arquivos chegam dos importadores como PNG de **cor
+verdadeira** — quatro bytes por pixel antes de comprimir. `tools/compacta.py`
+reescreve todos em **paleta**, com a menor profundidade que couber (1, 2, 4 ou 8
+bits por pixel):
+
+```bash
+python3 tools/compacta.py            # tudo em assets/
+python3 tools/compacta.py --ver      # só mostra quanto daria
+```
+
+Os 788 PNGs do jogo caíram de **3,11 MB para 1,56 MB** — metade. E é **sem
+perder pixel**: a ferramenta lê cada arquivo de volta e compara com o original
+antes de dar o resultado por bom. A única diferença que ela aceita é a cor
+debaixo de um pixel invisível (a paleta junta todo transparente numa cor só, e
+não existe jeito de isso mudar o que aparece na tela).
+
 ## Live update
 
 O `dev_server.py` observa o mtime dos arquivos e avisa o navegador por SSE (`/__hot`):
@@ -837,6 +856,7 @@ assets/
   sprites/             PNGs externos (vazio por padrão): pokemon/, overworld/, trainers/, tiles/
   maps/                mapas renderizados + kanto.json (geometria e colisão)
 tools/                 fetch_sprites / fetch_overworld / fetch_trainers / fetch_maps / slice_sheet / png_io
+                       compacta.py — reescreve os PNGs em paleta, sem perder pixel
 dev/smoke.html         teste headless com roteiro de teclas
 giveglitch/            versão web do mesmo terminal (fora do jogo)
 save/save.json         o save (um por máquina; fora do git)
