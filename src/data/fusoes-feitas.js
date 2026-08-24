@@ -893,35 +893,6 @@ export const FUSOES_FEITAS = {
       "lore": "AS TRÊS CHAMAS SÃO SOMBRAS ACESAS. QUEM OLHA MUITO TEMPO ESQUECE ONDE DEIXOU A PRÓPRIA."
     }
   ],
-  "arcanine+zapdos": [
-    {
-      "id": "arcados",
-      "nome": "ARCADOS",
-      "autor": "CAIO",
-      "tipos": [
-        "FOGO",
-        "ELÉTRICO"
-      ],
-      "inicial": {
-        "hp": 13,
-        "atk": 5,
-        "def": 5,
-        "spa": 5,
-        "spd": 5,
-        "spe": 5
-      },
-      "crescimento": {
-        "hp": 2.4,
-        "atk": 2.8,
-        "def": 2.0,
-        "spa": 2.6,
-        "spd": 2.0,
-        "spe": 3.0
-      },
-      "sprite": "assets/fusoes/arcanine+zapdos~arcados.png",
-      "lore": "CORRE NA FRENTE DA TEMPESTADE E CHEGA ANTES DO TROVÃO. A JUBA NUNCA ABAIXA."
-    }
-  ],
   "mewtwo+missingno": [
     {
       "id": "mewtwno",
