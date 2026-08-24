@@ -864,35 +864,6 @@ export const FUSOES_FEITAS = {
       "lore": "ARTICUNO NA CABEÇA, LAPRAS NO CORPO."
     }
   ],
-  "gengar+chandelure": [
-    {
-      "id": "gengalure",
-      "nome": "GENGALURE",
-      "autor": "CAIO",
-      "tipos": [
-        "FANTASMA",
-        "FOGO"
-      ],
-      "inicial": {
-        "hp": 11,
-        "atk": 5,
-        "def": 5,
-        "spa": 5,
-        "spd": 5,
-        "spe": 5
-      },
-      "crescimento": {
-        "hp": 2.0,
-        "atk": 1.6,
-        "def": 1.8,
-        "spa": 3.2,
-        "spd": 2.0,
-        "spe": 2.8
-      },
-      "sprite": "assets/fusoes/gengar+chandelure~gengalure.png",
-      "lore": "AS TRÊS CHAMAS SÃO SOMBRAS ACESAS. QUEM OLHA MUITO TEMPO ESQUECE ONDE DEIXOU A PRÓPRIA."
-    }
-  ],
   "mewtwo+missingno": [
     {
       "id": "mewtwno",
