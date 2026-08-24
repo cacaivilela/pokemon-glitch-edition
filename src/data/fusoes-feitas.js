@@ -360,35 +360,6 @@ export const FUSOES_FEITAS = {
       "protegida": true
     }
   ],
-  "flareon+magikarp": [
-    {
-      "id": "flakarp",
-      "nome": "FLAKARP",
-      "autor": "CAIO",
-      "tipos": [
-        "FOGO",
-        "ÁGUA"
-      ],
-      "inicial": {
-        "hp": 10,
-        "atk": 5,
-        "def": 5,
-        "spa": 5,
-        "spd": 5,
-        "spe": 5
-      },
-      "crescimento": {
-        "hp": 6.4,
-        "atk": 4.5,
-        "def": 2.9,
-        "spa": 8.4,
-        "spd": 6.5,
-        "spe": 9
-      },
-      "sprite": "assets/fusoes/flareon+magikarp~flakarp.png",
-      "lore": "FLAREON NA CABEÇA, MAGIKARP NO CORPO."
-    }
-  ],
   "magikarp+gyarados": [
     {
       "id": "magikyrados",
