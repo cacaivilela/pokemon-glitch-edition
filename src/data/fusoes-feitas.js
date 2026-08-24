@@ -924,8 +924,7 @@ export const FUSOES_FEITAS = {
         "spe": 2.1
       },
       "sprite": "assets/fusoes/magneton+nidorino~magnenino.png",
-      "lore": "MAGNETON NA CABEÇA, NIDORINO NO CORPO.",
-      "protegida": true
+      "lore": "MAGNETON NA CABEÇA, NIDORINO NO CORPO."
     }
   ],
   "machamp+electrode": [
