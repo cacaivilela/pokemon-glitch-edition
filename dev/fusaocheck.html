@@ -136,6 +136,61 @@ try {
       F.variantes("unown","staryu").length > 1 ? "ok" : "erro");
   }
 
+  h("CASOS DE BORDA");
+  {
+    const st = { player: {}, party: [], boxes: [], fusoes: {}, items: {}, money: 0, flags: {} };
+    F.ligarEstado(st);
+    // fundir com quem não existe / consigo mesmo / com uma fusão
+    p(`fundir com espécie inexistente: ${F.montarEspecie("naoexiste", "pikachu")}`,
+      F.montarEspecie("naoexiste", "pikachu") === null ? "ok" : "erro");
+    const a1 = createMon("pikachu", 10);
+    p(`fundir alguém consigo mesmo (o MESMO objeto): ${F.fundir(a1, a1)}`,
+      F.fundir(a1, a1) === null ? "ok" : "erro");
+    const fus = F.fundir(createMon("pikachu", 10), createMon("onix", 12));
+    DB.SPECIES[fus.species] = F.montarEspecie("pikachu", "onix");
+    p(`fundir uma fusão de novo: ${F.fundir(fus, createMon("abra", 9))}`,
+      F.fundir(fus, createMon("abra", 9)) === null ? "ok" : "erro");
+    p(`separar quem não é fusão: ${F.separar(createMon("abra", 9))}`,
+      F.separar(createMon("abra", 9)) === null ? "ok" : "erro");
+    // separar duas vezes seguidas
+    const [x1] = F.separar(fus);
+    p(`separar duas vezes devolve a mesma coisa: ${x1.species}`, x1.species === "pikachu" ? "ok" : "erro");
+    // trocar a versão de quem não é fusão
+    p(`trocar versão de quem não é fusão: ${F.trocarVariante(createMon("abra", 9), "x")}`,
+      F.trocarVariante(createMon("abra", 9), "x") === null ? "ok" : "erro");
+    // nome de fusão com espécie de nome curto/estranho
+    for (const [a2, b2] of [["mew","mew"],["unown","unown"],["mrmime","farfetchd"],["porygonz","nidoranm"]]) {
+      const sp = F.montarEspecie(a2, b2);
+      p(`  ${a2}+${b2} -> ${sp?.name} (${sp?.name.length} letras)`,
+        sp && sp.name.length >= 2 && sp.name.length <= 11 ? "ok" : "erro");
+    }
+    // importar ficha com números absurdos
+    const r = F.importarFicha(st, JSON.stringify({ chave: "pikachu+onix", ficha: {
+      id: "abuso", nome: "ABUSO", tipos: ["FOGO"], inicial: { hp: 99999 }, crescimento: { hp: 99, atk: -5 } } }));
+    const sp2 = r.ok && DB.SPECIES[F.idFusao("pikachu","onix")];
+    p(`ficha com números absurdos entra limitada: inicial ${sp2?.inicial?.hp} crescimento ${sp2?.crescimento?.hp}/${sp2?.crescimento?.atk}`,
+      sp2 && sp2.inicial.hp <= 200 && sp2.crescimento.hp <= 9 && sp2.crescimento.atk >= 0 ? "ok" : "erro");
+    const m = createMon(F.idFusao("pikachu","onix"), 100);
+    p(`e o Pokémon dela no nível 100 não estoura: hp ${m.maxHp}`, m.maxHp <= 999 ? "ok" : "erro");
+  }
+
+  h("VERSÃO APAGADA NÃO PODE DERRUBAR O SAVE");
+  {
+    const stX = { player: {}, party: [], boxes: [], fusoes: {} };
+    F.ligarEstado(stX);
+    // um Pokémon de uma versão que NÃO existe mais (a faxina apagou)
+    const id = F.idFusao("pikachu", "onix", "versaoquesumiu");
+    delete DB.SPECIES[id];
+    const sp = F.garantirEspecie(id);
+    p(`espécie remontada mesmo sem a versão: ${sp?.name} (id ${sp?.id})`,
+      sp && sp.id === id ? "ok" : "erro");
+    const salvo = { player: {}, party: [{ species: id, level: 30, ivs: {}, moves: [] }], boxes: [] };
+    delete DB.SPECIES[id];
+    F.registrarDoEstado(salvo);
+    const valido = salvo.party.every((m) => DB.SPECIES[m.species]);
+    p(`o save continua válido: ${valido}`, valido ? "ok" : "erro");
+  }
+
   h("TROCAR A VERSÃO DE QUEM JÁ ESTÁ FUNDIDO");
   {
     const stV = { player: {}, party: [], boxes: [], fusoes: {} };

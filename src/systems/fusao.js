@@ -11,6 +11,7 @@
 // Diferente da MEGA, a fusão FICA: ela é gravada. O que também é gravado são os
 // dois Pokémon originais, inteiros, dentro de `mon.fusao` — separar é devolver
 // os dois de volta, não montar cópias parecidas.
+import { url as arquivo } from "../core/base.js";
 import { DB } from "../data/index.js";
 import { createMon, recalc, xpForLevel, learnableMoves } from "./mon.js";
 import { todosGuardados } from "./box.js";
@@ -156,12 +157,23 @@ function comFicha(sp, ficha) {
   return sp;
 }
 
-/** Garante que a espécie daquele id existe em DB.SPECIES. Devolve a espécie. */
+/** Garante que a espécie daquele id existe em DB.SPECIES. Devolve a espécie.
+ *
+ *  Se a VARIANTE não existe mais — a faxina apagou aquela ficha, ou o save veio
+ *  de outra máquina que tinha uma versão que esta não tem — ela cai na fusão
+ *  automática da mesma dupla, mantendo o id que está gravado no Pokémon. Sem
+ *  isso, um bicho da sua equipe apontaria pra uma espécie inexistente, `isValid`
+ *  reprovaria o save inteiro e o jogo começaria do zero. Perder o desenho de uma
+ *  fusão é chato; perder a partida por causa disso seria absurdo. */
 export function garantirEspecie(id) {
   if (DB.SPECIES?.[id]) return DB.SPECIES[id];
   const p = partes(id);
   if (!p) return null;
-  const sp = montarEspecie(p.cabeca, p.corpo, p.variante);
+  let sp = montarEspecie(p.cabeca, p.corpo, p.variante);
+  if (!sp && p.variante) {
+    sp = montarEspecie(p.cabeca, p.corpo);      // a versão sumiu: vale a automática
+    if (sp) sp.id = id;                          // mas o Pokémon continua sendo o mesmo
+  }
   if (sp) DB.SPECIES[id] = sp;
   return sp;
 }
@@ -455,7 +467,7 @@ export async function publicarFicha(cabecaId, corpoId, ficha, autor = "") {
     },
   };
   try {
-    const r = await fetch("/__ficha", { method: "POST", body: JSON.stringify(corpo) });
+    const r = await fetch(arquivo("__ficha"), { method: "POST", body: JSON.stringify(corpo) });
     if (!r.ok) return { ok: false, aparelhos: 0 };
     // o servidor diz quantos aparelhos estavam ligados na hora: são eles que
     // recebem a variante nova sem recarregar nada (live update)
@@ -486,7 +498,7 @@ export async function buscarDoMundo() {
 
 async function chamarMundo(corpo) {
   try {
-    const r = await fetch("/__mundo", { method: "POST", body: JSON.stringify(corpo) });
+    const r = await fetch(arquivo("__mundo"), { method: "POST", body: JSON.stringify(corpo) });
     const dado = await r.json().catch(() => ({}));
     if (!r.ok) return { ok: false, erro: dado.erro || "o servidor recusou" };
     return dado;

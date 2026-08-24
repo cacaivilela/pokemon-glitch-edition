@@ -24,7 +24,7 @@ import { pedrasIniciaisDevidas } from "../systems/mega.js";
 import { estado as estadoMissao, progresso, aceitar, entregar, diario, feitas, missaoPorId, daVez }
   from "../systems/missoes.js";
 import { estaNaHora, marcarFeita, piores, apagarDoCodigo } from "../systems/faxina.js";
-import { ehFusao, fundivel, previsao, partes, temFicha, fichaInvertida, fichasProntas, variantes,
+import { ehFusao, fundivel, previsao, partes, temFicha, fichasProntas, variantes,
          buscarDoMundo, especiePorTexto, montarEspecie, servidorMundo,
          importarFicha, trocarVariante, versoesInvertidas } from "../systems/fusao.js";
 import { BattleScene } from "./battle.js";
@@ -1486,7 +1486,7 @@ export class OverworldScene {
       async (i) => {
         if (i !== 0) return void this.dlg.say(F.faxinaFicou);
         const r = await apagarDoCodigo(pior.chave, pior.ficha.id);
-        Audio2[r.ok ? "cancel" : "cancel"]();
+        Audio2[r.ok ? "heal" : "cancel"]();
         Glitch.hit(1);
         this.dlg.say(r.ok ? F.faxinaFora.replace("{NOME}", nome)
                           : F.faxinaErro.replace("{ERRO}", r.erro || "?"));

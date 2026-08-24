@@ -104,7 +104,7 @@ export async function piores(quantas = 3) {
 /** Manda o servidor apagar a ficha (e o desenho dela) do código. */
 export async function apagarDoCodigo(chave, id) {
   try {
-    const r = await fetch("/__ficha", {
+    const r = await fetch(arquivo("__ficha"), {
       method: "POST",
       body: JSON.stringify({ acao: "apagar", chave, ficha: { id } }),
     });
