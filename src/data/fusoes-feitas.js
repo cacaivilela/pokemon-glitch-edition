@@ -898,35 +898,6 @@ export const FUSOES_FEITAS = {
       "protegida": true
     }
   ],
-  "magneton+nidorino": [
-    {
-      "id": "magnenino",
-      "nome": "MAGNENINO",
-      "autor": "CAIO",
-      "tipos": [
-        "ELÉTRICO",
-        "VENENO"
-      ],
-      "inicial": {
-        "hp": 10,
-        "atk": 5,
-        "def": 5,
-        "spa": 5,
-        "spd": 5,
-        "spe": 5
-      },
-      "crescimento": {
-        "hp": 4.5,
-        "atk": 6.5,
-        "def": 6.8,
-        "spa": 5.9,
-        "spd": 3.8,
-        "spe": 2.1
-      },
-      "sprite": "assets/fusoes/magneton+nidorino~magnenino.png",
-      "lore": "MAGNETON NA CABEÇA, NIDORINO NO CORPO."
-    }
-  ],
   "machamp+electrode": [
     {
       "id": "made",
