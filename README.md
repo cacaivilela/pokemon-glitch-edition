@@ -902,6 +902,36 @@ antes de dar o resultado por bom. A única diferença que ela aceita é a cor
 debaixo de um pixel invisível (a paleta junta todo transparente numa cor só, e
 não existe jeito de isso mudar o que aparece na tela).
 
+## Carregar rápido (e continuar rápido)
+
+Três coisas no `dev_server.py`, todas do lado do servidor — o jogo não mudou:
+
+- **`no-cache`, não `no-store`.** Antes o servidor proibia o navegador de
+  *guardar* qualquer arquivo: cada F5 rebaixava o jogo inteiro, e no fim de uma
+  sessão os 7 MB de sprite tinham vindo pelo fio de novo. Agora ele proíbe *usar
+  sem perguntar*: o navegador guarda, manda `If-Modified-Since` e leva **304, 0
+  byte**, quando nada mudou. O live update continua exato — ninguém serve arquivo
+  velho, porque ninguém deixa de perguntar. Quem precisa mesmo de `no-store` (o
+  save, as rotas do online) pede explícito.
+- **gzip nos arquivos de texto** (`.js`, `.json`, `.html`, `.css`, `.svg`), quando
+  o navegador diz que aceita. O boot — 65 módulos + `kanto.json` + `index.html` —
+  caiu de **919 KB para 259 KB** (72% a menos). O `kanto.json` sozinho vai de 235
+  KB para 22 KB. O comprimido fica guardado em memória por (arquivo, mtime,
+  tamanho): comprimir de novo a cada pedido seria trocar rede por CPU.
+- **O vigia parou de andar em cima da arte.** O live update varre a pasta quatro
+  vezes por segundo; `assets/sprites` e `assets/music` são arquivos baixados que
+  não mudam sozinhos e eram 72% do trabalho. Fora eles, e trocando `os.walk` +
+  `getmtime` por `os.scandir` (que já traz o mtime junto), a rodada foi de **796
+  arquivos em 3,9 ms para 293 em 1,4 ms**. Rodou os `tools/fetch_*`? Um F5.
+
+**Por que isso não piora quando o acervo cresce:** o que cresce sem parar é
+`src/data/fusoes-feitas.js` (uma ficha por fusão publicada) e `assets/fusoes/`
+(um PNG por desenho). O arquivo de fichas é texto — comprime 7x (19 KB → 2,8 KB
+hoje) e, depois da primeira visita, vira 304 até alguém publicar. Os desenhos são
+pedidos **um por um, só quando aparecem na tela** (`pedirMon`), e ficam em paleta
+(`tools/compacta.py`). Ou seja: o custo por fusão nova é um pedido de um arquivo
+pequeno na hora em que ela aparece — não um pedaço a mais do boot.
+
 ## Live update
 
 O `dev_server.py` observa o mtime dos arquivos e avisa o navegador por SSE (`/__hot`):

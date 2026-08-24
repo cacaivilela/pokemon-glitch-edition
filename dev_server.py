@@ -135,9 +135,85 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if "--verbose" in sys.argv:
             super().log_message(fmt, *args)
 
+    # Tipos que vale comprimir: texto comprime 4x a 10x, PNG ja vem comprimido.
+    COMPRIMIVEIS = {".js", ".json", ".html", ".css", ".svg"}
+    _gz_cache = {}          # (caminho, mtime, tamanho) -> bytes comprimidos
+
+    def send_header(self, keyword, value):
+        if keyword.lower() == "cache-control":
+            self._cache_dito = True
+        super().send_header(keyword, value)
+
     def end_headers(self):
-        self.send_header("Cache-Control", "no-store, max-age=0")
+        # `no-cache` NAO e `no-store`. Store proibia guardar: cada F5 rebaixava o
+        # jogo inteiro — 686 KB de modulo e ate 7 MB de sprite. Cache proibe USAR
+        # sem perguntar: o navegador guarda e manda If-Modified-Since, e o
+        # SimpleHTTPRequestHandler responde 304 quando o arquivo nao mudou. O
+        # live update continua exato (ninguem serve arquivo velho), e a segunda
+        # abertura passa a ser uma rodada de "continua igual?" em vez de um
+        # download. Quem precisa mesmo de no-store (save, rotas do online) pede
+        # explicito, e a linha de cima respeita.
+        if not getattr(self, "_cache_dito", False):
+            self.send_header("Cache-Control", "no-cache")
+        self._cache_dito = False
         super().end_headers()
+
+    def gzip_estatico(self):
+        """Manda arquivo de texto comprimido. True quando cuidou do pedido.
+
+        O boot do jogo sao 65 modulos + o mapa de Kanto: ~900 KB de texto que
+        viram ~180 KB comprimidos. Na mesma maquina isso nem se sente; pelo wifi,
+        que e como os outros entram (`http://192.168.x.x:5190/`), e a diferenca
+        entre abrir na hora e abrir daqui a pouco.
+
+        O comprimido fica guardado na memoria por (arquivo, mtime, tamanho):
+        comprimir de novo a cada pedido seria trocar rede por CPU, e a segunda
+        pessoa que entrar paga zero. Mudou o arquivo, a chave muda junto.
+        """
+        if "gzip" not in self.headers.get("Accept-Encoding", ""):
+            return False
+        caminho = self.translate_path(self.path)
+        if os.path.isdir(caminho) or os.path.splitext(caminho)[1].lower() not in self.COMPRIMIVEIS:
+            return False
+        try:
+            st = os.stat(caminho)
+        except OSError:
+            return False
+
+        quando = self.date_time_string(st.st_mtime)
+        if self.headers.get("If-Modified-Since") == quando:
+            self.send_response(304)
+            self.send_header("Last-Modified", quando)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return True
+
+        chave = (caminho, st.st_mtime, st.st_size)
+        corpo = self._gz_cache.get(chave)
+        if corpo is None:
+            import gzip
+            try:
+                with open(caminho, "rb") as fh:
+                    cru = fh.read()
+            except OSError:
+                return False
+            corpo = gzip.compress(cru, 6)
+            if len(corpo) >= len(cru):
+                return False              # nao encolheu: manda cru, do jeito normal
+            if len(self._gz_cache) > 400:
+                self._gz_cache.clear()    # o acervo pode crescer; a memoria nao
+            self._gz_cache[chave] = corpo
+
+        self.send_response(200)
+        self.send_header("Content-Type", self.guess_type(caminho))
+        self.send_header("Content-Encoding", "gzip")
+        self.send_header("Content-Length", str(len(corpo)))
+        self.send_header("Last-Modified", quando)
+        self.send_header("Vary", "Accept-Encoding")
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(corpo)
+        return True
 
     def do_GET(self):
         route = self.path.split("?")[0]
@@ -153,6 +229,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.delay()
         if route == "/__save":
             return self.save_get()
+        if self.gzip_estatico():
+            return
         return super().do_GET()
 
     def delay(self):
