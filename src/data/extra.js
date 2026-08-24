@@ -167,6 +167,18 @@ export const DEOXYS_FORMS = ["deoxys", "deoxysataque", "deoxysdefesa", "deoxysve
  *  da dimensão — e é mais raro que os três lendários do clima. */
 export const RARE_LEGEND = { id: "deoxys", chance: 0.0008, min: 45, max: 60 };
 
+// A FUSÃO SELVAGEM.
+//
+// Fusão é coisa de máquina: ela sai do DECODIFICADOR, com dois Pokémon seus
+// dentro. Mas uma vez a cada MUITAS a grama devolve uma pronta, já feita, que
+// ninguém fundiu — e é a LAPROCUNO, a do acervo, com o desenho e tudo.
+//
+// A chance é por encontro, não por passo: com a grama chamando 11% das vezes,
+// 1/4096 aqui dá um a cada ~37 mil passos no mato. É pra ser história de
+// jogador, não item de lista. Se a ficha dela sumir do acervo, a espécie ainda
+// existe (`garantirEspecie` remonta a automática) — o encontro não quebra.
+export const FUSAO_SELVAGEM = { id: "fus-articuno-lapras~laprocuno", chance: 1 / 4096, min: 30, max: 42 };
+
 /** chance do lendário aparecer no terreno dele (0.3%) */
 export const TRIO_CHANCE = 0.003;
 

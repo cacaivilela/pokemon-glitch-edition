@@ -1,6 +1,7 @@
 // Encontros na grama alta + a chance corrompida da GLITCH EDITION.
 import { DB } from "../data/index.js";
 import { createMon } from "./mon.js";
+import { garantirEspecie } from "./fusao.js";
 import { randRange, chance } from "../core/rng.js";
 
 export const ENCOUNTER_RATE = 0.11; // fallback; o valor real vem de DB.CONFIG.encounterRate
@@ -57,6 +58,14 @@ export function rollEncounter(mapId, corruption = 0, glitchOn = false) {
   if (chance(glitchChance)) {
     const lvl = randRange(5, 12);
     return { mon: createMon("missingno", lvl, { corrupt: true, shiny }), glitch: true };
+  }
+
+  // A FUSÃO SELVAGEM: raríssima, e antes da tabela porque ela não está na
+  // tabela de mapa nenhum. `garantirEspecie` monta a espécie na hora (o id
+  // carrega a dupla e a variante), como o jogo já faz pra fusão que vem de save.
+  const rara = DB.FUSAO_SELVAGEM;
+  if (rara && chance(rara.chance ?? 0) && garantirEspecie(rara.id)) {
+    return { mon: createMon(rara.id, randRange(rara.min, rara.max), { shiny }), glitch: true };
   }
 
   const total = table.reduce((s, e) => s + e.w, 0);
