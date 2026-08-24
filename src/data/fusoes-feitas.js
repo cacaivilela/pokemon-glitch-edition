@@ -868,35 +868,6 @@ export const FUSOES_FEITAS = {
       "lore": "ARTICUNO NA CABEÇA, LAPRAS NO CORPO."
     }
   ],
-  "mewtwo+missingno": [
-    {
-      "id": "mewtwno",
-      "nome": "MEWTWNO",
-      "autor": "CAIO",
-      "tipos": [
-        "PSÍQUICO",
-        "GLITCH"
-      ],
-      "inicial": {
-        "hp": 12,
-        "atk": 5,
-        "def": 5,
-        "spa": 5,
-        "spd": 5,
-        "spe": 5
-      },
-      "crescimento": {
-        "hp": 2.2,
-        "atk": 2.4,
-        "def": 1.8,
-        "spa": 3.4,
-        "spd": 2.0,
-        "spe": 3.0
-      },
-      "sprite": "assets/fusoes/mewtwo+missingno~mewtwno.png",
-      "lore": "O EXPERIMENTO DEU CERTO DEMAIS: METADE DELE SAIU DA FITA E NÃO VOLTOU."
-    }
-  ],
   "butterfree+muk": [
     {
       "id": "buttemuk",
