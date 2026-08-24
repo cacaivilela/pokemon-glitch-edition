@@ -861,38 +861,7 @@ export const FUSOES_FEITAS = {
         "spe": 1.5
       },
       "sprite": "assets/fusoes/articuno+lapras~laprocuno.png",
-      "lore": "ARTICUNO NA CABEÇA, LAPRAS NO CORPO.",
-      "protegida": true
-    }
-  ],
-  "bulbasaur+arceus": [
-    {
-      "id": "bulbaceus",
-      "nome": "BULBACEUS",
-      "autor": "CAIO",
-      "tipos": [
-        "PLANTA",
-        "NORMAL"
-      ],
-      "inicial": {
-        "hp": 14,
-        "atk": 5,
-        "def": 5,
-        "spa": 5,
-        "spd": 5,
-        "spe": 5
-      },
-      "crescimento": {
-        "hp": 2.8,
-        "atk": 2.2,
-        "def": 2.4,
-        "spa": 2.6,
-        "spd": 2.6,
-        "spe": 2.0
-      },
-      "sprite": "assets/fusoes/bulbasaur+arceus~bulbaceus.png",
-      "lore": "A SEMENTE DAS COSTAS É A PRIMEIRA QUE EXISTIU. TUDO QUE É VERDE NO MUNDO VEIO DELA.",
-      "protegida": true
+      "lore": "ARTICUNO NA CABEÇA, LAPRAS NO CORPO."
     }
   ],
   "gengar+chandelure": [
@@ -921,8 +890,7 @@ export const FUSOES_FEITAS = {
         "spe": 2.8
       },
       "sprite": "assets/fusoes/gengar+chandelure~gengalure.png",
-      "lore": "AS TRÊS CHAMAS SÃO SOMBRAS ACESAS. QUEM OLHA MUITO TEMPO ESQUECE ONDE DEIXOU A PRÓPRIA.",
-      "protegida": true
+      "lore": "AS TRÊS CHAMAS SÃO SOMBRAS ACESAS. QUEM OLHA MUITO TEMPO ESQUECE ONDE DEIXOU A PRÓPRIA."
     }
   ],
   "arcanine+zapdos": [
@@ -951,8 +919,7 @@ export const FUSOES_FEITAS = {
         "spe": 3.0
       },
       "sprite": "assets/fusoes/arcanine+zapdos~arcados.png",
-      "lore": "CORRE NA FRENTE DA TEMPESTADE E CHEGA ANTES DO TROVÃO. A JUBA NUNCA ABAIXA.",
-      "protegida": true
+      "lore": "CORRE NA FRENTE DA TEMPESTADE E CHEGA ANTES DO TROVÃO. A JUBA NUNCA ABAIXA."
     }
   ],
   "mewtwo+missingno": [
@@ -981,8 +948,7 @@ export const FUSOES_FEITAS = {
         "spe": 3.0
       },
       "sprite": "assets/fusoes/mewtwo+missingno~mewtwno.png",
-      "lore": "O EXPERIMENTO DEU CERTO DEMAIS: METADE DELE SAIU DA FITA E NÃO VOLTOU.",
-      "protegida": true
+      "lore": "O EXPERIMENTO DEU CERTO DEMAIS: METADE DELE SAIU DA FITA E NÃO VOLTOU."
     }
   ],
   "lapras+articuno": [
@@ -1011,8 +977,7 @@ export const FUSOES_FEITAS = {
         "spe": 1.8
       },
       "sprite": "assets/fusoes/lapras+articuno~lapracuno.png",
-      "lore": "ATRAVESSA O MAR CONGELANDO O CAMINHO ATRÁS DE SI. NINGUÉM CONSEGUE SEGUIR.",
-      "protegida": true
+      "lore": "ATRAVESSA O MAR CONGELANDO O CAMINHO ATRÁS DE SI. NINGUÉM CONSEGUE SEGUIR."
     }
   ],
   "onix+magneton": [
@@ -1041,8 +1006,7 @@ export const FUSOES_FEITAS = {
         "spe": 1.4
       },
       "sprite": "assets/fusoes/onix+magneton~oniton.png",
-      "lore": "OS ANÉIS DO MEIO VIRARAM ÍMÃ. TUDO QUE É DE METAL NA CAVERNA GRUDA NELE.",
-      "protegida": true
+      "lore": "OS ANÉIS DO MEIO VIRARAM ÍMÃ. TUDO QUE É DE METAL NA CAVERNA GRUDA NELE."
     }
   ],
   "butterfree+muk": [
