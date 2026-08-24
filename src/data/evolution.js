@@ -69,6 +69,10 @@ export const EVOLUTIONS = {
   dragonair: [{ lvl: 55, to: "dragonite" }],
 
   // por pedra
+  // as velas da fenda: a segunda troca é por pedra, como no jogo de origem
+  litwick: [{ lvl: 41, to: "lampent" }],
+  lampent: [{ item: "pedra da lua", to: "chandelure" }],
+
   pikachu: [{ item: "pedra do trovão", to: "raichu" }],
   nidorina: [{ item: "pedra da lua", to: "nidoqueen" }],
   nidorino: [{ item: "pedra da lua", to: "nidoking" }],

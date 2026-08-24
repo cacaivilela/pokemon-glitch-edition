@@ -339,6 +339,24 @@ try {
       m.maxHp > 0 && m.moves.length ? "ok" : "erro");
   }
 
+  h("AS VELAS DA FENDA");
+  for (const id of ["litwick", "lampent", "chandelure"]) {
+    const sp = DB.SPECIES[id];
+    const evo = DB.EVOLUTIONS[id];
+    const noAr = (DB.DIM_ENCOUNTERS?.ar || []).find((e) => e.id === id);
+    p(`  ${sp?.name} [${sp?.types.join("/")}] dex ${sp?.dex} total ${sp?.bst}` +
+      ` | no vazio: ${noAr ? `nv ${noAr.min}-${noAr.max} peso ${noAr.w}` : "NÃO APARECE"}` +
+      ` | evolui: ${evo ? JSON.stringify(evo) : "(final)"}`,
+      sp && noAr ? "ok" : "erro");
+  }
+  {
+    const m = createMon("chandelure", 45);
+    p(`CHANDELURE nv45: hp ${m.maxHp} esp.atk ${m.stats.spa} golpes ${m.moves.map((g) => g.id).join(",")}`,
+      m.maxHp > 0 && m.moves.length ? "ok" : "erro");
+    const f = F.montarEspecie("chandelure", "gengar");
+    p(`fusão com GENGAR: ${f.name} [${f.types.join("/")}]`, f ? "ok" : "erro");
+  }
+
   h("ARCEUS, O POKÉMON DIVINO");
   {
     const sp = DB.SPECIES.arceus;

@@ -28,7 +28,8 @@ MODERN = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokem
 
 # espécies de fora de Kanto que aparecem na 011GLITCHDIMENSION110
 EXTRA_DEX = [201, 233, 235, 292, 337, 338, 345, 347, 382, 383, 384, 386, 408, 410,
-             436, 474, 479, 493, 564, 566, 599, 605, 606, 615, 622, 641, 642, 645, 649,
+             436, 474, 479, 493, 564, 566, 599, 605, 606, 607, 608, 609, 615, 622, 641,
+             642, 645, 649,
              716, 717, 718,
              880, 881, 882, 883]
 # formas MEGA (ids de FORMA da PokeAPI, não da Pokédex). Nenhuma delas existia

@@ -486,10 +486,13 @@ grama alta.
 
 A fenda tem conteúdo que não existe em Kanto:
 
-- **23 espécies exclusivas** (`src/data/extra.js`), divididas por terreno do tile
+- **26 espécies exclusivas** (`src/data/extra.js`), divididas por terreno do tile
   — terra, água e o vazio no meio. São dados soltos (PORYGON2/-Z, UNOWN,
   SHEDINJA, ROTOM…), fósseis remontados errado (CRANIDOS, ARCHEN, DRACOVISH…) e
-  coisas que não deviam caber ali (LUNATONE, CRYOGONAL, GOLETT).
+  coisas que não deviam caber ali (LUNATONE, CRYOGONAL, GOLETT). No **vazio**
+  moram as velas — **LITWICK**, **LAMPENT** e **CHANDELURE** —, que só aparecem
+  ali onde a chama é a única coisa que se vê; LITWICK vira LAMPENT no nível 41 e
+  LAMPENT vira CHANDELURE com a PEDRA DA LUA.
 - **Lendários**: o trio do clima aparece só no terreno dele (0,3%) e o DEOXYS
   pode vir de qualquer tufo, mais raro ainda (0,08%).
 - **Pokébolas largadas no chão**: 3 a 6 por visita, sorteadas pela tabela de

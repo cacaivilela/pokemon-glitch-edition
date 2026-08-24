@@ -35,6 +35,9 @@ const TABLE = `
 386 DEOXYS PSÍQUICO 50 150 50 150 50 150
 881 ARCTOZOLT ELÉTRICO/GELO 90 100 90 90 80 55
 883 ARCTOVISH ÁGUA/GELO 90 90 100 80 90 55
+607 LITWICK FANTASMA/FOGO 50 30 55 65 55 20
+608 LAMPENT FANTASMA/FOGO 60 40 60 95 60 55
+609 CHANDELURE FANTASMA/FOGO 60 55 90 145 90 80
 605 ELGYEM PSÍQUICO 55 55 55 85 55 30
 606 BEHEEYEM PSÍQUICO 75 75 75 125 95 40
 649 GENESECT INSETO/AÇO 71 120 95 120 95 99
@@ -144,6 +147,10 @@ export const DIM_ENCOUNTERS = {
     { id: "solrock", min: 24, max: 38, w: 12 },
     { id: "cryogonal", min: 26, max: 40, w: 10 },
     { id: "shedinja", min: 20, max: 34, w: 8 },
+    { id: "litwick", min: 18, max: 30, w: 18 },     // as velas: só no vazio,
+    { id: "lampent", min: 26, max: 38, w: 12 },     // onde a chama é a única
+    { id: "chandelure", min: 34, max: 46, w: 5 },   // coisa que se vê
+
     { id: "unown", min: 12, max: 40, w: 10 },
     { id: "porygon2", min: 24, max: 38, w: 22 },
     { id: "porygonz", min: 30, max: 45, w: 20 },
