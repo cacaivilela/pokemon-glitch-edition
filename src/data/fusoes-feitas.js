@@ -865,7 +865,8 @@ export const FUSOES_FEITAS = {
         "spe": 1.5
       },
       "sprite": "assets/fusoes/articuno+lapras~laprocuno.png",
-      "lore": "ARTICUNO NA CABEÇA, LAPRAS NO CORPO."
+      "lore": "ARTICUNO NA CABEÇA, LAPRAS NO CORPO.",
+      "protegida": true
     }
   ],
   "butterfree+muk": [
