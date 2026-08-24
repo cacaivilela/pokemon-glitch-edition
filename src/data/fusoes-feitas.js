@@ -8,6 +8,10 @@
 //
 // Da pra editar a mao, e da pra apagar tudo: e so deixar o objeto vazio. O
 // desenho vem junto, em PNG, dentro do campo `sprite`.
+//
+// `protegida`: true e ficha que a FAXINA DA SEMANA nunca leva. Esta marcado
+// assim todo o acervo que existia quando a faxina virou semanal. Sai so a
+// mao, tirando a marca daqui.
 export const FUSOES_FEITAS = {
   "butterfree+pikachu": [
     {
@@ -1006,6 +1010,35 @@ export const FUSOES_FEITAS = {
       },
       "sprite": "assets/fusoes/machamp+electrode~made.png",
       "lore": "MACHAMP NA CABEÇA, ELECTRODE NO CORPO."
+    }
+  ],
+  "rotom+victreebel": [
+    {
+      "id": "robel",
+      "nome": "ROBEL",
+      "autor": "CAIO",
+      "tipos": [
+        "ELÉTRICO",
+        "VENENO"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 7.6,
+        "atk": 3.7,
+        "def": 6.7,
+        "spa": 0.2,
+        "spd": 9,
+        "spe": 3.9
+      },
+      "sprite": "assets/fusoes/rotom+victreebel~robel.png",
+      "lore": "ROTOM NA CABEÇA, VICTREEBEL NO CORPO."
     }
   ]
 };
