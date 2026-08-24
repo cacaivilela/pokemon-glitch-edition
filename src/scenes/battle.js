@@ -8,6 +8,7 @@ import { Audio2 } from "../core/audio.js";
 import { panel, drawText, cursor, bar, hpColor, fade, PAL, LINE_H } from "../core/gfx.js";
 import { Dialogue } from "../systems/dialogue.js";
 import { Glitch } from "../systems/glitchfx.js";
+import { cenaDoGolpe } from "../systems/cutscenes.js";
 import { hpPct, isFainted, gainXp, xpYieldFor, xpForLevel, heal, createMon } from "../systems/mon.js";
 import {
   calcDamage, accuracyCheck, applyMoveEffects, statusTickDamage, effText,
@@ -61,6 +62,7 @@ export class BattleScene {
     this.megou = { p: false, f: false };
     this.megaArmada = null;
     this.flash = 0;
+    this.fx = [];                 // os efeitos das cutscenes de golpe
     this.disp = { p: this.mine.hp, f: this.foe.hp };
     this.sp = { p: this.newSprite(-90), f: this.newSprite(90) };
     st.seen[this.foe.species] = true;
@@ -74,6 +76,36 @@ export class BattleScene {
   exit() { Audio2.stopLoop(); }
 
   newSprite(dx) { return { dx, dy: 0, alpha: 1, blink: 0, lunge: 0, faint: false }; }
+
+  /** O PALCO DA CUTSCENE. A cena (src/systems/cutscenes.js) não desenha nada:
+   *  ela pede efeito, espera, treme, clareia — e quem desenha é o `drawFx` aqui
+   *  embaixo, do mesmo jeito pra todos. `battleAnim` continua mandando: em 0 não
+   *  tem cutscene nenhuma, e em 2 ela passa no dobro da velocidade. */
+  async cutscene(who, id, mv) {
+    const vel = DB.CONFIG?.battleAnim ?? 1;
+    if (!vel) return;
+    const alvo = who === "p" ? "f" : "p";
+    const centro = (k) => (k === "f" ? { x: 178, y: 36 } : { x: 46, y: 78 });
+    const palco = {
+      de: centro(who), para: centro(alvo), dir: who === "p" ? 1 : -1,
+      som: Audio2,
+      fx: (o) => this.fx.push({ t: 0, vida: 0.4, fade: true, vx: 0, vy: 0, g: 0, gira: 0, ang: 0, ...o }),
+      wait: (s) => this.wait(s / vel),
+      flash: (a) => { this.flash = Math.max(this.flash, a); },
+      shake: (t) => { this.shake = Math.max(this.shake, t); },
+      piscaAlvo: (t) => { this.sp[alvo].blink = Math.max(this.sp[alvo].blink, t); },
+      avanca: () => this.lunge(who),
+      somem: () => { this.sp[who].alpha = 0; },
+      voltam: () => { this.sp[who].alpha = 1; },
+      glitch: (n) => Glitch.hit(n),
+    };
+    try {
+      await cenaDoGolpe(id, mv)(palco);
+    } finally {
+      // cena que esconde alguém e quebra no meio não pode deixar o bicho sumido
+      if (!this.sp[who].faint) this.sp[who].alpha = 1;
+    }
+  }
 
   /** golpe: o sprite avança e volta */
   async lunge(who) {
@@ -219,6 +251,8 @@ export class BattleScene {
       return;
     }
 
+    await this.cutscene(who, moveRef.id, mv);
+
     if (mv.corrupt && DB.CONFIG?.glitchMode) {
       Glitch.hit(1.2);
       Audio2.glitch();
@@ -227,10 +261,12 @@ export class BattleScene {
 
     const res = calcDamage(user, target, moveRef.id, uStages, tStages);
     if (res.dmg > 0) {
-      await this.lunge(who);
-      Audio2.hit();
-      this.shake = 0.25;
-      this.sp[who === "p" ? "f" : "p"].blink = 0.45;
+      // o baque (avanço, tremida, piscada) já veio da cutscene; sem ela, aqui
+      if (!(DB.CONFIG?.battleAnim ?? 1)) {
+        Audio2.hit();
+        this.shake = 0.25;
+        this.sp[who === "p" ? "f" : "p"].blink = 0.45;
+      }
       target.hp = Math.max(0, target.hp - res.dmg);
       await this.syncHp();
       if (res.mirror) {
@@ -535,6 +571,17 @@ export class BattleScene {
     this.flash = Math.max(0, this.flash - dt * 1.6);
     if (this.tOut > 0 && this.tOut < 1) this.tOut = Math.min(1, this.tOut + dt * 4);
 
+    for (let i = this.fx.length - 1; i >= 0; i--) {
+      const e = this.fx[i];
+      e.t += dt;
+      e.x += e.vx * dt;
+      e.y += e.vy * dt;
+      e.vy += e.g * dt;
+      e.ang += e.gira * dt;
+      if (e.cresce) e.r += e.cresce * dt;
+      if (e.t >= e.vida) this.fx.splice(i, 1);
+    }
+
     for (const k of ["p", "f"]) {
       const s2 = this.sp[k];
       if (s2.dx) { s2.dx *= Math.max(0, 1 - dt * 9); if (Math.abs(s2.dx) < 0.6) s2.dx = 0; }
@@ -681,6 +728,8 @@ export class BattleScene {
       drawMon(this.mine.shiny ? Assets.shiny(pimg) : pimg, 14, 46 - bob, this.sp.p, 1);
     }
 
+    if (this.fx.length) this.drawFx(ctx);
+
     // caixas de status (a do inimigo só depois que ele solta o Pokémon)
     if (!this.showTrainer) this.statusBox(ctx, 6, 6, this.foe, this.disp.f, false);
     this.statusBox(ctx, 122, 68, this.mine, this.disp.p, true);
@@ -694,6 +743,56 @@ export class BattleScene {
     this.dlg.render(ctx);
     if (this.flash > 0) fade(ctx, this.flash, "#ffffff");
     if (this.fadeA > 0) fade(ctx, this.fadeA);
+  }
+
+  /** Desenha os efeitos das cutscenes. Um lugar só, seis formas: assim uma cena
+   *  nova são dez linhas em src/systems/cutscenes.js, e nunca um render novo.
+   *  Nada de antialias — em 240x160 borda borrada vira sujeira. */
+  drawFx(ctx) {
+    for (const e of this.fx) {
+      ctx.globalAlpha = e.fade ? Math.max(0, 1 - e.t / e.vida) : 1;
+      ctx.fillStyle = ctx.strokeStyle = e.cor || "#ffffff";
+      const x = Math.round(e.x), y = Math.round(e.y);
+      if (e.forma === "bola") {
+        ctx.beginPath();
+        ctx.arc(x, y, Math.max(1, e.r), 0, Math.PI * 2);
+        ctx.fill();
+      } else if (e.forma === "anel") {
+        ctx.lineWidth = e.h || 2;
+        ctx.beginPath();
+        ctx.arc(x, y, Math.max(1, e.r), 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (e.forma === "quadro") {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(e.ang || 0);
+        ctx.fillRect(-e.w / 2, -e.h / 2, e.w, e.h);
+        ctx.restore();
+      } else if (e.forma === "risco") {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(e.ang || 0);
+        ctx.fillRect(0, -(e.h || 2) / 2, e.w, e.h || 2);
+        ctx.restore();
+      } else if (e.forma === "raio") {
+        // zigue-zague: o mesmo caminho toda vez que este efeito é desenhado,
+        // porque o desvio sai da posição, não de um sorteio novo por quadro
+        ctx.lineWidth = e.h || 2;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        const passos = 6;
+        for (let i = 1; i <= passos; i++) {
+          const k = i / passos;
+          const lado = i === passos ? 0 : (i % 2 ? 5 : -5);
+          ctx.lineTo(Math.round(x + (e.x2 - x) * k + lado), Math.round(y + (e.y2 - y) * k));
+        }
+        ctx.stroke();
+      } else if (e.forma === "barra") {
+        ctx.fillRect(x, y, e.w, e.h);
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 1;
   }
 
   statusBox(ctx, x, y, mon, disp, showHp) {

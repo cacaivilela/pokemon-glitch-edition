@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem das cutscenes — Pokémon Glitch Edition</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; }
+  .ok { color:#7f7; }
+  .lento { color:#fd6; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=9000">
+<script type="module">
+// Roda a cutscene de TODOS os golpes num palco de mentira: sem canvas, sem
+// batalha, sem esperar de verdade. O que se quer saber é o que só se descobre
+// executando — se toda cena existe, se nenhuma quebra no meio, quanto tempo cada
+// uma segura o turno e se alguma esqueceu de soltar efeito nenhum.
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+
+try {
+  const { DB } = await import("/src/data/index.js");
+  const { cenaDoGolpe, PORTIPO, PORGOLPE, PORCATEGORIA } = await import("/src/systems/cutscenes.js");
+
+  /** o palco falso: conta o que a cena pediu e nunca espera de verdade */
+  const palcoFalso = () => {
+    const reg = { efeitos: 0, tempo: 0, tremeu: 0, clareou: 0, piscou: 0, sumiu: 0, voltou: 0, formas: new Set() };
+    const nada = () => {};
+    return [reg, {
+      de: { x: 46, y: 78 }, para: { x: 178, y: 36 }, dir: 1,
+      som: { tone: nada, noise: nada, hit: nada, glitch: nada, blip: nada, heal: nada },
+      fx: (o) => { reg.efeitos++; reg.formas.add(o.forma); },
+      wait: (s) => { reg.tempo += s; return Promise.resolve(); },
+      flash: () => reg.clareou++,
+      shake: () => reg.tremeu++,
+      piscaAlvo: () => reg.piscou++,
+      avanca: () => { reg.tempo += 0.16; return Promise.resolve(); },
+      somem: () => reg.sumiu++,
+      voltam: () => reg.voltou++,
+      glitch: nada,
+    }];
+  };
+
+  const catalogo = [
+    ...Object.entries(PORGOLPE).map(([k, f]) => [`golpe:${k}`, f]),
+    ...Object.entries(PORCATEGORIA).map(([k, f]) => [`status:${k}`, f]),
+    ...Object.entries(PORTIPO).map(([k, f]) => [`tipo:${k}`, f]),
+  ];
+
+  const ids = Object.keys(DB.MOVES);
+  h(`TODOS OS GOLPES (${ids.length})`);
+  let erros = 0, semEfeito = 0, maisLento = { id: "", t: 0 };
+  const porCena = new Map();
+
+  for (const id of ids) {
+    const mv = DB.MOVES[id];
+    const cena = cenaDoGolpe(id, mv);
+    // o rótulo sai de QUEM a função é, não de uma cópia da regra aqui dentro:
+    // teste que reimplementa o que testa não testa nada
+    const nome = (catalogo.find(([, f]) => f === cena) || ["padrão"])[0];
+    const [reg, palco] = palcoFalso();
+    try {
+      await cena(palco);
+    } catch (e) {
+      erros++;
+      p(`${mv.name} (${nome}) QUEBROU: ${e && e.message}`, "erro");
+      continue;
+    }
+    if (!reg.efeitos && !reg.tremeu) { semEfeito++; p(`${mv.name}: cena não fez nada`, "erro"); }
+    if (reg.tempo > maisLento.t) maisLento = { id: mv.name, t: reg.tempo };
+    porCena.set(nome, (porCena.get(nome) || 0) + 1);
+    p(`${mv.name.padEnd(18, " ")} ${nome.padEnd(16, " ")} `
+      + `${reg.efeitos} efeito(s), ${reg.tempo.toFixed(2)}s, formas: ${[...reg.formas].join("/") || "—"}`,
+      reg.tempo > 1.6 ? "lento" : "");
+  }
+
+  h("COBERTURA");
+  const semPropria = ids.filter((i) => !PORGOLPE[i]);
+  p(`golpes com cena PRÓPRIA: ${ids.length - semPropria.length}/${ids.length}`
+    + (semPropria.length ? ` — caindo na rede: ${semPropria.join(", ")}` : ""),
+    semPropria.length ? "erro" : "ok");
+  p(`cenas escritas: ${Object.keys(PORTIPO).length} por tipo + ${Object.keys(PORGOLPE).length} por golpe`);
+  const tipos = new Set(ids.map((i) => DB.MOVES[i].type));
+  const semCena = [...tipos].filter((t) => !PORTIPO[t]);
+  p(`tipos usados pelos golpes: ${tipos.size} — sem cena própria: ${semCena.join(", ") || "nenhum"}`,
+    semCena.length ? "erro" : "ok");
+  p(`golpe mais demorado: ${maisLento.id} (${maisLento.t.toFixed(2)}s)`);
+  p([...porCena.entries()].map(([k, v]) => `${k}=${v}`).join("  "));
+
+  h("RESULTADO");
+  p(erros || semEfeito ? `${erros} cena(s) quebrada(s), ${semEfeito} vazia(s)` : "todas as cenas rodaram inteiras",
+    erros || semEfeito ? "erro" : "ok");
+
+  const texto = linhas.join("\n").replace(/<[^>]+>/g, "").replace(/ /g, " ");
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "cutscenecheck", log: texto }) });
+} catch (e) {
+  p("QUEBROU FORA DAS CENAS: " + (e && e.stack || e), "erro");
+  await fetch("/__capture", {
+    method: "POST",
+    body: JSON.stringify({ name: "cutscenecheck", log: "QUEBROU: " + (e && e.stack || e) }),
+  }).catch(() => {});
+}
+out.innerHTML = linhas.join("");
+</script>
+</body>
+</html>

@@ -622,6 +622,50 @@ A fenda tem conteúdo que não existe em Kanto:
 
 Os sprites das espécies de fora vêm com `python3 tools/fetch_sprites.py --extra`.
 
+## Cutscenes dos golpes
+
+Todo golpe tem uma cena. Antes era tudo igual: o sprite avançava, a tela tremia,
+o outro piscava — LANÇA-CHAMAS e RABO DE ABANO com exatamente a mesma cara.
+
+**Cada golpe tem a sua**: são 48 golpes no jogo e 48 cenas escritas — nenhum cai
+na cena de outro. O que a cena conta é o que o nome promete:
+
+| | |
+|---|---|
+| ARRANHÃO | três riscos, e só |
+| MORDIDA | dois dentes que vêm de cima e de baixo e se fecham |
+| ATAQUE RÁPIDO | um borrão: ele some e reaparece já do outro lado |
+| ENCARAR | dois olhos abrindo no escuro |
+| CABEÇADA | recua primeiro, e aí vai com tudo |
+| AREIA NOS OLHOS | um punhado de areia na cara do outro |
+| RAIO DE GELO | o feixe vai reto e deixa cristais em pé no alvo |
+| BOLA SOMBRIA | a bola voa devagar e estoura grande |
+| TERREMOTO | a tela inteira treme e o chão sobe — esse não tem alvo, tem lugar |
+| RUÍDO BRANCO | a tela vira chuvisco e volta |
+
+As tabelas por **tipo** (17 cenas) e por **categoria** (status que sobe em quem
+usou, status que desce no alvo) continuam no arquivo, mas agora como **rede**:
+golpe novo, escrito amanhã, já nasce com animação em vez de nascer sem nada.
+
+`src/systems/cutscenes.js` guarda as cenas; `src/scenes/battle.js` desenha. **A
+cena não desenha nada**: ela solta efeitos (`c.fx({forma, x, y, vx, vy, g, vida,
+cor})`) e o `drawFx` desenha todos do mesmo jeito, em seis formas (bola, quadro,
+risco, anel, raio, barra). Escrever uma cena nova são dez linhas, não um render
+novo. O palco (`c`) dá o resto: `wait`, `shake`, `flash`, `piscaAlvo`, `avanca`,
+`somem`/`voltam`, `glitch` e o `som`.
+
+`battleAnim` (em `src/data/config.js`) continua mandando: **0 desliga as
+cutscenes** e volta o baque seco de antes, 1 é o normal, 2 passa no dobro da
+velocidade. As cenas custam de 0,28 s (ATAQUE RÁPIDO, que é pra ser rápido) a 1,35 s (BOLA SOMBRIA).
+
+`dev/cutscenecheck.html` roda **as cenas de todos os golpes** num palco de
+mentira — sem canvas, sem batalha, sem esperar de verdade — e escreve em
+`dev/captures/cutscenecheck.log` quantos efeitos cada uma soltou, quanto tempo
+segura o turno, se alguma quebrou e **se algum golpe ficou sem cena própria**
+(hoje: 48 de 48). Ele pergunta pro módulo qual cena caiu em cada golpe em vez de
+repetir a regra: teste que reimplementa o que testa não testa nada. É o teste pra rodar depois de
+mexer em `cutscenes.js`.
+
 ## Golpes fora da batalha
 
 Não existe HM neste jogo: se o Pokémon sabe o golpe, ele usa (`src/data/field.js`).
