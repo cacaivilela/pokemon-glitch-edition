@@ -306,20 +306,50 @@ export const MUSIC = {
     ],
   },
 
-  // Tela de título: solene, com o baixo entrando devagar
+  // Tela de título: animada. Era solene e devagar, e tela de menu não é lugar
+  // de faixa solene — a pessoa fica ali parada escolhendo CONTINUAR, e o que
+  // toca embaixo é o que dá o humor do jogo inteiro. Agora tem bateria, o baixo
+  // caminha em colcheias e a melodia anda em vez de segurar acorde.
+  //
+  // Os quatro canais têm comprimentos DIFERENTES de propósito (32, 24, 16 e 12
+  // tempos): eles só se reencontram a cada 96 tempos, uns 42 segundos, então
+  // ninguém parado no menu ouve o mesmo laço duas vezes seguidas.
   titulo: {
-    bpm: 100,
+    bpm: 138,
     tracks: [
-      { ...melodia(0.5), notes: [
-        ["C5", 1], ["E5", 1], ["G5", 1.5], ["E5", 0.5], ["F5", 2],
-        ["D5", 1], ["F5", 1], ["A5", 1.5], ["G5", 0.5], ["E5", 2],
-        ["C5", 1], ["G4", 1], ["C5", 4],
+      { ...melodia(0.52), notes: [
+        ["G4", 0.5], ["C5", 0.5], ["E5", 0.5], ["G5", 0.5], ["E5", 1], ["C5", 1],
+        ["D5", 0.5], ["E5", 0.5], ["F5", 0.5], ["E5", 0.5], ["D5", 2],
+        ["F5", 0.5], ["A5", 0.5], ["G5", 0.5], ["F5", 0.5], ["E5", 1], ["C5", 1],
+        ["D5", 0.5], ["E5", 0.5], ["G5", 1], ["C5", 2],
+        ["E5", 0.5], ["G5", 0.5], ["C6", 0.5], ["B5", 0.5], ["A5", 1], ["G5", 1],
+        ["A5", 0.5], ["G5", 0.5], ["E5", 0.5], ["D5", 0.5], ["C5", 2],
+        ["D5", 0.5], ["F5", 0.5], ["A5", 0.5], ["G5", 0.5], ["F5", 1], ["D5", 1],
+        ["E5", 0.5], ["D5", 0.5], ["C5", 1], ["G4", 0.5], ["A4", 0.5], ["C5", 1],
       ] },
-      { ...contra(0.16), notes: [
-        ["C4", 0.5], ["G4", 0.5], ["E4", 0.5], ["G4", 0.5],
-        ["F4", 0.5], ["A4", 0.5], ["C5", 0.5], ["A4", 0.5],
+      { ...contra(0.2), notes: [
+        ...contratempo("C4", "E4", "G4", "E4"),
+        ...contratempo("F4", "A4", "C5", "A4"),
+        ...contratempo("G4", "B4", "D5", "B4"),
+        ...contratempo("E4", "G4", "C5", "G4"),
+        ...contratempo("D4", "F4", "A4", "F4"),
+        ...contratempo("G4", "B4", "D5", "G5"),
       ] },
-      { wave: "triangle", vol: 0.55, notes: [["C3", 4], ["F2", 4], ["G2", 2], ["C3", 2]] },
+      { ...baixo(0.58), notes: [
+        ...anda("C3", "G2"),
+        ...anda("F2", "C3"),
+        ...anda("G2", "D3"),
+        ["E2", 0.5], ["E2", 0.5], ["B2", 0.5], ["E2", 0.5],
+        ["A2", 0.5], ["A2", 0.5], ["E3", 0.5], ["G2", 0.5],
+      ] },
+      // três compassos, o último com virada: a bateria desencaixa das frases de
+      // quatro da melodia e a faixa nunca cai no mesmo lugar duas vezes
+      { wave: "ruido", vol: 0.34, notes: [
+        ["x", 1], ["x", 0.5], ["-", 0.5], ["x", 1], ["x", 0.5], ["x", 0.5],
+        ["x", 1], ["x", 0.5], ["-", 0.5], ["x", 1], ["x", 0.5], ["x", 0.5],
+        ["x", 1], ["x", 0.5], ["-", 0.5], ["x", 0.5], ["x", 0.5],
+        ["x", 0.25], ["x", 0.25], ["x", 0.25], ["x", 0.25],
+      ] },
     ],
   },
 
