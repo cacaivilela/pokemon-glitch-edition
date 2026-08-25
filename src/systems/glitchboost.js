@@ -8,7 +8,9 @@
 // estava monstruoso fica pior do que começou. Isso não é um acidente da conta:
 // é a conta. Apanhar é a força, e apanhar demais é a queda.
 //
-// Nada aqui é gravado no save: o bug dura a batalha (`limpar`, chamado no fim).
+// O ITEM NÃO GASTA. Ele é chave, como o decodificador e o visor: compra-se uma
+// vez e fica. O que acaba é o EFEITO — o bug dura a batalha (`limpar`, chamado
+// no fim) e nada dele é gravado no save.
 import { DB } from "../data/index.js";
 import { BOOSTER, GLITCHBOOSTER } from "../data/glitch.js";
 
@@ -39,11 +41,10 @@ export function porQueNao(st) {
 /** Este Pokémon está bugado agora? */
 export const bugado = (mon) => !!mon?.bug;
 
-/** Liga o bug num Pokémon e gasta o item. */
+/** Liga o bug num Pokémon. NÃO gasta o item: ele é chave. O limite de uso não
+ *  é a mochila, é o byte — quem usa isso todo turno é quem zera um Pokémon. */
 export function ligar(st, mon) {
   if (!podeUsarBooster(st) || !mon) return false;
-  st.items[GLITCHBOOSTER.item] = Math.max(0, (st.items[GLITCHBOOSTER.item] || 0) - 1);
-  if (!st.items[GLITCHBOOSTER.item]) delete st.items[GLITCHBOOSTER.item];
   mon.bug = { dano: 0, virou: false };
   return true;
 }

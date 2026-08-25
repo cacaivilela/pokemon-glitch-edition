@@ -52,7 +52,7 @@ export const ESTOQUE = [
   { item: BARRACA_LEILAO.item, price: BARRACA_LEILAO.preco },
   // o GLITCHBOOSTER só aparece na prateleira depois que o professor explicou a
   // GLITCHFORM: `requer` é conferido na hora de abrir a loja
-  { item: GLITCHBOOSTER.item, price: GLITCHBOOSTER.preco, requer: "glitchform" },
+  { item: GLITCHBOOSTER.item, price: GLITCHBOOSTER.preco, requer: "glitchform", unico: true },
   ...Object.entries(INGREDIENTES).map(([item, i]) => ({ item, price: i.preco })),
 ];
 
