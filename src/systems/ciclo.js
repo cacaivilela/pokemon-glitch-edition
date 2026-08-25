@@ -76,6 +76,7 @@ export function veu(quando = Date.now()) {
   };
 }
 
-/** true quando aquele mapa fica de fora do ciclo (dentro de casa, na caverna,
- *  na fenda: lá não tem céu pra escurecer). */
-export const temCeu = (mapa) => !!mapa && !mapa.interior;
+/** true quando aquele mapa fica de fora do ciclo: dentro de casa não tem céu, e
+ *  na caverna o escuro é o dia inteiro e quem manda nele é a lanterna
+ *  (src/systems/lanterna.js). */
+export const temCeu = (mapa) => !!mapa && !mapa.interior && mapa.music !== "cave";

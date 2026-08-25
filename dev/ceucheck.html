@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>checagem do olhar pro céu</title>
+<style>body{background:#111;color:#9fd;font:13px ui-monospace,monospace;margin:0;padding:8px}
+iframe{width:740px;height:560px;border:0}#log{white-space:pre-wrap;color:#7fd;margin-bottom:6px}</style>
+</head>
+<body>
+<div id="log">rodando...</div>
+<iframe id="fr" src=""></iframe>
+<img id="hold" alt="" width="1" height="1">
+<script>
+// Aperta o O no jogo de verdade e conta o que aconteceu por dentro.
+const fr = document.getElementById("fr"), log = document.getElementById("log");
+const linhas = [], errs = [];
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+window.addEventListener("error", (e) => errs.push("PAI: " + e.message));
+
+fr.addEventListener("load", async () => {
+ try {
+  const w = fr.contentWindow, d = fr.contentDocument;
+  w.addEventListener("error", (e) => errs.push("JOGO: " + e.message));
+  w.addEventListener("unhandledrejection", (e) => errs.push("PROMISE: " + (e.reason?.stack || e.reason)));
+  await espera(2500);
+
+  const cena = () => w.game?.scenes?.top;   // é `top`, não índice: errar aqui faz o teste mentir
+  linhas.push(`cena: ${cena()?.constructor?.name} | mapa: ${w.game?.state?.player?.map}`);
+  linhas.push(`o método existe? ${typeof cena()?.olharOCeu}`);
+
+  const aperta = (code) => {
+    w.dispatchEvent(new KeyboardEvent("keydown", { code, bubbles: true }));
+    setTimeout(() => w.dispatchEvent(new KeyboardEvent("keyup", { code, bubbles: true })), 60);
+  };
+  aperta("KeyZ"); await espera(400);        // tira qualquer fala da frente
+  aperta("KeyZ"); await espera(400);
+
+  linhas.push(`antes do O: olhando=${JSON.stringify(cena()?.olhando)} dlg=${!!cena()?.dlg?.active}`);
+  aperta("KeyO");
+  await espera(500);
+  const c = cena();
+  linhas.push(`depois do O: olhando=${JSON.stringify(c?.olhando)} dlg=${!!c?.dlg?.active} dir=${w.game?.state?.player?.dir}`);
+  linhas.push(c?.olhando ? "O CÉU ABRIU" : "NADA ACONTECEU");
+
+  const texto = linhas.join("\n") + "\n" + (errs.length ? "ERROS: " + errs.join(" | ") : "sem erros");
+  log.textContent = texto;
+  const cv = d.getElementById("screen");
+  await fetch("/__capture", { method: "POST",
+    body: JSON.stringify({ name: "ceucheck", dataUrl: cv ? cv.toDataURL() : "", log: texto }) });
+ } catch (e) {
+  await fetch("/__capture", { method: "POST",
+    body: JSON.stringify({ name: "ceucheck", log: linhas.join("\n") + "\nQUEBROU: " + (e && e.stack || e) }) }).catch(()=>{});
+ }
+});
+fr.src = "/?map=route1";
+document.getElementById("hold").src = "/__delay?ms=9000";
+</script>
+</body></html>

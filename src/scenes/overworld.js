@@ -25,6 +25,7 @@ import { estado as estadoMissao, progresso, aceitar, entregar, diario, feitas, m
   from "../systems/missoes.js";
 import { estaNaHora, marcarFeita, fracas, apagarDoCodigo } from "../systems/faxina.js";
 import { veu, temCeu, agora as horaDoMundo } from "../systems/ciclo.js";
+import { escuridaoDoLugar, ehCaverna, acesa, camadaDeLuz, brilho, RAIO } from "../systems/lanterna.js";
 import { rivalNpc } from "../systems/rival.js";
 import { ehFusao, fundivel, previsao, partes, temFicha, fichasProntas, variantes,
          buscarDoMundo, especiePorTexto, montarEspecie, servidorMundo,
@@ -1530,6 +1531,35 @@ export class OverworldScene {
     this.dlg.say(falas, () => { this.olhando = null; });
   }
 
+  /** O ESCURO E AS LANTERNAS. De noite lá fora, ou o dia inteiro dentro de uma
+   *  caverna, o mundo escurece — mas com um buraco de luz em volta de cada
+   *  pessoa que está no mapa. Vai por cima do mundo e por baixo da interface. */
+  drawEscuro(ctx, cx, cy) {
+    const escuro = escuridaoDoLugar(this.map);
+    if (escuro <= 0.002) return;
+    const cor = ehCaverna(this.map) ? "#070912" : veu().cor;
+    const luzes = acesa(this.map) ? this.luzesDoMapa(cx, cy) : [];
+    ctx.drawImage(camadaDeLuz(W, H, escuro, cor, luzes), 0, 0);
+    if (luzes.length) brilho(ctx, luzes);
+  }
+
+  /** Onde estão as lanternas na tela. A sua é a maior; a dos NPCs é menor (eles
+   *  não estão indo a lugar nenhum), e quem está na sala online também carrega
+   *  a dele — do outro lado é gente no mesmo mapa, não enfeite. */
+  luzesDoMapa(cx, cy) {
+    const meio = (x, y) => ({ x: x - cx + TILE / 2, y: y - cy + TILE / 2 });
+    const { px, py } = this.playerPixel(true);
+    const luzes = [{ ...meio(px, py), raio: RAIO.borda }];
+    for (const n of this.npcsHere()) {
+      luzes.push({ ...meio(n.x * TILE, n.y * TILE), raio: RAIO.borda * 0.7 });
+    }
+    for (const o of Online.noMapa(this.st.player.map)) {
+      luzes.push({ ...meio(o.x * TILE, o.y * TILE), raio: RAIO.borda * 0.8 });
+    }
+    // quem está longe da tela não precisa de buraco nenhum
+    return luzes.filter((l) => l.x > -70 && l.x < W + 70 && l.y > -70 && l.y < H + 70);
+  }
+
   /** O CÉU TOMA A TELA. O mapa some — quem olha pra cima não vê mais o chão —,
    *  e no lugar dele fica o céu da hora em que o mundo está. O sol é o SOLROCK
    *  e a lua é o LUNATONE: os dois já moram neste jogo, e um é literalmente uma
@@ -2771,13 +2801,11 @@ export class OverworldScene {
       ctx.drawImage(Assets.rustle[f], this.rustle.x * TILE - cx, this.rustle.y * TILE - cy);
     }
 
-    // O CÉU. Vai por cima do mundo e dos bichos, e por baixo de tudo que é
-    // interface: escurecer o mapa é o efeito; escurecer a caixa de texto seria
-    // só deixar o jogo difícil de ler. Dentro de casa e na fenda não tem céu.
-    if (temCeu(this.map) && this.st.player.map !== "glitchdim") {
-      const noturno = veu();
-      if (noturno.alpha > 0) fade(ctx, noturno.alpha, noturno.cor);
-    }
+    // O escuro (céu de noite ou caverna) com as lanternas abrindo buraco nele.
+    // Vai por cima do mundo e dos bichos, e por baixo de tudo que é interface:
+    // escurecer o mapa é o efeito; escurecer a caixa de texto seria só deixar o
+    // jogo difícil de ler. Na fenda o escuro é outro assunto.
+    if (this.st.player.map !== "glitchdim") this.drawEscuro(ctx, cx, cy);
     // com o céu aberto o mapa não aparece: o desenho é opaco e cobre tudo
     if (this.olhando) this.drawCeu(ctx);
 

@@ -673,6 +673,28 @@ mesmo pedaço repetido, e dá pra ver onde ele emenda.
 
 (A tecla é **O**, e não D, porque D já é o "direita" do WASD.)
 
+### As lanternas
+
+Quando escurece, **todo mundo no mapa acende a sua**: o jogador, cada NPC e quem
+estiver na sala online. E o que aparece não é "o mapa mais escuro" — é o escuro
+com **buracos**, um em volta de cada pessoa.
+
+Acende **de noite lá fora** e **o dia inteiro dentro de caverna** (mapa com
+`music: "cave"` — MT. MOON, ROCK TUNNEL, a caverna do DIGLETT). Dentro de casa
+não muda nada: lá a luz é a de sempre.
+
+O buraco é feito numa camada só, fora da tela: pinta o escuro inteiro nela e
+depois **apaga** círculos com `destination-out`. O degradê do círculo é o que faz
+a luz morrer devagar em vez de virar um recorte de tesoura, e por cima ainda vai
+um brilho quente — lanterna que só abre buraco no preto não parece lanterna,
+parece furo. A camada é **uma só**, guardada entre um quadro e outro: criar um
+canvas de 240x160 sessenta vezes por segundo é a diferença entre rodar e engasgar
+(`src/systems/lanterna.js`).
+
+A sua luz é a maior; a dos NPCs é menor, porque eles não estão indo a lugar
+nenhum. Quem está fora da tela não gasta buraco. `cavernaEscura`, em
+`src/data/config.js`, diz o quanto a caverna é escura.
+
 `dev/ciclocheck.html` anda com o relógio na mão e imprime a meia hora minuto a
 minuto, com nove verificações do que tem que ser verdade (dia limpo até os 10,
 noite fechada aos 15, a volta fechando em 30) e um teste de que o céu nunca dá

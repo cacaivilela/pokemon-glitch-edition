@@ -14,6 +14,7 @@ export const CONFIG = {
   cicloMinutos: 15,
   viradaMinutos: 5,
   noiteMax: 0.58,
+  cavernaEscura: 0.82,     // caverna é escura o dia inteiro; a lanterna abre o buraco
 
   // Chance de encontro por passo na grama alta
   encounterRate: 0.11,

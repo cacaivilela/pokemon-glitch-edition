@@ -25,7 +25,8 @@
   const log = document.getElementById("log");
   fr.src = url;
 
-  const CODE = { z: "KeyZ", x: "KeyX", up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight" };
+  const CODE = { z: "KeyZ", x: "KeyX", o: "KeyO", f: "KeyF", c: "KeyC",
+                 up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight" };
   const press = (code) => {
     const w = fr.contentWindow;
     w.dispatchEvent(new KeyboardEvent("keydown", { code, bubbles: true }));
