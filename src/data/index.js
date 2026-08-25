@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -31,6 +31,7 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./online.js" + V),
   import("./gifts.js" + V),
   import("./maps.js" + V),
+  import("./acampamento.js" + V),
   fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
 
@@ -83,6 +84,17 @@ function mergeMaps(kanto, authored) {
                    : pontoSeco(geo),
     };
   }
+  // ACAMPAR: cada cidade tem a sua loja, e todas vendiam só bola e poção. Em vez
+  // de escrever a lista de ingredientes em cada uma (oito lugares pra esquecer
+  // um), o estoque de acampamento é grudado em QUALQUER balconista do jogo.
+  for (const mapa of Object.values(out)) {
+    for (const npc of mapa.npcs || []) {
+      if (!npc.shop) continue;
+      const tem = new Set(npc.shop.map((x) => x.item));
+      npc.shop = [...npc.shop, ...acamp.ESTOQUE.filter((x) => !tem.has(x.item))];
+    }
+  }
+
   for (const [id, m] of Object.entries(authored)) {
     const base = out[id] || {};
     const npcs = m.npcs || [...(base.npcs || []), ...(m.addNpcs || [])];

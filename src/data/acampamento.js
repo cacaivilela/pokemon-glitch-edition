@@ -35,6 +35,16 @@ export const INGREDIENTES = {
 /** A barraca. Sem ela não dá pra acampar; compra-se uma vez. */
 export const BARRACA = { item: "barraca", preco: 1200 };
 
+/** O que TODA loja passa a vender: a barraca e os ingredientes, com o preço que
+ *  está aqui em cima. É montado da própria tabela, então ingrediente novo entra
+ *  na prateleira sozinho — e entra em TODAS as lojas, porque cada cidade tem a
+ *  sua (`pewter_city_mart`, `cerulean_city_mart`...) e escrever a lista oito
+ *  vezes é escrever sete erros. Quem espalha é src/data/index.js. */
+export const ESTOQUE = [
+  { item: BARRACA.item, price: BARRACA.preco },
+  ...Object.entries(INGREDIENTES).map(([item, i]) => ({ item, price: i.preco })),
+];
+
 /** O que cada sabor vira, e o que aquilo faz.
  *
  *  Duração em MINUTOS de relógio, igual ao ciclo de dia e noite: contar passos

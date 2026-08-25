@@ -634,7 +634,7 @@ Os sprites das espécies de fora vêm com `python3 tools/fetch_sprites.py --extr
 
 ## Acampar
 
-Com uma **BARRACA** na mochila (vende na LOJA POKÉMON, 1200) e chão de fora,
+Com uma **BARRACA** na mochila (1200, em **qualquer** loja do jogo) e chão de fora,
 aparece **ACAMPAR** no menu do mapa. A barraca sobe, a equipe inteira sai da
 bola e fica em volta da fogueira — e o céu do acampamento é o mesmo lá de fora,
 então acampar de noite é acampar de noite.
@@ -691,6 +691,13 @@ de novo **troca** o de antes — não empilha.
 **BRINCAR** — o jogo da bola: espere o **JÁ!** e aperte. Apertar antes conta
 como erro. Três rodadas, e todo mundo ganha experiência pelo que você acertou —
 pouca, mas sem apanhar de ninguém.
+
+**Toda loja vende.** Cada cidade tem o seu mercado (`pewter_city_mart`,
+`cerulean_city_mart`...) e cada um tinha a própria lista, com bola e poção. Em
+vez de escrever os dezessete itens em oito lugares — oito lugares pra esquecer um
+—, o estoque de acampamento é montado da tabela e **grudado em qualquer
+balconista do jogo** (`src/data/index.js`). Ingrediente novo entra na prateleira
+de todas as lojas sozinho.
 
 **DESCANSAR** — cura a equipe inteira. É o Centro Pokémon que você carrega, e é
 por isso que a barraca custa caro.

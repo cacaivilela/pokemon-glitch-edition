@@ -83,9 +83,19 @@ try {
   teste("o salgado cura na hora", salgado.efeito === "cura" && curou.curou);
   teste("e cura de verdade: HP cheio, sem status, PP de volta",
         bicho.hp === bicho.maxHp && !bicho.status && bicho.moves[0].pp === 35);
-  teste("a barraca está na loja", !!DB.MAPS.mart.npcs.find((n) => n.shop?.some((x) => x.item === "barraca")));
-  teste("todo ingrediente da tabela está à venda",
-        Object.keys(INGREDIENTES).every((i) => DB.MAPS.mart.npcs.some((n) => n.shop?.some((x) => x.item === i))));
+  // TODA loja tem que vender: cada cidade tem a sua, e foi assim que PEWTER
+  // ficou vendendo só bola e poção depois de a barraca "entrar na loja"
+  const lojas = Object.entries(DB.MAPS)
+    .flatMap(([id, m]) => (m.npcs || []).filter((n) => n.shop).map((n) => [id, n]));
+  p(`lojas no jogo: ${lojas.map(([id]) => id).join(", ")}`);
+  const semBarraca = lojas.filter(([, n]) => !n.shop.some((x) => x.item === "barraca"));
+  teste(`a barraca está em TODAS as ${lojas.length} lojas`
+        + (semBarraca.length ? ` — faltou em ${semBarraca.map(([id]) => id).join(", ")}` : ""),
+        lojas.length > 1 && !semBarraca.length);
+  const semTudo = lojas.filter(([, n]) =>
+    Object.keys(INGREDIENTES).some((i) => !n.shop.some((x) => x.item === i)));
+  teste("e todo ingrediente também", !semTudo.length);
+
 
   h("A TELA");
   await new Promise((pronto) => {
