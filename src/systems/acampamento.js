@@ -3,7 +3,7 @@
 // e as tabelas estão em src/data/acampamento.js.
 import { DB } from "../data/index.js";
 import { heal } from "./mon.js";
-import { INGREDIENTES, BARRACA, SABORES, COMBOS, MISTO, MISTURA, ESTRELAS, FORCA } from "../data/acampamento.js";
+import { INGREDIENTES, BARRACA, SABORES, COMBOS, MISTO, MISTURA, ESTRELAS, FORCA, PISO } from "../data/acampamento.js";
 
 /** Dá pra montar barraca aqui? Precisa da barraca na mochila e de chão de fora:
  *  dentro de casa não cabe, e dentro da fenda o chão não é chão. */
@@ -138,7 +138,12 @@ export function fator(st, efeito) {
   const achado = lista.find((e) => e.efeito === efeito);
   if (!achado) return 1;
   if (efeito === "fuga" || efeito === "sorte") return achado.forca;   // multiplicam
-  if (efeito === "defesa" || efeito === "calmaria") return 1 - achado.forca;  // diminuem
+  // Os que DIMINUEM levam piso. Sem ele, o REFRESCANTE no PERFEITO dava força
+  // 1.0 e o fator zerava: quinze minutos sem UM encontro na grama — não é
+  // "mato calmo", é o mato desligado. Piso alto o bastante pra continuar
+  // valendo a pena e baixo o bastante pra não virar item de desligar o jogo.
+  if (efeito === "calmaria") return Math.max(PISO.calmaria, 1 - achado.forca);
+  if (efeito === "defesa") return Math.max(PISO.defesa, 1 - achado.forca);
   return 1 + achado.forca;                                           // somam por cima
 }
 

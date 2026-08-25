@@ -659,8 +659,8 @@ combina com todos:
 | picante | pimenta, wasabi | +15% de dano seu, 15 min |
 | azedo | limão, picles | fugir fica bem mais fácil, 20 min |
 | amargo | café, jiló | 3x mais chance de shiny na grama, 15 min |
-| umami | cogumelo, azeitona | -15% no dano que você toma, 15 min |
-| fresco | hortelã | metade dos encontros na grama, 15 min |
+| umami | cogumelo, azeitona | -15% no dano que você toma (piso -40%), 15 min |
+| fresco | hortelã | metade dos encontros na grama (piso -65%), 15 min |
 
 **E dois sabores empatados viram um sabor só.** Um morango e um presunto na
 mesma tábua dão o **SANDUÍCHE AGRIDOCE** — salgado e doce na mesma mordida —, e
@@ -670,6 +670,18 @@ não é comer o dobro; e o prazo é o do mais curto. Dez pares têm nome escrito
 (CÍTRICO, DOCE-ARDIDO, FORTE, BRAVO, CAFÉ COM AÇÚCAR, ESCURO, SUBSTANCIOSO, DE
 VERÃO, VERDE); qualquer outro par funciona igual e sai como SANDUÍCHE MISTO.
 Três sabores empatados aí sim não viram nada: a tábua não sabe decidir.
+
+O par que parece burro é o melhor da lista: **amargo + fresco** (SANDUÍCHE DA
+MADRUGADA) junta "metade dos encontros" com "3x mais shiny", e à primeira vista
+um desfaz o outro. Não desfaz — eles multiplicam em coisas diferentes: a calmaria
+mexe em **aparecer bicho**, a sorte mexe em **o bicho que apareceu ser shiny**. No
+PERFEITO dá encontro x0,35 e shiny x4,2, ou seja **1,47 shiny por passo andado**,
+com dois terços a menos de interrupção. É o sanduíche do caçador de shiny.
+
+Os efeitos que DIMINUEM têm piso (`PISO`, em `src/data/acampamento.js`): sem
+ele, o REFRESCANTE no PERFEITO zerava a chance de encontro — quinze minutos sem
+um bicho na grama não é mato calmo, é o mato desligado, e um item que desliga
+parte do jogo não é um prêmio.
 
 O efeito **vale de verdade**, não é texto: entra no cálculo de XP da batalha, no
 dano dos seus golpes, na conta de fuga e no sorteio de shiny do mato. Ele vence

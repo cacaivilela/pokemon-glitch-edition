@@ -38,6 +38,18 @@ try {
   const soDoce = A.cozinhar(["morango", "mel"], 1);
   teste("no par, cada efeito vale menos que sozinho",
         agri.efeitos.find((e) => e.efeito === "xp").forca < soDoce.forca);
+  const madrugada = A.cozinhar(["café", "hortelã"], 1);
+  const comMad = { items: {}, party: [], buff: null };
+  A.comer(comMad, madrugada, []);
+  const encontros = A.fator(comMad, "calmaria"), shiny = A.fator(comMad, "sorte");
+  p(`madrugada: ${madrugada.nome} — encontro x${encontros.toFixed(2)}, shiny x${shiny.toFixed(2)}`
+    + ` = shiny por passo x${(encontros * shiny).toFixed(2)}`);
+  teste("amargo+fresco tem nome e rende shiny por passo", madrugada.nome === "SANDUÍCHE DA MADRUGADA"
+        && encontros * shiny > 1);
+  const soFresco = { items: {}, party: [] };
+  A.comer(soFresco, A.cozinhar(["hortelã", "hortelã"], 1), []);
+  teste("o fresco PERFEITO não desliga o mato", A.fator(soFresco, "calmaria") >= 0.3);
+
   const semNome = A.cozinhar(["cogumelo", "picles"], 1);
   teste("par sem nome ainda funciona (vira MISTO)",
         semNome.nome === "SANDUÍCHE MISTO" && semNome.efeitos.length === 2);

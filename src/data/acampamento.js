@@ -117,6 +117,7 @@ export const COMBOS = {
   "amargo+salgado": { nome: "SANDUÍCHE ESCURO", texto: "GOSTO DE COISA QUE SÓ APARECE DE MADRUGADA." },
   "salgado+umami": { nome: "SANDUÍCHE SUBSTANCIOSO", texto: "ISSO NÃO É LANCHE, É ALMOÇO." },
   "doce+fresco": { nome: "SANDUÍCHE DE VERÃO", texto: "DOCE E GELADO. DÁ VONTADE DE ANDAR." },
+  "amargo+fresco": { nome: "SANDUÍCHE DA MADRUGADA", texto: "MENOS BICHO NO CAMINHO, E O QUE APARECE VEM ESTRANHO." },
   "fresco+umami": { nome: "SANDUÍCHE VERDE", texto: "LEVE E FIRME AO MESMO TEMPO." },
 };
 
@@ -142,6 +143,14 @@ export const FORCA = {
   sorte: 3,         // multiplica a chance de shiny
   defesa: 0.15,     // -15% no dano que você toma
   calmaria: 0.5,    // metade dos encontros na grama
+};
+
+/** O PISO dos efeitos que diminuem. Sem ele o REFRESCANTE no PERFEITO zerava a
+ *  chance de encontro: quinze minutos sem um bicho na grama não é mato calmo, é
+ *  o mato desligado — e um item que desliga parte do jogo não é um prêmio. */
+export const PISO = {
+  calmaria: 0.35,   // no máximo 65% a menos de encontro
+  defesa: 0.6,      // no máximo 40% a menos de dano tomado
 };
 
 /** Os dois minijogos do acampamento. */
