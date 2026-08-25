@@ -26,6 +26,8 @@ import { estado as estadoMissao, progresso, aceitar, entregar, diario, feitas, m
 import { estaNaHora, marcarFeita, fracas, apagarDoCodigo } from "../systems/faxina.js";
 import { veu, temCeu, agora as horaDoMundo } from "../systems/ciclo.js";
 import { escuridaoDoLugar, ehCaverna, acesa, camadaDeLuz, brilho, RAIO } from "../systems/lanterna.js";
+import { AcampamentoScene } from "./acampamento.js";
+import { podeAcampar, fator, buff, minutosDoBuff } from "../systems/acampamento.js";
 import { rivalNpc } from "../systems/rival.js";
 import { ehFusao, fundivel, previsao, partes, temFicha, fichasProntas, variantes,
          buscarDoMundo, especiePorTexto, montarEspecie, servidorMundo,
@@ -612,7 +614,8 @@ export class OverworldScene {
       const enc = p.map === "glitchdim"
         ? rollDimEncounter(this.geo.terrain?.[p.y * this.geo.w + p.x] === "a" ? "ar"
             : this.geo.terrain?.[p.y * this.geo.w + p.x] === "g" ? "agua" : "terra", this.st)
-        : rollEncounter(p.map, this.st.corruption, !!this.st.flags.glitchWorld);
+        : rollEncounter(p.map, this.st.corruption, !!this.st.flags.glitchWorld,
+                        fator(this.st, "sorte"));
       if (enc) return this.startBattle(enc);
     }
     this.checkTrainerSight();
@@ -2296,6 +2299,9 @@ export class OverworldScene {
   /** itens do menu principal: VOAR entra quando alguém da equipe sabe voar */
   itensMenu() {
     const base = ["POKÉMON", "BOX", "MOCHILA", "INSÍGNIAS"];
+    // ACAMPAR só aparece quando dá: com barraca na mochila e chão de fora. Menu
+    // que oferece o que não funciona é menu que mente.
+    if (podeAcampar(this.st, this.map).ok) base.push("ACAMPAR");
     if (diario(this.st).length) base.push(DB.MISSAO_TEXTO.titulo);   // só depois do primeiro pedido
     base.push(DB.STORY.fusao.atualizar);   // baixa as fusões publicadas no mundo
     if (this.quemSabe("voar")) base.push("VOAR");
@@ -2400,6 +2406,10 @@ export class OverworldScene {
         Audio2.select();
         const pick = items[m.index];
         if (pick === "VOAR") { this.menu = null; return void this.abrirVoo(); }
+        if (pick === "ACAMPAR") {
+          this.menu = null;
+          return void this.game.scenes.push(new AcampamentoScene());
+        }
         if (pick === "ONLINE") { this.menu = null; return void this.game.scenes.push(new OnlineMenuScene()); }
         if (pick === "POKÉMON") this.menu = { type: "party", index: 0 };
         else if (pick === "BOX") this.menu = { type: "box", lado: "box", index: 0, top: 0 };
@@ -2808,6 +2818,14 @@ export class OverworldScene {
     if (this.st.player.map !== "glitchdim") this.drawEscuro(ctx, cx, cy);
     // com o céu aberto o mapa não aparece: o desenho é opaco e cobre tudo
     if (this.olhando) this.drawCeu(ctx);
+
+    // o efeito do sanduíche, enquanto vale: sem isto ele seria um texto que
+    // aconteceu uma vez e nunca mais se soube
+    const b = buff(this.st);
+    if (b?.hud) {
+      panel(ctx, 4, 4, 58, 18);
+      drawText(ctx, `${b.hud} ${Math.ceil(minutosDoBuff(this.st))}M`, 9, 9, PAL.ink);
+    }
 
     const left = this.st.mission?.left;
     if (left > 0 && this.st.player.map === "glitchdim") {

@@ -46,7 +46,8 @@ export function rollFlores(min = 5, max = 12) {
   return { mon: createMon("missingno", randRange(min, max), { corrupt: true }), glitch: true };
 }
 
-export function rollEncounter(mapId, corruption = 0, glitchOn = false) {
+/** `sorte` vem do SANDUÍCHE AMARGO do acampamento: multiplica a chance de shiny. */
+export function rollEncounter(mapId, corruption = 0, glitchOn = false, sorte = 1) {
   const map = DB.MAPS[mapId];
   const table = map?.encounters || [];
   if (!table.length) return null;
@@ -54,7 +55,7 @@ export function rollEncounter(mapId, corruption = 0, glitchOn = false) {
   // MISSINGNO. só existe com o modo glitch ligado (src/data/config.js)
   const on = glitchOn || DB.CONFIG?.glitchMode;
   const glitchChance = !on || corruption < 25 ? 0 : Math.min(0.35, (corruption - 25) / 200);
-  const shiny = chance(DB.CONFIG?.shinyOdds ?? 0);   // shiny solto pela grama
+  const shiny = chance((DB.CONFIG?.shinyOdds ?? 0) * sorte);   // shiny solto pela grama
   if (chance(glitchChance)) {
     const lvl = randRange(5, 12);
     return { mon: createMon("missingno", lvl, { corrupt: true, shiny }), glitch: true };

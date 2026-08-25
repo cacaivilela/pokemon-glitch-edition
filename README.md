@@ -51,6 +51,7 @@ qualquer PNG colocado à mão nas pastas de `assets/sprites/` é usado no lugar.
 | X / Esc | B (voltar, abrir o menu no mapa) |
 | Shift | correr |
 | O | olhar pro céu (o mapa some e vira a hora do mundo) |
+| X → ACAMPAR | monta a barraca: sanduíche, minijogo e descanso |
 | F | HUD de debug (FPS, coordenadas) |
 | C | na batalha: arma a MEGA EVOLUÇÃO |
 | M | mudo |
@@ -631,6 +632,52 @@ A fenda tem conteúdo que não existe em Kanto:
 
 Os sprites das espécies de fora vêm com `python3 tools/fetch_sprites.py --extra`.
 
+## Acampar
+
+Com uma **BARRACA** na mochila (vende na LOJA POKÉMON, 1200) e chão de fora,
+aparece **ACAMPAR** no menu do mapa. A barraca sobe, a equipe inteira sai da
+bola e fica em volta da fogueira — e o céu do acampamento é o mesmo lá de fora,
+então acampar de noite é acampar de noite.
+
+Três coisas pra fazer:
+
+**COZINHAR** — escolha até três ingredientes da mochila (Z põe na tábua, C
+acende o fogo) e mexa a panela: uma barra vai e vem, e você tem que parar ela
+dentro do alvo **três vezes**, cada uma mais rápida que a anterior. O quanto
+você acertou vira estrela — de QUEIMADO a PERFEITO —, e a estrela multiplica o
+efeito.
+
+**O sanduíche sai do SABOR, não da receita.** Cada ingrediente tem um sabor, e
+manda o que aparecer mais (empate não vira sabor nenhum: sanduíche não sabe
+negociar). Com 8 ingredientes escolhendo 3 seriam 56 receitas pra escrever e
+manter; assim, ingrediente novo entra com uma linha e já combina com todos:
+
+| sabor | sanduíche | o que faz |
+|---|---|---|
+| doce (morango, mel) | DOCE | +50% de experiência, 20 min |
+| salgado (presunto, queijo) | SALGADO | cura a equipe inteira, na hora |
+| picante (pimenta) | PICANTE | +15% de dano seu, 15 min |
+| azedo (limão) | AZEDO | fugir fica bem mais fácil, 20 min |
+| amargo (café) | AMARGO | 3x mais chance de shiny na grama, 15 min |
+
+O efeito **vale de verdade**, não é texto: entra no cálculo de XP da batalha, no
+dano dos seus golpes, na conta de fuga e no sorteio de shiny do mato. Ele vence
+sozinho pelo relógio, aparece num selo no canto da tela enquanto dura, e comer
+de novo **troca** o de antes — não empilha.
+
+**BRINCAR** — o jogo da bola: espere o **JÁ!** e aperte. Apertar antes conta
+como erro. Três rodadas, e todo mundo ganha experiência pelo que você acertou —
+pouca, mas sem apanhar de ninguém.
+
+**DESCANSAR** — cura a equipe inteira. É o Centro Pokémon que você carrega, e é
+por isso que a barraca custa caro.
+
+`dev/acampacheck.html` testa as duas metades: as **regras** rodam soltas, sem
+jogo nenhum (sabor, empate, estrela, o efeito indo pro save e vencendo sozinho,
+a cura devolvendo HP, status e PP), e a **tela** é aberta no jogo de verdade —
+ele põe uma barraca na mochila, abre o menu, anda até ACAMPAR e confere que a
+cena subiu com a equipe fora da bola.
+
 ## Dia e noite
 
 O mundo troca de fase a cada **15 minutos**, e os **últimos 5 minutos** de cada
@@ -1132,6 +1179,7 @@ tools/                 fetch_sprites / fetch_overworld / fetch_trainers / fetch_
 dev/smoke.html         teste headless com roteiro de teclas
 dev/cutscenecheck.html roda a cutscene de todos os golpes num palco de mentira
 dev/ciclocheck.html    anda com o relógio e confere a virada do dia e da noite
+dev/acampacheck.html   as regras do acampamento soltas + a cena aberta no jogo
 giveglitch/            versão web do mesmo terminal (fora do jogo)
 faxinamissingno/       a FAXINA MISSINGNO.: o acervo medido, com a senha pra jogar fora
 save/save.json         o save (um por máquina; fora do git)

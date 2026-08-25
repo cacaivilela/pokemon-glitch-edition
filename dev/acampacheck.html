@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>checagem do acampamento</title>
+<style>body{background:#111;color:#9fd;font:13px/1.45 ui-monospace,monospace;margin:0;padding:8px}
+.erro{color:#f66}.ok{color:#7f7}h2{color:#b455ff;font-size:13px;margin:10px 0 2px}
+iframe{width:740px;height:560px;border:0}</style></head>
+<body>
+<div id="out">rodando...</div>
+<iframe id="fr" src=""></iframe>
+<img id="hold" alt="" width="1" height="1">
+<script type="module">
+// Duas metades: as REGRAS (sabor, estrela, efeito, validade) rodam soltas, sem
+// jogo nenhum; e a TELA, que é aberta no jogo de verdade com barraca na mochila.
+const out = document.getElementById("out"), fr = document.getElementById("fr");
+const linhas = [], errs = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+const teste = (nome, ok) => { p(`${ok ? "ok  " : "NÃO "} ${nome}`, ok ? "ok" : "erro"); if (!ok) errs.push(nome); };
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+
+try {
+  const { DB } = await import("/src/data/index.js");
+  const A = await import("/src/systems/acampamento.js");
+  const { INGREDIENTES } = await import("/src/data/acampamento.js");
+
+  h("AS REGRAS");
+  teste("dois doces + um salgado dá DOCE", A.saborDe(["morango", "mel", "presunto"]) === "doce");
+  teste("empate não vira sabor", A.saborDe(["morango", "presunto"]) === "nenhum");
+  teste("só pão não vira sabor", A.saborDe(["pão"]) === "nenhum");
+  const perfeito = A.cozinhar(["pimenta", "pimenta", "pão"], 1);
+  const queimado = A.cozinhar(["pimenta", "pimenta", "pão"], 0);
+  p(`picante perfeito: ${perfeito.nome} (${perfeito.estrela.nome}) força ${perfeito.forca.toFixed(2)}`);
+  p(`picante queimado: ${queimado.nome} (${queimado.estrela.nome}) força ${queimado.forca.toFixed(2)}`);
+  teste("acertar a panela vale mais que errar", perfeito.forca > queimado.forca * 2);
+
+  // um save de mentira, pra não encostar no de verdade
+  // um Pokémon de mentira, mas COMPLETO: heal() devolve PP também, então sem
+  // `moves` o teste quebra por culpa do boneco, não do jogo
+  const bicho = { hp: 1, maxHp: 20, species: "pikachu", level: 5, status: "envenenado",
+                  ivs: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 }, moves: [{ id: "investida", pp: 1, ppMax: 35 }] };
+  const falso = { items: { pimenta: 2, "pão": 1 }, party: [bicho] };
+  A.comer(falso, perfeito, ["pimenta", "pimenta", "pão"]);
+  teste("comer gasta os ingredientes", !falso.items.pimenta && !falso.items["pão"]);
+  teste("o efeito fica no save", falso.buff?.efeito === "ataque");
+  teste("e o fator sobe", A.fator(falso, "ataque") > 1 && A.fator(falso, "xp") === 1);
+  falso.buff.ate = Date.now() - 1;
+  teste("vencido, o efeito some sozinho", A.fator(falso, "ataque") === 1 && !falso.buff);
+
+  const salgado = A.cozinhar(["presunto", "queijo"], 0.9);
+  const curou = A.comer({ items: {}, party: falso.party }, salgado, []);
+  teste("o salgado cura na hora", salgado.efeito === "cura" && curou.curou);
+  teste("e cura de verdade: HP cheio, sem status, PP de volta",
+        bicho.hp === bicho.maxHp && !bicho.status && bicho.moves[0].pp === 35);
+  teste("a barraca está na loja", !!DB.MAPS.mart.npcs.find((n) => n.shop?.some((x) => x.item === "barraca")));
+  teste("todo ingrediente da tabela está à venda",
+        Object.keys(INGREDIENTES).every((i) => DB.MAPS.mart.npcs.some((n) => n.shop?.some((x) => x.item === i))));
+
+  h("A TELA");
+  await new Promise((pronto) => {
+    fr.addEventListener("load", async () => {
+      const w = fr.contentWindow;
+      w.addEventListener("error", (e) => errs.push("JOGO: " + e.message));
+      await espera(2600);
+      const cena = () => w.game?.scenes?.top;
+      w.game.state.items.barraca = 1;
+      w.game.state.items["morango"] = 2;
+      w.game.state.items["mel"] = 1;
+      const aperta = (code) => {
+        w.dispatchEvent(new KeyboardEvent("keydown", { code, bubbles: true }));
+        setTimeout(() => w.dispatchEvent(new KeyboardEvent("keyup", { code, bubbles: true })), 60);
+      };
+      aperta("KeyZ"); await espera(350);
+      aperta("KeyX"); await espera(400);                  // abre o menu
+      const itens = cena()?.itensMenu?.() || [];
+      p(`menu do mapa: ${itens.join(", ")}`);
+      teste("ACAMPAR aparece com barraca na mochila", itens.includes("ACAMPAR"));
+      for (let i = 0; i < itens.indexOf("ACAMPAR"); i++) { aperta("ArrowDown"); await espera(120); }
+      aperta("KeyZ"); await espera(600);                  // escolhe ACAMPAR
+      const nome = cena()?.constructor?.name;
+      p(`cena agora: ${nome}`);
+      teste("a cena do acampamento abriu", nome === "AcampamentoScene");
+      teste("a equipe saiu da bola", (cena()?.lugares?.length || 0) === w.game.state.party.length);
+      pronto();
+    });
+    fr.src = "/?map=route1";
+  });
+
+  h("RESULTADO");
+  p(errs.length ? errs.join(" | ") : "acampamento inteiro de pé", errs.length ? "erro" : "ok");
+  const cv = fr.contentDocument.getElementById("screen");
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({
+    name: "acampacheck", dataUrl: cv ? cv.toDataURL() : "",
+    log: linhas.join("\n").replace(/<[^>]+>/g, "") }) });
+} catch (e) {
+  p("QUEBROU: " + (e && e.stack || e), "erro");
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({
+    name: "acampacheck", log: linhas.join("\n").replace(/<[^>]+>/g, "") + "\nQUEBROU: " + (e && e.stack || e) }) }).catch(()=>{});
+}
+out.innerHTML = linhas.join("");
+</script>
+</body></html>

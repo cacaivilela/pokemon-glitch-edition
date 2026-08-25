@@ -478,6 +478,29 @@ export const STORY = {
     olha: "A FITA ESTÁ PARADA NO MEIO DE UMA PALAVRA QUE NÃO É NOME DE NINGUÉM.",
   },
 
+  /** ACAMPAR (menu do mapa). A barraca, a panela e a bola. */
+  acampamento: {
+    montou: ["A BARRACA ESTÁ DE PÉ. TODO MUNDO SAIU DA BOLA."],
+    naoPode: {
+      semBarraca: "VOCÊ NÃO TEM UMA BARRACA. VENDEM NA LOJA POKÉMON.",
+      dentro: "AQUI DENTRO NÃO CABE UMA BARRACA.",
+      fenda: "MONTAR BARRACA AQUI? O CHÃO NEM É CHÃO.",
+      semEquipe: "SEM NINGUÉM NA EQUIPE, ACAMPAR É SÓ DORMIR NO MATO.",
+    },
+    tabua: "O QUE VAI NO PÃO?",
+    ajuda1: "Z PÕE NA TÁBUA",
+    ajuda2: "C ACENDE O FOGO",
+    semIngrediente: "NÃO TEM NADA PRA PÔR NO PÃO. A LOJA VENDE INGREDIENTE.",
+    saiu: "SAIU UM {NOME} — {ESTRELA}!",
+    valePor: "O EFEITO VALE POR {MIN} MINUTOS.",
+    curou: "A EQUIPE INTEIRA ENCHEU A BARRIGA E VOLTOU AO NORMAL.",
+    espere: "ESPERE O JÁ!",
+    ja: "JÁ! APERTA!",
+    bolaFim: "{N} DE 3. TODO MUNDO GANHOU {XP} DE EXPERIÊNCIA.",
+    subiu: "{NOMES} SUBIU DE NÍVEL BRINCANDO!",
+    descansou: "OS {N} DA EQUIPE DORMIRAM UM POUCO E ACORDARAM INTEIROS.",
+  },
+
   /** OLHAR PRO CÉU (tecla O). O que se vê depende da hora do mundo
    *  (src/systems/ciclo.js) — e de ter céu pra ver. */
   ceu: {

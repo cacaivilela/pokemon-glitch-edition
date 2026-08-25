@@ -388,10 +388,21 @@ export const MAPS = {
     npcs: [
       {
         id: "balconista", x: 2, y: 3, dir: "down", sprite: "balconista",
-        lines: ["OI! BEM-VINDO À LOJA POKÉMON.", "CHEGARAM PEDRAS DE EVOLUÇÃO. CARAS, MAS VALEM CADA MOEDA."],
+        lines: ["OI! BEM-VINDO À LOJA POKÉMON.", "CHEGARAM PEDRAS DE EVOLUÇÃO. CARAS, MAS VALEM CADA MOEDA.", "E TEM BARRACA! DÁ PRA ACAMPAR E FAZER UM SANDUÍCHE NO CAMINHO."],
         shop: [
           { item: "poké bola", price: 200 },
           { item: "poção", price: 300 },
+          // acampar: a barraca (uma vez) e o que vai no pão (ver
+          // src/data/acampamento.js — o SABOR é o que decide o sanduíche)
+          { item: "barraca", price: 1200 },
+          { item: "pão", price: 60 },
+          { item: "morango", price: 180 },
+          { item: "mel", price: 240 },
+          { item: "presunto", price: 200 },
+          { item: "queijo", price: 220 },
+          { item: "pimenta", price: 260 },
+          { item: "limão", price: 150 },
+          { item: "café", price: 300 },
           // as cinco pedras de evolução (ver src/data/evolution.js)
           { item: "pedra do fogo", price: 2100 },
           { item: "pedra da água", price: 2100 },

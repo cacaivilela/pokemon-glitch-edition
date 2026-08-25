@@ -10,6 +10,7 @@ import { Dialogue } from "../systems/dialogue.js";
 import { Glitch } from "../systems/glitchfx.js";
 import { cenaDoGolpe } from "../systems/cutscenes.js";
 import { veu, temCeu } from "../systems/ciclo.js";
+import { fator } from "../systems/acampamento.js";
 import { hpPct, isFainted, gainXp, xpYieldFor, xpForLevel, heal, createMon } from "../systems/mon.js";
 import {
   calcDamage, accuracyCheck, applyMoveEffects, statusTickDamage, effText,
@@ -268,7 +269,9 @@ export class BattleScene {
         this.shake = 0.25;
         this.sp[who === "p" ? "f" : "p"].blink = 0.45;
       }
-      target.hp = Math.max(0, target.hp - res.dmg);
+      // o SANDUÍCHE PICANTE bate mais forte — e só do seu lado da tela
+      const dano = who === "p" ? Math.max(1, Math.round(res.dmg * fator(this.st, "ataque"))) : res.dmg;
+      target.hp = Math.max(0, target.hp - dano);
       await this.syncHp();
       if (res.mirror) {
         Glitch.hit(1.5);
@@ -280,7 +283,7 @@ export class BattleScene {
       const et = effText(res.eff);
       if (et) await this.say(et);
       if (mv.recoil) {
-        const rec = Math.max(1, Math.floor(res.dmg * mv.recoil));
+        const rec = Math.max(1, Math.floor(dano * mv.recoil));
         user.hp = Math.max(0, user.hp - rec);
         await this.syncHp();
         await this.say(`${user.nickname} SOFREU O RECUO!`);
@@ -331,7 +334,8 @@ export class BattleScene {
     await this.wait(0.7);
     await this.say(`${this.trainer ? "O " + this.foe.nickname + " INIMIGO" : this.foe.nickname + " SELVAGEM"} DESMAIOU!`);
 
-    const xp = Math.floor(xpYieldFor(this.foe) * (this.trainer ? 1.5 : 1));
+    // o SANDUÍCHE DOCE do acampamento entra aqui, multiplicando o que se aprende
+    const xp = Math.floor(xpYieldFor(this.foe) * (this.trainer ? 1.5 : 1) * fator(this.st, "xp"));
     const share = DB.CONFIG?.shareXp !== false;
     // desmaiado não ganha experiência (senão ele subiria de nível dentro da bola)
     const winners = (share ? this.st.party : [this.mine]).filter((m) => !isFainted(m));
@@ -510,7 +514,8 @@ export class BattleScene {
       await this.checkFaints();
       return;
     }
-    if (canFlee(this.mine, this.foe, this.fleeTries)) {
+    // o SANDUÍCHE AZEDO conta como tentativas a mais: sair fica mais fácil
+    if (canFlee(this.mine, this.foe, this.fleeTries * fator(this.st, "fuga"))) {
       await this.say("VOCÊ FUGIU EM SEGURANÇA!");
       await this.finish();
     } else {
