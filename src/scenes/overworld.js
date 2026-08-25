@@ -659,13 +659,20 @@ export class OverworldScene {
    *  ele rola em qualquer passo dado do lado de fora e nasce em chão andável —
    *  nunca no mato, que é onde o jogo já tem outra coisa acontecendo.
    *
-   *  Só depois que o mundo quebra (`glitchWorld`): antes disso a fenda não
-   *  vazou pra lugar nenhum, e um buraco no chão de Kanto limpa não é um susto,
-   *  é um bug. Um por vez, nunca dentro de casa e nunca dentro da própria
-   *  fenda — lá não faz sentido rasgar o que já é rasgo. */
+   *  Só depois que A FENDA FOI ABERTA pelo menos uma vez (`dimUnlocked`, que a
+   *  máquina do laboratório liga na primeira viagem). Antes disso não existe de
+   *  onde vazar, e um buraco no chão de Kanto limpa não é um susto, é um bug.
+   *
+   *  ISTO JÁ FOI `glitchWorld`, E ERA ERRADO: aquela flag só acende no finale,
+   *  depois das oito insígnias, então a raid inteira ficava trancada atrás do
+   *  jogo terminado. Uma coisa que se acha andando não pode estrear no último
+   *  capítulo — quem chegou lá já não precisa dela.
+   *
+   *  Um por vez, nunca dentro de casa e nunca dentro da própria fenda — lá não
+   *  faz sentido rasgar o que já é rasgo. */
   talvezRasgar() {
     const st = this.st;
-    if (!st.flags?.glitchWorld) return;
+    if (!st.flags?.dimUnlocked && !st.flags?.glitchWorld) return;
     if (st.player.map === "glitchdim" || this.map?.interior) return;
     if (portalAberto(st, st.player.map)) return;
     if (!temPortal(st, st.player.map)) return;

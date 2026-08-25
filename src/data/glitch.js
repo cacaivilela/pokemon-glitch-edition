@@ -67,8 +67,8 @@ export const RAID = {
 
 /** O RASGO: por onde a raid chega. */
 export const PORTAL = {
-  /** Chance de abrir a cada passo dado do lado de fora, com o mundo já
-    *  quebrado. Vale em QUALQUER passo, não só no mato: quando ela só valia na
+  /** Chance de abrir a cada passo dado do lado de fora, depois que a fenda foi
+    *  aberta uma vez. Vale em QUALQUER passo, não só no mato: quando ela só valia na
     *  grama, o número tinha que ser alto pra compensar os passos que não
     *  contavam. Agora todo passo conta e 2% dá um rasgo a cada cinquenta —
     *  raro, mas não ausente, que é a diferença que importa. */

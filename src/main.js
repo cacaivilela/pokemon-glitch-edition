@@ -323,7 +323,7 @@ if (q.has("map") || q.has("battle")) {
   if (q.get("pokedex")) game.state.flags.pokedexMsg = true;
   if (q.get("visor")) game.state.items[DB.STORY.detector.item] = 1;
   if (q.get("rasgo")) {   // ?rasgo=1 -> um rasgo já aberto do seu lado, pra testar a raid
-    game.state.flags.glitchWorld = true;
+    game.state.flags.dimUnlocked = true;
     game.state.corruption = Math.max(game.state.corruption, 60);
     Glitch.forced = true;
     const g = DB.KANTO[game.state.player.map];
