@@ -2,7 +2,6 @@
 import { DB } from "../data/index.js";
 import { createMon } from "./mon.js";
 import { garantirEspecie } from "./fusao.js";
-import { temRaid, montarChefe } from "./raid.js";
 import { randRange, chance } from "../core/rng.js";
 
 export const ENCOUNTER_RATE = 0.11; // fallback; o valor real vem de DB.CONFIG.encounterRate
@@ -14,12 +13,11 @@ export function rollDimEncounter(terrain, state) {
   const table = DB.DIM_ENCOUNTERS?.[terrain] || DB.DIM_ENCOUNTERS?.terra || [];
   if (!table.length) return null;
 
-  // GLITCH RAID: de vez em quando a fenda não devolve um bicho, devolve um
-  // chefe. Vem antes de tudo porque ele não obedece tabela nem terreno.
-  if (temRaid()) {
-    const chefe = montarChefe(table);
-    if (chefe) return { mon: chefe.mon, glitch: true, raid: chefe };
-  }
+  // A GLITCH RAID SAIU DAQUI. Ela era um encontro raro no meio desta tabela, e
+  // aqui dentro ninguém entra por acaso: quem chegava já tinha visto tudo, e o
+  // chefe virava mais um bicho da lista. Agora ela chega por um RASGO na grama
+  // de Kanto (ver src/systems/raid.js) — a fenda deixou de ser um lugar aonde
+  // você vai e virou uma coisa que vaza pra cá.
 
   state.dimSeen = (state.dimSeen || 0) + 1;
   const shiny = state.dimSeen % (DB.SHINY_EVERY || 2956) === 0;

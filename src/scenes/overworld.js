@@ -20,6 +20,8 @@ import {
   heal, hpPct, gainXp, xpForLevel, createMon, evolutionFor, learnableMoves,
 } from "../systems/mon.js";
 import { scatterDimLoot } from "../systems/loot.js";
+import { montarChefe, temPortal, abrirPortal, portalAberto, fecharPortal, corrupcaoDoPortal, pertoDoPortal }
+  from "../systems/raid.js";
 import { pedrasIniciaisDevidas } from "../systems/mega.js";
 import { estado as estadoMissao, progresso, aceitar, entregar, diario, feitas, missaoPorId, daVez }
   from "../systems/missoes.js";
@@ -349,6 +351,8 @@ export class OverworldScene {
         extra.push({ id: `bola${i}`, x: b.x, y: b.y, sprite: "ball", loot: b, dir: "down" });
       });
     }
+    const rasgo = portalAberto(this.st, mapa);
+    if (rasgo) extra.push({ id: "rasgo", x: rasgo.x, y: rasgo.y, sprite: "rasgo", raidPortal: true, dir: "down" });
     const f = this.st.fragment;
     if (f && f.map === this.st.player.map && this.hasDetector()) {
       extra.push({ id: "fragmento", x: f.x, y: f.y, sprite: "portal", fragment: true, dir: "down" });
@@ -502,6 +506,25 @@ export class OverworldScene {
     this.banner = Math.max(0, this.banner - dt);
     if (this.olhando) this.olhando.t += dt;
     Glitch.level = this.st.corruption;
+    // O RASGO suja a tela inteira enquanto estiver aberto neste mapa: seis
+    // vezes o normal, e ligado à força mesmo com o glitchMode desligado. É o
+    // único aviso de que um abriu — não tem texto nem seta, você vê a tela
+    // estragar e vai procurar. Guardar o `forced` de antes é o que faz a fenda
+    // e a história continuarem mandando nele quando o rasgo fecha.
+    const rasgo = portalAberto(this.st, this.st.player.map);
+    if (rasgo) {
+      if (this.forcadoAntes === undefined) this.forcadoAntes = Glitch.forced;
+      Glitch.forced = true;
+      Glitch.level = corrupcaoDoPortal(this.st, this.st.player.map);
+      // e ele PULSA: quanto mais perto, mais vezes a tela dá um solavanco.
+      // Sem isto a corrupção fica parada, e corrupção parada o olho aceita
+      // depois de dez segundos — o rasgo tem que continuar incomodando.
+      const perto = pertoDoPortal(this.st, this.st.player.map);
+      if (perto > 0 && Math.random() < dt * 3 * perto) Glitch.hit(0.5 * perto);
+    } else if (this.forcadoAntes !== undefined) {
+      Glitch.forced = this.forcadoAntes;
+      this.forcadoAntes = undefined;
+    }
     Online.mandaPos(dt, this.st.player, !!this.move);
     this.updateWander(dt);
     this.updateFragmentTimer();
@@ -592,6 +615,10 @@ export class OverworldScene {
       return this.empurrar(obst, dx, dy);
     }
     if (this.blocked(nx, ny)) {
+      // encostar no rasgo não dá esbarrão: ele puxa. É a única coisa no mapa
+      // que responde ao ESBARRO em vez de esperar você apertar Z, e é de
+      // propósito — quem anda pra cima de um buraco no ar já decidiu.
+      if (this.npcAt(nx, ny)?.raidPortal) return this.entrarNoRasgo();
       if (!this.bumpCd) { Audio2.bump(); this.bumpCd = 0.35; }
       return;
     }
@@ -623,7 +650,45 @@ export class OverworldScene {
                         fator(this.st, "sorte"));
       if (enc) return this.startBattle(enc);
     }
+    this.talvezRasgar();
     this.checkTrainerSight();
+  }
+
+  /** O RASGO abrindo. Só depois que o mundo quebra (`glitchWorld`): antes
+   *  disso a fenda ainda não vazou pra lugar nenhum, e um buraco no ar em Kanto
+   *  limpa não é um susto, é um bug. Um por vez, e nunca dentro da fenda — lá
+   *  não faz sentido rasgar o que já é rasgo. */
+  talvezRasgar() {
+    const st = this.st;
+    if (!st.flags?.glitchWorld) return;
+    if (st.player.map === "glitchdim") return;
+    if (this.tagAt(st.player.x, st.player.y) !== DB.TAG.GRASS) return;
+    if (portalAberto(st, st.player.map)) return;
+    if (!temPortal()) return;
+    const aberto = abrirPortal(st, st.player.map, (x, y) =>
+      this.tagAt(x, y) === DB.TAG.GRASS && !this.blocked(x, y) && !this.npcAt(x, y) && !this.warpAt(x, y));
+    if (!aberto) return;
+    Glitch.hit(2.5);
+    Audio2.glitch();
+    // o aviso só na primeira vez da partida; depois disso a tela estragando
+    // já diz tudo, e uma caixa de texto a cada rasgo viraria castigo
+    if (!st.flags.rasgoVisto) {
+      st.flags.rasgoVisto = true;
+      this.dlg.say(DB.STORY.glitch.rasgoPrimeiro);
+    }
+  }
+
+  /** Entrar no rasgo: o chefe passa pro nosso lado. A tabela é a da FENDA — o
+   *  bicho é de lá, o rasgo é só por onde ele coube. */
+  entrarNoRasgo() {
+    const chefe = montarChefe(DB.DIM_ENCOUNTERS?.terra || []);
+    fecharPortal(this.st);
+    if (!chefe) return void this.dlg.say(DB.STORY.glitch.rasgoVazio);
+    Glitch.hit(3);
+    Audio2.glitch();
+    this.dlg.say(DB.STORY.glitch.rasgoEntrou, () => {
+      this.startBattle({ mon: chefe.mon, glitch: true, raid: chefe });
+    });
   }
 
   /** Canteiro de flores com o mundo bugado: a tela treme a cada passo e
@@ -944,6 +1009,7 @@ export class OverworldScene {
     if (npc.aurora) return this.talkVelhaAurora(state);
     if (npc.escort) return this.talkEscort(npc);
     if (npc.boss) return this.startBossBattle(npc);
+    if (npc.raidPortal) return this.entrarNoRasgo();
     if (npc.portal) return this.usePortal();
     if (npc.fragment) return this.useFragment();
     if (npc.id === "carvalho") return this.talkOak(npc, state);
@@ -2356,10 +2422,14 @@ export class OverworldScene {
     return [...base, "SALVAR", "OPÇÕES", "SAIR"];
   }
 
-  /** O que esta loja mostra AGORA: item com `requer` só entra depois da flag.
-   *  Vender o que o jogador ainda não pode usar é vender problema. */
+  /** O que esta loja mostra AGORA: item com `requer` só entra depois da flag, e
+   *  item `unico` sai da prateleira depois de comprado. Vender o que o jogador
+   *  ainda não pode usar é vender problema; vender de novo o que não gasta é
+   *  vender a mesma coisa duas vezes. */
   prateleira(shop) {
-    return (shop || []).filter((x) => !x.requer || this.st.flags?.[x.requer]);
+    return (shop || [])
+      .filter((x) => !x.requer || this.st.flags?.[x.requer])
+      .filter((x) => !x.unico || !(this.st.items?.[x.item] > 0));
   }
 
   buy(item, price, n, shop) {
@@ -2987,6 +3057,29 @@ export class OverworldScene {
         ctx.fillStyle = ["#b455ff", "#00ffcc", "#ff0066", "#ffffff"][(i + Math.floor(t)) % 4];
         const s2 = 14 - i * 3;
         ctx.fillRect(x + (16 - s2) / 2, y + (16 - s2) / 2, s2, s2);
+      }
+      return;
+    }
+    // O RASGO: faixas tortas que não param quietas, empilhadas num buraco alto
+    // demais pro tile. Não é um sprite — é o desenho falhando naquele pedaço.
+    if (n.sprite === "rasgo") {
+      const t = performance.now() / 90;
+      const cores = ["#b455ff", "#00ffcc", "#ff0066", "#ffffff"];
+      const meio = x + 8, topo = y - 14;
+      // o miolo: o buraco propriamente dito, que é onde não tem desenho nenhum
+      for (let i = 0; i < 13; i++) {
+        const larg = Math.round((20 - Math.abs(i - 6) * 2.6) * 1.35);
+        const jitter = Math.round(Math.sin((t + i * 1.9) * 0.8) * 2);
+        ctx.fillStyle = "#0a0810";
+        ctx.fillRect(meio - larg / 2 + jitter, topo + i * 3, larg, 3);
+      }
+      // e as faixas que escapam dele pros lados, trocando de cor sozinhas
+      for (let i = 0; i < 13; i++) {
+        if ((i + Math.floor(t)) % 3) continue;
+        const larg = Math.round((20 - Math.abs(i - 6) * 2.6) * 1.35) + 6;
+        const jitter = Math.round(Math.sin((t + i * 1.9) * 0.8) * 4);
+        ctx.fillStyle = cores[(i + Math.floor(t * 1.7)) % cores.length];
+        ctx.fillRect(meio - larg / 2 + jitter, topo + i * 3, larg, 2);
       }
       return;
     }
