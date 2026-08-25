@@ -1042,5 +1042,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/cranidos+blastoise~cranistoise.png",
       "lore": "CRANIDOS NA CABEÇA, BLASTOISE NO CORPO."
     }
+  ],
+  "kabutops+kakuna": [
+    {
+      "id": "kabuna",
+      "nome": "KABUNA",
+      "autor": "CAIO",
+      "tipos": [
+        "PEDRA",
+        "VENENO"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 6.5,
+        "atk": 6.4,
+        "def": 6.2,
+        "spa": 3.5,
+        "spd": 3.4,
+        "spe": 3.7
+      },
+      "sprite": "assets/fusoes/kabutops+kakuna~kabuna.png",
+      "lore": "KABUTOPS NA CABEÇA, KAKUNA NO CORPO."
+    }
   ]
 };
