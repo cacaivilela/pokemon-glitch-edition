@@ -243,6 +243,14 @@ pelo nome, monta a fusão automática, deixa desenhar por cima com o mouse (tela
 grande, pincel de 1 a 8, balde, conta-gotas, sete paletas, desfazer), e a ficha
 sai como um arquivo `.fusao.json` — o desenho vai dentro.
 
+A lista de espécies dela (`fusionglitch/especies.js`) é uma **cópia**: a página
+precisa funcionar aberta pelo endereço público, sem servidor, então ela não
+importa `src/data/`. Cópia feita à mão envelhece — foi o que aconteceu quando
+RAMPARDOS e BASTIODON entraram no jogo e a oficina não soube. Agora ela é
+gerada: `python3 tools/gera_especies.py` reescreve o arquivo a partir de
+`gen1.js` e `extra.js`, e `--ver` só diz se está desatualizada. Mexeu numa
+espécie, rode.
+
 No jogo: `DECODIFICADOR` → `OFICINA` → **IMPORTAR FICHA**, e escolha o arquivo.
 Ela é conferida antes de entrar (a dupla existe, o nome cabe, os tipos existem,
 os números estão na faixa, o desenho é PNG) e vira uma variante daquela dupla,
@@ -1049,6 +1057,7 @@ assets/
   sprites/             PNGs externos (vazio por padrão): pokemon/, overworld/, trainers/, tiles/
   maps/                mapas renderizados + kanto.json (geometria e colisão)
 tools/                 fetch_sprites / fetch_overworld / fetch_trainers / fetch_maps / slice_sheet / png_io
+                       gera_especies.py — reescreve a lista da oficina de fora a partir das tabelas
                        compacta.py — reescreve os PNGs em paleta, sem perder pixel
 dev/smoke.html         teste headless com roteiro de teclas
 dev/cutscenecheck.html roda a cutscene de todos os golpes num palco de mentira
