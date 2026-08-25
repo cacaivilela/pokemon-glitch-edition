@@ -509,21 +509,26 @@ export class OverworldScene {
     // O RASGO suja a tela inteira enquanto estiver aberto neste mapa: seis
     // vezes o normal, e ligado à força mesmo com o glitchMode desligado. É o
     // único aviso de que um abriu — não tem texto nem seta, você vê a tela
-    // estragar e vai procurar. Guardar o `forced` de antes é o que faz a fenda
-    // e a história continuarem mandando nele quando o rasgo fecha.
+    // estragar e vai procurar.
     const rasgo = portalAberto(this.st, this.st.player.map);
     if (rasgo) {
-      if (this.forcadoAntes === undefined) this.forcadoAntes = Glitch.forced;
       Glitch.forced = true;
       Glitch.level = corrupcaoDoPortal(this.st, this.st.player.map);
+      this.rasgoForcou = true;
       // e ele PULSA: quanto mais perto, mais vezes a tela dá um solavanco.
       // Sem isto a corrupção fica parada, e corrupção parada o olho aceita
       // depois de dez segundos — o rasgo tem que continuar incomodando.
       const perto = pertoDoPortal(this.st, this.st.player.map);
       if (perto > 0 && Math.random() < dt * 3 * perto) Glitch.hit(0.5 * perto);
-    } else if (this.forcadoAntes !== undefined) {
-      Glitch.forced = this.forcadoAntes;
-      this.forcadoAntes = undefined;
+    } else if (this.rasgoForcou) {
+      // Quando o rasgo fecha, o `forced` volta RECALCULADO das fontes, e não de
+      // um valor guardado lá atrás. Guardar estava errado: entre abrir e fechar
+      // o rasgo dá tempo de o mundo quebrar (o finale do professor), de
+      // desquebrar (capturar o MISSINGNO.) ou de você entrar na fenda — e um
+      // `false` guardado antes desfazia qualquer um dos três, apagando a
+      // corrupção que a história tinha acabado de ligar.
+      this.rasgoForcou = false;
+      Glitch.forced = !!(this.st.flags?.glitchWorld || this.st.mission);
     }
     Online.mandaPos(dt, this.st.player, !!this.move);
     this.updateWander(dt);
@@ -676,8 +681,21 @@ export class OverworldScene {
     if (st.player.map === "glitchdim" || this.map?.interior) return;
     if (portalAberto(st, st.player.map)) return;
     if (!temPortal(st, st.player.map)) return;
+    // A lista de NPCs é montada UMA vez pra busca inteira. Antes o `livre`
+    // chamava `blocked` e `npcAt`, e cada um deles remonta a lista do mapa: com
+    // até 120 tentativas isso era montar a lista duzentas e quarenta vezes num
+    // quadro só, e o passo engasgava toda vez que um rasgo ia abrir.
+    const npcs = this.npcsHere();
+    const ocupado = (x, y) => npcs.some((n) => n.x === x && n.y === y);
+    // E ele não abre em CORREDOR. Um rasgo tapa o tile onde está, e encostar
+    // nele começa a raid: num tile de passagem de largura 1 ele vira uma parede
+    // que só se atravessa lutando com um chefe de nível 35 a 55. Exigir três
+    // vizinhos livres garante que ele nasça em lugar aberto, onde dá pra passar
+    // ao lado e voltar depois — a raid é um convite, não um pedágio.
+    const livre = (x, y) => this.tagAt(x, y) === DB.TAG.FREE
+      && !this.obstaculoEm(x, y) && !ocupado(x, y) && !this.warpAt(x, y);
     const aberto = abrirPortal(st, st.player.map, (x, y) =>
-      this.tagAt(x, y) === DB.TAG.FREE && !this.blocked(x, y) && !this.npcAt(x, y) && !this.warpAt(x, y));
+      livre(x, y) && [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => livre(x + dx, y + dy)).length >= 3);
     if (!aberto) return;
     Glitch.hit(2.5);
     Audio2.glitch();
