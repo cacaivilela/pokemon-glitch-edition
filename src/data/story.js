@@ -493,6 +493,7 @@ export const STORY = {
     pedido: "PEDIDO: $ {PRECO}",
     lance: "COMPRADOR {QUEM}: $ {VALOR}",
     silencio: "NINGUÉM LEVANTOU A MÃO.",
+    sumiu: "ESSE POKÉMON NÃO ESTÁ MAIS COM VOCÊ. O NEGÓCIO NÃO SAIU.",
     ninguem: "NINGUÉM DEU LANCE. ELE VOLTA PRA VOCÊ.",
     tenteMenos: "PEÇA MENOS DA PRÓXIMA VEZ — OU ESPERE APARECER QUEM PAGUE.",
     vendido: "{NOME} FOI VENDIDO POR $ {PRECO}!",

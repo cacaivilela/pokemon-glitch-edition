@@ -68,9 +68,23 @@ try {
   save.items[L.BARRACA_LEILAO.item] = 1;
   teste("com a barraca, dá", L.podeLeiloar(save, bicho).ok);
   const antes = save.party.length;
-  const total = L.vender(save, bicho, 900);
-  teste("vender tira da equipe e põe o dinheiro no bolso",
-        save.party.length === antes - 1 && total === 1000 && save.money === 1000);
+  const venda = L.vender(save, bicho, 900);
+  teste("vender tira da EQUIPE e põe o dinheiro no bolso",
+        venda.ok && save.party.length === antes - 1 && save.money === 1000
+        && !save.party.includes(bicho));
+
+  // o PC é o caso que estava quebrado: as caixas são boxes[].mons, com buracos
+  const guardado = createMon("eevee", 12);
+  const comPc = { party: [createMon("pikachu", 5), createMon("pidgey", 5)],
+                  boxes: [{ mons: [null, guardado, null] }], money: 0,
+                  items: { [L.BARRACA_LEILAO.item]: 1 } };
+  const vendaPc = L.vender(comPc, guardado, 700);
+  p(`caixa depois da venda: ${JSON.stringify(comPc.boxes[0].mons.map((m) => m && m.species))}`);
+  teste("vender tira do PC também", vendaPc.ok && !comPc.boxes[0].mons.includes(guardado));
+  teste("e o slot vira buraco, sem empurrar os vizinhos",
+        comPc.boxes[0].mons.length === 3 && comPc.boxes[0].mons[1] === null);
+  teste("vender quem não está com você não paga nada",
+        !L.vender(comPc, createMon("abra", 9), 900).ok && comPc.money === 700);
   const so = { party: [createMon("pikachu", 5)], box: {}, money: 0, items: { [L.BARRACA_LEILAO.item]: 1 } };
   teste("não dá pra vender o último", !L.podeLeiloar(so, so.party[0]).ok);
 

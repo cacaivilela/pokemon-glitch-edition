@@ -84,18 +84,32 @@ export function leiloar(mon, pedido, sorteio = Math.random) {
   return { vendido: true, preco, lances, shiny: !!mon.shiny };
 }
 
-/** Fecha o negócio: tira o Pokémon de onde ele estiver e põe o dinheiro no bolso. */
-export function vender(st, mon, preco) {
+/** Tira o Pokémon de onde ele estiver — equipe ou PC. Devolve true se achou.
+ *
+ *  As caixas do PC são `state.boxes[].mons`, listas COM BURACOS: cada posição é
+ *  um slot, e slot vazio é `null`. Por isso aqui se põe null no lugar em vez de
+ *  encolher a lista — encolhendo, todo mundo depois dele andaria uma casa. (O
+ *  `state.box` solto é o formato antigo, e continua atendido: save velho não
+ *  pode quebrar.) */
+export function tirarDoTime(st, mon) {
   const naEquipe = (st.party || []).indexOf(mon);
-  if (naEquipe >= 0) st.party.splice(naEquipe, 1);
-  else {
-    for (const caixa of Object.values(st.box || {})) {
-      const i = Array.isArray(caixa) ? caixa.indexOf(mon) : -1;
-      if (i >= 0) { caixa.splice(i, 1); break; }
-    }
+  if (naEquipe >= 0) { st.party.splice(naEquipe, 1); return true; }
+
+  for (const caixa of st.boxes || []) {
+    const i = (caixa.mons || []).indexOf(mon);
+    if (i >= 0) { caixa.mons[i] = null; return true; }
   }
+  const antigo = (st.box || []).indexOf(mon);
+  if (antigo >= 0) { st.box.splice(antigo, 1); return true; }
+  return false;
+}
+
+/** Fecha o negócio: tira o Pokémon e põe o dinheiro no bolso. Se ele não for
+ *  achado em lugar nenhum, ninguém recebe nada — venda sem entrega não é venda. */
+export function vender(st, mon, preco) {
+  if (!tirarDoTime(st, mon)) return { ok: false, money: st.money || 0 };
   st.money = Math.min(999999, (st.money || 0) + preco);
-  return st.money;
+  return { ok: true, money: st.money };
 }
 
 export { BARRACA_LEILAO, FAIXAS };

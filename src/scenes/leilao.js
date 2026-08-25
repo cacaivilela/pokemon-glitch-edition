@@ -120,7 +120,12 @@ export class LeilaoScene {
       Audio2.cancel();
       return this.dlg.say([L.ninguem, L.tenteMenos]);
     }
-    const dinheiro = vender(this.st, mon, r.preco);
+    const venda = vender(this.st, mon, r.preco);
+    if (!venda.ok) {                       // não achei o bicho: não cobro por ele
+      Audio2.cancel();
+      return this.dlg.say(L.sumiu);
+    }
+    const dinheiro = venda.money;
     this.lista = this.lista.filter((x) => x !== mon);
     Audio2.heal();
     const falas = [L.vendido.replace("{NOME}", mon.nickname).replace("{PRECO}", r.preco)];
