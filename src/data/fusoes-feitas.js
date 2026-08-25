@@ -1100,5 +1100,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/rotom+charmander~rotomchar.png",
       "lore": "ROTOM NA CABEÇA, CHARMANDER NO CORPO."
     }
+  ],
+  "bulbasaur+arceus": [
+    {
+      "id": "bulbarceus",
+      "nome": "BULBARCEUS",
+      "autor": "CAIO",
+      "tipos": [
+        "PLANTA",
+        "NORMAL"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 9,
+        "atk": 9,
+        "def": 9,
+        "spa": 9,
+        "spd": 9,
+        "spe": 9
+      },
+      "sprite": "assets/fusoes/bulbasaur+arceus~bulbarceus.png",
+      "lore": "BULBASAUR NA CABEÇA, ARCEUS NO CORPO."
+    }
   ]
 };
