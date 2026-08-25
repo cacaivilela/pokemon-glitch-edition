@@ -27,6 +27,8 @@ import { estaNaHora, marcarFeita, fracas, apagarDoCodigo } from "../systems/faxi
 import { veu, temCeu, agora as horaDoMundo } from "../systems/ciclo.js";
 import { escuridaoDoLugar, ehCaverna, acesa, camadaDeLuz, brilho, RAIO } from "../systems/lanterna.js";
 import { AcampamentoScene } from "./acampamento.js";
+import { LeilaoScene } from "./leilao.js";
+import { temBarraca } from "../systems/leilao.js";
 import { podeAcampar, fator, buff, minutosDoBuff } from "../systems/acampamento.js";
 import { rivalNpc } from "../systems/rival.js";
 import { ehFusao, fundivel, previsao, partes, temFicha, fichasProntas, variantes,
@@ -954,7 +956,21 @@ export class OverworldScene {
     }
     if (npc.shop) {
       state.talked = true;
-      this.dlg.say(npc.lines, () => { this.menu = { type: "shop", index: 0, shop: npc.shop }; });
+      // Com a BARRACA DE LEILÃO na mochila, o balcão passa a servir pros dois
+      // lados: comprar coisa e vender bicho. Sem ela, nada muda — quem nunca
+      // comprou a barraca não vê uma pergunta a mais toda vez que fala com o
+      // balconista.
+      this.dlg.say(npc.lines, () => {
+        if (!temBarraca(this.st)) {
+          this.menu = { type: "shop", index: 0, shop: npc.shop };
+          return;
+        }
+        const L = DB.STORY.leilao;
+        this.dlg.ask(L.oferta, L.opcoes, (i) => {
+          if (i === 0) this.menu = { type: "shop", index: 0, shop: npc.shop };
+          else if (i === 1) this.game.scenes.push(new LeilaoScene());
+        });
+      });
       return;
     }
     if (npc.gift && !state.gotGift) {

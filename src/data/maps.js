@@ -392,25 +392,9 @@ export const MAPS = {
         shop: [
           { item: "poké bola", price: 200 },
           { item: "poção", price: 300 },
-          // acampar: a barraca (uma vez) e o que vai no pão (ver
-          // src/data/acampamento.js — o SABOR é o que decide o sanduíche)
-          { item: "barraca", price: 1200 },
-          { item: "pão", price: 60 },
-          { item: "morango", price: 180 },
-          { item: "mel", price: 240 },
-          { item: "banana", price: 120 },
-          { item: "presunto", price: 200 },
-          { item: "queijo", price: 220 },
-          { item: "bacon", price: 320 },
-          { item: "pimenta", price: 260 },
-          { item: "wasabi", price: 380 },
-          { item: "limão", price: 150 },
-          { item: "picles", price: 190 },
-          { item: "café", price: 300 },
-          { item: "jiló", price: 140 },
-          { item: "cogumelo", price: 280 },
-          { item: "azeitona", price: 240 },
-          { item: "hortelã", price: 160 },
+          // a barraca, a barraca de leilão e os ingredientes NÃO estão escritos
+          // aqui: src/data/index.js gruda o estoque de acampamento em toda loja
+          // do jogo, e repetir a lista seria repetir o erro de esquecer uma
           // as cinco pedras de evolução (ver src/data/evolution.js)
           { item: "pedra do fogo", price: 2100 },
           { item: "pedra da água", price: 2100 },

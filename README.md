@@ -642,7 +642,9 @@ então acampar de noite é acampar de noite.
 Três coisas pra fazer:
 
 **COZINHAR** — escolha até três ingredientes da mochila (Z põe na tábua, C
-acende o fogo) e mexa a panela: uma barra vai e vem, e você tem que parar ela
+acende o fogo). **Pão não se compra**: todo sanduíche já vem nele, e a tábua só
+pergunta o que vai dentro — comprar pão pra fazer sanduíche era a etapa que só
+existia pra ser esquecida e mexa a panela: uma barra vai e vem, e você tem que parar ela
 dentro do alvo **três vezes**, cada uma mais rápida que a anterior. O quanto
 você acertou vira estrela — de QUEIMADO a PERFEITO —, e a estrela multiplica o
 efeito.
@@ -711,6 +713,39 @@ jogo nenhum (sabor, empate, estrela, o efeito indo pro save e vencendo sozinho,
 a cura devolvendo HP, status e PP), e a **tela** é aberta no jogo de verdade —
 ele põe uma barraca na mochila, abre o menu, anda até ACAMPAR e confere que a
 cena subiu com a equipe fora da bola.
+
+## Leilão: vender Pokémon
+
+Compre uma **BARRACA DE LEILÃO** (3000, em qualquer loja) e daí em diante todo
+balconista pergunta: **COMPRAR ou LEILOAR?** Leiloando, você escolhe quem vai e
+o **preço mínimo** — e é aí que está o jogo.
+
+A faixa sai da **raridade** do bicho:
+
+| raridade | faixa | quem é |
+|---|---|---|
+| comum | 500 – 1000 | RATTATA, PIDGEY… |
+| raro | 1000 – 1500 | CHARIZARD e companhia (total de status ≥ 450) |
+| pseudo-lendário | 1500 – 2000 | DRAGONITE, SNORLAX (≥ 540) |
+| lendário | 2000 – 4000 | lista escrita à mão: os pássaros, MEWTWO, MEW, os de fora e o MISSINGNO. |
+
+Lendário é lista à mão de propósito: chutar por total de status poria o SNORLAX
+no mesmo balcão do MEWTWO. E **fusão herda a raridade do lado mais raro** —
+fundir com o MEWTWO não devia esconder que tem um MEWTWO ali dentro.
+
+**Pedir pouco vende na hora; pedir o teto pode não vender nada.** Três
+compradores olham o seu pedido: perto do mínimo quase todos levantam a mão, perto
+do teto quase nenhum, e cada um cobre o lance anterior. Ninguém deu lance,
+ninguém levou — o Pokémon volta pra você. A barra na tela diz onde você está
+(VENDE FÁCIL / PEDIDO JUSTO / PODE NÃO VENDER). **Shiny paga o dobro**, e fusão
+com desenho à mão vale 25% a mais.
+
+Não dá pra vender o último: ficar sem nenhum Pokémon no mundo não é uma venda, é
+um fim de jogo.
+
+`dev/leilaocheck.html` roda as regras soltas — raridade de oito espécies, as
+quatro faixas, os lances subindo, o leilão vazio, o dobro do shiny, a venda
+tirando da equipe e pondo o dinheiro no bolso — e abre a cena no jogo.
 
 ## Dia e noite
 
@@ -1214,6 +1249,7 @@ dev/smoke.html         teste headless com roteiro de teclas
 dev/cutscenecheck.html roda a cutscene de todos os golpes num palco de mentira
 dev/ciclocheck.html    anda com o relógio e confere a virada do dia e da noite
 dev/acampacheck.html   as regras do acampamento soltas + a cena aberta no jogo
+dev/leilaocheck.html   as regras do leilão soltas + a cena aberta no jogo
 giveglitch/            versão web do mesmo terminal (fora do jogo)
 faxinamissingno/       a FAXINA MISSINGNO.: o acervo medido, com a senha pra jogar fora
 save/save.json         o save (um por máquina; fora do git)

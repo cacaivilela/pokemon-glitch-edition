@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>checagem do leilão</title>
+<style>body{background:#111;color:#9fd;font:13px/1.45 ui-monospace,monospace;margin:0;padding:8px}
+.erro{color:#f66}.ok{color:#7f7}h2{color:#b455ff;font-size:13px;margin:10px 0 2px}iframe{width:740px;height:560px;border:0}</style></head>
+<body>
+<div id="out">rodando...</div>
+<iframe id="fr" src=""></iframe>
+<img id="hold" alt="" width="1" height="1">
+<script type="module">
+// As regras do leilão rodam soltas (raridade, faixa, lances, venda), e depois a
+// tela é aberta no jogo de verdade pelo balcão da loja.
+const out = document.getElementById("out"), fr = document.getElementById("fr");
+const linhas = [], errs = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+const teste = (nome, ok) => { p(`${ok ? "ok  " : "NÃO "} ${nome}`, ok ? "ok" : "erro"); if (!ok) errs.push(nome); };
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+
+try {
+  const { DB } = await import("/src/data/index.js");
+  const L = await import("/src/systems/leilao.js");
+  const { createMon } = await import("/src/systems/mon.js");
+  const F = await import("/src/systems/fusao.js");
+
+  h("QUEM É O QUÊ");
+  const casos = [["rattata", "comum"], ["pidgey", "comum"], ["charizard", "raro"],
+                 ["snorlax", "pseudo"], ["dragonite", "pseudo"], ["mewtwo", "lendario"],
+                 ["articuno", "lendario"], ["missingno", "lendario"]];
+  for (const [id, esperado] of casos) {
+    const r = L.raridade({ species: id });
+    const f = L.faixa({ species: id });
+    p(`${id.padEnd(12)} ${r.padEnd(9)} $${f.min}-${f.max}`);
+    if (r !== esperado) { errs.push(`${id} devia ser ${esperado}`); p(`  devia ser ${esperado}`, "erro"); }
+  }
+  teste("as quatro faixas são as prometidas",
+    L.FAIXAS.comum.min === 500 && L.FAIXAS.comum.max === 1000
+    && L.FAIXAS.raro.min === 1000 && L.FAIXAS.raro.max === 1500
+    && L.FAIXAS.pseudo.min === 1500 && L.FAIXAS.pseudo.max === 2000
+    && L.FAIXAS.lendario.min === 2000 && L.FAIXAS.lendario.max === 4000);
+
+  const fus = F.montarEspecie("rattata", "mewtwo");
+  if (fus) DB.SPECIES[fus.id] = fus;
+  teste("fusão herda a raridade do lado mais raro",
+        L.raridade({ species: fus.id }) === "lendario");
+
+  h("O LEILÃO");
+  const bicho = createMon("rattata", 10);
+  const sempre = () => 0;      // sorteio que sempre entra
+  const nunca = () => 1;       // sorteio que nunca entra
+  const cheio = L.leiloar(bicho, 500, sempre);
+  p(`pedindo o mínimo (500): ${cheio.lances.length} lance(s), saiu por $${cheio.preco}`);
+  teste("pedindo pouco, vende", cheio.vendido && cheio.preco >= 500);
+  teste("os lances sobem uns sobre os outros",
+        cheio.lances.every((l, i) => i === 0 || l.valor > cheio.lances[i - 1].valor));
+  const vazio = L.leiloar(bicho, 1000, nunca);
+  teste("ninguém dando lance, não vende", !vazio.vendido && vazio.preco === 0);
+  p(`esticado: mínimo=${L.esticado(bicho, 500)} teto=${L.esticado(bicho, 1000)}`);
+  teste("o esticado vai de 0 a 1 dentro da faixa",
+        L.esticado(bicho, 500) === 0 && L.esticado(bicho, 1000) === 1);
+
+  const brilhante = createMon("rattata", 10, { shiny: true });
+  const comShiny = L.leiloar(brilhante, 500, sempre);
+  teste("shiny paga o dobro", comShiny.preco === cheio.preco * 2);
+
+  const save = { party: [bicho, createMon("pidgey", 5)], box: {}, money: 100, items: {} };
+  teste("sem a barraca não dá pra leiloar", !L.podeLeiloar(save, bicho).ok);
+  save.items[L.BARRACA_LEILAO.item] = 1;
+  teste("com a barraca, dá", L.podeLeiloar(save, bicho).ok);
+  const antes = save.party.length;
+  const total = L.vender(save, bicho, 900);
+  teste("vender tira da equipe e põe o dinheiro no bolso",
+        save.party.length === antes - 1 && total === 1000 && save.money === 1000);
+  const so = { party: [createMon("pikachu", 5)], box: {}, money: 0, items: { [L.BARRACA_LEILAO.item]: 1 } };
+  teste("não dá pra vender o último", !L.podeLeiloar(so, so.party[0]).ok);
+
+  h("A TELA");
+  await new Promise((pronto) => {
+    fr.addEventListener("load", async () => {
+      const w = fr.contentWindow;
+      w.addEventListener("error", (e) => errs.push("JOGO: " + e.message));
+      await espera(2600);
+      const cena = () => w.game?.scenes?.top;
+      w.game.state.items[L.BARRACA_LEILAO.item] = 1;
+      cena().game.scenes.push(new (await import("/src/scenes/leilao.js")).LeilaoScene());
+      await espera(600);
+      p(`cena: ${cena()?.constructor?.name} | na vitrine: ${cena()?.lista?.length}`);
+      teste("a cena do leilão abre", cena()?.constructor?.name === "LeilaoScene");
+      teste("ela lista a equipe", (cena()?.lista?.length || 0) >= w.game.state.party.length);
+      pronto();
+    });
+    fr.src = "/?map=route1";
+  });
+
+  h("RESULTADO");
+  p(errs.length ? errs.join(" | ") : "leilão de pé", errs.length ? "erro" : "ok");
+  const cv = fr.contentDocument.getElementById("screen");
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({
+    name: "leilaocheck", dataUrl: cv ? cv.toDataURL() : "", log: linhas.join("\n").replace(/<[^>]+>/g, "") }) });
+} catch (e) {
+  p("QUEBROU: " + (e && e.stack || e), "erro");
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({
+    name: "leilaocheck", log: linhas.join("\n").replace(/<[^>]+>/g, "") + "\nQUEBROU: " + (e && e.stack || e) }) }).catch(()=>{});
+}
+out.innerHTML = linhas.join("");
+</script>
+</body></html>

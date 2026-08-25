@@ -12,9 +12,13 @@
 // sai do sabor que aparecer mais. Ingrediente novo entra com uma linha e já
 // combina com todos os outros.
 
+// O PÃO NÃO ESTÁ AQUI, DE PROPÓSITO. Ele era comprável, e comprar pão pra fazer
+// sanduíche é a etapa que só existe pra ser esquecida: você chega no
+// acampamento com os recheios na mão e não faz nada. Agora o pão é do mundo —
+// todo sanduíche já vem nele, e a tábua só pergunta o que vai DENTRO.
+
 /** O que se compra na loja. `sabor` é o que manda no sanduíche. */
 export const INGREDIENTES = {
-  "pão": { sabor: null, preco: 60, base: true, texto: "SEM PÃO NÃO É SANDUÍCHE." },
   "morango": { sabor: "doce", preco: 180, texto: "DOCE. GRUDA NA MÃO." },
   "mel": { sabor: "doce", preco: 240, texto: "MAIS DOCE AINDA. GRUDA EM TUDO." },
   "banana": { sabor: "doce", preco: 120, texto: "DOCE E BARATA. SEMPRE TEM." },
@@ -32,6 +36,8 @@ export const INGREDIENTES = {
   "hortelã": { sabor: "fresco", preco: 160, texto: "REFRESCA ATÉ O CAMINHO." },
 };
 
+import { BARRACA_LEILAO } from "./leilao.js";
+
 /** A barraca. Sem ela não dá pra acampar; compra-se uma vez. */
 export const BARRACA = { item: "barraca", preco: 1200 };
 
@@ -42,6 +48,7 @@ export const BARRACA = { item: "barraca", preco: 1200 };
  *  vezes é escrever sete erros. Quem espalha é src/data/index.js. */
 export const ESTOQUE = [
   { item: BARRACA.item, price: BARRACA.preco },
+  { item: BARRACA_LEILAO.item, price: BARRACA_LEILAO.preco },
   ...Object.entries(INGREDIENTES).map(([item, i]) => ({ item, price: i.preco })),
 ];
 
@@ -101,7 +108,7 @@ export const SABORES = {
   },
   // o que sai quando não tem sabor nenhum: só pão, ou três sabores diferentes
   nenhum: {
-    nome: "SANDUÍCHE DE PÃO",
+    nome: "SANDUÍCHE DE PÃO",   // o pão sempre está lá; foi o recheio que faltou
     efeito: "nada",
     minutos: 0,
     texto: "É PÃO COM PÃO. A EQUIPE COMEU POR EDUCAÇÃO.",

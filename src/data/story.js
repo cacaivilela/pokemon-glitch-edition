@@ -478,6 +478,33 @@ export const STORY = {
     olha: "A FITA ESTÁ PARADA NO MEIO DE UMA PALAVRA QUE NÃO É NOME DE NINGUÉM.",
   },
 
+  /** LEILÃO (balcão da loja, com a BARRACA DE LEILÃO na mochila). */
+  leilao: {
+    oferta: "QUER COMPRAR OU LEILOAR ALGUÉM?",
+    opcoes: ["COMPRAR", "LEILOAR", "NADA"],
+    abriu: ["A BARRACA DE LEILÃO ESTÁ MONTADA NO BALCÃO."],
+    quem: "QUEM VAI A LEILÃO?",
+    faixa: "FAIXA: $ {MIN} A $ {MAX}",
+    ajuda: "SETAS MUDAM   Z ABRE O LEILÃO",
+    facil: "PEDIDO BAIXO: VENDE FÁCIL",
+    medio: "PEDIDO JUSTO",
+    dificil: "PEDIDO ALTO: PODE NÃO VENDER",
+    dinheiro: "DINHEIRO",
+    pedido: "PEDIDO: $ {PRECO}",
+    lance: "COMPRADOR {QUEM}: $ {VALOR}",
+    silencio: "NINGUÉM LEVANTOU A MÃO.",
+    ninguem: "NINGUÉM DEU LANCE. ELE VOLTA PRA VOCÊ.",
+    tenteMenos: "PEÇA MENOS DA PRÓXIMA VEZ — OU ESPERE APARECER QUEM PAGUE.",
+    vendido: "{NOME} FOI VENDIDO POR $ {PRECO}!",
+    shiny: "PAGARAM O DOBRO SÓ PELA COR.",
+    caixa: "AGORA VOCÊ TEM $ {TOTAL}.",
+    naoPode: {
+      semBarraca: "VOCÊ NÃO TEM UMA BARRACA DE LEILÃO.",
+      ultimo: "ESSE É O ÚNICO QUE VOCÊ TEM. NÃO DÁ.",
+      semBicho: "NÃO TEM NINGUÉM PRA LEILOAR.",
+    },
+  },
+
   /** ACAMPAR (menu do mapa). A barraca, a panela e a bola. */
   acampamento: {
     montou: ["A BARRACA ESTÁ DE PÉ. TODO MUNDO SAIU DA BOLA."],

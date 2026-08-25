@@ -84,17 +84,6 @@ function mergeMaps(kanto, authored) {
                    : pontoSeco(geo),
     };
   }
-  // ACAMPAR: cada cidade tem a sua loja, e todas vendiam só bola e poção. Em vez
-  // de escrever a lista de ingredientes em cada uma (oito lugares pra esquecer
-  // um), o estoque de acampamento é grudado em QUALQUER balconista do jogo.
-  for (const mapa of Object.values(out)) {
-    for (const npc of mapa.npcs || []) {
-      if (!npc.shop) continue;
-      const tem = new Set(npc.shop.map((x) => x.item));
-      npc.shop = [...npc.shop, ...acamp.ESTOQUE.filter((x) => !tem.has(x.item))];
-    }
-  }
-
   for (const [id, m] of Object.entries(authored)) {
     const base = out[id] || {};
     const npcs = m.npcs || [...(base.npcs || []), ...(m.addNpcs || [])];
@@ -112,6 +101,20 @@ function mergeMaps(kanto, authored) {
   for (const [id, m] of Object.entries(out)) {
     if (!m.pc && (id === "center" || id.endsWith("pokemon_center_1f"))) m.pc = [...maps.PC_CENTRO];
   }
+
+  // ACAMPAR E LEILÃO: cada cidade tem a sua loja, e todas vendiam só bola e poção. Em vez
+  // de escrever a lista de ingredientes em cada uma (oito lugares pra esquecer
+  // um), o estoque é grudado em QUALQUER balconista do jogo. Isto roda DEPOIS
+  // dos mapas escritos à mão: rodando antes, `src/data/maps.js` sobrescrevia a
+  // loja de exemplo inteira e ela ficava sem nada disso.
+  for (const mapa of Object.values(out)) {
+    for (const npc of mapa.npcs || []) {
+      if (!npc.shop) continue;
+      const tem = new Set(npc.shop.map((x) => x.item));
+      npc.shop = [...npc.shop, ...acamp.ESTOQUE.filter((x) => !tem.has(x.item))];
+    }
+  }
+
   return out;
 }
 
