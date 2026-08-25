@@ -630,6 +630,43 @@ A fenda tem conteúdo que não existe em Kanto:
 
 Os sprites das espécies de fora vêm com `python3 tools/fetch_sprites.py --extra`.
 
+## Dia e noite
+
+O mundo troca de fase a cada **15 minutos**, e os **últimos 5 minutos** de cada
+fase são a virada: de dia, aos 10 minutos começa a escurecer; de noite, aos 10
+minutos começa a amanhecer. Uma volta inteira (dia + noite) leva meia hora.
+
+| minuto | fase |
+|---|---|
+| 0–10 | DIA, céu limpo |
+| 10–15 | ENTARDECER, escurecendo |
+| 15–25 | NOITE fechada |
+| 25–30 | AMANHECER, clareando |
+
+**O relógio é o de verdade** (`Date.now()`), não um contador no save. Contador no
+save avança só enquanto alguém joga: você fecharia o jogo à noite e voltaria à
+noite, três dias depois. Do jeito que está, fechar e abrir não congela nada, dois
+aparelhos na mesma sala mostram a mesma hora e o save não engorda um byte. O
+preço é que mexer no relógio do computador mexe no céu do jogo — o que, num jogo
+chamado GLITCH EDITION, até combina.
+
+`src/systems/ciclo.js` **não desenha nada**: ele responde que horas são
+(`agora()`) e qual véu pintar (`veu()` — cor e opacidade). Quem pinta é o
+overworld e a batalha, sempre **por cima do mundo e por baixo da interface**:
+escurecer o mapa é o efeito, escurecer a caixa de texto seria só deixar o jogo
+difícil de ler. **Dentro de casa, na caverna e na fenda não tem céu**, então lá
+nada muda.
+
+A cor da virada não é cinza: o céu puxa pro **alaranjado queimado** no começo do
+entardecer e vai pro **azul** conforme fecha. Em `src/data/config.js`:
+`cicloMinutos`, `viradaMinutos` e `noiteMax` (em 0, o ciclo continua acontecendo
+e ninguém vê).
+
+`dev/ciclocheck.html` anda com o relógio na mão e imprime a meia hora minuto a
+minuto, com nove verificações do que tem que ser verdade (dia limpo até os 10,
+noite fechada aos 15, a volta fechando em 30) e um teste de que o céu nunca dá
+pulo entre um minuto e o outro.
+
 ## Cutscenes dos golpes
 
 Todo golpe tem uma cena. Antes era tudo igual: o sprite avançava, a tela tremia,
@@ -1061,6 +1098,7 @@ tools/                 fetch_sprites / fetch_overworld / fetch_trainers / fetch_
                        compacta.py — reescreve os PNGs em paleta, sem perder pixel
 dev/smoke.html         teste headless com roteiro de teclas
 dev/cutscenecheck.html roda a cutscene de todos os golpes num palco de mentira
+dev/ciclocheck.html    anda com o relógio e confere a virada do dia e da noite
 giveglitch/            versão web do mesmo terminal (fora do jogo)
 faxinamissingno/       a FAXINA MISSINGNO.: o acervo medido, com a senha pra jogar fora
 save/save.json         o save (um por máquina; fora do git)

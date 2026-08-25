@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem do dia e da noite — Pokémon Glitch Edition</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+  i { display:inline-block; width:120px; height:12px; vertical-align:middle; border:1px solid #333; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=7000">
+<script type="module">
+// Anda com o relógio na mão e conta o que o céu faz minuto a minuto. É o único
+// jeito de conferir a virada sem ficar meia hora olhando pro jogo.
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+try {
+  await import("/src/data/index.js");
+  const C = await import("/src/systems/ciclo.js");
+  const MIN = 60000;
+  const base = 0;                       // a época: começa um dia novinho
+
+  h("MEIA HORA, MINUTO A MINUTO");
+  const erros = [];
+  let antes = null;
+  for (let m = 0; m <= 30; m++) {
+    const a = C.agora(base + m * MIN);
+    const v = C.veu(base + m * MIN);
+    p(`${String(m).padStart(2)} min  ${a.nome.padEnd(11)} escuridão ${a.escuridao.toFixed(2)}  `
+      + `véu ${v.alpha.toFixed(2)} ${v.cor}  faltam ${a.faltam.toFixed(1)} min`);
+    if (antes !== null && Math.abs(a.escuridao - antes) > 0.34) {
+      erros.push(`pulo no céu entre ${m - 1} e ${m} min (${antes.toFixed(2)} -> ${a.escuridao.toFixed(2)})`);
+    }
+    antes = a.escuridao;
+  }
+
+  h("O QUE TEM QUE SER VERDADE");
+  const em = (m) => C.agora(base + m * MIN);
+  const teste = (nome, ok) => { p(`${ok ? "ok  " : "NÃO "} ${nome}`, ok ? "ok" : "erro"); if (!ok) erros.push(nome); };
+  teste("0-9 min é DIA e o céu está limpo", [0, 5, 9].every((m) => !em(m).noite && em(m).escuridao === 0));
+  teste("aos 10 min começa a escurecer", em(10).escuridao === 0 && em(11).escuridao > 0 && em(11).nome === "ENTARDECER");
+  teste("aos 14 min está quase noite", em(14).escuridao > 0.7);
+  teste("aos 15 min vira NOITE fechada", em(15).noite && em(15).escuridao === 1);
+  teste("15-24 min é NOITE cheia", [15, 20, 24].every((m) => em(m).noite && em(m).escuridao === 1));
+  teste("aos 25 min começa a amanhecer", em(26).nome === "AMANHECER" && em(26).escuridao < 1);
+  teste("aos 30 min é DIA de novo", !em(30).noite && em(30).escuridao === 0);
+  teste("a volta inteira leva 30 min", em(0).noite === em(30).noite && em(0).escuridao === em(30).escuridao);
+  teste("interior fica fora do ciclo", C.temCeu({ interior: false }) && !C.temCeu({ interior: true }));
+
+  h("RESULTADO");
+  p(erros.length ? erros.join(" | ") : "o ciclo fecha certinho", erros.length ? "erro" : "ok");
+  const texto = linhas.join("\n").replace(/<[^>]+>/g, "");
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "ciclocheck", log: texto }) });
+} catch (e) {
+  p("QUEBROU: " + (e && e.stack || e), "erro");
+  await fetch("/__capture", { method: "POST",
+    body: JSON.stringify({ name: "ciclocheck", log: "QUEBROU: " + (e && e.stack || e) }) }).catch(() => {});
+}
+out.innerHTML = linhas.join("");
+</script>
+</body>
+</html>

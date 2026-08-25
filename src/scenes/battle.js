@@ -9,6 +9,7 @@ import { panel, drawText, cursor, bar, hpColor, fade, PAL, LINE_H } from "../cor
 import { Dialogue } from "../systems/dialogue.js";
 import { Glitch } from "../systems/glitchfx.js";
 import { cenaDoGolpe } from "../systems/cutscenes.js";
+import { veu, temCeu } from "../systems/ciclo.js";
 import { hpPct, isFainted, gainXp, xpYieldFor, xpForLevel, heal, createMon } from "../systems/mon.js";
 import {
   calcDamage, accuracyCheck, applyMoveEffects, statusTickDamage, effText,
@@ -729,6 +730,13 @@ export class BattleScene {
     }
 
     if (this.fx.length) this.drawFx(ctx);
+
+    // a batalha acontece no mesmo mundo lá fora: se está de noite no mapa, está
+    // de noite aqui. A fenda não entra — lá o céu já é outro.
+    if (!this.isGlitch && temCeu(DB.MAPS?.[this.st.player?.map])) {
+      const noturno = veu();
+      if (noturno.alpha > 0) fade(ctx, noturno.alpha, noturno.cor);
+    }
 
     // caixas de status (a do inimigo só depois que ele solta o Pokémon)
     if (!this.showTrainer) this.statusBox(ctx, 6, 6, this.foe, this.disp.f, false);

@@ -24,6 +24,7 @@ import { pedrasIniciaisDevidas } from "../systems/mega.js";
 import { estado as estadoMissao, progresso, aceitar, entregar, diario, feitas, missaoPorId, daVez }
   from "../systems/missoes.js";
 import { estaNaHora, marcarFeita, fracas, apagarDoCodigo } from "../systems/faxina.js";
+import { veu, temCeu } from "../systems/ciclo.js";
 import { rivalNpc } from "../systems/rival.js";
 import { ehFusao, fundivel, previsao, partes, temFicha, fichasProntas, variantes,
          buscarDoMundo, especiePorTexto, montarEspecie, servidorMundo,
@@ -2675,6 +2676,14 @@ export class OverworldScene {
     if (this.rustle) {
       const f = Math.min(2, Math.floor(this.rustle.t / 0.12));
       ctx.drawImage(Assets.rustle[f], this.rustle.x * TILE - cx, this.rustle.y * TILE - cy);
+    }
+
+    // O CÉU. Vai por cima do mundo e dos bichos, e por baixo de tudo que é
+    // interface: escurecer o mapa é o efeito; escurecer a caixa de texto seria
+    // só deixar o jogo difícil de ler. Dentro de casa e na fenda não tem céu.
+    if (temCeu(this.map) && this.st.player.map !== "glitchdim") {
+      const noturno = veu();
+      if (noturno.alpha > 0) fade(ctx, noturno.alpha, noturno.cor);
     }
 
     const left = this.st.mission?.left;
