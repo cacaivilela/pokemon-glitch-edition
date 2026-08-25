@@ -66,27 +66,29 @@ export function premio() {
 // O rasgo mora no save (`st.raidPortal`), não na cena: assim ele sobrevive a
 // recarregar a página no meio, e a cena não precisa lembrar de nada.
 
-/** O PONTO FRACO mais forte perto de você agora, ou null. Empate desempata pelo
- *  peso; dois pontos no mesmo raio é coisa que não devia existir, mas se
- *  existir, ganha o mais fino. */
+/** O PONTO FRACO perto de você agora, ou null. Todos valem o mesmo, então quem
+ *  ganha é o MAIS PERTO: dois pontos dentro do mesmo raio é coisa que não devia
+ *  existir, mas se existir, o rasgo abre no que está debaixo do seu nariz e não
+ *  no que está do outro lado da tela. */
 export function pontoPerto(st, mapa) {
   const p = st?.player;
   if (!p) return null;
-  let melhor = null;
+  let melhor = null, menor = Infinity;
   for (const q of PONTOS) {
     if (q.mapa !== mapa) continue;
-    if (Math.abs(q.x - p.x) + Math.abs(q.y - p.y) > PORTAL.raio) continue;
-    if (!melhor || q.peso > melhor.peso) melhor = q;
+    const d = Math.abs(q.x - p.x) + Math.abs(q.y - p.y);
+    if (d > PORTAL.raio || d >= menor) continue;
+    melhor = q; menor = d;
   }
   return melhor;
 }
 
-/** Rola a chance de um rasgo abrir neste passo. Perto de um ponto fraco ela é
- *  multiplicada pelo peso dele — é isso, e só isso, que faz um lugar ter fama
- *  de rasgar mais que os outros. */
+/** Rola a chance de um rasgo abrir neste passo. Dentro do raio de um ponto
+ *  fraco ela é `pesoPonto` vezes maior — é isso, e só isso, que faz um lugar
+ *  ter fama de rasgar mais que os outros. */
 export function temPortal(st, mapa) {
-  const q = pontoPerto(st, mapa);
-  return chance(Math.min(0.5, PORTAL.chance * (q?.peso || 1)));
+  const perto = !!pontoPerto(st, mapa);
+  return chance(PORTAL.chance * (perto ? PORTAL.pesoPonto : 1));
 }
 
 /** O rasgo aberto agora, ou null. Ele VENCE SOZINHO: quem pergunta primeiro é

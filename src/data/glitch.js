@@ -94,14 +94,18 @@ export const PORTAL = {
   /** O quanto você precisa chegar perto de um PONTO FRACO pra ele puxar o rasgo
    *  pra si. Longe dele o mapa volta a ser mapa. */
   raio: 9,
+  /** Quantas vezes mais o rasgo abre dentro do raio de um ponto fraco. É um
+   *  número só pra todos: peso por ponto era precisão inventada — oito lugares
+   *  com oito números diferentes que ninguém consegue distinguir jogando. */
+  pesoPonto: 3,
 };
 
 /** OS PONTOS FRACOS: lugares onde o mundo já estava fino antes de rasgar.
  *
- *  Perto de um deles o rasgo abre `peso` VEZES mais — e abre EM CIMA dele, não
- *  num tile qualquer do lado. É o que dá pra Kanto uma geografia da fenda: em
- *  vez de o rasgo ser igualmente improvável em todo canto, existem lugares
- *  aonde se VAI pra achar um, e isso é o começo de um lugar ter fama.
+ *  Perto de um deles o rasgo abre `PORTAL.pesoPonto` VEZES mais — e abre EM
+ *  CIMA dele, não num tile qualquer do lado. É o que dá pra Kanto uma geografia
+ *  da fenda: em vez de o rasgo ser igualmente improvável em todo canto, existem
+ *  lugares aonde se VAI pra achar um, e isso é o começo de um lugar ter fama.
  *
  *  O tile é chão andável, conferido um por um: ponto em cima de parede é ponto
  *  que nunca abre, e ninguém descobriria isso jogando — descobriria só que "às
@@ -110,15 +114,15 @@ export const PONTOS = [
   // A porta da DIGLETT'S CAVE fica encravada no paredão da ROTA 2; isto aqui é
   // do OUTRO lado dele. Você passa a vida andando na frente dessa rocha e nunca
   // atrás — o rasgo abre justamente onde ninguém tinha motivo pra ir.
-  { mapa: "route2", x: 17, y: 5, peso: 10, nome: "ATRÁS DA DIGLETT'S CAVE" },
+  { mapa: "route2", x: 17, y: 5, nome: "ATRÁS DA DIGLETT'S CAVE" },
   // A praia de CINNABAR. Nos jogos de verdade é o lugar mais quebrado que já
   // existiu num Pokémon; aqui ela não ia ficar de fora.
-  { mapa: "cinnabar_island", x: 10, y: 10, peso: 9, nome: "A PRAIA DE CINNABAR" },
+  { mapa: "cinnabar_island", x: 10, y: 10, nome: "A PRAIA DE CINNABAR" },
   // Ao lado do canteiro de flores da VILA PALETA, que já vaza sozinho
-  { mapa: "pallet", x: 7, y: 14, peso: 8, nome: "AO LADO DAS FLORES" },
-  { mapa: "lavender_town", x: 13, y: 10, peso: 7, nome: "A SOMBRA DA TORRE" },
-  { mapa: "power_plant", x: 24, y: 18, peso: 7, nome: "A USINA PARADA" },
-  { mapa: "mt_moon_b2f", x: 24, y: 20, peso: 6, nome: "O FUNDO DO MONTE LUA" },
-  { mapa: "viridian_forest", x: 23, y: 34, peso: 5, nome: "O MEIO DA FLORESTA" },
-  { mapa: "saffron_city", x: 33, y: 31, peso: 5, nome: "A SOMBRA DA SILPH" },
+  { mapa: "pallet", x: 7, y: 14, nome: "AO LADO DAS FLORES" },
+  { mapa: "lavender_town", x: 13, y: 10, nome: "A SOMBRA DA TORRE" },
+  { mapa: "power_plant", x: 24, y: 18, nome: "A USINA PARADA" },
+  { mapa: "mt_moon_b2f", x: 24, y: 20, nome: "O FUNDO DO MONTE LUA" },
+  { mapa: "viridian_forest", x: 23, y: 34, nome: "O MEIO DA FLORESTA" },
+  { mapa: "saffron_city", x: 33, y: 31, nome: "A SOMBRA DA SILPH" },
 ];
