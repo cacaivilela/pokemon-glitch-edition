@@ -25,7 +25,27 @@ try {
 
   h("AS REGRAS");
   teste("dois doces + um salgado dá DOCE", A.saborDe(["morango", "mel", "presunto"]) === "doce");
-  teste("empate não vira sabor", A.saborDe(["morango", "presunto"]) === "nenhum");
+  teste("empate de dois vira PAR", A.saborDe(["morango", "presunto"]) === "doce+salgado");
+  teste("a ordem da tábua não muda o par",
+        A.saborDe(["presunto", "morango"]) === A.saborDe(["morango", "presunto"]));
+  teste("três empatados não viram nada",
+        A.saborDe(["morango", "presunto", "pimenta"]) === "nenhum");
+  const agri = A.cozinhar(["morango", "presunto"], 1);
+  p(`agridoce: ${agri.nome} — ${agri.efeitos.map((e) => e.efeito).join(" + ")} | selo "${agri.hud}"`);
+  teste("o agridoce tem os DOIS efeitos", agri.nome === "SANDUÍCHE AGRIDOCE"
+        && agri.efeitos.length === 2 && agri.efeitos.some((e) => e.efeito === "xp")
+        && agri.efeitos.some((e) => e.efeito === "cura"));
+  const soDoce = A.cozinhar(["morango", "mel"], 1);
+  teste("no par, cada efeito vale menos que sozinho",
+        agri.efeitos.find((e) => e.efeito === "xp").forca < soDoce.forca);
+  const semNome = A.cozinhar(["cogumelo", "picles"], 1);
+  teste("par sem nome ainda funciona (vira MISTO)",
+        semNome.nome === "SANDUÍCHE MISTO" && semNome.efeitos.length === 2);
+  const combo = { items: { morango: 1, presunto: 1 }, party: [] };
+  A.comer(combo, agri, ["morango", "presunto"]);
+  teste("o par guarda a lista de efeitos no save", (combo.buff?.efeitos || []).length === 1);
+  teste("e o fator lê os dois tipos de save",
+        A.fator(combo, "xp") > 1 && A.fator({ buff: { efeito: "defesa", forca: 0.2, ate: Date.now() + 9e5 } }, "defesa") < 1);
   teste("só pão não vira sabor", A.saborDe(["pão"]) === "nenhum");
   const perfeito = A.cozinhar(["pimenta", "pimenta", "pão"], 1);
   const queimado = A.cozinhar(["pimenta", "pimenta", "pão"], 0);
@@ -41,7 +61,7 @@ try {
   const falso = { items: { pimenta: 2, "pão": 1 }, party: [bicho] };
   A.comer(falso, perfeito, ["pimenta", "pimenta", "pão"]);
   teste("comer gasta os ingredientes", !falso.items.pimenta && !falso.items["pão"]);
-  teste("o efeito fica no save", falso.buff?.efeito === "ataque");
+  teste("o efeito fica no save", falso.buff?.efeitos?.[0]?.efeito === "ataque");
   teste("e o fator sobe", A.fator(falso, "ataque") > 1 && A.fator(falso, "xp") === 1);
   falso.buff.ate = Date.now() - 1;
   teste("vencido, o efeito some sozinho", A.fator(falso, "ataque") === 1 && !falso.buff);

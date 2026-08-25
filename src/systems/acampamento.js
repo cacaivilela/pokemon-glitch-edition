@@ -3,7 +3,7 @@
 // e as tabelas estão em src/data/acampamento.js.
 import { DB } from "../data/index.js";
 import { heal } from "./mon.js";
-import { INGREDIENTES, BARRACA, SABORES, ESTRELAS, FORCA } from "../data/acampamento.js";
+import { INGREDIENTES, BARRACA, SABORES, COMBOS, MISTO, MISTURA, ESTRELAS, FORCA } from "../data/acampamento.js";
 
 /** Dá pra montar barraca aqui? Precisa da barraca na mochila e de chão de fora:
  *  dentro de casa não cabe, e dentro da fenda o chão não é chão. */
@@ -20,18 +20,26 @@ export function naMochila(st) {
   return Object.keys(INGREDIENTES).filter((i) => (st.items?.[i] || 0) > 0);
 }
 
-/** O sabor que aparecer mais entre os ingredientes. Empate não vira sabor
- *  nenhum: sanduíche não sabe negociar. */
-export function saborDe(ingredientes) {
+/** Os sabores da tábua, do que mais aparece pro que menos. */
+export function contarSabores(ingredientes) {
   const conta = {};
   for (const i of ingredientes) {
     const s = INGREDIENTES[i]?.sabor;
     if (s) conta[s] = (conta[s] || 0) + 1;
   }
-  const ordem = Object.entries(conta).sort((a, b) => b[1] - a[1]);
+  return Object.entries(conta).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+
+/** O sabor do sanduíche: um só quando alguém ganha, o PAR quando dois empatam
+ *  na frente ("doce+salgado" é o agridoce), e nenhum quando não dá pra decidir —
+ *  três empatados, ou tábua sem sabor nenhum. */
+export function saborDe(ingredientes) {
+  const ordem = contarSabores(ingredientes);
   if (!ordem.length) return "nenhum";
-  if (ordem.length > 1 && ordem[0][1] === ordem[1][1]) return "nenhum";
-  return ordem[0][0];
+  if (ordem.length === 1 || ordem[0][1] > ordem[1][1]) return ordem[0][0];
+  // dois na frente viram par; três na frente não viram nada
+  if (ordem.length > 2 && ordem[1][1] === ordem[2][1]) return "nenhum";
+  return [ordem[0][0], ordem[1][0]].sort().join("+");
 }
 
 /** A nota do minijogo (0..1) vira estrela. */
@@ -41,20 +49,42 @@ export function estrelaDe(acerto) {
   return { ...achada, indice: ESTRELAS.indexOf(achada) + 1, total: ESTRELAS.length };
 }
 
-/** Monta o sanduíche: o que ele é, o que faz e o quanto faz. Não aplica nada. */
+const efeitoDe = (sabor, estrela, parte = 1) => ({
+  efeito: SABORES[sabor].efeito,
+  forca: (FORCA[SABORES[sabor].efeito] || 0) * estrela.forca * parte,
+});
+
+/** Monta o sanduíche: o que ele é, o que faz e o quanto faz. Não aplica nada.
+ *
+ *  Sabor único dá um efeito inteiro. Par dá OS DOIS, cada um valendo `MISTURA`
+ *  do que valeria sozinho — comer bem de duas coisas ao mesmo tempo não é comer
+ *  o dobro. Os minutos do par são os do mais curto: quando um acaba, acabou. */
 export function cozinhar(ingredientes, acerto) {
   const sabor = saborDe(ingredientes);
-  const receita = SABORES[sabor] || SABORES.nenhum;
   const estrela = estrelaDe(acerto);
+
+  if (sabor.includes("+")) {
+    const [a, b] = sabor.split("+");
+    const nomeado = COMBOS[sabor] || MISTO;
+    const efeitos = [efeitoDe(a, estrela, MISTURA), efeitoDe(b, estrela, MISTURA)];
+    const minutos = Math.min(...[a, b].map((x) => SABORES[x].minutos).filter((m) => m > 0));
+    const hud = [SABORES[a].hud, SABORES[b].hud].filter(Boolean).join(" ");
+    return {
+      sabor, combinado: true,
+      nome: nomeado.nome, texto: nomeado.texto,
+      efeitos, minutos: Number.isFinite(minutos) ? minutos : 0, hud, estrela,
+      // os dois de sempre, pra quem só quer saber "o principal"
+      efeito: efeitos[0].efeito, forca: efeitos[0].forca,
+    };
+  }
+
+  const receita = SABORES[sabor] || SABORES.nenhum;
+  const um = { efeito: receita.efeito, forca: (FORCA[receita.efeito] || 0) * estrela.forca };
   return {
-    sabor,
-    nome: receita.nome,
-    texto: receita.texto,
-    efeito: receita.efeito,
-    minutos: receita.minutos,
-    hud: receita.hud,
-    estrela,
-    forca: (FORCA[receita.efeito] || 0) * estrela.forca,
+    sabor, combinado: false,
+    nome: receita.nome, texto: receita.texto,
+    efeitos: [um], minutos: receita.minutos, hud: receita.hud, estrela,
+    efeito: um.efeito, forca: um.forca,
   };
 }
 
@@ -65,19 +95,21 @@ export function comer(st, sanduiche, ingredientes) {
     st.items[i] = Math.max(0, (st.items[i] || 0) - 1);
     if (!st.items[i]) delete st.items[i];
   }
-  if (sanduiche.efeito === "cura") {
-    for (const mon of st.party) heal(mon);
-    return { curou: true };
-  }
-  if (sanduiche.efeito === "nada" || !sanduiche.minutos) return { curou: false };
+  const efeitos = sanduiche.efeitos || [{ efeito: sanduiche.efeito, forca: sanduiche.forca }];
+
+  // a cura acontece na hora e não tem prazo: ela sai da lista e o resto vale
+  const curou = efeitos.some((e) => e.efeito === "cura");
+  if (curou) for (const mon of st.party) heal(mon);
+
+  const duram = efeitos.filter((e) => e.efeito !== "cura" && e.efeito !== "nada");
+  if (!duram.length || !sanduiche.minutos) return { curou };
   st.buff = {
-    efeito: sanduiche.efeito,
-    forca: sanduiche.forca,
+    efeitos: duram,
     nome: sanduiche.nome,
     hud: sanduiche.hud,
     ate: Date.now() + sanduiche.minutos * 60000,
   };
-  return { curou: false };
+  return { curou };
 }
 
 /** O efeito que está valendo agora, ou null. Ele vence sozinho: quem pergunta
@@ -99,9 +131,15 @@ export function minutosDoBuff(st) {
  *  É por aqui que o resto do jogo pergunta — batalha, fuga, encontro. */
 export function fator(st, efeito) {
   const b = buff(st);
-  if (!b || b.efeito !== efeito) return 1;
-  if (efeito === "fuga" || efeito === "sorte") return b.forca;   // multiplicam
-  return 1 + b.forca;                                            // somam por cima
+  if (!b) return 1;
+  // save antigo guardava um efeito só, no próprio buff; save novo guarda a
+  // lista. Os dois continuam valendo — ninguém perde o sanduíche na atualização.
+  const lista = b.efeitos || [{ efeito: b.efeito, forca: b.forca }];
+  const achado = lista.find((e) => e.efeito === efeito);
+  if (!achado) return 1;
+  if (efeito === "fuga" || efeito === "sorte") return achado.forca;   // multiplicam
+  if (efeito === "defesa" || efeito === "calmaria") return 1 - achado.forca;  // diminuem
+  return 1 + achado.forca;                                           // somam por cima
 }
 
 /** Descansar na barraca: cura a equipe inteira. É o Centro Pokémon que você

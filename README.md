@@ -648,17 +648,28 @@ você acertou vira estrela — de QUEIMADO a PERFEITO —, e a estrela multiplic
 efeito.
 
 **O sanduíche sai do SABOR, não da receita.** Cada ingrediente tem um sabor, e
-manda o que aparecer mais (empate não vira sabor nenhum: sanduíche não sabe
-negociar). Com 8 ingredientes escolhendo 3 seriam 56 receitas pra escrever e
-manter; assim, ingrediente novo entra com uma linha e já combina com todos:
+manda o que aparecer mais. Com 16 ingredientes escolhendo 3 seriam centenas de
+receitas pra escrever e manter; assim, ingrediente novo entra com uma linha e já
+combina com todos:
 
-| sabor | sanduíche | o que faz |
+| sabor | ingredientes | o que faz |
 |---|---|---|
-| doce (morango, mel) | DOCE | +50% de experiência, 20 min |
-| salgado (presunto, queijo) | SALGADO | cura a equipe inteira, na hora |
-| picante (pimenta) | PICANTE | +15% de dano seu, 15 min |
-| azedo (limão) | AZEDO | fugir fica bem mais fácil, 20 min |
-| amargo (café) | AMARGO | 3x mais chance de shiny na grama, 15 min |
+| doce | morango, mel, banana | +50% de experiência, 20 min |
+| salgado | presunto, queijo, bacon | cura a equipe inteira, na hora |
+| picante | pimenta, wasabi | +15% de dano seu, 15 min |
+| azedo | limão, picles | fugir fica bem mais fácil, 20 min |
+| amargo | café, jiló | 3x mais chance de shiny na grama, 15 min |
+| umami | cogumelo, azeitona | -15% no dano que você toma, 15 min |
+| fresco | hortelã | metade dos encontros na grama, 15 min |
+
+**E dois sabores empatados viram um sabor só.** Um morango e um presunto na
+mesma tábua dão o **SANDUÍCHE AGRIDOCE** — salgado e doce na mesma mordida —, e
+ele faz **as duas coisas**: cura na hora e dá experiência a mais. Cada efeito
+vale 70% do que valeria sozinho, porque comer bem de duas coisas ao mesmo tempo
+não é comer o dobro; e o prazo é o do mais curto. Dez pares têm nome escrito
+(CÍTRICO, DOCE-ARDIDO, FORTE, BRAVO, CAFÉ COM AÇÚCAR, ESCURO, SUBSTANCIOSO, DE
+VERÃO, VERDE); qualquer outro par funciona igual e sai como SANDUÍCHE MISTO.
+Três sabores empatados aí sim não viram nada: a tábua não sabe decidir.
 
 O efeito **vale de verdade**, não é texto: entra no cálculo de XP da batalha, no
 dano dos seus golpes, na conta de fuga e no sorteio de shiny do mato. Ele vence

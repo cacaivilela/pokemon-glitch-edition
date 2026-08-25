@@ -610,7 +610,9 @@ export class OverworldScene {
     if (this.pisouNasFlores()) return;
 
     if (this.tagAt(p.x, p.y) === DB.TAG.GRASS && this.st.party.some((m) => m.hp > 0)
-        && Math.random() < (DB.CONFIG?.encounterRate ?? ENCOUNTER_RATE)) {
+        // o SANDUÍCHE REFRESCANTE corta a chance pela metade: dá pra atravessar
+        // o mato sem parar de dois em dois passos
+        && Math.random() < (DB.CONFIG?.encounterRate ?? ENCOUNTER_RATE) * fator(this.st, "calmaria")) {
       const enc = p.map === "glitchdim"
         ? rollDimEncounter(this.geo.terrain?.[p.y * this.geo.w + p.x] === "a" ? "ar"
             : this.geo.terrain?.[p.y * this.geo.w + p.x] === "g" ? "agua" : "terra", this.st)

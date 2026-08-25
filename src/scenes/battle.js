@@ -270,7 +270,11 @@ export class BattleScene {
         this.sp[who === "p" ? "f" : "p"].blink = 0.45;
       }
       // o SANDUÍCHE PICANTE bate mais forte — e só do seu lado da tela
-      const dano = who === "p" ? Math.max(1, Math.round(res.dmg * fator(this.st, "ataque"))) : res.dmg;
+      // o PICANTE bate mais forte no seu turno; o UMAMI segura o que vem no do
+      // outro. Os dois só valem pro seu lado da tela.
+      const dano = Math.max(1, Math.round(res.dmg * (who === "p"
+        ? fator(this.st, "ataque")
+        : fator(this.st, "defesa"))));
       target.hp = Math.max(0, target.hp - dano);
       await this.syncHp();
       if (res.mirror) {

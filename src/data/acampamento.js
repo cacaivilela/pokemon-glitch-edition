@@ -17,11 +17,19 @@ export const INGREDIENTES = {
   "pão": { sabor: null, preco: 60, base: true, texto: "SEM PÃO NÃO É SANDUÍCHE." },
   "morango": { sabor: "doce", preco: 180, texto: "DOCE. GRUDA NA MÃO." },
   "mel": { sabor: "doce", preco: 240, texto: "MAIS DOCE AINDA. GRUDA EM TUDO." },
+  "banana": { sabor: "doce", preco: 120, texto: "DOCE E BARATA. SEMPRE TEM." },
   "presunto": { sabor: "salgado", preco: 200, texto: "SALGADO. O CLÁSSICO." },
   "queijo": { sabor: "salgado", preco: 220, texto: "SALGADO E DERRETE." },
+  "bacon": { sabor: "salgado", preco: 320, texto: "SALGADO DEMAIS. VALE A PENA." },
   "pimenta": { sabor: "picante", preco: 260, texto: "PICANTE. CUIDADO COM O OLHO." },
+  "wasabi": { sabor: "picante", preco: 380, texto: "PICANTE QUE SOBE PELO NARIZ." },
   "limão": { sabor: "azedo", preco: 150, texto: "AZEDO DE FECHAR A CARA." },
+  "picles": { sabor: "azedo", preco: 190, texto: "AZEDO E CROCANTE." },
   "café": { sabor: "amargo", preco: 300, texto: "AMARGO. NINGUÉM DORME DEPOIS." },
+  "jiló": { sabor: "amargo", preco: 140, texto: "AMARGO. METADE DAS PESSOAS DEVOLVE." },
+  "cogumelo": { sabor: "umami", preco: 280, texto: "GOSTO DE COISA SÉRIA." },
+  "azeitona": { sabor: "umami", preco: 240, texto: "UMAMI. OU VOCÊ AMA OU TIRA." },
+  "hortelã": { sabor: "fresco", preco: 160, texto: "REFRESCA ATÉ O CAMINHO." },
 };
 
 /** A barraca. Sem ela não dá pra acampar; compra-se uma vez. */
@@ -67,7 +75,21 @@ export const SABORES = {
     texto: "NINGUÉM DORME. E QUEM NÃO DORME VÊ COISA RARA.",
     hud: "SORTE+",
   },
-  // o que sai quando não dá pra decidir: dois sabores empatados, ou só pão
+  umami: {
+    nome: "SANDUÍCHE UMAMI",
+    efeito: "defesa",
+    minutos: 15,
+    texto: "A EQUIPE COMEU COMIDA DE VERDADE. AGUENTA MAIS PANCADA.",
+    hud: "DEF+",
+  },
+  fresco: {
+    nome: "SANDUÍCHE REFRESCANTE",
+    efeito: "calmaria",
+    minutos: 15,
+    texto: "O CHEIRO ESPANTA BICHO DO MATO. O CAMINHO FICA MAIS CALMO.",
+    hud: "CALMA",
+  },
+  // o que sai quando não tem sabor nenhum: só pão, ou três sabores diferentes
   nenhum: {
     nome: "SANDUÍCHE DE PÃO",
     efeito: "nada",
@@ -76,6 +98,31 @@ export const SABORES = {
     hud: "",
   },
 };
+
+/** OS COMBINADOS. Dois sabores empatados não viram mais "sanduíche de pão":
+ *  viram um sanduíche dos DOIS, com os dois efeitos ao mesmo tempo — cada um
+ *  valendo menos do que valeria sozinho (`MISTURA`), porque comer bem de duas
+ *  coisas ao mesmo tempo não é comer o dobro.
+ *
+ *  A chave é o par em ordem alfabética: "doce+salgado" acha o mesmo que
+ *  "salgado+doce". Par sem nome escrito aqui ainda funciona — sai como MISTO,
+ *  com os dois efeitos do mesmo jeito. */
+export const COMBOS = {
+  "doce+salgado": { nome: "SANDUÍCHE AGRIDOCE", texto: "SALGADO E DOCE NA MESMA MORDIDA. NINGUÉM ENTENDE E TODO MUNDO GOSTA." },
+  "azedo+doce": { nome: "SANDUÍCHE CÍTRICO", texto: "DOCE NA FRENTE, AZEDO ATRÁS." },
+  "doce+picante": { nome: "SANDUÍCHE DOCE-ARDIDO", texto: "COMEÇA DOCE E TERMINA GRITANDO." },
+  "picante+salgado": { nome: "SANDUÍCHE FORTE", texto: "COMIDA DE QUEM VAI BRIGAR DEPOIS." },
+  "azedo+picante": { nome: "SANDUÍCHE BRAVO", texto: "ARDE E FECHA A CARA. A EQUIPE FICOU ELÉTRICA." },
+  "amargo+doce": { nome: "CAFÉ COM AÇÚCAR", texto: "NINGUÉM DORME, MAS TODO MUNDO GOSTOU." },
+  "amargo+salgado": { nome: "SANDUÍCHE ESCURO", texto: "GOSTO DE COISA QUE SÓ APARECE DE MADRUGADA." },
+  "salgado+umami": { nome: "SANDUÍCHE SUBSTANCIOSO", texto: "ISSO NÃO É LANCHE, É ALMOÇO." },
+  "doce+fresco": { nome: "SANDUÍCHE DE VERÃO", texto: "DOCE E GELADO. DÁ VONTADE DE ANDAR." },
+  "fresco+umami": { nome: "SANDUÍCHE VERDE", texto: "LEVE E FIRME AO MESMO TEMPO." },
+};
+
+/** o nome de quem não tem nome, e o quanto cada efeito perde num combinado */
+export const MISTO = { nome: "SANDUÍCHE MISTO", texto: "DOIS GOSTOS BRIGANDO. FICOU BOM ASSIM MESMO." };
+export const MISTURA = 0.7;
 
 /** Quantas estrelas o sanduíche ganhou, pelo tanto que você acertou a panela.
  *  A força do efeito sai daqui: 1 estrela é quase nada, 5 é o dobro. */
@@ -93,6 +140,8 @@ export const FORCA = {
   ataque: 0.15,     // +15% de dano
   fuga: 1.5,        // multiplica a chance de fugir
   sorte: 3,         // multiplica a chance de shiny
+  defesa: 0.15,     // -15% no dano que você toma
+  calmaria: 0.5,    // metade dos encontros na grama
 };
 
 /** Os dois minijogos do acampamento. */
