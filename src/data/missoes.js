@@ -18,6 +18,8 @@
 //   objetivo  { tipo, ... } — ver OBJETIVOS em src/systems/missoes.js
 //   resumo    a linha do diário, curta
 //   oferta / lembrete / entrega   o que ele fala em cada momento
+//   requer    { insignias, missao, flag } — trava até a condição bater
+//   travado   o que ele fala enquanto `requer` não bate (opcional)
 //   premio    { dinheiro, item, qtd }
 
 export const MISSOES = [
@@ -44,6 +46,14 @@ export const MISSOES = [
     id: "trio",
     nome: "O COLECIONADOR",
     mapa: "pallet", x: 12, y: 10, sprite: "velho",
+    // A oferta dele conta uma cena — o Carvalho entregando as três bolas — que
+    // no começo do jogo ainda não aconteceu. Sem isto ele contava o final antes
+    // do começo, pra alguém que nem Pokémon tinha.
+    requer: { flag: "starterChosen" },
+    travado: [
+      "O CARVALHO AINDA NÃO TE CHAMOU NO LABORATÓRIO?",
+      "ENTÃO VOLTA AQUI DEPOIS. EU TENHO UMA COISA PRA TE PEDIR, MAS SÓ FAZ SENTIDO DEPOIS.",
+    ],
     objetivo: {
       tipo: "tem-linhagens",
       linhagens: [

@@ -40,6 +40,8 @@ export const MAPS = {
       id: "mae", x: 8, y: 4, dir: "down", sprite: "mae", heal: true,
       lines: ["OI, QUERIDO! O PROF. CARVALHO ESTAVA TE PROCURANDO.", "O LABORATÓRIO DELE FICA NO SUL DA VILA."],
       afterLines: ["TODO TREINADOR SAI DE CASA UM DIA. DESCANSE ANTES DE IR!"],
+      // ela cura a equipe; sem equipe, ela não finge que curou alguma coisa
+      semMon: ["VOCÊ NEM TEM UM POKÉMON AINDA, QUERIDO!", "VAI LÁ FALAR COM O PROF. CARVALHO. EU FICO AQUI."],
     }],
   },
 

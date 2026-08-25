@@ -811,6 +811,7 @@ export const STORY = {
   joy: {
     menu: "O QUE VOCÊ PRECISA?",
     curar: "PRONTINHO! SEUS POKÉMON ESTÃO CURADOS.",
+    semMon: "VOCÊ NÃO TEM NENHUM POKÉMON PRA EU CUIDAR AINDA.",
     quemMon: "QUAL POKÉMON VAI MUDAR DE GOLPE?",
     semGolpe: "{MON} NÃO TEM NENHUM GOLPE NOVO PRA APRENDER AGORA.",
     qualGolpe: "QUAL GOLPE {MON} VAI APRENDER?",

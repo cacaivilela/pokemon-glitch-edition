@@ -77,14 +77,17 @@ const OBJETIVOS = {
 
 export const missaoPorId = (id) => (DB.MISSOES || []).find((m) => m.id === id) || null;
 
-/** A missão está liberada? `requer` pode pedir insígnias e/ou outra missão
- *  entregue — é assim que as três da tempestade viram uma fila: cada uma só
- *  aparece quando a anterior já foi paga. */
+/** A missão está liberada? `requer` pode pedir insígnias, outra missão entregue
+ *  e/ou uma bandeira do save — é assim que as três da tempestade viram uma fila
+ *  (cada uma só aparece quando a anterior foi paga) e que o COLECIONADOR só
+ *  fala do trio depois que o Carvalho entregou as bolas: o pedido dele é sobre
+ *  uma cena que ainda não aconteceu. */
 export function liberada(st, missao) {
   const r = missao?.requer;
   if (!r) return true;
   if (r.insignias && (st?.badges || []).length < r.insignias) return false;
   if (r.missao && st?.missoes?.[r.missao]?.estado !== "feita") return false;
+  if (r.flag && !st?.flags?.[r.flag]) return false;
   return true;
 }
 

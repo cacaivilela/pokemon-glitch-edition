@@ -990,9 +990,9 @@ export class OverworldScene {
     if (npc.heal) {
       const j = DB.STORY.joy;
       this.dlg.say(npc.lines, () => {
-        if (!npc.tutor) return this.curarEquipe();
+        if (!npc.tutor) return this.curarEquipe(npc);
         this.dlg.ask(j.menu, ["CURAR", "TROCAR GOLPES", "NADA"], (i) => {
-          if (i === 0) return this.curarEquipe();
+          if (i === 0) return this.curarEquipe(npc);
           if (i === 1) {
             if (!this.st.party.length) return void this.dlg.say("VOCÊ NÃO TEM POKÉMON AINDA!");
             this.menu = { type: "tutorMon", index: 0 };
@@ -1167,7 +1167,15 @@ export class OverworldScene {
     });
   }
 
-  curarEquipe() {
+  /** Curar a equipe — a mãe em casa, a enfermeira no centro. COM A EQUIPE
+   *  VAZIA não há o que curar: o "prontinho, estão curados" saindo antes de
+   *  você ter o primeiro Pokémon era a fala mais boba do jogo. Cada uma tem a
+   *  sua saída, porque a mãe não fala como a enfermeira. */
+  curarEquipe(npc) {
+    if (!this.st.party.length) {
+      Audio2.cancel();
+      return void this.dlg.say(npc?.semMon || DB.STORY.joy.semMon);
+    }
     this.st.party.forEach(heal);
     this.st.respawn = { map: this.st.player.map, x: this.st.player.x, y: this.st.player.y };
     Audio2.heal();
@@ -1811,7 +1819,7 @@ export class OverworldScene {
     // um NPC pode ter uma fila de pedidos (o marinheiro tem três): pega o da vez
     const { missao, travada } = daVez(st, npc.missao);
     if (!missao) return void this.dlg.say(T.jaFeita);
-    if (travada) return void this.dlg.say(T.travada);
+    if (travada) return void this.dlg.say(missao.travado || T.travada);
     const agora = estadoMissao(st, missao.id);
 
     if (agora === "pronta") return this.entregarMissao(missao);
