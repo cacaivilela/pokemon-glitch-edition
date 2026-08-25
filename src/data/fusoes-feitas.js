@@ -1071,5 +1071,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/kabutops+kakuna~kabuna.png",
       "lore": "KABUTOPS NA CABEÇA, KAKUNA NO CORPO."
     }
+  ],
+  "rotom+charmander": [
+    {
+      "id": "rotomchar",
+      "nome": "ROTOM CHAR",
+      "autor": "CAIO",
+      "tipos": [
+        "ELÉTRICO",
+        "FOGO"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 9,
+        "atk": 6.1,
+        "def": 9,
+        "spa": 4.9,
+        "spd": 8.6,
+        "spe": 6.9
+      },
+      "sprite": "assets/fusoes/rotom+charmander~rotomchar.png",
+      "lore": "ROTOM NA CABEÇA, CHARMANDER NO CORPO."
+    }
   ]
 };
