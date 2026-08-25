@@ -37,6 +37,7 @@ export const INGREDIENTES = {
 };
 
 import { BARRACA_LEILAO } from "./leilao.js";
+import { GLITCHBOOSTER } from "./glitch.js";
 
 /** A barraca. Sem ela não dá pra acampar; compra-se uma vez. */
 export const BARRACA = { item: "barraca", preco: 1200 };
@@ -49,6 +50,9 @@ export const BARRACA = { item: "barraca", preco: 1200 };
 export const ESTOQUE = [
   { item: BARRACA.item, price: BARRACA.preco },
   { item: BARRACA_LEILAO.item, price: BARRACA_LEILAO.preco },
+  // o GLITCHBOOSTER só aparece na prateleira depois que o professor explicou a
+  // GLITCHFORM: `requer` é conferido na hora de abrir a loja
+  { item: GLITCHBOOSTER.item, price: GLITCHBOOSTER.preco, requer: "glitchform" },
   ...Object.entries(INGREDIENTES).map(([item, i]) => ({ item, price: i.preco })),
 ];
 

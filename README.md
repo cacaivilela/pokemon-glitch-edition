@@ -714,6 +714,46 @@ a cura devolvendo HP, status e PP), e a **tela** é aberta no jogo de verdade �
 ele põe uma barraca na mochila, abre o menu, anda até ACAMPAR e confere que a
 cena subiu com a equipe fora da bola.
 
+## GLITCHBOOSTER: o dano vira atributo
+
+Um item de batalha que **transforma o seu Pokémon num bug**. A partir dele, cada
+ponto de dano que ele TOMA vira ponto de atributo: levou 20, ganha **+20 em
+ataque, defesa, ataque especial, defesa especial e velocidade**. No HP não —
+senão apanhar deixaria de doer, e é apanhar que move a mecânica.
+
+**E o número que segura isso é de um byte.** Passou de 255, volta pro zero. Tomou
+220 de dano e está monstruoso? Os próximos 50 te deixam com **14**. Apanhar é a
+força; apanhar demais é a queda. Num jogo chamado Glitch Edition, é o único jeito
+honesto de implementar "acumula dano e vira força".
+
+O bônus mora em `effectiveStat` (`src/systems/battle-engine.js`), não nos `stats`
+do Pokémon: ele vale só naquela batalha e **nunca encosta no save** — no fim,
+`limparTudo` apaga.
+
+**Três trancas** (`src/systems/glitchboost.js`): você precisa do
+**VISOR-G.L.I.T.C.H** (o que o CONOR entrega pros fragmentos — é ele que lê a
+GLITCHFORM), do **professor ter explicado** o que é isso, e do item na mochila.
+Antes da conversa o GLITCHBOOSTER não aparece na prateleira nem na mochila da
+batalha: um item que transforma o seu Pokémon num bug — e que pode zerar tudo que
+ele juntou — não devia funcionar antes de alguém dizer o que ele faz.
+
+## GLITCH RAID
+
+De vez em quando a fenda não devolve um bicho: devolve um **chefe**. HP vezes
+cinco, atributos inflados e uma **CASCA DE DADO** na frente — enquanto ela está
+de pé, o seu golpe bate nela e não nele, e **a bola nem encosta**. Primeiro se
+quebra a casca, depois se conversa. É isso que faz da raid uma luta de duas
+partes, e não um selvagem com muito HP.
+
+Quem derruba leva dinheiro no chão da fenda (1200 a 3000) e **experiência
+dobrada**. As contas estão em `src/systems/raid.js`, os números em
+`src/data/glitch.js` (`chance`, `vidas`, `escudo`, `forca`, `premio`).
+
+`dev/glitchcheck.html` testa os dois sem abrir batalha: as três trancas, o dano
+virando atributo (e o HP ficando de fora), os `stats` gravados intactos, o byte
+dando a volta em 270 → 14, o bug sumindo no fim, e a casca da raid segurando o
+dano até quebrar e deixar o resto passar.
+
 ## Leilão: vender Pokémon
 
 Compre uma **BARRACA DE LEILÃO** (3000, em qualquer loja) e daí em diante todo
@@ -1250,6 +1290,7 @@ dev/cutscenecheck.html roda a cutscene de todos os golpes num palco de mentira
 dev/ciclocheck.html    anda com o relógio e confere a virada do dia e da noite
 dev/acampacheck.html   as regras do acampamento soltas + a cena aberta no jogo
 dev/leilaocheck.html   as regras do leilão soltas + a cena aberta no jogo
+dev/glitchcheck.html   glitchbooster (as trancas, o byte) e a casca das raids
 giveglitch/            versão web do mesmo terminal (fora do jogo)
 faxinamissingno/       a FAXINA MISSINGNO.: o acervo medido, com a senha pra jogar fora
 save/save.json         o save (um por máquina; fora do git)

@@ -11,6 +11,9 @@ import { Glitch } from "../systems/glitchfx.js";
 import { cenaDoGolpe } from "../systems/cutscenes.js";
 import { veu, temCeu } from "../systems/ciclo.js";
 import { fator } from "../systems/acampamento.js";
+import { podeUsarBooster, ligar, acumular, bugado, bonusDe, limparTudo } from "../systems/glitchboost.js";
+import { bater, podeCapturar, premio as premioRaid } from "../systems/raid.js";
+import { GLITCHBOOSTER } from "../data/glitch.js";
 import { hpPct, isFainted, gainXp, xpYieldFor, xpForLevel, heal, createMon } from "../systems/mon.js";
 import {
   calcDamage, accuracyCheck, applyMoveEffects, statusTickDamage, effText,
@@ -65,6 +68,7 @@ export class BattleScene {
     this.megaArmada = null;
     this.flash = 0;
     this.fx = [];                 // os efeitos das cutscenes de golpe
+    this.raid = args.raid || null;   // GLITCH RAID: a casca do chefe
     this.disp = { p: this.mine.hp, f: this.foe.hp };
     this.sp = { p: this.newSprite(-90), f: this.newSprite(90) };
     st.seen[this.foe.species] = true;
@@ -272,9 +276,17 @@ export class BattleScene {
       // o SANDUÍCHE PICANTE bate mais forte — e só do seu lado da tela
       // o PICANTE bate mais forte no seu turno; o UMAMI segura o que vem no do
       // outro. Os dois só valem pro seu lado da tela.
-      const dano = Math.max(1, Math.round(res.dmg * (who === "p"
+      let dano = Math.max(1, Math.round(res.dmg * (who === "p"
         ? fator(this.st, "ataque")
         : fator(this.st, "defesa"))));
+
+      // GLITCH RAID: enquanto a casca está de pé, o golpe bate NELA. É isso que
+      // faz do chefe uma luta de duas partes, e não um selvagem com muito HP.
+      if (who === "p" && this.raid?.escudo > 0) {
+        const r = bater(this.raid, dano);
+        dano = r.noBicho;
+        this.quebrou = r.quebrou;
+      }
       target.hp = Math.max(0, target.hp - dano);
       await this.syncHp();
       if (res.mirror) {
@@ -282,6 +294,26 @@ export class BattleScene {
         Audio2.glitch();
         await this.say(`O DADO DE ${target.nickname} NÃO SUPORTA VER A SI MESMO!`);
         await this.say("O GOLPE BATEU OITO VEZES DE UMA VEZ SÓ!");
+      }
+      const G = DB.STORY.glitch;
+      if (this.quebrou) {
+        this.quebrou = false;
+        Glitch.hit(2.5); Audio2.glitch(); this.flash = 0.6;
+        await this.say(G.escudoQuebrou);
+      }
+      // O GLITCHBOOSTER come o dano que VOCÊ tomou e devolve em atributo — e
+      // avisa alto quando o byte dá a volta, porque a essa altura o jogador
+      // achava que estava ganhando.
+      if (who === "f" && bugado(target)) {
+        const antes = bonusDe(target);
+        const r = acumular(target, dano);
+        if (r.virou) {
+          Glitch.hit(3); Audio2.glitch();
+          await this.say(G.virouByte.replace("{NOME}", target.nickname));
+        } else if (r.bonus > antes) {
+          Glitch.hit(0.6);
+          await this.say(G.comeu.replace("{NOME}", target.nickname).replace("{N}", r.bonus));
+        }
       }
       if (res.crit) await this.say("ACERTO CRÍTICO!");
       const et = effText(res.eff);
@@ -338,8 +370,19 @@ export class BattleScene {
     await this.wait(0.7);
     await this.say(`${this.trainer ? "O " + this.foe.nickname + " INIMIGO" : this.foe.nickname + " SELVAGEM"} DESMAIOU!`);
 
+    // GLITCH RAID derrubada: dinheiro no chão da fenda, e a experiência dobrada
+    if (this.raid) {
+      const pr = premioRaid();
+      this.st.money = Math.min(999999, (this.st.money || 0) + pr.dinheiro);
+      this.raid.xp = pr.xp;
+      Glitch.hit(2);
+      Audio2.heal();
+      await this.say(DB.STORY.glitch.raidGanhou.replace("{DINHEIRO}", pr.dinheiro));
+    }
+
     // o SANDUÍCHE DOCE do acampamento entra aqui, multiplicando o que se aprende
-    const xp = Math.floor(xpYieldFor(this.foe) * (this.trainer ? 1.5 : 1) * fator(this.st, "xp"));
+    const xp = Math.floor(xpYieldFor(this.foe) * (this.trainer ? 1.5 : 1)
+                          * fator(this.st, "xp") * (this.raid?.xp || 1));
     const share = DB.CONFIG?.shareXp !== false;
     // desmaiado não ganha experiência (senão ele subiria de nível dentro da bola)
     const winners = (share ? this.st.party : [this.mine]).filter((m) => !isFainted(m));
@@ -430,11 +473,37 @@ export class BattleScene {
       out.push({ item: g.item, label: g.item.toUpperCase(), bola: true, glitch: true });
     }
     out.push({ item: "poção", label: "POÇÃO", bola: false });
+    // o GLITCHBOOSTER só aparece na mochila da batalha quando dá pra usar: com
+    // o visor no rosto e o professor já tendo explicado o que é isso
+    if (podeUsarBooster(this.st) && !bugado(this.mine)) {
+      out.push({ item: GLITCHBOOSTER.item, label: "GLITCHBOOSTER", bola: false, booster: true });
+    }
     return out;
+  }
+
+  /** Liga a GLITCHFORM em quem está na frente: daqui pra frente o dano que ele
+   *  tomar vira atributo. Gasta o turno, como qualquer item. */
+  async usarBooster() {
+    const G = DB.STORY.glitch;
+    this.menu = null;
+    if (!ligar(this.st, this.mine)) return void this.say(G.semUso);
+    Glitch.hit(2.5);
+    Audio2.glitch();
+    this.flash = 0.5;
+    this.sp.p.blink = 0.5;
+    await this.say(G.usou.replace("{NOME}", this.mine.nickname));
+    const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
+    if (fMove) await this.useMove("f", fMove);
+    await this.checkFaints();
   }
 
   async tryCatch(item = "poké bola") {
     this.menu = null;
+    // GLITCH RAID: primeiro se quebra a casca, depois se conversa
+    if (!podeCapturar(this.raid)) {
+      Audio2.cancel();
+      return void this.say(DB.STORY.glitch.raidSemBola);
+    }
     const g = DB.STORY.glitchball;
     const ehGlitch = !!g && item === g.item;
     if (this.trainer) {
@@ -562,6 +631,7 @@ export class BattleScene {
     // a MEGA dura só a batalha: ninguém sai daqui megado (nem o save)
     this.foeParty.forEach(reverterMega);
     reverterTudo(this.st);
+    limparTudo(this.st);          // o bug do GLITCHBOOSTER dura só esta batalha
     Audio2.stopLoop();
     this.fadeDir = 1;
     await this.until(() => this.fadeA >= 1);
@@ -668,7 +738,8 @@ export class BattleScene {
       if (Input.consume("a")) {
         Audio2.select();
         const it = itens[Math.min(m.index, n - 1)];
-        this.run(it.bola ? this.tryCatch(it.item) : this.usePotion());
+        this.run(it.booster ? this.usarBooster()
+                 : it.bola ? this.tryCatch(it.item) : this.usePotion());
       }
       return;
     }
@@ -749,6 +820,7 @@ export class BattleScene {
 
     // caixas de status (a do inimigo só depois que ele solta o Pokémon)
     if (!this.showTrainer) this.statusBox(ctx, 6, 6, this.foe, this.disp.f, false);
+    if (this.raid) this.drawEscudo(ctx);
     this.statusBox(ctx, 122, 68, this.mine, this.disp.p, true);
 
     ctx.restore();
@@ -810,6 +882,19 @@ export class BattleScene {
     }
     ctx.globalAlpha = 1;
     ctx.lineWidth = 1;
+  }
+
+  /** A CASCA da GLITCH RAID, logo abaixo da barra dele. Enquanto ela tem
+   *  pedaço, o dano não chega no bicho — e a barra some quando ela cai, pra não
+   *  sobrar um zero na tela dizendo nada. */
+  drawEscudo(ctx) {
+    if (this.raid.escudo <= 0) return;
+    const larg = 100, x = 6, y = 30;
+    ctx.fillStyle = "#1a1030";
+    ctx.fillRect(x, y, larg, 5);
+    ctx.fillStyle = "#b455ff";
+    ctx.fillRect(x, y, Math.max(1, Math.round(larg * this.raid.escudo / this.raid.escudoMax)), 5);
+    drawText(ctx, "CASCA", x + larg + 4, y - 2, "#b455ff");
   }
 
   statusBox(ctx, x, y, mon, disp, showHp) {

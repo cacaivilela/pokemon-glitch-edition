@@ -29,6 +29,7 @@ import { escuridaoDoLugar, ehCaverna, acesa, camadaDeLuz, brilho, RAIO } from ".
 import { AcampamentoScene } from "./acampamento.js";
 import { LeilaoScene } from "./leilao.js";
 import { temBarraca } from "../systems/leilao.js";
+import { temVisor, explicado } from "../systems/glitchboost.js";
 import { podeAcampar, fator, buff, minutosDoBuff } from "../systems/acampamento.js";
 import { rivalNpc } from "../systems/rival.js";
 import { ehFusao, fundivel, previsao, partes, temFicha, fichasProntas, variantes,
@@ -818,9 +819,11 @@ export class OverworldScene {
 
   startBattle(enc) {
     Audio2.stopLoop();
+    if (enc.raid) { Glitch.hit(3); Audio2.glitch(); }
     if (enc.glitch) { Glitch.hit(2); Audio2.glitch(); }
     Audio2.tone(880, 0.08); Audio2.tone(660, 0.12);
-    this.fx = { t: 0, cb: () => this.game.scenes.push(new BattleScene(), { foe: enc.mon, glitch: enc.glitch }) };
+    this.fx = { t: 0, cb: () => this.game.scenes.push(new BattleScene(),
+      { foe: enc.mon, glitch: enc.glitch, raid: enc.raid }) };
   }
 
   /** Treinador que te vê passar na frente: ele chama, você decide.
@@ -961,13 +964,14 @@ export class OverworldScene {
       // comprou a barraca não vê uma pergunta a mais toda vez que fala com o
       // balconista.
       this.dlg.say(npc.lines, () => {
+        const prateleira = this.prateleira(npc.shop);
         if (!temBarraca(this.st)) {
-          this.menu = { type: "shop", index: 0, shop: npc.shop };
+          this.menu = { type: "shop", index: 0, shop: prateleira };
           return;
         }
         const L = DB.STORY.leilao;
         this.dlg.ask(L.oferta, L.opcoes, (i) => {
-          if (i === 0) this.menu = { type: "shop", index: 0, shop: npc.shop };
+          if (i === 0) this.menu = { type: "shop", index: 0, shop: prateleira };
           else if (i === 1) this.game.scenes.push(new LeilaoScene());
         });
       });
@@ -2158,6 +2162,16 @@ export class OverworldScene {
   }
 
   /** Prof. Carvalho: conduz o arco da 011glitchdimension110. */
+  /** O professor explica a GLITCHFORM e libera o GLITCHBOOSTER. */
+  explicarGlitchform() {
+    const G = DB.STORY.glitch;
+    this.st.flags.glitchform = true;
+    Glitch.hit(1.5);
+    Audio2.glitch();
+    this.game.autosave?.(true);
+    this.dlg.say([...G.explica, G.liberou]);
+  }
+
   talkOak(npc, state) {
     const st = this.st;
     const S = DB.STORY;
@@ -2166,6 +2180,13 @@ export class OverworldScene {
     // DECODIFICADOR DE GENOMA: a primeira coisa que ele faz, na primeira
     // conversa — antes do inicial, antes de qualquer insígnia.
     if (!st.flags.decodificador) return this.darDecodificador(npc, state);
+
+    // A GLITCHFORM: com o VISOR-G.L.I.T.C.H do Conor no bolso, o professor
+    // explica pra que mais ele serve — e é essa conversa que destranca o
+    // GLITCHBOOSTER. Antes dela, o item não sai da mochila nem aparece na loja:
+    // uma coisa que transforma o seu Pokémon num bug não devia funcionar antes
+    // de alguém dizer o que ela faz.
+    if (temVisor(st) && !explicado(st)) return this.explicarGlitchform();
 
     // ANEL MEGA: sai da mão dele na primeira volta ao laboratório depois da
     // primeira insígnia. As outras megapedras estão espalhadas por Kanto.
@@ -2325,6 +2346,12 @@ export class OverworldScene {
     if (this.quemSabe("voar")) base.push("VOAR");
     if (DB.ONLINE?.ativo) base.push("ONLINE");
     return [...base, "SALVAR", "OPÇÕES", "SAIR"];
+  }
+
+  /** O que esta loja mostra AGORA: item com `requer` só entra depois da flag.
+   *  Vender o que o jogador ainda não pode usar é vender problema. */
+  prateleira(shop) {
+    return (shop || []).filter((x) => !x.requer || this.st.flags?.[x.requer]);
   }
 
   buy(item, price, n, shop) {

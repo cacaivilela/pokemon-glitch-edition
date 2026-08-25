@@ -2,6 +2,7 @@
 import { DB } from "../data/index.js";
 import { createMon } from "./mon.js";
 import { garantirEspecie } from "./fusao.js";
+import { temRaid, montarChefe } from "./raid.js";
 import { randRange, chance } from "../core/rng.js";
 
 export const ENCOUNTER_RATE = 0.11; // fallback; o valor real vem de DB.CONFIG.encounterRate
@@ -12,6 +13,13 @@ export const ENCOUNTER_RATE = 0.11; // fallback; o valor real vem de DB.CONFIG.e
 export function rollDimEncounter(terrain, state) {
   const table = DB.DIM_ENCOUNTERS?.[terrain] || DB.DIM_ENCOUNTERS?.terra || [];
   if (!table.length) return null;
+
+  // GLITCH RAID: de vez em quando a fenda não devolve um bicho, devolve um
+  // chefe. Vem antes de tudo porque ele não obedece tabela nem terreno.
+  if (temRaid()) {
+    const chefe = montarChefe(table);
+    if (chefe) return { mon: chefe.mon, glitch: true, raid: chefe };
+  }
 
   state.dimSeen = (state.dimSeen || 0) + 1;
   const shiny = state.dimSeen % (DB.SHINY_EVERY || 2956) === 0;

@@ -1,5 +1,6 @@
 // Regras de batalha (sem render): dano, stages, status, captura e IA.
 import { DB } from "../data/index.js";
+import { bonusDoAtributo } from "./glitchboost.js";
 import { pick, chance, clamp, randRange } from "../core/rng.js";
 import { isFainted } from "./mon.js";
 
@@ -9,9 +10,12 @@ const withStage = (v, s) => Math.max(1, Math.floor(v * STAGE_MULT[clamp(s + 6, 0
 
 export function effectiveStat(mon, key, stages) {
   let v = withStage(mon.stats[key], stages[key] || 0);
+  // O GLITCHBOOSTER entra AQUI, e não nos `stats`: o dano acumulado é um bônus
+  // que vive só nesta batalha, então ele não pode encostar no Pokémon gravado.
+  v += bonusDoAtributo(mon, key);
   if (mon.status === "paralisia" && key === "spe") v = Math.floor(v / 2);
   if (mon.status === "queimadura" && key === "atk") v = Math.floor(v / 2);
-  return v;
+  return Math.max(1, v);
 }
 
 export function calcDamage(atk, def, moveId, aStages, dStages) {

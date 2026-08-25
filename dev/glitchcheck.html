@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>checagem do glitchbooster e das raids</title>
+<style>body{background:#111;color:#9fd;font:13px/1.45 ui-monospace,monospace;margin:0;padding:8px}
+.erro{color:#f66}.ok{color:#7f7}h2{color:#b455ff;font-size:13px;margin:10px 0 2px}</style></head>
+<body>
+<div id="out">rodando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=8000">
+<script type="module">
+const out = document.getElementById("out");
+const linhas = [], errs = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+const teste = (nome, ok) => { p(`${ok ? "ok  " : "NÃO "} ${nome}`, ok ? "ok" : "erro"); if (!ok) errs.push(nome); };
+
+try {
+  const { DB } = await import("/src/data/index.js");
+  const B = await import("/src/systems/glitchboost.js");
+  const R = await import("/src/systems/raid.js");
+  const E = await import("/src/systems/battle-engine.js");
+  const { createMon } = await import("/src/systems/mon.js");
+  const { BOOSTER, GLITCHBOOSTER } = await import("/src/data/glitch.js");
+  const VISOR = DB.STORY.detector.item;
+
+  h("AS TRÊS TRANCAS");
+  const st = { items: {}, flags: {}, party: [] };
+  teste("sem nada, não dá", !B.podeUsarBooster(st) && B.porQueNao(st) === "semVisor");
+  st.items[VISOR] = 1;
+  teste("com o visor mas sem a explicação, não dá", !B.podeUsarBooster(st) && B.porQueNao(st) === "semExplicacao");
+  st.flags.glitchform = true;
+  teste("explicado mas sem o item, não dá", !B.podeUsarBooster(st) && B.porQueNao(st) === "semItem");
+  st.items[GLITCHBOOSTER.item] = 1;
+  teste("com os três, dá", B.podeUsarBooster(st));
+
+  h("O BUG COMENDO DANO");
+  const mon = createMon("pikachu", 50);
+  st.party = [mon];
+  const stats0 = { ...mon.stats };
+  teste("ligar gasta o item", B.ligar(st, mon) && !st.items[GLITCHBOOSTER.item] && B.bugado(mon));
+  B.acumular(mon, 20);
+  const zeros = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+  p(`depois de tomar 20: bônus ${B.bonusDe(mon)}`);
+  teste("20 de dano vira +20 em cada atributo",
+        ["atk", "def", "spa", "spd", "spe"].every((k) => B.bonusDoAtributo(mon, k) === 20));
+  teste("e NÃO sobe o HP", B.bonusDoAtributo(mon, "hp") === 0);
+  teste("o atributo efetivo na batalha soma o bônus",
+        E.effectiveStat(mon, "atk", zeros) === stats0.atk + 20);
+  teste("os stats gravados não foram tocados", mon.stats.atk === stats0.atk);
+
+  h("O BYTE DANDO A VOLTA");
+  const r1 = B.acumular(mon, 200);
+  p(`+200: bônus ${B.bonusDe(mon)} (virou: ${r1.virou})`);
+  teste("220 ainda cabe no byte", B.bonusDe(mon) === 220 && !r1.virou);
+  const r2 = B.acumular(mon, 50);
+  p(`+50: bônus ${B.bonusDe(mon)} (virou: ${r2.virou})`);
+  teste("270 vira 14 — o byte deu a volta", B.bonusDe(mon) === 270 % BOOSTER.byte && r2.virou);
+  teste("e o Pokémon fica PIOR do que estava",
+        E.effectiveStat(mon, "atk", zeros) < stats0.atk + 220);
+  B.limparTudo(st);
+  teste("fim de batalha, o bug some", !B.bugado(mon) && E.effectiveStat(mon, "atk", zeros) === stats0.atk);
+
+  h("A GLITCH RAID");
+  const tabela = DB.DIM_ENCOUNTERS.terra;
+  const chefe = R.montarChefe(tabela);
+  const normal = createMon(chefe.mon.species, chefe.mon.level);
+  p(`chefe: ${chefe.mon.nickname} N${chefe.mon.level} — ${chefe.mon.maxHp} HP (normal seria ~${normal.maxHp}), casca ${chefe.escudo}`);
+  teste("o chefe tem muito mais HP", chefe.mon.maxHp > normal.maxHp * 3);
+  teste("e uma casca proporcional", chefe.escudo > 0 && chefe.escudo < chefe.mon.maxHp);
+  teste("bola não encosta com a casca de pé", !R.podeCapturar(chefe));
+  const b1 = R.bater(chefe, Math.round(chefe.escudoMax / 2));
+  teste("o dano bate na casca, não no bicho", b1.noBicho === 0 && !b1.quebrou && chefe.escudo > 0);
+  const b2 = R.bater(chefe, chefe.escudo + 30);
+  p(`golpe final na casca: sobrou ${b2.noBicho} pro bicho`);
+  teste("quebrando a casca, o resto passa", b2.quebrou && b2.noBicho === 30);
+  teste("e aí a bola encosta", R.podeCapturar(chefe));
+  const pr = R.premio();
+  teste("o prêmio é dinheiro e experiência", pr.dinheiro >= 1200 && pr.xp > 1);
+
+  h("RESULTADO");
+  p(errs.length ? errs.join(" | ") : "glitchbooster e raids de pé", errs.length ? "erro" : "ok");
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({
+    name: "glitchcheck", log: linhas.join("\n").replace(/<[^>]+>/g, "") }) });
+} catch (e) {
+  p("QUEBROU: " + (e && e.stack || e), "erro");
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({
+    name: "glitchcheck", log: linhas.join("\n").replace(/<[^>]+>/g, "") + "\nQUEBROU: " + (e && e.stack || e) }) }).catch(()=>{});
+}
+out.innerHTML = linhas.join("");
+</script>
+</body></html>
