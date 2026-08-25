@@ -6,6 +6,7 @@ const MAP = {
   KeyX: "b", Backspace: "b", Escape: "b",
   ShiftLeft: "run", ShiftRight: "run",
   KeyF: "debug", KeyG: "glitch", KeyM: "mute", KeyC: "select",
+  KeyO: "ceu",          // olhar pro céu (D é o "direita" do WASD)
 };
 
 const down = new Set();

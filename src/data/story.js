@@ -478,6 +478,35 @@ export const STORY = {
     olha: "A FITA ESTÁ PARADA NO MEIO DE UMA PALAVRA QUE NÃO É NOME DE NINGUÉM.",
   },
 
+  /** OLHAR PRO CÉU (tecla O). O que se vê depende da hora do mundo
+   *  (src/systems/ciclo.js) — e de ter céu pra ver. */
+  ceu: {
+    dia: [
+      "O CÉU ESTÁ ABERTO E O SOL ESTÁ ALTO.",
+      "OLHANDO ASSIM DE BAIXO, O SOL TEM CARA. É UM SOLROCK.",
+      "ELE SEMPRE FOI. VOCÊ É QUE NUNCA TINHA OLHADO.",
+    ],
+    entardecer: [
+      "O AZUL ESTÁ VIRANDO LARANJA NAS BORDAS.",
+      "O SOLROCK ESTÁ ENCOSTANDO NO FIM DO MAPA.",
+    ],
+    noite: [
+      "ESTÁ TUDO ESCURO. DÁ PRA CONTAR AS ESTRELAS.",
+      "VOCÊ CONTA ATÉ ONZE E DESISTE.",
+      "A LUA PISCOU. A LUA É UM LUNATONE.",
+    ],
+    amanhecer: [
+      "UMA LINHA CLARA APARECEU NO FIM DO MAPA.",
+      "O LUNATONE ESTÁ INDO EMBORA POR ALI, SEM PRESSA.",
+    ],
+    falta: "FALTAM {MIN} MINUTOS PRA ISSO VIRAR.",
+    teto: "O TETO NÃO DEIXA VER O CÉU DAQUI.",
+    fenda: [
+      "O CÉU DA FENDA É O MESMO PEDAÇO DE CÉU, REPETIDO.",
+      "SE VOCÊ OLHAR DEMAIS, DÁ PRA VER ONDE ELE EMENDA.",
+    ],
+  },
+
   /** MEGA EVOLUÇÃO. O ANEL MEGA sai da mão do professor; as megapedras estão
    *  espalhadas por Kanto (ver `gift` em src/data/maps.js). */
   mega: {

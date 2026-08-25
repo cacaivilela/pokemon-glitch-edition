@@ -24,7 +24,7 @@ import { pedrasIniciaisDevidas } from "../systems/mega.js";
 import { estado as estadoMissao, progresso, aceitar, entregar, diario, feitas, missaoPorId, daVez }
   from "../systems/missoes.js";
 import { estaNaHora, marcarFeita, fracas, apagarDoCodigo } from "../systems/faxina.js";
-import { veu, temCeu } from "../systems/ciclo.js";
+import { veu, temCeu, agora as horaDoMundo } from "../systems/ciclo.js";
 import { rivalNpc } from "../systems/rival.js";
 import { ehFusao, fundivel, previsao, partes, temFicha, fichasProntas, variantes,
          buscarDoMundo, especiePorTexto, montarEspecie, servidorMundo,
@@ -494,6 +494,7 @@ export class OverworldScene {
   // -------------------------------------------------------------- update
   update(dt) {
     this.banner = Math.max(0, this.banner - dt);
+    if (this.olhando) this.olhando.t += dt;
     Glitch.level = this.st.corruption;
     Online.mandaPos(dt, this.st.player, !!this.move);
     this.updateWander(dt);
@@ -532,6 +533,7 @@ export class OverworldScene {
 
     if (Input.consume("b")) return this.openMenu();
     if (Input.consume("a")) return this.interact();
+    if (Input.consume("ceu")) return this.olharOCeu();
 
     const p = this.st.player;
     const dir = Input.dir();
@@ -1498,6 +1500,97 @@ export class OverworldScene {
       this.game.autosave?.(true);
       this.dlg.say([F.ganhou, ...F.explica], () => this.talkOak(npc, state));
     });
+  }
+
+  /** OLHAR PRO CÉU (tecla O). O personagem vira pra cima e conta o que está
+   *  vendo — que depende da hora do mundo. Enquanto a fala está aberta, o sol,
+   *  a lua ou as estrelas aparecem lá em cima (`drawCeu`).
+   *
+   *  Não é menu nem cena: é o jeito de o ciclo de dia e noite virar uma coisa
+   *  que dá pra FAZER, em vez de só um filtro por cima da tela. */
+  olharOCeu() {
+    const C = DB.STORY.ceu;
+    const p = this.st.player;
+    p.dir = "up";
+    Audio2.blip();
+
+    if (p.map === "glitchdim") {
+      Glitch.hit(0.8);
+      this.olhando = { fase: "fenda", t: 0 };
+      return void this.dlg.say(C.fenda, () => { this.olhando = null; });
+    }
+    if (!temCeu(this.map)) return void this.dlg.say(C.teto);
+
+    const h = horaDoMundo();
+    const fase = h.noite ? (h.virando ? "amanhecer" : "noite")
+                         : (h.virando ? "entardecer" : "dia");
+    this.olhando = { fase, t: 0 };
+    const falas = [...C[fase]];
+    if (!h.virando) falas.push(C.falta.replace("{MIN}", Math.ceil(h.faltam - 5)));
+    this.dlg.say(falas, () => { this.olhando = null; });
+  }
+
+  /** O CÉU TOMA A TELA. O mapa some — quem olha pra cima não vê mais o chão —,
+   *  e no lugar dele fica o céu da hora em que o mundo está. O sol é o SOLROCK
+   *  e a lua é o LUNATONE: os dois já moram neste jogo, e um é literalmente uma
+   *  pedra com cara de sol e a outra uma pedra com cara de lua. Não faria
+   *  sentido desenhar outro. */
+  drawCeu(ctx) {
+    const { fase, t } = this.olhando;
+    const noturno = fase === "noite" || fase === "amanhecer";
+
+    if (fase === "fenda") {
+      ctx.fillStyle = "#120820";
+      ctx.fillRect(0, 0, W, H);
+      for (let i = 0; i < 12; i++) {          // a emenda: a mesma faixa, repetida
+        ctx.globalAlpha = 0.55;
+        ctx.fillStyle = i % 2 ? "#b455ff" : "#3a1d5c";
+        ctx.fillRect(0, i * 9 + (Math.floor(t * 8) % 2), W, 4);
+      }
+      ctx.globalAlpha = 1;
+      return;
+    }
+
+    const ceu = {
+      dia: ["#4aa8f0", "#cfe9ff"],
+      entardecer: ["#3a4a8a", "#f08a3c"],
+      noite: ["#080c24", "#1c2450"],
+      amanhecer: ["#2a2f60", "#f0a060"],
+    }[fase];
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, ceu[0]);
+    g.addColorStop(1, ceu[1]);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    if (noturno) {
+      for (let i = 0; i < 40; i++) {
+        // as estrelas são fixas (saem do índice, não de sorteio por quadro) e só
+        // piscam: estrela que pula de lugar vira chuvisco
+        const x = (i * 97) % (W - 8) + 4, y = (i * 53) % 96 + 4;
+        const brilho = 0.4 + 0.6 * Math.sin(t * 2.5 + i);
+        if (brilho < 0.45) continue;
+        ctx.globalAlpha = fase === "amanhecer" ? brilho * 0.45 : brilho;
+        ctx.fillStyle = "#f4f2ff";
+        ctx.fillRect(x, y, 1 + (i % 4 === 0 ? 1 : 0), 1);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // o astro da vez, boiando devagar
+    const id = noturno ? "lunatone" : "solrock";
+    const art = Assets.mon(id, 7);
+    const sobe = Math.sin(t * 1.1) * 3;
+    const y = fase === "entardecer" ? 46 : fase === "amanhecer" ? 40 : 16;
+    if (art) {
+      ctx.globalAlpha = 0.28;                 // o halo, um pouco maior que ele
+      ctx.fillStyle = noturno ? "#cfe9ff" : "#ffe14a";
+      ctx.beginPath();
+      ctx.arc(120, y + 32 + sobe, 40, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.drawImage(art, 88, Math.round(y + sobe), 64, 64);
+    }
   }
 
   /** A máquina, aberta pela mochila. Junta dois da equipe num só, e abre de
@@ -2685,6 +2778,8 @@ export class OverworldScene {
       const noturno = veu();
       if (noturno.alpha > 0) fade(ctx, noturno.alpha, noturno.cor);
     }
+    // com o céu aberto o mapa não aparece: o desenho é opaco e cobre tudo
+    if (this.olhando) this.drawCeu(ctx);
 
     const left = this.st.mission?.left;
     if (left > 0 && this.st.player.map === "glitchdim") {

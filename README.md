@@ -50,6 +50,7 @@ qualquer PNG colocado à mão nas pastas de `assets/sprites/` é usado no lugar.
 | Z / Enter | A (confirmar, falar, atacar) |
 | X / Esc | B (voltar, abrir o menu no mapa) |
 | Shift | correr |
+| O | olhar pro céu (o mapa some e vira a hora do mundo) |
 | F | HUD de debug (FPS, coordenadas) |
 | C | na batalha: arma a MEGA EVOLUÇÃO |
 | M | mudo |
@@ -661,6 +662,16 @@ A cor da virada não é cinza: o céu puxa pro **alaranjado queimado** no começ
 entardecer e vai pro **azul** conforme fecha. Em `src/data/config.js`:
 `cicloMinutos`, `viradaMinutos` e `noiteMax` (em 0, o ciclo continua acontecendo
 e ninguém vê).
+
+**Dá pra olhar pra ele.** A tecla **O** faz o personagem virar pra cima e o
+**mapa sumir**: a tela inteira vira o céu daquela hora — azul, laranja de fim de
+tarde ou escuro com estrelas —, e ele conta o que está vendo. O **sol é o
+SOLROCK** e a **lua é o LUNATONE**, que já moravam neste jogo: um é uma pedra com
+cara de sol, a outra uma pedra com cara de lua, e desenhar outro seria fingir que
+eles não existem. Dentro de casa o teto não deixa; dentro da fenda o céu é o
+mesmo pedaço repetido, e dá pra ver onde ele emenda.
+
+(A tecla é **O**, e não D, porque D já é o "direita" do WASD.)
 
 `dev/ciclocheck.html` anda com o relógio na mão e imprime a meia hora minuto a
 minuto, com nove verificações do que tem que ser verdade (dia limpo até os 10,
