@@ -5,10 +5,17 @@ colocar um arquivo de áudio aqui com o nome da faixa, ele é usado no lugar —
 sem mexer em código, só recarregar a página.
 
 ```
-assets/music/pallet.ogg      route.ogg     viridian.ogg   lab.ogg
-assets/music/casa.ogg        center.ogg    mart.ogg       cave.ogg
-assets/music/gym.ogg         titulo.ogg    batalha.ogg    batalhaGlitch.ogg
+assets/music/abertura.ogg    pallet.ogg    route.ogg      viridian.ogg
+assets/music/lab.ogg         casa.ogg      center.ogg     mart.ogg
+assets/music/cave.ogg        gym.ogg       titulo.ogg     batalha.ogg
+assets/music/ilha.ogg        glitchdim.ogg batalhaGlitch.ogg
 ```
+
+`abertura.ogg` é a faixa da cutscene de abertura. Ela tem 80 segundos e a
+abertura inteira é cortada em cima dela — se você puser um arquivo aqui com
+outra duração, a imagem continua rodando no tempo dela e as pancadas da tela
+deixam de cair nas batidas. Vale a pena cortar a faixa em 80s, ou aceitar o
+desencontro.
 
 Extensões aceitas, nessa ordem: `.ogg`, `.mp3`, `.wav`, `.m4a`. O arquivo toca
 em loop; corte o começo e o fim onde o loop fecha bem.

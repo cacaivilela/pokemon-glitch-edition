@@ -30,51 +30,277 @@ const melodia = (vol = 0.5) => ({ wave: "pulso", duty: 0.25, vol, detune: 6, eco
 const contra = (vol = 0.2) => ({ wave: "pulso", duty: 0.125, vol, legato: 0.34 });
 const baixo = (vol = 0.55) => ({ wave: "triangle", vol, legato: 0.9 });
 
+// Atalhos de arranjo — repetir compasso inteiro à mão em faixa de 200 tempos
+// (a ABERTURA) é onde o erro de conta aparece. Cada um devolve UM compasso de
+// 4 tempos, menos os que recebem quantidade.
+
+/** um compasso de contratempo: pausa-nota, pausa-nota... o "um-PÁ um-PÁ" */
+const contratempo = (a, b, c, d) =>
+  [["-", 0.5], [a, 0.5], ["-", 0.5], [b, 0.5], ["-", 0.5], [c, 0.5], ["-", 0.5], [d, 0.5]];
+/** um compasso martelando a mesma nota no tempo forte */
+const martelo = (n) => [[n, 0.5], ["-", 0.5], [n, 0.5], ["-", 0.5], [n, 0.5], ["-", 0.5], [n, 0.5], ["-", 0.5]];
+/** um compasso de quatro semínimas — o baixo parado em cima do acorde */
+const raiz = (a, b, c, d) => [[a, 1], [b, 1], [c, 1], [d, 1]];
+/** um compasso de baixo caminhando: tônica, tônica, quinta, tônica (x2) */
+const anda = (r, q) => [[r, 0.5], [r, 0.5], [q, 0.5], [r, 0.5], [r, 0.5], [r, 0.5], [q, 0.5], [r, 0.5]];
+/** n colcheias na mesma nota (padrão: um compasso cheio) */
+const oitavos = (n, qtd = 8) => Array.from({ length: qtd }, () => [n, 0.5]);
+/** n compassos de marcha: bumbo no tempo, caixa no contratempo */
+const marcha = (n) => Array.from({ length: n },
+  () => [["x", 1], ["x", 0.5], ["-", 0.5], ["x", 1], ["x", 0.5], ["x", 0.5]]).flat();
+/** n compassos de galope: o dobro de batida, pro DUELO ficar ofegante */
+const galope = (n) => Array.from({ length: n },
+  () => [["x", 0.5], ["x", 0.5], ["x", 0.5], ["x", 0.5], ["x", 0.5], ["x", 0.5], ["x", 0.25], ["x", 0.25], ["x", 0.5]]).flat();
+/** um compasso de bateria desmontada, pro CAOS */
+const quebrado = () => [["x", 0.25], ["x", 0.25], ["-", 0.5], ["x", 0.25], ["-", 0.75], ["x", 0.5], ["-", 1.5]];
+
 export const MUSIC = {
-  // ABERTURA: a fanfarra de antes do título. É a mesma ideia das aberturas de
-  // GBA — metal em fanfarra, tímpano, uma subida e um acorde final que segura —,
-  // mas a melodia é nossa: a regra do arquivo vale aqui também.
+  // ABERTURA: a fanfarra de antes do título — e a faixa mais longa do jogo,
+  // porque a abertura inteira roda em cima dela. São 200 tempos a 150 bpm, ou
+  // seja 80 segundos exatos, divididos em onze trechos que batem um a um com as
+  // fases de `src/scenes/abertura.js`. Mexer no comprimento de um trecho aqui
+  // exige mexer nos `beats` da fase correspondente lá, senão a imagem
+  // desencontra da música — é o único acoplamento do arquivo, e é de propósito.
+  //
+  //   FANFARRA 10 · FITA 12 · MUNDO 24 · ARRANQUE 14 · DESFILE 24 · LENDÁRIOS 16
+  //   TREINADOR 16 · DUELO 28 · RIVAL 14 · CAOS 18 · FINAL 24
+  //
+  // A melodia é nossa: a regra do cabeçalho vale aqui também. Quem quiser a
+  // abertura de verdade tocando põe o arquivo em `assets/music/abertura.ogg`,
+  // que o `Audio2.playMusic` prefere o arquivo quando ele existe.
   abertura: {
-    bpm: 132,
+    bpm: 150,
     tracks: [
       { ...melodia(0.55), notes: [
-        // a chamada: três notas subindo, que é como toda abertura avisa que vai começar
-        ["G4", 0.5], ["C5", 0.5], ["E5", 1], ["-", 0.5],
-        ["G5", 0.5], ["E5", 0.5], ["C5", 1],
-        ["A4", 0.5], ["D5", 0.5], ["F5", 1], ["-", 0.5],
-        ["A5", 0.5], ["F5", 0.5], ["D5", 1],
-        // o duelo: as duas notas se batendo, uma alta e uma baixa
-        ["E5", 0.5], ["B4", 0.5], ["E5", 0.5], ["B4", 0.5],
-        ["F5", 0.5], ["C5", 0.5], ["F5", 0.5], ["C5", 0.5],
-        ["G5", 0.5], ["D5", 0.5], ["G5", 0.5], ["B5", 0.5],
-        // e o acorde que abre pro logo
-        ["C6", 3], ["-", 1],
+        // FANFARRA — o metal chamando, três notas subindo e um agudo que segura
+        ["G4", 0.5], ["C5", 0.5], ["E5", 0.5], ["G5", 0.5], ["C6", 1.5], ["-", 0.5],
+        ["G5", 0.5], ["A5", 0.5], ["G5", 0.5], ["E5", 0.5], ["C5", 1], ["-", 1],
+        ["G4", 0.5], ["A#4", 0.5], ["-", 1],
+        // FITA — o cartucho sendo lido: nota solta, silêncio, nota solta
+        ["-", 1], ["E5", 0.25], ["-", 0.25], ["E5", 0.25], ["-", 0.25], ["D5", 1], ["-", 1],
+        ["-", 1], ["G4", 0.5], ["A#4", 0.5], ["C5", 1], ["-", 1],
+        ["-", 0.5], ["D#5", 0.25], ["-", 0.25], ["C5", 0.5], ["-", 0.5], ["A#4", 2],
+        // MUNDO — abre em maior, o tema largo de quem vê Kanto de cima
+        ["C5", 1], ["E5", 0.5], ["G5", 1.5], ["E5", 1],
+        ["F5", 1], ["E5", 0.5], ["D5", 1.5], ["C5", 1],
+        ["D5", 1], ["F5", 0.5], ["A5", 1.5], ["G5", 1],
+        ["E5", 2], ["C5", 2],
+        ["G5", 1], ["A5", 0.5], ["C6", 1.5], ["A5", 1],
+        ["G5", 1], ["E5", 1], ["F5", 1], ["G5", 1],
+        // ARRANQUE — vira menor e acelera: é aqui que a coisa sai correndo
+        ["A4", 0.5], ["C5", 0.5], ["E5", 1], ["D5", 0.5], ["C5", 0.5], ["B4", 1],
+        ["A4", 0.5], ["C5", 0.5], ["E5", 1], ["G5", 0.5], ["E5", 0.5], ["D5", 1],
+        ["C5", 0.5], ["D5", 0.5], ["E5", 0.5], ["G5", 0.5], ["A5", 2],
+        ["B5", 0.5], ["A5", 0.5], ["G5", 0.5], ["E5", 0.5],
+        // DESFILE — o tema principal, o que a pessoa vai lembrar depois
+        ["E5", 0.5], ["A5", 0.5], ["G5", 0.5], ["E5", 0.5], ["D5", 1], ["C5", 1],
+        ["D5", 0.5], ["E5", 0.5], ["D5", 0.5], ["C5", 0.5], ["A4", 2],
+        ["E5", 0.5], ["A5", 0.5], ["G5", 0.5], ["B5", 0.5], ["A5", 1], ["G5", 1],
+        ["F5", 0.5], ["E5", 0.5], ["D5", 0.5], ["C5", 0.5], ["E5", 2],
+        ["G5", 0.5], ["A5", 0.5], ["B5", 0.5], ["C6", 0.5], ["B5", 1], ["A5", 1],
+        ["G5", 0.5], ["F5", 0.5], ["E5", 0.5], ["D5", 0.5], ["A5", 2],
+        // LENDÁRIOS — notas longas, o tempo parece afrouxar sem mudar de bpm
+        ["A5", 2], ["G5", 1], ["E5", 1],
+        ["F5", 2], ["E5", 1], ["D5", 1],
+        ["G5", 1.5], ["A5", 0.5], ["C6", 2],
+        ["B5", 1], ["A5", 1], ["E5", 2],
+        // TREINADOR — heroico, em fá, o passo de quem chega pra brigar
+        ["F5", 0.5], ["G5", 0.5], ["A5", 1], ["G5", 0.5], ["F5", 0.5], ["E5", 1],
+        ["D5", 0.5], ["E5", 0.5], ["F5", 1], ["E5", 0.5], ["D5", 0.5], ["C5", 1],
+        ["A#5", 0.5], ["A5", 0.5], ["G5", 1], ["F5", 0.5], ["G5", 0.5], ["A5", 1],
+        ["C6", 0.5], ["A5", 0.5], ["F5", 0.5], ["A5", 0.5], ["G5", 2],
+        // DUELO — ré menor, nota repetida e curta: a faixa fica ofegante
+        ["D5", 0.25], ["-", 0.25], ["D5", 0.25], ["-", 0.25], ["F5", 0.5], ["E5", 0.5], ["D5", 1], ["A4", 1],
+        ["D5", 0.25], ["-", 0.25], ["D5", 0.25], ["-", 0.25], ["G5", 0.5], ["F5", 0.5], ["E5", 2],
+        ["A5", 0.5], ["G5", 0.5], ["F5", 0.5], ["E5", 0.5], ["D5", 0.5], ["C5", 0.5], ["A#4", 1],
+        ["A4", 0.5], ["C5", 0.5], ["D5", 0.5], ["F5", 0.5], ["A5", 1], ["D6", 1],
+        ["C6", 0.5], ["A#5", 0.5], ["A5", 0.5], ["G5", 0.5], ["F5", 0.5], ["E5", 0.5], ["D5", 1],
+        ["D6", 0.5], ["A5", 0.5], ["F5", 0.5], ["D5", 0.5], ["A#5", 1], ["A5", 1],
+        ["G5", 0.5], ["A5", 0.5], ["A#5", 0.5], ["C6", 0.5], ["D6", 2],
+        // RIVAL — sincopado e metido, com as pausas no lugar do tempo forte
+        ["G5", 0.5], ["-", 0.5], ["A#5", 0.5], ["-", 0.5], ["A5", 1], ["G5", 1],
+        ["F5", 0.5], ["-", 0.5], ["G5", 0.5], ["-", 0.5], ["D5", 2],
+        ["A#4", 0.5], ["D5", 0.5], ["F5", 0.5], ["A#5", 0.5], ["A5", 1], ["F5", 1],
+        ["G5", 1], ["D5", 1],
+        // CAOS — cromática despencando: a melodia perde o tom de propósito
+        ["D#5", 0.25], ["D5", 0.25], ["C#5", 0.25], ["C5", 0.25], ["B4", 0.25], ["A#4", 0.25], ["A4", 0.25], ["G#4", 0.25], ["G4", 1], ["-", 1],
+        ["-", 0.5], ["F#5", 0.25], ["-", 0.25], ["C5", 0.25], ["-", 0.25], ["A#5", 0.5], ["-", 0.5], ["E5", 0.25], ["-", 0.25], ["G#4", 1],
+        ["C5", 0.25], ["D#5", 0.25], ["F#5", 0.25], ["A5", 0.25], ["C6", 0.25], ["D#6", 0.25], ["F#6", 0.5], ["-", 2],
+        ["A#5", 0.25], ["-", 0.25], ["A#5", 0.25], ["-", 0.25], ["E5", 0.25], ["-", 0.25], ["E5", 0.25], ["-", 0.25], ["C#6", 2],
+        ["G6", 0.5], ["F#6", 0.5], ["C6", 1],
+        // FINAL — volta pra dó maior e sobe até o acorde que entrega o logo
+        ["G5", 0.5], ["C6", 0.5], ["E6", 1], ["D6", 0.5], ["C6", 0.5], ["G5", 1],
+        ["A5", 0.5], ["C6", 0.5], ["F6", 1], ["E6", 0.5], ["D6", 0.5], ["C6", 1],
+        ["E6", 0.5], ["D6", 0.5], ["C6", 0.5], ["G5", 0.5], ["A5", 1], ["B5", 1],
+        ["C6", 2], ["G5", 1], ["E5", 1],
+        ["G5", 0.5], ["A5", 0.5], ["B5", 0.5], ["C6", 0.5], ["D6", 1], ["E6", 1],
+        ["C6", 4],
       ] },
       { ...contra(0.22), notes: [
-        ["-", 0.5], ["E4", 0.5], ["-", 0.5], ["G4", 0.5],
-        ["-", 0.5], ["E4", 0.5], ["-", 0.5], ["C4", 0.5],
-        ["-", 0.5], ["F4", 0.5], ["-", 0.5], ["A4", 0.5],
-        ["-", 0.5], ["F4", 0.5], ["-", 0.5], ["D4", 0.5],
-        ["G4", 0.5], ["-", 0.5], ["G4", 0.5], ["-", 0.5],
-        ["A4", 0.5], ["-", 0.5], ["A4", 0.5], ["-", 0.5],
-        ["B4", 0.5], ["-", 0.5], ["D5", 0.5], ["-", 0.5],
-        ["E5", 3], ["-", 1],
+        // FANFARRA
+        ["-", 0.5], ["E4", 0.5], ["-", 0.5], ["G4", 0.5], ["-", 0.5], ["C5", 0.5], ["-", 0.5], ["G4", 0.5],
+        ["-", 0.5], ["E4", 0.5], ["-", 0.5], ["C4", 0.5], ["G4", 1], ["-", 1],
+        ["-", 2],
+        // FITA
+        ["-", 4],
+        ["-", 0.5], ["D#4", 0.5], ["-", 0.5], ["G4", 0.5], ["-", 2],
+        ["-", 0.5], ["C4", 0.5], ["-", 0.5], ["D#4", 0.5], ["-", 2],
+        // MUNDO
+        ...contratempo("C4", "E4", "G4", "E4"),
+        ...contratempo("F4", "A4", "C5", "A4"),
+        ...contratempo("D4", "F4", "A4", "F4"),
+        ...contratempo("C4", "E4", "G4", "C5"),
+        ...contratempo("F4", "A4", "C5", "A4"),
+        ...contratempo("G4", "B4", "D5", "G5"),
+        // ARRANQUE
+        ...contratempo("A4", "E4", "A4", "E4"),
+        ...contratempo("G4", "D4", "G4", "B4"),
+        ...contratempo("C5", "G4", "E4", "A4"),
+        ["-", 0.5], ["E5", 0.5], ["-", 0.5], ["A4", 0.5],
+        // DESFILE
+        ...contratempo("A4", "C5", "E5", "C5"),
+        ...contratempo("F4", "A4", "C5", "A4"),
+        ...contratempo("G4", "B4", "D5", "B4"),
+        ...contratempo("E4", "G#4", "B4", "E5"),
+        ...contratempo("A4", "C5", "E5", "C5"),
+        ...contratempo("E4", "G#4", "B4", "E5"),
+        // LENDÁRIOS — o contracanto rareia pra deixar a melodia grande
+        ["-", 0.5], ["A4", 0.5], ["-", 0.5], ["E5", 0.5], ["-", 0.5], ["A5", 0.5], ["-", 1],
+        ["-", 0.5], ["F4", 0.5], ["-", 0.5], ["C5", 0.5], ["-", 0.5], ["F5", 0.5], ["-", 1],
+        ["-", 0.5], ["G4", 0.5], ["-", 0.5], ["D5", 0.5], ["-", 0.5], ["G5", 0.5], ["-", 1],
+        ["-", 0.5], ["E4", 0.5], ["-", 0.5], ["B4", 0.5], ["-", 0.5], ["E5", 0.5], ["-", 1],
+        // TREINADOR
+        ...contratempo("F4", "A4", "C5", "A4"),
+        ...contratempo("D4", "F4", "A4", "F4"),
+        ...contratempo("A#4", "D5", "F5", "D5"),
+        ...contratempo("C5", "E5", "G5", "E5"),
+        // DUELO — agora no tempo forte, martelando
+        ...martelo("D4"), ...martelo("A4"),
+        ["A#4", 0.5], ["-", 0.5], ["A#4", 0.5], ["-", 0.5], ["A4", 0.5], ["-", 0.5], ["A4", 0.5], ["-", 0.5],
+        ["D5", 0.5], ["-", 0.5], ["F5", 0.5], ["-", 0.5], ["A5", 0.5], ["-", 0.5], ["D5", 0.5], ["-", 0.5],
+        ["C5", 0.5], ["-", 0.5], ["A#4", 0.5], ["-", 0.5], ["A4", 0.5], ["-", 0.5], ["G4", 0.5], ["-", 0.5],
+        ...martelo("A#4"),
+        ["G4", 0.5], ["-", 0.5], ["A4", 0.5], ["-", 0.5], ["A#4", 0.5], ["-", 0.5], ["C5", 0.5], ["-", 0.5],
+        // RIVAL
+        ...contratempo("G4", "A#4", "D5", "A#4"),
+        ...contratempo("D4", "F4", "A4", "F4"),
+        ...contratempo("A#4", "D5", "F5", "D5"),
+        ["-", 0.5], ["G4", 0.5], ["-", 0.5], ["D5", 0.5],
+        // CAOS
+        ["-", 0.25], ["G#4", 0.25], ["-", 0.25], ["D5", 0.25], ["-", 0.25], ["G#4", 0.25], ["-", 0.25], ["D5", 0.25], ["-", 2],
+        ["C#5", 0.25], ["-", 0.75], ["F#4", 0.25], ["-", 0.75], ["A#4", 0.25], ["-", 1.75],
+        ["-", 1], ["D#5", 0.5], ["-", 0.5], ["F#5", 0.5], ["-", 1.5],
+        ["A#4", 0.25], ["-", 0.25], ["E4", 0.25], ["-", 0.25], ["A#4", 0.25], ["-", 0.25], ["E4", 0.25], ["-", 0.25], ["-", 2],
+        ["-", 2],
+        // FINAL
+        ...contratempo("E5", "G5", "C6", "G5"),
+        ...contratempo("F5", "A5", "C6", "A5"),
+        ...contratempo("G5", "B5", "D6", "B5"),
+        ...contratempo("E5", "G5", "C6", "E6"),
+        ...contratempo("D5", "G5", "B5", "D6"),
+        ["E5", 4],
       ] },
       { ...baixo(0.6), notes: [
+        // FANFARRA
         ["C3", 1], ["C3", 1], ["G2", 1], ["G2", 1],
-        ["F2", 1], ["F2", 1], ["C3", 1], ["C3", 1],
-        ["E2", 1], ["E2", 1], ["F2", 1], ["F2", 1],
-        ["G2", 1], ["G2", 1], ["G2", 0.5], ["B2", 0.5],
-        ["C3", 3], ["-", 1],
+        ["C3", 1], ["C3", 1], ["F2", 1], ["F2", 1],
+        ["G2", 2],
+        // FITA
+        ["C3", 2], ["-", 2],
+        ["G#2", 2], ["G2", 2],
+        ["C3", 2], ["A#2", 2],
+        // MUNDO
+        ...raiz("C3", "C3", "G2", "C3"),
+        ...raiz("F2", "F2", "C3", "F2"),
+        ...raiz("D3", "D3", "A2", "D3"),
+        ...raiz("C3", "C3", "G2", "E2"),
+        ...raiz("F2", "F2", "C3", "F2"),
+        ...raiz("G2", "G2", "D3", "G2"),
+        // ARRANQUE — o baixo passa a caminhar em colcheias
+        ...anda("A2", "E3"), ...anda("G2", "D3"),
+        ["F2", 0.5], ["F2", 0.5], ["C3", 0.5], ["F2", 0.5], ["E2", 0.5], ["E2", 0.5], ["B2", 0.5], ["E2", 0.5],
+        ["A2", 0.5], ["A2", 0.5], ["A2", 0.5], ["E3", 0.5],
+        // DESFILE
+        ...raiz("A2", "A2", "E3", "A2"),
+        ...raiz("F2", "F2", "C3", "F2"),
+        ...raiz("G2", "G2", "D3", "G2"),
+        ...raiz("E2", "E2", "B2", "E3"),
+        ...raiz("A2", "A2", "E3", "A2"),
+        ...raiz("E2", "E2", "E2", "B2"),
+        // LENDÁRIOS
+        ["A2", 2], ["E3", 2],
+        ["F2", 2], ["C3", 2],
+        ["G2", 2], ["D3", 2],
+        ["E2", 2], ["B2", 2],
+        // TREINADOR
+        ...raiz("F2", "F2", "C3", "F2"),
+        ...raiz("D3", "D3", "A2", "D3"),
+        ...raiz("A#2", "A#2", "F3", "A#2"),
+        ...raiz("C3", "C3", "G2", "C3"),
+        // DUELO — oitavos secos, sem respiro
+        ...oitavos("D2"), ...oitavos("D2"),
+        ...oitavos("A#2", 4), ...oitavos("A2", 4),
+        ...oitavos("D2", 4), ...oitavos("F2", 4),
+        ...oitavos("C3", 2), ...oitavos("A#2", 2), ...oitavos("A2", 2), ...oitavos("G2", 2),
+        ...oitavos("A#2"),
+        ...oitavos("A2", 4), ...oitavos("D2", 4),
+        // RIVAL
+        ...raiz("G2", "G2", "D3", "G2"),
+        ...raiz("D3", "D3", "A2", "D3"),
+        ...raiz("A#2", "A#2", "F3", "A#2"),
+        ["G2", 1], ["D3", 1],
+        // CAOS
+        ...oitavos("G#2"),
+        ...oitavos("F#2"),
+        ["C2", 1], ["D#2", 1], ["F#2", 1], ["A2", 1],
+        ...oitavos("C2"),
+        ["G2", 1], ["G2", 1],
+        // FINAL
+        ...raiz("C3", "C3", "G2", "C3"),
+        ...raiz("F2", "F2", "C3", "F2"),
+        ...raiz("G2", "G2", "D3", "G2"),
+        ...raiz("C3", "C3", "G2", "E2"),
+        ...raiz("G2", "G2", "G2", "B2"),
+        ["C3", 4],
       ] },
-      // o tímpano: bate junto com a chamada e some no acorde final
+      // Percussão: tímpano na fanfarra, bateria de marcha no meio, e no CAOS
+      // ela se desmancha junto com a melodia.
       { wave: "ruido", vol: 0.5, notes: [
-        ["x", 0.5], ["-", 0.5], ["x", 0.5], ["-", 0.5],
-        ["x", 1], ["x", 0.5], ["x", 0.5],
-        ["x", 0.5], ["-", 0.5], ["x", 0.5], ["-", 0.5],
-        ["x", 1], ["x", 0.5], ["x", 0.5],
-        ["x", 0.25], ["x", 0.25], ["x", 0.5], ["x", 0.5], ["x", 0.5],
-        ["x", 0.25], ["x", 0.25], ["x", 0.5], ["x", 1],
+        // FANFARRA
+        ["x", 0.5], ["-", 0.5], ["x", 0.5], ["-", 0.5], ["x", 0.25], ["x", 0.25], ["x", 0.25], ["x", 0.25], ["x", 1],
+        ["x", 1], ["-", 1], ["x", 0.5], ["x", 0.5], ["x", 1],
+        ["x", 0.25], ["x", 0.25], ["x", 0.25], ["x", 0.25], ["x", 1],
+        // FITA — silêncio, pra fita ficar sozinha
+        ["-", 4],
+        ["-", 3], ["x", 0.5], ["x", 0.5],
+        ["x", 0.5], ["-", 1.5], ["x", 0.25], ["x", 0.25], ["x", 0.25], ["x", 0.25], ["-", 1],
+        // MUNDO
+        ...marcha(6),
+        // ARRANQUE
+        ...marcha(3),
+        ["x", 0.5], ["x", 0.5], ["x", 0.25], ["x", 0.25], ["x", 0.5],
+        // DESFILE
+        ...marcha(6),
+        // LENDÁRIOS
+        ["x", 1], ["-", 1], ["x", 0.5], ["x", 0.5], ["x", 1],
+        ["x", 1], ["-", 1], ["x", 0.5], ["x", 0.5], ["x", 1],
+        ["x", 1], ["-", 1], ["x", 0.5], ["x", 0.5], ["x", 1],
+        ["x", 0.25], ["x", 0.25], ["x", 0.25], ["x", 0.25], ["x", 0.5], ["x", 0.5], ["x", 1], ["x", 1],
+        // TREINADOR
+        ...marcha(4),
+        // DUELO — dobra o compasso
+        ...galope(7),
+        // RIVAL
+        ...marcha(3),
+        ["x", 0.5], ["x", 0.5], ["x", 0.5], ["x", 0.5],
+        // CAOS
+        ...quebrado(), ...quebrado(),
+        ["x", 0.25], ["x", 0.25], ["x", 0.25], ["x", 0.25], ["x", 0.25], ["x", 0.25], ["x", 0.25], ["x", 0.25],
+        ["x", 0.5], ["x", 0.5], ["x", 0.5], ["x", 0.5],
+        ...quebrado(),
+        ["x", 0.25], ["x", 0.25], ["x", 0.25], ["x", 0.25], ["x", 0.25], ["x", 0.25], ["x", 0.25], ["x", 0.25],
+        // FINAL
+        ...marcha(5),
         ["x", 0.5], ["-", 3.5],
       ] },
     ],

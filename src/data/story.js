@@ -486,6 +486,18 @@ export const STORY = {
     titulo2: "GLITCH EDITION",
     comece: "APERTE START",
     pular: "APERTE QUALQUER TECLA PRA PULAR",
+    // A FITA sendo lida. O rótulo aparece certo e se "corrige" pro errado —
+    // é assim que a abertura explica o subtítulo do jogo antes de dizê-lo.
+    fitaLendo: "LENDO CARTUCHO",
+    fitaCerto: "POKEMON FIRE RED (BR)",
+    fitaErrado: "POKEMON GL1TCH ED1T10N",
+    fitaErro: "SETOR 0X1A CORROMPIDO",
+    // As legendas do meio da abertura, uma por fase
+    mundo: "KANTO",
+    lendarios: "ELES AINDA ESTÃO LÁ FORA",
+    treinador: "E VOCÊ VAI PRECISAR DE UM TIME",
+    rival: "ELE CHEGOU PRIMEIRO. SEMPRE CHEGA.",
+    caos: "ALGUMA COISA ESTÁ ERRADA COM ESTA CÓPIA",
   },
 
   /** GLITCHBOOSTER e GLITCH RAID. O visor é o do CONOR (`detector.item`); a
