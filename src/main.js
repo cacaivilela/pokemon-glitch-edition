@@ -10,6 +10,7 @@ import { setTextVars } from "./systems/dialogue.js";
 import { SceneStack } from "./core/scene.js";
 import { initHot } from "./core/hot.js";
 import { Glitch } from "./systems/glitchfx.js";
+import { abrirPortal } from "./systems/raid.js";
 import { createMon, recalc } from "./systems/mon.js";
 import { reverterTudo } from "./systems/mega.js";
 import { registrarDoEstado } from "./systems/fusao.js";
@@ -271,6 +272,7 @@ function addMons(state, spec) {
 
 // ------------------------------------------------- atalhos de desenvolvimento
 // ?map=route1&x=7&y=10  |  ?battle=missingno&lvl=8  |  ?starter=squirtle  |  ?debug=1
+// ?map=route1&rasgo=1 -> um rasgo aberto do seu lado (a GLITCH RAID)
 const q = new URLSearchParams(location.search);
 if (q.has("map") || q.has("battle")) {
   game.newGame();
@@ -320,6 +322,17 @@ if (q.has("map") || q.has("battle")) {
   if (q.get("dimunlocked")) game.state.flags.dimUnlocked = true;
   if (q.get("pokedex")) game.state.flags.pokedexMsg = true;
   if (q.get("visor")) game.state.items[DB.STORY.detector.item] = 1;
+  if (q.get("rasgo")) {   // ?rasgo=1 -> um rasgo já aberto do seu lado, pra testar a raid
+    game.state.flags.glitchWorld = true;
+    game.state.corruption = Math.max(game.state.corruption, 60);
+    Glitch.forced = true;
+    const g = DB.KANTO[game.state.player.map];
+    const grama = (x, y) => !!g && x >= 0 && y >= 0 && x < g.w && y < g.h
+      && g.tags.charCodeAt(y * g.w + x) - 48 === DB.TAG.GRASS;
+    if (!abrirPortal(game.state, game.state.player.map, grama)) {
+      console.warn("[rasgo] nenhum tile de grama perto daqui; ande até o mato e tente de novo");
+    }
+  }
   if (q.get("mega")) {   // ?mega=1 -> anel + todas as megapedras na mochila
     game.state.items[DB.MEGA_ANEL] = 1;
     for (const pedra of Object.keys(DB.MEGA_PEDRAS || {})) game.state.items[pedra] = 1;

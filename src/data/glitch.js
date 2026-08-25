@@ -62,10 +62,14 @@ export const RAID = {
 
 /** O RASGO: por onde a raid chega. */
 export const PORTAL = {
-  /** chance de abrir a cada passo na grama, com o mundo já quebrado */
-  chance: 0.02,
+  /** Chance de abrir a cada passo na grama, com o mundo já quebrado.
+    *  A 2% era um a cada cinquenta passos de grama — e como o passo que vira
+    *  encontro não rola rasgo, na prática dava quase sessenta. Somado aos três
+    *  minutos que ele durava, dava pra atravessar uma rota inteira e nunca ver
+    *  um. Coisa rara que ninguém encontra não é rara, é ausente. */
+  chance: 0.05,
   /** quanto ele fica aberto antes de se fechar sozinho, em minutos de relógio */
-  minutos: 3,
+  minutos: 5,
   /** distância mínima e máxima de onde você está, em tiles. Perto demais e ele
    *  nasce debaixo do seu pé; longe demais e você nunca acha antes de fechar. */
   perto: 3,
@@ -80,5 +84,5 @@ export const PORTAL = {
    *  É o que faz o rasgo ser um LUGAR e não um interruptor: você vê a tela
    *  estragando conforme anda pra lá, e é assim que se acha o buraco. Também é
    *  o que impede três minutos de tela no talo virarem castigo. */
-  alcance: 10,
+  alcance: 14,
 };
