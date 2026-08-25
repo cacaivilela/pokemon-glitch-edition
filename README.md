@@ -692,6 +692,10 @@ de novo **troca** o de antes — não empilha.
 como erro. Três rodadas, e todo mundo ganha experiência pelo que você acertou —
 pouca, mas sem apanhar de ninguém.
 
+O menu da loja **rola** (setas ↑↓, com o contador "15/19" embaixo): dezenove
+itens não cabem em 160 pixels de altura, e antes o painel passava do fim da tela
+e metade da loja ficava invisível.
+
 **Toda loja vende.** Cada cidade tem o seu mercado (`pewter_city_mart`,
 `cerulean_city_mart`...) e cada um tinha a própria lista, com bola e poção. Em
 vez de escrever os dezessete itens em oito lugares — oito lugares pra esquecer um

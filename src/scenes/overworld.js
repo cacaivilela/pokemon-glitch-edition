@@ -3193,14 +3193,26 @@ export class OverworldScene {
       return;
     }
     if (m.type === "shop") {
-      panel(ctx, 4, 4, 150, m.shop.length * LINE_H + 16);
-      m.shop.forEach((it, i) => {
-        const y = 10 + i * LINE_H;
+      // A lista rola: com a barraca e os dezesseis ingredientes são dezenove
+      // itens, e dezenove linhas não cabem em 160 pixels de altura. Sem isto o
+      // painel passava do fim da tela e metade da loja ficava invisível.
+      const JANELA = 10;
+      m.top = Math.max(0, Math.min(m.top || 0, m.shop.length - JANELA));
+      if (m.index < m.top) m.top = m.index;
+      if (m.index >= m.top + JANELA) m.top = m.index - JANELA + 1;
+      const vistos = m.shop.slice(m.top, m.top + JANELA);
+      panel(ctx, 4, 4, 150, vistos.length * LINE_H + 16);
+      vistos.forEach((it, k) => {
+        const i = m.top + k;
+        const y = 10 + k * LINE_H;
         drawText(ctx, it.item.toUpperCase(), 20, y, PAL.ink);
         drawText(ctx, `$${it.price}`, 110, y, PAL.ink);
         if (i === m.index) cursor(ctx, 10, y);
       });
-      drawText(ctx, "Z COMPRA   X SAI", 20, 10 + m.shop.length * LINE_H, PAL.ink2);
+      // as setinhas dizem que tem mais coisa pra cima ou pra baixo
+      if (m.top > 0) drawText(ctx, "\u2191", 140, 10, PAL.ink2);
+      if (m.top + JANELA < m.shop.length) drawText(ctx, "\u2193", 140, 10 + (vistos.length - 1) * LINE_H, PAL.ink2);
+      drawText(ctx, `Z COMPRA  X SAI  ${m.index + 1}/${m.shop.length}`, 20, 10 + vistos.length * LINE_H, PAL.ink2);
       panel(ctx, 158, 4, 78, 22);
       drawText(ctx, "DINHEIRO", 164, 8, PAL.ink2);
       drawText(ctx, `$${this.st.money}`, 164, 17, PAL.ink);

@@ -112,6 +112,19 @@ try {
         setTimeout(() => w.dispatchEvent(new KeyboardEvent("keyup", { code, bubbles: true })), 60);
       };
       aperta("KeyZ"); await espera(350);
+
+      // e a loja de verdade, com a lista rolando: 19 itens não cabem na tela
+      const loja = DB.MAPS.pewter_city_mart.npcs.find((n) => n.shop).shop;
+      p(`loja de PEWTER: ${loja.length} itens — ${loja.map((x) => x.item).join(", ")}`);
+      teste("PEWTER vende barraca", loja.some((x) => x.item === "barraca"));
+      cena().menu = { type: "shop", index: 0, shop: loja };
+      await espera(200);
+      const m = cena().menu;
+      for (let i = 0; i < 14; i++) { aperta("ArrowDown"); await espera(70); }
+      p(`depois de 14 descidas: item ${m.index + 1}/${loja.length}, janela começa em ${m.top}`);
+      teste("a lista rola em vez de sair da tela", m.top > 0 && m.index >= m.top);
+      cena().menu = null; await espera(150);
+
       aperta("KeyX"); await espera(400);                  // abre o menu
       const itens = cena()?.itensMenu?.() || [];
       p(`menu do mapa: ${itens.join(", ")}`);
@@ -122,6 +135,7 @@ try {
       p(`cena agora: ${nome}`);
       teste("a cena do acampamento abriu", nome === "AcampamentoScene");
       teste("a equipe saiu da bola", (cena()?.lugares?.length || 0) === w.game.state.party.length);
+
       pronto();
     });
     fr.src = "/?map=route1";
