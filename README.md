@@ -42,6 +42,34 @@ qualquer PNG colocado à mão nas pastas de `assets/sprites/` é usado no lugar.
 > web funcione sem que ninguém precise rodar nada. O código, os diálogos, o
 > motor, a trilha e a arte provisória são originais.
 
+## A abertura
+
+O jogo abre com a demonstração de sempre, na ordem de sempre — que é o que faz
+uma abertura ser reconhecida antes mesmo de a gente ver o desenho:
+
+1. **A apresentação** no escuro, entrando e saindo devagar.
+2. **Um vulto atravessando a tela**, com as faixas de chão passando mais rápido
+   que ele (é isso que dá velocidade sem precisar desenhar cenário).
+3. **O duelo**: NIDORINO de costas de um lado, GENGAR de frente do outro, se
+   aproximando em três investidas, cada uma com seu clarão.
+4. **O clarão final** e o logo — que aqui **não fica parado**: ele treme, perde
+   uma faixa e se remonta, porque o jogo se chama GLITCH EDITION e a abertura é
+   o primeiro lugar onde isso devia aparecer.
+
+**Qualquer tecla pula.** Abertura que não se pula vira castigo na segunda vez, e
+ninguém assiste dez segundos de fanfarra pra continuar um save. Ela também não
+aparece quando o live update restaura a partida (senão apareceria a cada arquivo
+salvo) nem com os atalhos de dev na URL.
+
+**A música é original**, como toda a trilha daqui: fanfarra de metal, tímpano,
+uma subida e um acorde que segura pro logo entrar. É a forma das aberturas de
+GBA, tocada nos mesmos quatro canais — não a melodia do FireRed, que é da
+Nintendo/Game Freak e do Junichi Masuda. A regra está escrita no alto de
+`src/data/music.js` e vale aqui também.
+
+`?abertura=duelo` (ou `logo`, `corrida`) começa naquela fase: conferir o fim da
+abertura não devia custar dez segundos toda vez.
+
 ## Controles
 
 | Tecla | Ação |

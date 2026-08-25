@@ -15,6 +15,7 @@ import { reverterTudo } from "./systems/mega.js";
 import { registrarDoEstado } from "./systems/fusao.js";
 import { Online } from "./systems/online.js";
 import { TitleScene } from "./scenes/title.js";
+import { AberturaScene } from "./scenes/abertura.js";
 import { OverworldScene } from "./scenes/overworld.js";
 import { BattleScene } from "./scenes/battle.js";
 import { drawText } from "./core/gfx.js";
@@ -247,7 +248,13 @@ if (stash?.state && !game.isValid(stash.state)) {
   game.scenes.push(stash.scene === "TitleScene" ? new TitleScene() : new OverworldScene());
   console.log("%c[hot] estado restaurado", "color:#59d99b");
 } else {
-  game.scenes.push(new TitleScene());
+  // Boot de verdade: a ABERTURA vem antes do título. Ela não entra quando o
+  // live update restaura a partida (acima) nem quando alguém abriu com atalho
+  // de dev (?map=, ?battle=) — nesses dois casos ninguém quer ver fanfarra, e
+  // no primeiro ela apareceria a cada arquivo salvo.
+  const busca = new URLSearchParams(location.search);   // o `q` do arquivo só nasce mais abaixo
+  const atalhoDeDev = busca.has("map") || busca.has("battle") || busca.has("starter");
+  game.scenes.push(atalhoDeDev ? new TitleScene() : new AberturaScene());
 }
 
 /** "spearow:10,cranidos:19" -> coloca esses Pokémon na equipe (sobra vai pro box) */

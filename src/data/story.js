@@ -478,6 +478,16 @@ export const STORY = {
     olha: "A FITA ESTÁ PARADA NO MEIO DE UMA PALAVRA QUE NÃO É NOME DE NINGUÉM.",
   },
 
+  /** A ABERTURA (src/scenes/abertura.js), antes da tela de título. */
+  abertura: {
+    estudio: "CACAI VILELA",
+    apresenta: "APRESENTA",
+    titulo1: "POKÉMON",
+    titulo2: "GLITCH EDITION",
+    comece: "APERTE START",
+    pular: "APERTE QUALQUER TECLA PRA PULAR",
+  },
+
   /** GLITCHBOOSTER e GLITCH RAID. O visor é o do CONOR (`detector.item`); a
    *  explicação é do professor, e sem ela o item não sai da mochila. */
   glitch: {

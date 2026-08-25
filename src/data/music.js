@@ -31,6 +31,55 @@ const contra = (vol = 0.2) => ({ wave: "pulso", duty: 0.125, vol, legato: 0.34 }
 const baixo = (vol = 0.55) => ({ wave: "triangle", vol, legato: 0.9 });
 
 export const MUSIC = {
+  // ABERTURA: a fanfarra de antes do título. É a mesma ideia das aberturas de
+  // GBA — metal em fanfarra, tímpano, uma subida e um acorde final que segura —,
+  // mas a melodia é nossa: a regra do arquivo vale aqui também.
+  abertura: {
+    bpm: 132,
+    tracks: [
+      { ...melodia(0.55), notes: [
+        // a chamada: três notas subindo, que é como toda abertura avisa que vai começar
+        ["G4", 0.5], ["C5", 0.5], ["E5", 1], ["-", 0.5],
+        ["G5", 0.5], ["E5", 0.5], ["C5", 1],
+        ["A4", 0.5], ["D5", 0.5], ["F5", 1], ["-", 0.5],
+        ["A5", 0.5], ["F5", 0.5], ["D5", 1],
+        // o duelo: as duas notas se batendo, uma alta e uma baixa
+        ["E5", 0.5], ["B4", 0.5], ["E5", 0.5], ["B4", 0.5],
+        ["F5", 0.5], ["C5", 0.5], ["F5", 0.5], ["C5", 0.5],
+        ["G5", 0.5], ["D5", 0.5], ["G5", 0.5], ["B5", 0.5],
+        // e o acorde que abre pro logo
+        ["C6", 3], ["-", 1],
+      ] },
+      { ...contra(0.22), notes: [
+        ["-", 0.5], ["E4", 0.5], ["-", 0.5], ["G4", 0.5],
+        ["-", 0.5], ["E4", 0.5], ["-", 0.5], ["C4", 0.5],
+        ["-", 0.5], ["F4", 0.5], ["-", 0.5], ["A4", 0.5],
+        ["-", 0.5], ["F4", 0.5], ["-", 0.5], ["D4", 0.5],
+        ["G4", 0.5], ["-", 0.5], ["G4", 0.5], ["-", 0.5],
+        ["A4", 0.5], ["-", 0.5], ["A4", 0.5], ["-", 0.5],
+        ["B4", 0.5], ["-", 0.5], ["D5", 0.5], ["-", 0.5],
+        ["E5", 3], ["-", 1],
+      ] },
+      { ...baixo(0.6), notes: [
+        ["C3", 1], ["C3", 1], ["G2", 1], ["G2", 1],
+        ["F2", 1], ["F2", 1], ["C3", 1], ["C3", 1],
+        ["E2", 1], ["E2", 1], ["F2", 1], ["F2", 1],
+        ["G2", 1], ["G2", 1], ["G2", 0.5], ["B2", 0.5],
+        ["C3", 3], ["-", 1],
+      ] },
+      // o tímpano: bate junto com a chamada e some no acorde final
+      { wave: "ruido", vol: 0.5, notes: [
+        ["x", 0.5], ["-", 0.5], ["x", 0.5], ["-", 0.5],
+        ["x", 1], ["x", 0.5], ["x", 0.5],
+        ["x", 0.5], ["-", 0.5], ["x", 0.5], ["-", 0.5],
+        ["x", 1], ["x", 0.5], ["x", 0.5],
+        ["x", 0.25], ["x", 0.25], ["x", 0.5], ["x", 0.5], ["x", 0.5],
+        ["x", 0.25], ["x", 0.25], ["x", 0.5], ["x", 1],
+        ["x", 0.5], ["-", 3.5],
+      ] },
+    ],
+  },
+
   // Tela de título: solene, com o baixo entrando devagar
   titulo: {
     bpm: 100,
