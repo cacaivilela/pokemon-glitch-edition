@@ -668,7 +668,7 @@ export class OverworldScene {
     if (!st.flags?.glitchWorld) return;
     if (st.player.map === "glitchdim" || this.map?.interior) return;
     if (portalAberto(st, st.player.map)) return;
-    if (!temPortal()) return;
+    if (!temPortal(st, st.player.map)) return;
     const aberto = abrirPortal(st, st.player.map, (x, y) =>
       this.tagAt(x, y) === DB.TAG.FREE && !this.blocked(x, y) && !this.npcAt(x, y) && !this.warpAt(x, y));
     if (!aberto) return;

@@ -7,7 +7,7 @@
 import { DB } from "../data/index.js";
 import { createMon } from "./mon.js";
 import { randRange, chance } from "../core/rng.js";
-import { RAID, PORTAL } from "../data/glitch.js";
+import { RAID, PORTAL, PONTOS } from "../data/glitch.js";
 
 /** Rola a chance de o encontro da fenda virar raid. Não é mais usada pelos
  *  encontros — quem chama a raid agora é o rasgo, aqui embaixo —, mas fica: é
@@ -66,8 +66,28 @@ export function premio() {
 // O rasgo mora no save (`st.raidPortal`), não na cena: assim ele sobrevive a
 // recarregar a página no meio, e a cena não precisa lembrar de nada.
 
-/** Rola a chance de um rasgo abrir neste passo. */
-export const temPortal = () => chance(PORTAL.chance);
+/** O PONTO FRACO mais forte perto de você agora, ou null. Empate desempata pelo
+ *  peso; dois pontos no mesmo raio é coisa que não devia existir, mas se
+ *  existir, ganha o mais fino. */
+export function pontoPerto(st, mapa) {
+  const p = st?.player;
+  if (!p) return null;
+  let melhor = null;
+  for (const q of PONTOS) {
+    if (q.mapa !== mapa) continue;
+    if (Math.abs(q.x - p.x) + Math.abs(q.y - p.y) > PORTAL.raio) continue;
+    if (!melhor || q.peso > melhor.peso) melhor = q;
+  }
+  return melhor;
+}
+
+/** Rola a chance de um rasgo abrir neste passo. Perto de um ponto fraco ela é
+ *  multiplicada pelo peso dele — é isso, e só isso, que faz um lugar ter fama
+ *  de rasgar mais que os outros. */
+export function temPortal(st, mapa) {
+  const q = pontoPerto(st, mapa);
+  return chance(Math.min(0.5, PORTAL.chance * (q?.peso || 1)));
+}
 
 /** O rasgo aberto agora, ou null. Ele VENCE SOZINHO: quem pergunta primeiro é
  *  quem limpa, então não sobra rasgo esquecido num save antigo. */
@@ -87,14 +107,21 @@ export function abrirPortal(st, mapa, livre) {
   const p = st?.player;
   if (!p) return null;
   const { perto, longe, minutos } = PORTAL;
+  const abrir = (x, y) => (st.raidPortal = { map: mapa, x, y, ate: Date.now() + minutos * 60000 });
+
+  // Ponto fraco por perto: é ALI que ele abre. Sortear um tile qualquer do lado
+  // desperdiçaria o ponto — o que faz o lugar ter fama é o rasgo aparecer
+  // sempre no mesmo canto dele, não em algum lugar daquele pedaço do mapa.
+  const q = pontoPerto(st, mapa);
+  if (q && !(q.x === p.x && q.y === p.y) && livre(q.x, q.y)) return abrir(q.x, q.y);
+
   for (let tentativa = 0; tentativa < 120; tentativa++) {
     const x = p.x + randRange(-longe, longe);
     const y = p.y + randRange(-longe, longe);
     const d = Math.abs(x - p.x) + Math.abs(y - p.y);
     if (d < perto || d > longe) continue;
     if (!livre(x, y)) continue;
-    st.raidPortal = { map: mapa, x, y, ate: Date.now() + minutos * 60000 };
-    return st.raidPortal;
+    return abrir(x, y);
   }
   return null;
 }
