@@ -93,6 +93,8 @@ export const EVOLUTIONS = {
   ],
 
   // itens que só existem do outro lado da fenda (ver src/data/loot.js)
+  cranidos: [{ lvl: 30, to: "rampardos" }],
+  shieldon: [{ lvl: 30, to: "bastiodon" }],
   porygon: [{ item: "up-grade", to: "porygon2" }],
   porygon2: [{ item: "dubious disc", to: "porygonz" }],
 };

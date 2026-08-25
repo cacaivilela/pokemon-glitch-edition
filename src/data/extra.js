@@ -13,7 +13,9 @@ const TABLE = `
 233 PORYGON2 NORMAL 85 80 90 105 95 60
 474 PORYGON-Z NORMAL 85 80 70 135 75 90
 408 CRANIDOS PEDRA 67 125 40 30 30 58
+409 RAMPARDOS PEDRA 97 165 60 65 50 58
 410 SHIELDON PEDRA/AÇO 30 42 118 42 88 30
+411 BASTIODON PEDRA/AÇO 60 52 168 47 138 30
 345 LILEEP PEDRA/PLANTA 66 41 77 61 87 23
 347 ANORITH PEDRA/INSETO 45 95 50 40 50 75
 564 TIRTOUGA ÁGUA/PEDRA 54 78 103 53 45 22
@@ -71,7 +73,9 @@ export const LORE = {
   deoxysvelocidade: "FINO, LEVE E RÁPIDO DEMAIS PRA TELA ACOMPANHAR.",
   porygonz: "NÃO DÁ PRA CHAMAR ISSO DE POKÉMON. SÓ DE GLITCH.",
   cranidos: "CRÂNIO DURO DEMAIS PRA UM BICHO QUE NÃO EXISTE MAIS.",
+  rampardos: "BATE DE CABEÇA EM TUDO. O QUE QUEBRA NUNCA É A CABEÇA.",
   shieldon: "A CARA DELE É UM ESCUDO. O RESTO NEM TERMINOU DE CARREGAR.",
+  bastiodon: "DE FRENTE NÃO PASSA NADA. POR ISSO ELE NUNCA APRENDEU A VIRAR.",
   lileep: "UMA PLANTA QUE CAÇA. FICOU PRESA NA PEDRA E NO TEMPO.",
   anorith: "AS GARRAS SÃO DE UM MAR QUE SECOU ANTES DE KANTO EXISTIR.",
   tirtouga: "O CASCO AGUENTA MIL METROS DE PRESSÃO. AQUI NÃO TEM FUNDO NENHUM.",
@@ -113,7 +117,9 @@ export const DIM_ENCOUNTERS = {
   terra: [
     { id: "porygon", min: 15, max: 28, w: 14 },   // o alvo do UP-GRADE (ver loot.js)
     { id: "cranidos", min: 18, max: 32, w: 20 },
+    { id: "rampardos", min: 30, max: 44, w: 8 },
     { id: "shieldon", min: 18, max: 32, w: 20 },
+    { id: "bastiodon", min: 30, max: 44, w: 8 },
     { id: "lileep", min: 18, max: 30, w: 14 },
     { id: "anorith", min: 18, max: 30, w: 14 },
     { id: "golett", min: 20, max: 32, w: 14 },
@@ -130,6 +136,7 @@ export const DIM_ENCOUNTERS = {
   agua: [
     { id: "tirtouga", min: 18, max: 32, w: 22 },
     { id: "shieldon", min: 18, max: 32, w: 16 },
+    { id: "bastiodon", min: 30, max: 44, w: 6 },
     { id: "cryogonal", min: 26, max: 40, w: 12 },
     { id: "klink", min: 18, max: 30, w: 10 },
     { id: "unown", min: 12, max: 40, w: 8 },
