@@ -20,10 +20,15 @@
 //
 // E ela não mora mais dentro da fenda. A raid era um encontro raro lá dentro,
 // onde ninguém entra por acaso: quem chegava até lá já tinha visto tudo, e o
-// chefe virava mais um bicho da tabela. Agora ela vem POR UM RASGO, aberto na
-// grama de Kanto — a fenda deixou de ser um lugar aonde você vai e virou uma
+// chefe virava mais um bicho da tabela. Agora ela vem POR UM RASGO, aberto NO
+// CHÃO de Kanto — a fenda deixou de ser um lugar aonde você vai e virou uma
 // coisa que vaza pra cá. O rasgo suja a tela seis vezes mais do que o mundo
 // normalmente suja, então dá pra saber que um abriu sem olhar o mapa.
+//
+// ELE NÃO TEM NADA A VER COM GRAMA ALTA. Não é encontro selvagem: é uma coisa
+// no chão, e você interage com ela. Sortear na grama amarrava o rasgo à mesma
+// tabela de sempre — o que já existe é o mato dar bicho; o que o rasgo faz é o
+// CHÃO dar chefe, e essas duas coisas não podem morar no mesmo tile por acaso.
 
 /** O item. É ITEM-CHAVE: compra-se UMA vez e ele não gasta nunca mais, igual ao
  *  DECODIFICADOR DE GENOMA e ao VISOR-G.L.I.T.C.H. O que continua acabando é o
@@ -62,16 +67,17 @@ export const RAID = {
 
 /** O RASGO: por onde a raid chega. */
 export const PORTAL = {
-  /** Chance de abrir a cada passo na grama, com o mundo já quebrado.
-    *  A 2% era um a cada cinquenta passos de grama — e como o passo que vira
-    *  encontro não rola rasgo, na prática dava quase sessenta. Somado aos três
-    *  minutos que ele durava, dava pra atravessar uma rota inteira e nunca ver
-    *  um. Coisa rara que ninguém encontra não é rara, é ausente. */
-  chance: 0.05,
+  /** Chance de abrir a cada passo dado do lado de fora, com o mundo já
+    *  quebrado. Vale em QUALQUER passo, não só no mato: quando ela só valia na
+    *  grama, o número tinha que ser alto pra compensar os passos que não
+    *  contavam. Agora todo passo conta e 2% dá um rasgo a cada cinquenta —
+    *  raro, mas não ausente, que é a diferença que importa. */
+  chance: 0.02,
   /** quanto ele fica aberto antes de se fechar sozinho, em minutos de relógio */
   minutos: 5,
-  /** distância mínima e máxima de onde você está, em tiles. Perto demais e ele
-   *  nasce debaixo do seu pé; longe demais e você nunca acha antes de fechar. */
+  /** Distância mínima e máxima de onde você está, em tiles. Perto demais e ele
+   *  nasce debaixo do seu pé; longe demais e você nunca acha antes de fechar.
+   *  Ele abre em chão andável — nunca em parede, água, barranco ou porta. */
   perto: 3,
   longe: 7,
   /** A TELA PERTO DELE FICA 6X MAIS CORROMPIDA QUE O NORMAL. */

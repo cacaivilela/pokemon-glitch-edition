@@ -518,9 +518,9 @@ export const STORY = {
     semUso: "SEM O VISOR-G.L.I.T.C.H NO ROSTO, ISSO AQUI É SÓ UM CARTUCHO QUEBRADO.",
     comeu: "O BUG DE {NOME} COMEU O DANO: +{N} EM TUDO, MENOS NO HP.",
     virouByte: "O NÚMERO DE {NOME} PASSOU DE 255 E VOLTOU PRO ZERO. TUDO QUE ELE JUNTOU SUMIU.",
-    // O RASGO, na grama de Kanto (src/systems/raid.js)
+    // O RASGO, no chão de Kanto (src/systems/raid.js)
     rasgoPrimeiro: [
-      "O AR ABRIU.",
+      "O CHÃO ABRIU.",
       "NÃO É FUMAÇA, NÃO É LUZ. É UM PEDAÇO DE TELA QUE PAROU DE SER DESENHADO.",
       "TEM ALGUMA COISA DO OUTRO LADO, E ELA JÁ VIU VOCÊ.",
     ],

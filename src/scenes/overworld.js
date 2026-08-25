@@ -654,19 +654,23 @@ export class OverworldScene {
     this.checkTrainerSight();
   }
 
-  /** O RASGO abrindo. Só depois que o mundo quebra (`glitchWorld`): antes
-   *  disso a fenda ainda não vazou pra lugar nenhum, e um buraco no ar em Kanto
-   *  limpa não é um susto, é um bug. Um por vez, e nunca dentro da fenda — lá
-   *  não faz sentido rasgar o que já é rasgo. */
+  /** O RASGO abrindo. Ele é NO CHÃO, e não tem nada a ver com grama alta: o
+   *  mato dar bicho já existe, e o que o rasgo faz é o chão dar chefe. Por isso
+   *  ele rola em qualquer passo dado do lado de fora e nasce em chão andável —
+   *  nunca no mato, que é onde o jogo já tem outra coisa acontecendo.
+   *
+   *  Só depois que o mundo quebra (`glitchWorld`): antes disso a fenda não
+   *  vazou pra lugar nenhum, e um buraco no chão de Kanto limpa não é um susto,
+   *  é um bug. Um por vez, nunca dentro de casa e nunca dentro da própria
+   *  fenda — lá não faz sentido rasgar o que já é rasgo. */
   talvezRasgar() {
     const st = this.st;
     if (!st.flags?.glitchWorld) return;
-    if (st.player.map === "glitchdim") return;
-    if (this.tagAt(st.player.x, st.player.y) !== DB.TAG.GRASS) return;
+    if (st.player.map === "glitchdim" || this.map?.interior) return;
     if (portalAberto(st, st.player.map)) return;
     if (!temPortal()) return;
     const aberto = abrirPortal(st, st.player.map, (x, y) =>
-      this.tagAt(x, y) === DB.TAG.GRASS && !this.blocked(x, y) && !this.npcAt(x, y) && !this.warpAt(x, y));
+      this.tagAt(x, y) === DB.TAG.FREE && !this.blocked(x, y) && !this.npcAt(x, y) && !this.warpAt(x, y));
     if (!aberto) return;
     Glitch.hit(2.5);
     Audio2.glitch();

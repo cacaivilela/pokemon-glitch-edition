@@ -327,10 +327,10 @@ if (q.has("map") || q.has("battle")) {
     game.state.corruption = Math.max(game.state.corruption, 60);
     Glitch.forced = true;
     const g = DB.KANTO[game.state.player.map];
-    const grama = (x, y) => !!g && x >= 0 && y >= 0 && x < g.w && y < g.h
-      && g.tags.charCodeAt(y * g.w + x) - 48 === DB.TAG.GRASS;
-    if (!abrirPortal(game.state, game.state.player.map, grama)) {
-      console.warn("[rasgo] nenhum tile de grama perto daqui; ande até o mato e tente de novo");
+    const chao = (x, y) => !!g && x >= 0 && y >= 0 && x < g.w && y < g.h
+      && g.tags.charCodeAt(y * g.w + x) - 48 === DB.TAG.FREE;
+    if (!abrirPortal(game.state, game.state.player.map, chao)) {
+      console.warn("[rasgo] nenhum chão livre perto daqui; ande um pouco e tente de novo");
     }
   }
   if (q.get("mega")) {   // ?mega=1 -> anel + todas as megapedras na mochila
