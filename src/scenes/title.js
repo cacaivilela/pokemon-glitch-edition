@@ -19,14 +19,34 @@ import { GiftScene } from "./online.js";
  *  parte deles vem FUNDIDA — a primeira tela do jogo passa a mostrar do que ele
  *  é capaz, em vez de mostrar o que todo Pokémon mostra.
  *
+ *  E a fusão que aparece é, de preferência, UMA QUE ALGUÉM FEZ. As fichas
+ *  publicadas na oficina (src/data/fusoes-feitas.js) vêm com desenho de gente,
+ *  não com a montagem automática das duas metades — e quando uma delas está na
+ *  tela, o nome de quem desenhou aparece em cima. A tela de título é o lugar
+ *  mais visto do jogo; quem desenhou merece estar nele.
+ *
  *  A troca é lenta de propósito: rápida demais vira anúncio piscando, e o menu
  *  fica embaixo dela. */
 const VITRINE = {
   quantos: 3,
   troca: 4.5,        // segundos que cada leva fica na tela
   fusao: 0.4,        // parte das vagas que sai fundida
+  doJogador: 0.75,   // ...e dessas, quantas saem de uma ficha publicada
   entra: 0.5,        // quanto dura o aparecer de cada leva
 };
+
+/** Todas as fichas que os jogadores publicaram, achatadas numa lista só.
+ *  Montada uma vez por sorteio — o arquivo é grande e percorrer ele por vaga
+ *  seria percorrer três vezes pra nada. */
+function fichasDeJogadores() {
+  const out = [];
+  for (const [dupla, fichas] of Object.entries(DB.FUSOES_FEITAS || {})) {
+    const [cabeca, corpo] = String(dupla).split("+");
+    if (!cabeca || !corpo) continue;
+    for (const f of fichas || []) if (f?.id) out.push({ cabeca, corpo, ficha: f });
+  }
+  return out;
+}
 
 export class TitleScene {
   enter() {
@@ -56,16 +76,25 @@ export class TitleScene {
     const base = Object.keys(DB.GEN1 || {}).filter((id) => DB.SPECIES?.[id]);
     if (base.length < 2) return (DB.STARTERS || []).map((id) => ({ id }));
     const um = () => base[Math.floor(Math.random() * base.length)];
+    const publicadas = fichasDeJogadores();
     const leva = [];
     for (let i = 0; i < VITRINE.quantos; i++) {
       if (Math.random() < VITRINE.fusao) {
-        const cabeca = um(), corpo = um();
+        // Ficha de jogador tem preferência: ela foi DESENHADA, e a graça de
+        // mostrar fusão na abertura é mostrar a que alguém fez, não a média de
+        // dois sprites. Só cai na automática quando não tem ficha publicada.
+        const p = publicadas.length && Math.random() < VITRINE.doJogador
+          ? publicadas[Math.floor(Math.random() * publicadas.length)]
+          : null;
+        const cabeca = p ? p.cabeca : um();
+        const corpo = p ? p.corpo : um();
         // as duas metades primeiro: o desenho da fusão é montado a partir delas,
         // e pedir só a fusão montaria ela em cima de arte provisória
         Assets.mon(cabeca, 1);
         Assets.mon(corpo, 1);
-        const id = idFusao(cabeca, corpo);
-        if (garantirEspecie(id)) { leva.push({ id, fusao: true }); Assets.mon(id, 1); continue; }
+        const id = idFusao(cabeca, corpo, p ? p.ficha.id : "");
+        const sp = garantirEspecie(id);
+        if (sp) { leva.push({ id, autor: sp.autor || "" }); Assets.mon(id, 1); continue; }
       }
       const id = um();
       Assets.mon(id, 1);
@@ -158,6 +187,18 @@ export class TitleScene {
       const y = 12 + ((i * 29) % 60);
       ctx.fillStyle = glitch ? (i % 5 === 0 ? "#b455ff" : "#3a2a55") : "rgba(255,255,255,.5)";
       ctx.fillRect(x | 0, y | 0, glitch ? 1 : 6, glitch ? 1 : 2);
+    }
+
+    // Quem desenhou a fusão que está na tela. Vai ACIMA do logo porque é a
+    // única faixa livre: o painel do menu sobe até a altura dos bichos quando a
+    // lista está cheia, e não sobra linha entre eles e ele.
+    const autores = [...new Set((this.vitrine || []).map((v) => v.autor).filter(Boolean))];
+    if (autores.length) {
+      const linha = `${autores.length > 1 ? "FUSÕES" : "FUSÃO"} DE ${autores.join(" E ")}`;
+      ctx.globalAlpha = 0.55 + Math.sin(this.t * 1.6) * 0.15;
+      drawText(ctx, linha, Math.round((240 - linha.length * 6) / 2), 6,
+               glitch ? "#8f6bd8" : "#2b4a7a");
+      ctx.globalAlpha = 1;
     }
 
     const wob = Math.sin(this.t * 2) * 1.5;
