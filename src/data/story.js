@@ -478,6 +478,20 @@ export const STORY = {
     olha: "A FITA ESTÁ PARADA NO MEIO DE UMA PALAVRA QUE NÃO É NOME DE NINGUÉM.",
   },
 
+  /** OS SELVAGENS À VISTA, e o bote dos bravos (src/systems/selvagens.js). */
+  selvagem: {
+    // Curtos de propósito: o recado é uma tarja de 240px, e a fala anterior
+    // ("DEU O BOTE! {MON} PERDEU {N} DE HP") tinha 47 letras — passava da tela e
+    // era cortada no meio da palavra. Cabe em 38.
+    bote: "{BICHO} ATACOU! {MON} -{N} HP",
+    caiu: "{MON} CAIU!",
+    apagou: [
+      "VOCÊ NÃO TEM MAIS POKÉMON EM CONDIÇÕES DE LUTAR.",
+      "TUDO ESCURECE NO MEIO DO MATO...",
+      "VOCÊ VOLTOU PRO ÚLTIMO LUGAR SEGURO.",
+    ],
+  },
+
   /** A ABERTURA (src/scenes/abertura.js), antes da tela de título. */
   abertura: {
     estudio: "CACAI VILELA",

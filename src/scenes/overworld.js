@@ -509,6 +509,10 @@ export class OverworldScene {
   // -------------------------------------------------------------- update
   update(dt) {
     this.banner = Math.max(0, this.banner - dt);
+    this.invuln = Math.max(0, (this.invuln || 0) - dt);
+    this.tremor = Math.max(0, (this.tremor || 0) - dt * 3);
+    this.clarao = Math.max(0, (this.clarao || 0) - dt * 2.4);
+    if (this.aviso) { this.aviso.t -= dt; if (this.aviso.t <= 0) this.aviso = null; }
     if (this.olhando) this.olhando.t += dt;
     Glitch.level = this.st.corruption;
     // O RASGO suja a tela inteira enquanto estiver aberto neste mapa: seis
@@ -703,8 +707,8 @@ export class OverworldScene {
     const passo = andar(this.selvagens, dt, st.player,
                         (x, y) => this.daPraSelvagem(x, y), (x, y) => this.podeCacar(x, y));
     this.selvagens = passo.vivos;
-    // um BRAVO chegou em você: a batalha começa por conta dele
-    if (passo.encostou) return void this.encontrarSelvagem(passo.encostou);
+    // um BRAVO chegou em você: ele BATE (não abre batalha)
+    if (passo.encostou) this.levarBote(passo.encostou);
     this.nascerT -= dt;
     if (this.nascerT <= 0) {
       // O SANDUÍCHE REFRESCANTE agora rareia os bichos à vista. Ele cortava o
@@ -720,8 +724,79 @@ export class OverworldScene {
     }
   }
 
-  /** Começa a batalha com aquele bicho e tira ele do mapa. Serve pros dois
-   *  lados do encontro: você pisou nele, ou ele chegou em você. */
+  /** O BOTE, como nos LEGENDS. O bravo que te alcança NÃO abre batalha: ele
+   *  bate ali mesmo, no mapa, e pula pra trás.
+   *
+   *  Abrir batalha ao encostar tirava do jogador a única coisa que ele ganhou
+   *  quando os bichos ficaram visíveis: DECIDIR. Do jeito novo, tomar pancada é
+   *  a consequência de não ter corrido, e lutar continua sendo escolha sua — é
+   *  você que encosta nele. */
+  levarBote(b) {
+    const st = this.st;
+    if ((this.invuln || 0) > 0) return;          // carência: nada de te moerem
+    const lider = st.party.find((m) => m.hp > 0);
+    if (!lider) return;
+    const C = DB.CONFIG?.selvagens || {};
+    const S = DB.STORY.selvagem;
+    this.invuln = C.respiro ?? 2.2;
+    const dano = Math.max(1, Math.round(lider.maxHp * (C.dano ?? 0.12)));
+    lider.hp = Math.max(0, lider.hp - dano);
+    this.tremor = 1;
+    this.clarao = 0.35;
+    Audio2.hit();
+    Glitch.hit(0.5);
+    this.empurrarSelvagem(b);
+    const quem = DB.SPECIES[b.mon.species]?.name || b.mon.species;
+    this.avisar(S.bote.replace("{BICHO}", quem)
+      .replace("{MON}", lider.nickname).replace("{N}", dano));
+    if (lider.hp <= 0) {
+      Audio2.faint();
+      this.avisar(S.caiu.replace("{MON}", lider.nickname));
+    }
+    this.game.autosave?.();
+    if (!st.party.some((m) => m.hp > 0)) this.apagarNoMato();
+  }
+
+  /** Depois de bater ele PULA PRA TRÁS. Sem isso ele fica colado em você e o
+   *  respiro só adia a próxima pancada — com o pulo, o respiro vira a janela em
+   *  que dá pra sair de perto. */
+  empurrarSelvagem(b) {
+    const p = this.st.player;
+    const dx = Math.sign(b.x - p.x) || (Math.random() < 0.5 ? 1 : -1);
+    const dy = Math.sign(b.y - p.y);
+    for (let i = 0; i < (DB.CONFIG?.selvagens?.recuo ?? 3); i++) {
+      const nx = b.x + dx, ny = b.y + dy;
+      if (!this.podeCacar(nx, ny)) break;
+      b.x = nx; b.y = ny;
+    }
+    b.t = Math.max(b.t, DB.CONFIG?.selvagens?.respiro ?? 2.2);
+  }
+
+  /** Um recado curto no alto da tela. NÃO é caixa de diálogo de propósito: uma
+   *  caixa modal a cada pancada pararia o jogo toda vez que você apanha, e
+   *  apanhar tem que ser uma coisa que acontece ENQUANTO você foge. */
+  avisar(txt) { this.aviso = { txt, t: 2 }; }
+
+  /** Caiu a equipe inteira no mato. Mesmo fim da batalha perdida: todo mundo
+   *  curado, de volta pro último lugar seguro, e a corrupção sobe um pouco. */
+  apagarNoMato() {
+    const st = this.st;
+    st.party.forEach(heal);
+    st.surfando = null;
+    const back = st.respawn || { map: DB.START_MAP, ...DB.MAPS[DB.START_MAP].spawn };
+    Object.assign(st.player, { map: back.map, x: back.x, y: back.y, dir: back.dir || "down" });
+    st.corruption = Math.min(100, st.corruption + 3);
+    this.selvagens = [];
+    this.compa = null;
+    this.aviso = null;
+    this.justWarped = true;
+    this.afterTravel();
+    this.game.autosave?.();
+    this.dlg.say(DB.STORY.selvagem.apagou);
+  }
+
+  /** Começa a batalha com aquele bicho e tira ele do mapa. Só por ENCOSTO seu:
+   *  o bravo que te alcança bate (ver `levarBote`). */
   encontrarSelvagem(b) {
     this.selvagens = this.selvagens.filter((o) => o !== b);
     if (b.bravo) { Audio2.bump(); this.rustle = { x: b.x, y: b.y, t: 0 }; }
@@ -3021,6 +3096,14 @@ export class OverworldScene {
   render(ctx) {
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, W, H);
+    // O TREMOR do bote sacode o MUNDO, e não a interface: a caixa de texto e o
+    // menu tremendo junto viram tela quebrada, não pancada.
+    const sacode = this.tremor > 0;
+    if (sacode) {
+      ctx.save();
+      ctx.translate(Math.round((Math.random() * 2 - 1) * this.tremor * 3),
+                    Math.round((Math.random() * 2 - 1) * this.tremor * 3));
+    }
     const cx = Math.round(this.cam.x), cy = Math.round(this.cam.y);
 
     const art = mapArt(this.st.player.map);
@@ -3103,6 +3186,10 @@ export class OverworldScene {
       panel(ctx, W - 72, 4, 68, 18);
       drawText(ctx, txt, W - 66, 9, left < 30 ? "#e0524a" : PAL.ink);
     }
+
+    if (sacode) ctx.restore();
+    if (this.clarao > 0) fade(ctx, this.clarao, "#ff5566");
+    if (this.aviso) this.drawAviso(ctx);
 
     // balões e nomes vão POR CIMA do telhado: senão o nome some dentro de casa
     for (const outro of Online.noMapa(this.st.player.map)) this.drawPeerTag(ctx, outro, cx, cy);
@@ -3273,6 +3360,20 @@ export class OverworldScene {
     }
     const img = Assets.actor(n.sprite)[n.dir || "down"][0];
     ctx.drawImage(img, x, y + TILE - img.height);
+  }
+
+  /** O recado do bote, no alto e sem caixa. Some sozinho. */
+  drawAviso(ctx) {
+    const a = this.aviso;
+    const txt = String(a.txt);
+    const w = txt.length * 6 + 12;
+    ctx.globalAlpha = Math.min(1, a.t * 1.6);
+    // Abaixo do nome do mapa, e não em cima dele: os dois aparecem juntos quando
+    // você toma pancada logo depois de entrar numa rota, e empilhados viravam
+    // uma coisa só ilegível.
+    panel(ctx, Math.max(2, (W - w) / 2), 24, Math.min(W - 4, w), 16);
+    drawText(ctx, txt, Math.max(8, (W - txt.length * 6) / 2), 28, "#e0524a");
+    ctx.globalAlpha = 1;
   }
 
   drawBanner(ctx) {

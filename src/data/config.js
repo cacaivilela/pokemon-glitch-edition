@@ -29,12 +29,20 @@ export const CONFIG = {
     passo: 1.2,          // segundos entre um passinho e outro de cada um
     nascer: 2.0,         // segundos entre uma tentativa de nascer e outra
     some: 20,            // longe demais ou parado tempo demais, ele vai embora
-    // BRAVOS: os que vêm PRA CIMA de você. O resto anda à toa e nunca encosta —
-    // se todos atacassem, andar pela grama viraria correr de cinco perseguidores
-    // ao mesmo tempo, e a escolha de com quem lutar acabaria.
-    bravos: 0.3,         // parte deles que ataca
+    // BRAVOS: os que vêm PRA CIMA de você. QUEM ATACA É DECIDIDO PELA ESPÉCIE,
+    // e a lista está em src/data/bravos.js — era um sorteio de 30% em cima de
+    // todos, e aí o mesmo pidgey atacava num dia e fugia no outro: a rota não
+    // ganhava reputação nenhuma e não dava pra aprender nada andando por ela.
     persegue: 5,         // de quantos tiles um bravo enxerga você
     pressa: 0.55,        // o passo do bravo, em fração do passo normal
+    // O BOTE, como nos LEGENDS: o bravo que te alcança NÃO abre batalha. Ele
+    // bate ali mesmo, no mapa, e pula pra trás. Abrir batalha ao encostar
+    // tirava do jogador a única coisa que ele ganhou quando os bichos ficaram
+    // visíveis: decidir. Do jeito novo, tomar pancada é a consequência de não
+    // ter corrido, e lutar continua sendo escolha sua — é você que encosta.
+    dano: 0.12,          // fração do HP máximo do seu líder por pancada
+    recuo: 3,            // tiles que ele salta pra trás depois do bote
+    respiro: 2.2,        // segundos de carência antes de você poder tomar outra
   },
 
   // Shiny solto pela grama de Kanto: 1 em 1024 selvagens vem com a cor trocada.

@@ -20,9 +20,27 @@
 // quando você sai, e ninguém sente falta de um lagarto que estava num canto da
 // ROTA 3 na terça passada.
 import { DB } from "../data/index.js";
-import { randRange, chance } from "../core/rng.js";
+import { randRange } from "../core/rng.js";
+import { partes } from "./fusao.js";
 
 const cfg = () => DB.CONFIG?.selvagens || {};
+
+/** Esta espécie ataca? A lista está em src/data/bravos.js.
+ *
+ *  FUSÃO E MEGA HERDAM, e é isso que faz uma lista de espécies dar conta de um
+ *  jogo com 255 x 256 fusões: a fusão é brava se qualquer uma das metades for
+ *  (LAPROCUNO ataca porque o ARTICUNO ataca), e a mega herda da espécie de
+ *  origem. Sem herança, ou a lista teria 65 mil linhas ou toda fusão seria
+ *  mansa — e as fusões são metade da graça deste jogo. */
+export function ehBravo(id, fundo = 0) {
+  if (!id || fundo > 3) return false;
+  if ((DB.BRAVOS || []).includes(id)) return true;
+  const p = partes(id);
+  if (p) return ehBravo(p.cabeca, fundo + 1) || ehBravo(p.corpo, fundo + 1);
+  const sp = DB.SPECIES?.[id];
+  if (sp?.megaDe) return ehBravo(sp.megaDe, fundo + 1);
+  return false;
+}
 
 /** Tenta pôr mais um no mundo. `livre(x, y)` vem da cena, que é quem conhece
  *  grama, colisão e quem já está em pé onde.
@@ -58,7 +76,7 @@ export function nascer(lista, jogador, sortear, livre) {
     const bicho = {
       mon: enc.mon, glitch: !!enc.glitch, x, y, vida: 0,
       t: Math.random() * (c.passo ?? 1.2),
-      bravo: chance(c.bravos ?? 0),
+      bravo: ehBravo(enc.mon.species),
     };
     lista.push(bicho);
     return bicho;

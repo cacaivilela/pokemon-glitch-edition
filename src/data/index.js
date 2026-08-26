@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -32,6 +32,7 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./gifts.js" + V),
   import("./maps.js" + V),
   import("./acampamento.js" + V),
+  import("./bravos.js" + V),
   fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
 
@@ -279,6 +280,7 @@ export function buildDB() {
     FUSOES_FEITAS: feitas.FUSOES_FEITAS,
     CONCURSO: concurso.CONCURSO,
     MISSOES: missoes.MISSOES,
+    BRAVOS: bravos.BRAVOS,
     RIVAL: rival.RIVAL,
     VERSAO: versao.VERSAO,
     MISSAO_TEXTO: missoes.MISSAO_TEXTO,
