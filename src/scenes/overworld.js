@@ -15,7 +15,7 @@ import { OnlineMenuScene } from "./online.js";
 import { TradeScene } from "./trade.js";
 import { LinkBattleScene } from "./linkbattle.js";
 import { Glitch } from "../systems/glitchfx.js";
-import { rollEncounter, rollDimEncounter, rollFlores, ENCOUNTER_RATE } from "../systems/encounters.js";
+import { rollEncounter, rollDimEncounter, rollFlores } from "../systems/encounters.js";
 import {
   heal, hpPct, gainXp, xpForLevel, createMon, evolutionFor, learnableMoves,
 } from "../systems/mon.js";
@@ -659,21 +659,8 @@ export class OverworldScene {
     if (this.pisouNasFlores()) return;
     if (this.pisouNumSelvagem()) return;
 
-    // O SORTEIO INVISÍVEL SÓ EXISTE DENTRO DA FENDA. Em Kanto, batalha selvagem
-    // começa encostando num bicho que está na tela — o sorteio existia porque
-    // não havia o que olhar, e agora há. Lá dentro ele fica: o mapa é gerado por
-    // terreno (ar / terra / água) e os bichos à vista não sabem ler isso, e a
-    // fenda também não é lugar de escolher com quem lutar.
-    if (p.map === "glitchdim" && this.tagAt(p.x, p.y) === DB.TAG.GRASS
-        && this.st.party.some((m) => m.hp > 0)
-        // o SANDUÍCHE REFRESCANTE corta a chance pela metade: dá pra atravessar
-        // o mato sem parar de dois em dois passos
-        && Math.random() < (DB.CONFIG?.encounterRate ?? ENCOUNTER_RATE) * fator(this.st, "calmaria")) {
-      const enc = rollDimEncounter(
-        this.geo.terrain?.[p.y * this.geo.w + p.x] === "a" ? "ar"
-          : this.geo.terrain?.[p.y * this.geo.w + p.x] === "g" ? "agua" : "terra", this.st);
-      if (enc) return this.startBattle(enc);
-    }
+    // O SORTEIO INVISÍVEL POR PASSO NÃO EXISTE MAIS, aqui nem na fenda. O que
+    // começa batalha selvagem é encostar: você num bicho, ou um bravo em você.
     this.talvezRasgar();
     this.checkTrainerSight();
   }
@@ -702,9 +689,13 @@ export class OverworldScene {
   /** Eles andam e nascem sozinhos. Nada disso vai pro save: é cenário vivo. */
   updateSelvagens(dt) {
     const st = this.st;
-    // dentro de casa, na fenda e no mar não tem grama pra eles morarem; e com a
-    // equipe toda caída não faz sentido pôr batalha na frente do jogador
-    if (this.map?.interior || st.player.map === "glitchdim" || st.surfando
+    // Dentro de casa e no mar não tem grama pra eles morarem, e com a equipe
+    // toda caída não faz sentido pôr batalha na frente do jogador. A FENDA
+    // ENTRA: ela é marcada `interior` porque não tem céu, mas tem mato e é lá
+    // que os bichos dela moram — desde que o encontro por passo acabou, sem eles
+    // à vista a fenda ficaria sem nenhum encontro.
+    const naFenda = st.player.map === "glitchdim";
+    if ((this.map?.interior && !naFenda) || st.surfando
         || !st.party.some((m) => m.hp > 0)) {
       if (this.selvagens.length) this.selvagens = [];
       return;
@@ -724,9 +715,7 @@ export class OverworldScene {
       this.nascerT = (DB.CONFIG?.selvagens?.nascer ?? 2) / calma;
       // o sorteio é o mesmo de sempre — MISSINGNO., corrompido, shiny e a fusão
       // selvagem saem daqui, agora em pé no mato em vez de aparecendo do nada
-      nascer(this.selvagens, st.player,
-             () => rollEncounter(st.player.map, st.corruption, !!st.flags.glitchWorld,
-                                 fator(this.st, "sorte")),
+      nascer(this.selvagens, st.player, (x, y) => this.sortearSelvagem(x, y),
              (x, y) => this.daPraSelvagem(x, y));
     }
   }
@@ -737,6 +726,19 @@ export class OverworldScene {
     this.selvagens = this.selvagens.filter((o) => o !== b);
     if (b.bravo) { Audio2.bump(); this.rustle = { x: b.x, y: b.y, t: 0 }; }
     this.startBattle(encontroDe(b));
+  }
+
+  /** O bicho que nasce naquele tile. Em Kanto é o sorteio de sempre; dentro da
+   *  fenda é o dela, que olha o TERRENO debaixo do tile (ar, terra ou água) —
+   *  cada um tem a sua tabela e o seu lendário. */
+  sortearSelvagem(x, y) {
+    const st = this.st;
+    if (st.player.map !== "glitchdim") {
+      return rollEncounter(st.player.map, st.corruption, !!st.flags.glitchWorld,
+                           fator(st, "sorte"));
+    }
+    const solo = this.geo?.terrain?.[y * this.geo.w + x];
+    return rollDimEncounter(solo === "a" ? "ar" : solo === "g" ? "agua" : "terra", st);
   }
 
   /** Pisou em cima de um: a batalha é com AQUELE, e ele sai do mapa. Devolve

@@ -16,21 +16,13 @@ export const CONFIG = {
   noiteMax: 0.58,
   cavernaEscura: 0.82,     // caverna é escura o dia inteiro; a lanterna abre o buraco
 
-  // Chance de encontro por passo na grama alta.
+  // SELVAGENS À VISTA. Antes de existir isto, o mato era um lugar vazio que às
+  // vezes cuspia uma batalha: o bicho não estava lá, ele ACONTECIA.
   //
-  // SÓ VALE DENTRO DA 011GLITCHDIMENSION110. Em Kanto o encontro invisível
-  // acabou: batalha selvagem começa ENCOSTANDO num bicho que está na tela (ver
-  // `selvagens` aqui embaixo). Na fenda ele fica, porque lá o mapa é gerado por
-  // terreno (ar / terra / água) e os bichos à vista não sabem ler isso — e
-  // porque a fenda não é lugar de escolher com quem lutar.
-  encounterRate: 0.11,
-
-  // SELVAGENS À VISTA. Antes de existir isto, o mato de Kanto era um lugar
-  // vazio que às vezes cuspia uma batalha: o bicho não estava lá, ele
-  // acontecia. Agora alguns andam pela grama, na cara do jogador, e pisar em
-  // cima começa a batalha com AQUELE. A grama continua sorteando encontro
-  // invisível por passo (`encounterRate`) — os dois convivem: um é o susto de
-  // sempre, o outro é poder escolher.
+  // O ENCONTRO INVISÍVEL POR PASSO NÃO EXISTE MAIS EM LUGAR NENHUM — nem em
+  // Kanto, nem dentro da fenda. Batalha selvagem começa ENCOSTANDO num bicho
+  // que está na tela: você nele, ou um bravo em você. A antiga `encounterRate`
+  // saiu daqui junto; quem manda na frequência agora é `nascer`.
   selvagens: {
     quantos: 5,          // quantos ficam à vista de cada vez
     perto: 12,           // eles vivem neste raio de tiles em volta de você

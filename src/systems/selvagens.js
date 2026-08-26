@@ -6,10 +6,9 @@
 // escolher, pra fugir de um e ir atrás de outro, e pra ver de longe que aquela
 // rota tem um bicho que você ainda não pegou.
 //
-// EM KANTO, ENCOSTAR NELES É O ÚNICO JEITO DE COMEÇAR UMA BATALHA SELVAGEM. O
-// sorteio invisível por passo acabou aqui fora: ele existia porque não havia o
-// que olhar, e agora há. Ele fica só dentro da fenda, onde o mapa é gerado por
-// terreno e estes bichos não sabem ler isso.
+// ENCOSTAR NELES É O ÚNICO JEITO DE COMEÇAR UMA BATALHA SELVAGEM, no mundo
+// inteiro — inclusive dentro da fenda. O sorteio invisível por passo acabou: ele
+// existia porque não havia o que olhar, e agora há.
 //
 // E ALGUNS VÊM PRA CIMA DE VOCÊ. Os BRAVOS enxergam você de longe e caminham
 // até encostar; o resto anda à toa e nunca chega perto. É uma parte deles só:
@@ -42,14 +41,19 @@ export function nascer(lista, jogador, sortear, livre) {
     if (d < 3 || d > perto) continue;
     if (!livre(x, y)) continue;
     // O POKÉMON É SORTEADO AQUI, NO NASCIMENTO, e não na hora da batalha. Quem
-    // sorteia é o `rollEncounter` de sempre (a cena passa ele fechado num
-    // closure), então tudo que a grama já dava continua saindo: MISSINGNO. com
-    // o mundo quebrado, o bicho corrompido, o shiny e a fusão selvagem raríssima.
+    // sorteia é o sorteador de sempre (a cena passa ele fechado num closure, e
+    // decide qual: o de Kanto ou o da fenda), então tudo que a grama já dava
+    // continua saindo: MISSINGNO. com o mundo quebrado, o bicho corrompido, o
+    // shiny, a fusão selvagem raríssima e os lendários da fenda.
+    //
+    // Ele recebe o TILE porque dentro da fenda a tabela depende do terreno
+    // debaixo do bicho — ar, terra ou água —, e isso só dá pra saber depois de
+    // escolher onde ele vai nascer.
     //
     // E sortear antes é o que faz o que você VÊ ser o que você LUTA. Sortear na
     // hora do encostão deixaria o sprite do mato ser uma etiqueta mentirosa — e
     // a razão inteira de eles serem visíveis é poder escolher olhando.
-    const enc = sortear();
+    const enc = sortear(x, y);
     if (!enc?.mon) return null;
     const bicho = {
       mon: enc.mon, glitch: !!enc.glitch, x, y, vida: 0,
