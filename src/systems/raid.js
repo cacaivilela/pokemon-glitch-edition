@@ -32,6 +32,16 @@ export function montarChefe(tabela) {
     mon.stats[k] = Math.round(mon.stats[k] * RAID.forca);
   }
   mon.raid = true;
+  // O CHEFE JÁ CHEGA COM O GLITCHBOOSTER LIGADO. É o mesmo bug do item, do
+  // outro lado da tela: cada ponto de dano que ele toma vira ponto de atributo,
+  // em tudo menos no HP. Bater nele o deixa mais forte — até o byte dar a volta
+  // em 255 e ele desabar sozinho.
+  //
+  // Isso muda o que a luta PERGUNTA. Antes era "você aguenta cinco vidas de
+  // HP?"; agora é "você derruba antes de ele crescer, ou empurra ele até
+  // estourar?". As duas respostas funcionam, e são opostas — que é o que separa
+  // um chefe de um selvagem gordo.
+  mon.bug = { dano: 0, virou: false };
   const escudoMax = Math.round(mon.maxHp * RAID.escudo);
   return { mon, escudo: escudoMax, escudoMax };
 }

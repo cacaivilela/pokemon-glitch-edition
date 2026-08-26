@@ -11,7 +11,7 @@ import { Glitch } from "../systems/glitchfx.js";
 import { cenaDoGolpe } from "../systems/cutscenes.js";
 import { veu, temCeu } from "../systems/ciclo.js";
 import { fator } from "../systems/acampamento.js";
-import { podeUsarBooster, ligar, acumular, bugado, bonusDe, limparTudo } from "../systems/glitchboost.js";
+import { podeUsarBooster, ligar, acumular, bugado, bonusDe, limpar, limparTudo } from "../systems/glitchboost.js";
 import { bater, podeCapturar, premio as premioRaid } from "../systems/raid.js";
 import { GLITCHBOOSTER } from "../data/glitch.js";
 import { hpPct, isFainted, gainXp, xpYieldFor, xpForLevel, heal, createMon } from "../systems/mon.js";
@@ -146,6 +146,14 @@ export class BattleScene {
       await this.say(`${this.trainer.name} QUER BATALHAR!`);
       await this.trainerOut();
       await this.say(`${this.trainer.name} ENVIOU ${this.foe.nickname}!`);
+    } else if (this.raid) {
+      // a GLITCH RAID nunca tinha se apresentado: `raidApareceu` estava escrito
+      // no story.js e não era dito por ninguém
+      Glitch.hit(3);
+      Audio2.glitch();
+      await this.say(DB.STORY.glitch.raidApareceu);
+      await this.say(`${this.foe.nickname} ESTÁ NO CAMINHO.`);
+      await this.say(DB.STORY.glitch.raidBugado.replace("{NOME}", this.foe.nickname));
     } else if (this.isGlitch) {
       Glitch.hit(2);
       await this.say(`UM ${this.foe.nickname} SELVAGEM APARECEU!`);
@@ -301,16 +309,23 @@ export class BattleScene {
         Glitch.hit(2.5); Audio2.glitch(); this.flash = 0.6;
         await this.say(G.escudoQuebrou);
       }
-      // O GLITCHBOOSTER come o dano que VOCÊ tomou e devolve em atributo — e
-      // avisa alto quando o byte dá a volta, porque a essa altura o jogador
-      // achava que estava ganhando.
-      if (who === "f" && bugado(target)) {
+      // O GLITCHBOOSTER come o dano que quem levou o golpe tomou e devolve em
+      // atributo. Vale pros DOIS LADOS: do seu, quando você usou o item; do
+      // outro, quando é uma GLITCH RAID — o chefe já entra bugado.
+      //
+      // A FALA POR PANCADA É SÓ DO SEU LADO. No seu, ela é a informação que
+      // decide se você continua apanhando ou recua. No lado do chefe, ela
+      // apareceria a cada golpe seu numa luta de cinco vidas de HP: viraria uma
+      // caixa de texto entre você e o botão. O que ele ganhou está nos números
+      // dele; o que precisa ser dito alto é a VIRADA DO BYTE, e essa continua
+      // sendo dita dos dois lados.
+      if (bugado(target)) {
         const antes = bonusDe(target);
         const r = acumular(target, dano);
         if (r.virou) {
           Glitch.hit(3); Audio2.glitch();
           await this.say(G.virouByte.replace("{NOME}", target.nickname));
-        } else if (r.bonus > antes) {
+        } else if (who === "f" && r.bonus > antes) {
           Glitch.hit(0.6);
           await this.say(G.comeu.replace("{NOME}", target.nickname).replace("{N}", r.bonus));
         }
@@ -632,6 +647,11 @@ export class BattleScene {
     this.foeParty.forEach(reverterMega);
     reverterTudo(this.st);
     limparTudo(this.st);          // o bug do GLITCHBOOSTER dura só esta batalha
+    // e o do CHEFE some junto. Sem isto, capturar um chefe de GLITCH RAID
+    // guardava no save um Pokémon com o bônus do bug congelado pra sempre —
+    // `limparTudo` só varre a equipe, e o recém-capturado pode ter ido pro PC.
+    limpar(this.foe);
+    this.foeParty.forEach(limpar);
     Audio2.stopLoop();
     this.fadeDir = 1;
     await this.until(() => this.fadeA >= 1);
