@@ -63,6 +63,16 @@ export const RAID = {
   premio: { dinheiro: [1200, 3000], xp: 2 },
   /** a cada quantos golpes o escudo se refaz um pouco (0 desliga) */
   regenera: 0,
+  /** O TAMANHO DELE NA TELA. Ele sempre foi "grande demais" só nos números —
+   *  cinco vidas de HP num sprite do tamanho de um pidgey. Agora ele é grande
+   *  na tela também: 1.4 é o maior que cabe sem sair por cima da moldura. */
+  tamanho: 1.4,
+  /** de que tamanho ele começa, antes de crescer */
+  cresceDe: 0.12,
+  /** quanto tempo leva pra chegar no tamanho certo, em segundos */
+  cresceEm: 1.6,
+  /** quanto ele fica mais baixo que um selvagem, pra caber crescido */
+  desce: 22,
 };
 
 /** O RASGO: por onde a raid chega. */

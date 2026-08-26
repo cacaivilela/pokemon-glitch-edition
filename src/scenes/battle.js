@@ -12,7 +12,7 @@ import { cenaDoGolpe } from "../systems/cutscenes.js";
 import { veu, temCeu } from "../systems/ciclo.js";
 import { fator } from "../systems/acampamento.js";
 import { podeUsarBooster, ligar, acumular, bugado, bonusDe, limpar, limparTudo } from "../systems/glitchboost.js";
-import { bater, podeCapturar, premio as premioRaid } from "../systems/raid.js";
+import { bater, podeCapturar, premio as premioRaid, RAID } from "../systems/raid.js";
 import { GLITCHBOOSTER } from "../data/glitch.js";
 import { hpPct, isFainted, gainXp, xpYieldFor, xpForLevel, heal, createMon } from "../systems/mon.js";
 import {
@@ -71,6 +71,9 @@ export class BattleScene {
     this.raid = args.raid || null;   // GLITCH RAID: a casca do chefe
     this.disp = { p: this.mine.hp, f: this.foe.hp };
     this.sp = { p: this.newSprite(-90), f: this.newSprite(90) };
+    // o chefe entra do tamanho de um filhote; `crescer()` faz o resto
+    if (this.raid) this.sp.f.escala = RAID.cresceDe;
+    this.crescendo = null;
     st.seen[this.foe.species] = true;
 
     Audio2.playMusic(this.isGlitch ? "batalhaGlitch" : "batalha",
@@ -81,7 +84,13 @@ export class BattleScene {
 
   exit() { Audio2.stopLoop(); }
 
-  newSprite(dx) { return { dx, dy: 0, alpha: 1, blink: 0, lunge: 0, faint: false }; }
+  /** O chefe de GLITCH RAID nasce com a escala dele: se ele voltar pra tela por
+   *  outro caminho (trocar de bicho, reviver), volta grande, e não do tamanho
+   *  de um selvagem. */
+  newSprite(dx) {
+    return { dx, dy: 0, alpha: 1, blink: 0, lunge: 0, faint: false,
+             escala: this.raid ? RAID.tamanho : 1 };
+  }
 
   /** O PALCO DA CUTSCENE. A cena (src/systems/cutscenes.js) não desenha nada:
    *  ela pede efeito, espera, treme, clareia — e quem desenha é o `drawFx` aqui
@@ -137,6 +146,14 @@ export class BattleScene {
   ask(text, options) { return new Promise((res) => this.dlg.ask(text, options, res)); }
   wait(sec) { return new Promise((res) => this.timers.push({ t: sec, res })); }
   until(fn) { return new Promise((res) => this.waits.push({ fn, res })); }
+
+  /** Espera o chefe terminar de crescer. Quem faz a conta é o `update`: assim o
+   *  inchaço anda no relógio do jogo e não numa fila de setTimeout. */
+  crescer() {
+    if (!this.raid) return Promise.resolve();
+    this.crescendo = { t: 0, dur: RAID.cresceEm };
+    return this.until(() => !this.crescendo);
+  }
   syncHp() { return this.until(() => this.disp.p === this.mine.hp && this.disp.f === this.foe.hp); }
 
   // ---------------------------------------------------------- roteiro
@@ -152,6 +169,7 @@ export class BattleScene {
       Glitch.hit(3);
       Audio2.glitch();
       await this.say(DB.STORY.glitch.raidApareceu);
+      await this.crescer();
       await this.say(`${this.foe.nickname} ESTÁ NO CAMINHO.`);
       await this.say(DB.STORY.glitch.raidBugado.replace("{NOME}", this.foe.nickname));
     } else if (this.isGlitch) {
@@ -668,6 +686,24 @@ export class BattleScene {
       if (this.fadeDir < 0 && this.fadeA <= 0) this.fadeDir = 0;
     }
     if (this.ballAnim) this.ballAnim.t += dt;
+    // O CHEFE INCHANDO. Ele não aparece pronto: vem do tamanho errado e vai até
+    // o certo, dando solavanco no caminho. É o único momento em que a tela diz
+    // o tamanho da coisa antes de qualquer número aparecer.
+    if (this.crescendo) {
+      const c = this.crescendo;
+      c.t += dt;
+      const k = Math.min(1, c.t / c.dur);
+      const macio = k * k * (3 - 2 * k);
+      this.sp.f.escala = RAID.cresceDe + macio * (RAID.tamanho - RAID.cresceDe);
+      if (Math.random() < dt * 8) { Glitch.hit(0.7); this.shake = 0.14; }
+      if (k >= 1) {
+        this.crescendo = null;
+        this.shake = 0.45;
+        this.flash = 0.55;
+        Glitch.hit(2.5);
+        Audio2.glitch();
+      }
+    }
     this.flash = Math.max(0, this.flash - dt * 1.6);
     if (this.tOut > 0 && this.tOut < 1) this.tOut = Math.min(1, this.tOut + dt * 4);
 
@@ -809,11 +845,17 @@ export class BattleScene {
 
     // sprites em 64x64 (tamanho nativo dos de batalha do FireRed), com animação
     const bob = Math.sin(this.t * 2) * 1.5;
+    // A escala cresce a partir dos PÉS e do centro: o bicho incha no lugar em
+    // vez de escorregar pro canto de cima, que é o que dá se a gente só mudar a
+    // largura e a altura do drawImage.
     const drawMon = (img, x, y, sp, dir) => {
       if (sp.blink > 0 && Math.floor(sp.blink * 22) % 2 === 0) return;
       const l = sp.lunge > 0 ? Math.sin((0.3 - sp.lunge) / 0.3 * Math.PI) * 12 * dir : 0;
+      const e = sp.escala ?? 1;
+      const lado = 64 * e;
       ctx.globalAlpha = sp.alpha;
-      ctx.drawImage(img, Math.round(x + sp.dx + l), Math.round(y + sp.dy), 64, 64);
+      ctx.drawImage(img, Math.round(x + sp.dx + l + (64 - lado) / 2),
+                    Math.round(y + sp.dy + (64 - lado)), lado, lado);
       ctx.globalAlpha = 1;
     };
     const tart = this.showTrainer ? trainerArt(this.trainer?.sprite) : null;
@@ -821,7 +863,8 @@ export class BattleScene {
       ctx.drawImage(tart, Math.round(146 + this.tOut * 110), Math.round(4 + bob), 64, 64);
     } else if (!this.showTrainer && (!isFainted(this.foe) || this.disp.f > 0 || this.sp.f.alpha > 0)) {
       const fimg = Assets.mon(this.foe.species, this.foe.seed);
-      drawMon(this.foe.shiny ? Assets.shiny(fimg) : fimg, 146, 4 + bob, this.sp.f, -1);
+      drawMon(this.foe.shiny ? Assets.shiny(fimg) : fimg, 146,
+              4 + bob + (this.raid ? RAID.desce : 0), this.sp.f, -1);
     }
     if (this.ballAnim) this.drawBall(ctx);
     if (this.sp.p.alpha > 0) {
