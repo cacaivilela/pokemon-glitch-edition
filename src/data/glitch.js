@@ -68,11 +68,17 @@ export const RAID = {
 /** O RASGO: por onde a raid chega. */
 export const PORTAL = {
   /** Chance de abrir a cada passo dado do lado de fora, depois que a fenda foi
-    *  aberta uma vez. Vale em QUALQUER passo, não só no mato: quando ela só valia na
-    *  grama, o número tinha que ser alto pra compensar os passos que não
-    *  contavam. Agora todo passo conta e 2% dá um rasgo a cada cinquenta —
-    *  raro, mas não ausente, que é a diferença que importa. */
-  chance: 0.02,
+    *  aberta uma vez. Vale em QUALQUER passo, não só no mato.
+    *
+    *  A 2% dava um rasgo a cada cinquenta passos, que é menos que uma rota:
+    *  achar um deixava de ser notícia, e coisa que acontece o tempo todo não
+    *  assusta. A 0,6% são uns cento e setenta passos — você atravessa Kanto e
+    *  vê um, talvez dois.
+    *
+    *  Nos PONTOS FRACOS a conta continua sendo três vezes essa, uns sessenta
+    *  passos. É a distância que importa entre os dois números: longe deles o
+    *  rasgo é um acidente, e perto deles é o motivo de ter ido até lá. */
+  chance: 0.006,
   /** quanto ele fica aberto antes de se fechar sozinho, em minutos de relógio */
   minutos: 5,
   /** Distância mínima e máxima de onde você está, em tiles. Perto demais e ele
