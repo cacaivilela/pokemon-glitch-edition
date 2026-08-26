@@ -20,6 +20,7 @@ import {
   heal, hpPct, gainXp, xpForLevel, createMon, evolutionFor, learnableMoves,
 } from "../systems/mon.js";
 import { scatterDimLoot } from "../systems/loot.js";
+import { nascer, andar, emCima, sorteioDe } from "../systems/selvagens.js";
 import { montarChefe, temPortal, abrirPortal, portalAberto, fecharPortal, corrupcaoDoPortal, pertoDoPortal }
   from "../systems/raid.js";
 import { pedrasIniciaisDevidas } from "../systems/mega.js";
@@ -155,6 +156,9 @@ export class OverworldScene {
     this.pending = null;
     this.wanderT = 0;
     this.rustle = null;      // tufo de grama quando pisa
+    this.selvagens = [];     // os bichos à vista (cenário vivo: não vão pro save)
+    this.nascerT = 0;
+    this.compa = null;       // o COMPANHEIRO: quem da equipe está te seguindo
     this.fx = null;          // transição de batalha
     this.stepParity = 0;     // alterna a perna a cada tile
     this.turnT = 0;          // vira no lugar antes de sair andando
@@ -531,7 +535,16 @@ export class OverworldScene {
       Glitch.forced = !!(this.st.flags?.glitchWorld || this.st.mission);
     }
     Online.mandaPos(dt, this.st.player, !!this.move);
+    // O COMPANHEIRO sai andando NO MESMO QUADRO que você, indo pro tile que
+    // você está deixando — aqui o `player.x/y` ainda é o de trás, que é
+    // exatamente o que ele precisa. Fechar o passo dele no fim do seu o fazia
+    // teleportar de tile em tile enquanto você deslizava.
+    if (this.move && !this.movendo) {
+      this.movendo = true;
+      this.moverCompanheiro(this.st.player.x, this.st.player.y, this.move.dx, this.move.dy);
+    } else if (!this.move) this.movendo = false;
     this.updateWander(dt);
+    this.updateSelvagens(dt);
     this.updateFragmentTimer();
     if (this.rustle) {
       this.rustle.t += dt;
@@ -643,6 +656,7 @@ export class OverworldScene {
     if (this.tagAt(p.x, p.y) === DB.TAG.GRASS) this.rustle = { x: p.x, y: p.y, t: 0 };
 
     if (this.pisouNasFlores()) return;
+    if (this.pisouNumSelvagem()) return;
 
     if (this.tagAt(p.x, p.y) === DB.TAG.GRASS && this.st.party.some((m) => m.hp > 0)
         // o SANDUÍCHE REFRESCANTE corta a chance pela metade: dá pra atravessar
@@ -657,6 +671,64 @@ export class OverworldScene {
     }
     this.talvezRasgar();
     this.checkTrainerSight();
+  }
+
+  // ------------------------------------------------- SELVAGENS À VISTA
+  /** Onde um selvagem pode estar em pé: grama alta, sem nada nem ninguém em
+   *  cima. Grama alta e só: é onde eles moram no jogo inteiro, e um bicho
+   *  selvagem parado no meio do caminho de terra seria outra coisa. */
+  daPraSelvagem(x, y) {
+    return this.tagAt(x, y) === DB.TAG.GRASS
+      && !this.obstaculoEm(x, y) && !this.npcAt(x, y) && !this.warpAt(x, y)
+      && !emCima(this.selvagens, x, y)
+      && !(x === this.st.player.x && y === this.st.player.y);
+  }
+
+  /** Eles andam e nascem sozinhos. Nada disso vai pro save: é cenário vivo. */
+  updateSelvagens(dt) {
+    const st = this.st;
+    // dentro de casa, na fenda e no mar não tem grama pra eles morarem; e com a
+    // equipe toda caída não faz sentido pôr batalha na frente do jogador
+    if (this.map?.interior || st.player.map === "glitchdim" || st.surfando
+        || !st.party.some((m) => m.hp > 0)) {
+      if (this.selvagens.length) this.selvagens = [];
+      return;
+    }
+    this.selvagens = andar(this.selvagens, dt, st.player, (x, y) => this.daPraSelvagem(x, y));
+    this.nascerT -= dt;
+    if (this.nascerT <= 0) {
+      this.nascerT = DB.CONFIG?.selvagens?.nascer ?? 2.5;
+      nascer(this.selvagens, st.player, this.map?.encounters, (x, y) => this.daPraSelvagem(x, y));
+    }
+  }
+
+  /** Pisou em cima de um: a batalha é com AQUELE, e ele sai do mapa. Devolve
+   *  true quando tomou conta do passo. */
+  pisouNumSelvagem() {
+    const p = this.st.player;
+    const b = emCima(this.selvagens, p.x, p.y);
+    if (!b) return false;
+    this.selvagens = this.selvagens.filter((o) => o !== b);
+    const sorteio = sorteioDe(b);
+    const mon = createMon(sorteio.id, sorteio.nivel, { shiny: sorteio.shiny });
+    this.startBattle({ mon });
+    return true;
+  }
+
+  // ------------------------------------------------- O COMPANHEIRO
+  /** Quem está te seguindo: o primeiro da equipe que ainda está de pé. Caiu
+   *  todo mundo, ninguém segue — e a tela fica dizendo isso sem uma linha de
+   *  texto. */
+  quemSegue() {
+    return this.st.party?.find((m) => m.hp > 0) || null;
+  }
+
+  /** Chamado no fim de cada passo, com o tile que o jogador está DEIXANDO. */
+  moverCompanheiro(x, y, dx, dy) {
+    const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
+    // primeira vez: ele sai de debaixo do jogador, e não do canto do mapa
+    if (!this.compa) this.compa = { x, y, de: { x, y }, dir };
+    else this.compa = { x, y, de: { x: this.compa.x, y: this.compa.y }, dir };
   }
 
   /** O RASGO abrindo. Ele é NO CHÃO, e não tem nada a ver com grama alta: o
@@ -2938,6 +3010,16 @@ export class OverworldScene {
       if (n.invisivel || this.st.npcState[`${this.st.player.map}.${n.id}`]?.hidden) continue;
       actors.push({ y: n.y, draw: () => this.drawNpc(ctx, n, cx, cy) });
     }
+    // OS SELVAGENS À VISTA e o COMPANHEIRO entram na MESMA lista de atores que
+    // o resto: assim eles passam por trás e pela frente das coisas na ordem
+    // certa, em vez de flutuarem por cima do mundo.
+    for (const b of this.selvagens || []) {
+      actors.push({ y: b.y, draw: () => this.drawSelvagem(ctx, b, cx, cy) });
+    }
+    const segue = this.quemSegue();
+    if (segue && this.compa && !this.st.surfando) {
+      actors.push({ y: this.compa.y, draw: () => this.drawCompanheiro(ctx, segue, cx, cy) });
+    }
     for (const o of this.pedrasAqui()) {
       const [ox, oy] = o.split(",").map(Number);
       actors.push({ y: oy, draw: () => ctx.drawImage(Assets.rocha, ox * TILE - cx, oy * TILE - cy, TILE, TILE) });
@@ -3075,6 +3157,32 @@ export class OverworldScene {
     panel(ctx, 2, H - 30, Math.min(W - 4, t.length * 6 + 14), 18);
     drawText(ctx, t, 8, H - 25, PAL.ink);
     ctx.globalAlpha = 1;
+  }
+
+  /** Um selvagem no mato. É o sprite de batalha, pequeno e saltitando: o jogo
+   *  não tem arte de overworld pra Pokémon nenhum, e inventar 151 seria outro
+   *  projeto. Pequeno o bastante pra não virar um NPC, grande o bastante pra
+   *  dar pra reconhecer a espécie de longe — que é a razão de eles existirem. */
+  drawSelvagem(ctx, b, cx, cy) {
+    const img = Assets.mon(b.id, 7);
+    if (!img) return;
+    const pulo = Math.abs(Math.sin(performance.now() / 380 + b.x * 1.7 + b.y)) * 2;
+    ctx.drawImage(img, Math.round(b.x * TILE - cx - 6),
+                  Math.round(b.y * TILE - cy - 12 - pulo), 28, 28);
+  }
+
+  /** O COMPANHEIRO, no compasso do seu passo. Interpolar com a MESMA fração do
+   *  seu movimento é o que faz ele andar junto: com posição de tile inteiro ele
+   *  pula de casa em casa enquanto você desliza, e a tela parece destravada. */
+  drawCompanheiro(ctx, mon, cx, cy) {
+    const img = Assets.mon(mon.species, mon.seed);
+    if (!img) return;
+    const c = this.compa;
+    const k = this.move ? this.move.n / this.move.total : 1;
+    const x = (c.de.x + (c.x - c.de.x) * k) * TILE - cx;
+    const y = (c.de.y + (c.y - c.de.y) * k) * TILE - cy;
+    const pulo = this.move ? Math.abs(Math.sin(k * Math.PI)) * 2 : 0;
+    ctx.drawImage(img, Math.round(x - 6), Math.round(y - 12 - pulo), 28, 28);
   }
 
   drawNpc(ctx, n, cx, cy) {

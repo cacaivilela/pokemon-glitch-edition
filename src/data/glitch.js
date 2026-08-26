@@ -45,6 +45,20 @@ export const BOOSTER = {
   sobem: ["atk", "def", "spa", "spd", "spe"],
   /** o quanto de bônus cada ponto de dano vira */
   porDano: 1,
+  /** O MESMO, MAS PRO CHEFE DE GLITCH RAID.
+   *
+   *  A 1 (o número do jogador) o chefe ficava impossível: depois que a casca
+   *  quebra, cada pancada sua vira +dano em ATAQUE, DEFESA, ATK. ESP., DEF.
+   *  ESP. e VELOCIDADE de uma vez. Três golpes de 70 são +210 em tudo — num
+   *  bicho de base 55 a 85 isso não é bônus, é multiplicar por quatro, e ele
+   *  ainda tem cinco vidas de HP pra sobreviver enquanto engorda. A saída
+   *  existia (empurrar até 255 e o byte zerar), mas ela pede 255 de dano DEPOIS
+   *  do escudo, com ele já gigante: uma corrida que o jogador perde.
+   *
+   *  A 0,35 ele continua crescendo e continua estourando no byte — o que muda é
+   *  que agora você chega no 255 antes de ele te alcançar. O mecanismo é o
+   *  mesmo; o que era impossível virou uma escolha. */
+  porDanoChefe: 0.35,
 };
 
 /** As GLITCH RAIDS: chefes da 011GLITCHDIMENSION110. */

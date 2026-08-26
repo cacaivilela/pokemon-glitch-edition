@@ -50,11 +50,16 @@ export function ligar(st, mon) {
 }
 
 /** Soma o dano que ele acabou de tomar. Devolve o que mudou:
- *  `{ bonus, virou }` — `virou` é true no instante em que o byte deu a volta. */
+ *  `{ bonus, virou }` — `virou` é true no instante em que o byte deu a volta.
+ *
+ *  O CHEFE DE GLITCH RAID engorda mais devagar que você (`porDanoChefe`). Não é
+ *  favor: com o mesmo número dele, a luta virava uma corrida perdida — ver o
+ *  porquê inteiro em src/data/glitch.js. */
 export function acumular(mon, dano) {
   if (!bugado(mon) || dano <= 0) return { bonus: bonusDe(mon), virou: false };
   const antes = mon.bug.dano;
-  mon.bug.dano += Math.round(dano * BOOSTER.porDano);
+  const porDano = mon.raid ? (BOOSTER.porDanoChefe ?? BOOSTER.porDano) : BOOSTER.porDano;
+  mon.bug.dano += Math.round(dano * porDano);
   // a volta do byte: antes cabia, agora não cabe mais
   const virou = Math.floor(mon.bug.dano / BOOSTER.byte) > Math.floor(antes / BOOSTER.byte);
   if (virou) mon.bug.virou = true;

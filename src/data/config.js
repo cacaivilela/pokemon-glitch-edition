@@ -19,6 +19,20 @@ export const CONFIG = {
   // Chance de encontro por passo na grama alta
   encounterRate: 0.11,
 
+  // SELVAGENS À VISTA. Antes de existir isto, o mato de Kanto era um lugar
+  // vazio que às vezes cuspia uma batalha: o bicho não estava lá, ele
+  // acontecia. Agora alguns andam pela grama, na cara do jogador, e pisar em
+  // cima começa a batalha com AQUELE. A grama continua sorteando encontro
+  // invisível por passo (`encounterRate`) — os dois convivem: um é o susto de
+  // sempre, o outro é poder escolher.
+  selvagens: {
+    quantos: 5,          // quantos ficam à vista de cada vez
+    perto: 12,           // eles vivem neste raio de tiles em volta de você
+    passo: 1.2,          // segundos entre um passinho e outro de cada um
+    nascer: 2.5,         // segundos entre uma tentativa de nascer e outra
+    some: 20,            // longe demais ou parado tempo demais, ele vai embora
+  },
+
   // Shiny solto pela grama de Kanto: 1 em 1024 selvagens vem com a cor trocada.
   // (dentro da fenda a regra é outra: 1 a cada SHINY_EVERY vistos, em extra.js)
   shinyOdds: 1 / 1024,
