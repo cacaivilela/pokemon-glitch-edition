@@ -6,10 +6,27 @@ import { Audio2 } from "../core/audio.js";
 import { Save } from "../core/save.js";
 import { Opcoes } from "../core/opcoes.js";
 import { Assets, nullmonSprite } from "../core/assets.js";
+import { idFusao, garantirEspecie } from "../systems/fusao.js";
 import { drawText, panel, cursor, PAL, LINE_H } from "../core/gfx.js";
 import { Glitch } from "../systems/glitchfx.js";
 import { OverworldScene } from "./overworld.js";
 import { GiftScene } from "./online.js";
+
+/** A VITRINE da tela de título.
+ *
+ *  Eram os três iniciais, fixos: a mesma foto toda vez que o jogo abre, e a
+ *  foto de um jogo que este não é. Agora são três sorteados de Kanto inteira, e
+ *  parte deles vem FUNDIDA — a primeira tela do jogo passa a mostrar do que ele
+ *  é capaz, em vez de mostrar o que todo Pokémon mostra.
+ *
+ *  A troca é lenta de propósito: rápida demais vira anúncio piscando, e o menu
+ *  fica embaixo dela. */
+const VITRINE = {
+  quantos: 3,
+  troca: 4.5,        // segundos que cada leva fica na tela
+  fusao: 0.4,        // parte das vagas que sai fundida
+  entra: 0.5,        // quanto dura o aparecer de cada leva
+};
 
 export class TitleScene {
   enter() {
@@ -24,12 +41,48 @@ export class TitleScene {
     this.items.push(DB.STORY.comandos.titulo);
     this.items.push("IDIOMA");   // dá pra escolher antes de começar qualquer coisa
     Glitch.level = DB.CONFIG?.glitchMode ? 45 : 0;
+    // Duas levas desde o começo: a que está na tela e a PRÓXIMA. Sortear já
+    // pede os desenhos, então quando chegar a vez da próxima a arte já chegou —
+    // sem isso a vitrine trocava pra três silhuetas provisórias a cada volta.
+    this.vitrine = this.sortear();
+    this.proxima = this.sortear();
+    this.trocaT = 0;
     Audio2.playMusic("titulo", DB.MUSIC?.titulo);
+  }
+
+  /** Uma leva: `quantos` bichos de Kanto, parte deles fundida. Pede o desenho
+   *  de cada um (e das duas metades, quando é fusão) na hora do sorteio. */
+  sortear() {
+    const base = Object.keys(DB.GEN1 || {}).filter((id) => DB.SPECIES?.[id]);
+    if (base.length < 2) return (DB.STARTERS || []).map((id) => ({ id }));
+    const um = () => base[Math.floor(Math.random() * base.length)];
+    const leva = [];
+    for (let i = 0; i < VITRINE.quantos; i++) {
+      if (Math.random() < VITRINE.fusao) {
+        const cabeca = um(), corpo = um();
+        // as duas metades primeiro: o desenho da fusão é montado a partir delas,
+        // e pedir só a fusão montaria ela em cima de arte provisória
+        Assets.mon(cabeca, 1);
+        Assets.mon(corpo, 1);
+        const id = idFusao(cabeca, corpo);
+        if (garantirEspecie(id)) { leva.push({ id, fusao: true }); Assets.mon(id, 1); continue; }
+      }
+      const id = um();
+      Assets.mon(id, 1);
+      leva.push({ id });
+    }
+    return leva;
   }
   exit() { Audio2.stopLoop(); }
 
   update(dt) {
     this.t += dt;
+    this.trocaT += dt;
+    if (this.trocaT >= VITRINE.troca) {
+      this.trocaT = 0;
+      this.vitrine = this.proxima;
+      this.proxima = this.sortear();      // e já pede os desenhos da leva seguinte
+    }
     if (DB.CONFIG?.glitchMode && Math.random() < dt * 1.4) Glitch.hit(0.35);
     if (this.tela === "comandos") return this.updateComandos();
     if (Input.consume("up")) { this.index = (this.index + this.items.length - 1) % this.items.length; Audio2.blip(); }
@@ -113,11 +166,17 @@ export class TitleScene {
     ctx.fillStyle = glitch ? "#b455ff" : "#2b4a7a";
     ctx.fillRect(52, 48, 136, 1);
 
-    // trio inicial (sprites reais quando existirem)
-    const trio = DB.STARTERS || [];
-    trio.forEach((id, i) => {
+    // a VITRINE: sorteados de Kanto, alguns fundidos. Cada um entra com um
+    // atraso próprio, senão a troca é um estalo de três bichos de uma vez.
+    (this.vitrine || []).forEach((v, i) => {
       const bob = Math.sin(this.t * 2.2 + i * 1.4) * 2;
-      ctx.drawImage(Assets.mon(id, 1), 26 + i * 66, 54 + bob, 52, 52);
+      const img = Assets.mon(v.id, 1);
+      if (!img) return;
+      const entrou = Math.min(1, Math.max(0, (this.trocaT - i * 0.12) / VITRINE.entra));
+      ctx.globalAlpha = entrou;
+      // sobe um tiquinho enquanto aparece: dá o "pousar" que o corte não tem
+      ctx.drawImage(img, 26 + i * 66, 54 + bob + (1 - entrou) * 6, 52, 52);
+      ctx.globalAlpha = 1;
     });
     if (glitch) ctx.drawImage(nullmonSprite(((this.t * 6) | 0) * 31 + 5), 96, 60, 48, 48);
 
