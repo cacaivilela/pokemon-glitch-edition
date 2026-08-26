@@ -20,7 +20,7 @@ import {
   heal, hpPct, gainXp, xpForLevel, createMon, evolutionFor, learnableMoves,
 } from "../systems/mon.js";
 import { scatterDimLoot } from "../systems/loot.js";
-import { nascer, andar, emCima, sorteioDe } from "../systems/selvagens.js";
+import { nascer, andar, emCima, cacando, encontroDe } from "../systems/selvagens.js";
 import { montarChefe, temPortal, abrirPortal, portalAberto, fecharPortal, corrupcaoDoPortal, pertoDoPortal }
   from "../systems/raid.js";
 import { pedrasIniciaisDevidas } from "../systems/mega.js";
@@ -157,6 +157,7 @@ export class OverworldScene {
     this.wanderT = 0;
     this.rustle = null;      // tufo de grama quando pisa
     this.selvagens = [];     // os bichos à vista (cenário vivo: não vão pro save)
+    this.movendo = false;
     this.nascerT = 0;
     this.compa = null;       // o COMPANHEIRO: quem da equipe está te seguindo
     this.fx = null;          // transição de batalha
@@ -658,15 +659,19 @@ export class OverworldScene {
     if (this.pisouNasFlores()) return;
     if (this.pisouNumSelvagem()) return;
 
-    if (this.tagAt(p.x, p.y) === DB.TAG.GRASS && this.st.party.some((m) => m.hp > 0)
+    // O SORTEIO INVISÍVEL SÓ EXISTE DENTRO DA FENDA. Em Kanto, batalha selvagem
+    // começa encostando num bicho que está na tela — o sorteio existia porque
+    // não havia o que olhar, e agora há. Lá dentro ele fica: o mapa é gerado por
+    // terreno (ar / terra / água) e os bichos à vista não sabem ler isso, e a
+    // fenda também não é lugar de escolher com quem lutar.
+    if (p.map === "glitchdim" && this.tagAt(p.x, p.y) === DB.TAG.GRASS
+        && this.st.party.some((m) => m.hp > 0)
         // o SANDUÍCHE REFRESCANTE corta a chance pela metade: dá pra atravessar
         // o mato sem parar de dois em dois passos
         && Math.random() < (DB.CONFIG?.encounterRate ?? ENCOUNTER_RATE) * fator(this.st, "calmaria")) {
-      const enc = p.map === "glitchdim"
-        ? rollDimEncounter(this.geo.terrain?.[p.y * this.geo.w + p.x] === "a" ? "ar"
-            : this.geo.terrain?.[p.y * this.geo.w + p.x] === "g" ? "agua" : "terra", this.st)
-        : rollEncounter(p.map, this.st.corruption, !!this.st.flags.glitchWorld,
-                        fator(this.st, "sorte"));
+      const enc = rollDimEncounter(
+        this.geo.terrain?.[p.y * this.geo.w + p.x] === "a" ? "ar"
+          : this.geo.terrain?.[p.y * this.geo.w + p.x] === "g" ? "agua" : "terra", this.st);
       if (enc) return this.startBattle(enc);
     }
     this.talvezRasgar();
@@ -684,6 +689,16 @@ export class OverworldScene {
       && !(x === this.st.player.x && y === this.st.player.y);
   }
 
+  /** Por onde um BRAVO passa enquanto caça: qualquer chão que dê pra pisar, e
+   *  não só o mato. Ele mora na grama, mas sai dela pra te alcançar — foi pra
+   *  isso que ele veio. */
+  podeCacar(x, y) {
+    const tag = this.tagAt(x, y);
+    return (tag === DB.TAG.GRASS || tag === DB.TAG.FREE)
+      && !this.obstaculoEm(x, y) && !this.npcAt(x, y) && !this.warpAt(x, y)
+      && !emCima(this.selvagens, x, y);
+  }
+
   /** Eles andam e nascem sozinhos. Nada disso vai pro save: é cenário vivo. */
   updateSelvagens(dt) {
     const st = this.st;
@@ -694,24 +709,42 @@ export class OverworldScene {
       if (this.selvagens.length) this.selvagens = [];
       return;
     }
-    this.selvagens = andar(this.selvagens, dt, st.player, (x, y) => this.daPraSelvagem(x, y));
+    const passo = andar(this.selvagens, dt, st.player,
+                        (x, y) => this.daPraSelvagem(x, y), (x, y) => this.podeCacar(x, y));
+    this.selvagens = passo.vivos;
+    // um BRAVO chegou em você: a batalha começa por conta dele
+    if (passo.encostou) return void this.encontrarSelvagem(passo.encostou);
     this.nascerT -= dt;
     if (this.nascerT <= 0) {
-      this.nascerT = DB.CONFIG?.selvagens?.nascer ?? 2.5;
-      nascer(this.selvagens, st.player, this.map?.encounters, (x, y) => this.daPraSelvagem(x, y));
+      // O SANDUÍCHE REFRESCANTE agora rareia os bichos à vista. Ele cortava o
+      // sorteio invisível por passo; como em Kanto o encontro passou a ser o
+      // encostão, ele tinha que passar junto — senão o item continuava na loja
+      // sem fazer nada do lado de fora da fenda.
+      const calma = Math.max(0.15, fator(this.st, "calmaria"));
+      this.nascerT = (DB.CONFIG?.selvagens?.nascer ?? 2) / calma;
+      // o sorteio é o mesmo de sempre — MISSINGNO., corrompido, shiny e a fusão
+      // selvagem saem daqui, agora em pé no mato em vez de aparecendo do nada
+      nascer(this.selvagens, st.player,
+             () => rollEncounter(st.player.map, st.corruption, !!st.flags.glitchWorld,
+                                 fator(this.st, "sorte")),
+             (x, y) => this.daPraSelvagem(x, y));
     }
+  }
+
+  /** Começa a batalha com aquele bicho e tira ele do mapa. Serve pros dois
+   *  lados do encontro: você pisou nele, ou ele chegou em você. */
+  encontrarSelvagem(b) {
+    this.selvagens = this.selvagens.filter((o) => o !== b);
+    if (b.bravo) { Audio2.bump(); this.rustle = { x: b.x, y: b.y, t: 0 }; }
+    this.startBattle(encontroDe(b));
   }
 
   /** Pisou em cima de um: a batalha é com AQUELE, e ele sai do mapa. Devolve
    *  true quando tomou conta do passo. */
   pisouNumSelvagem() {
-    const p = this.st.player;
-    const b = emCima(this.selvagens, p.x, p.y);
+    const b = emCima(this.selvagens, this.st.player.x, this.st.player.y);
     if (!b) return false;
-    this.selvagens = this.selvagens.filter((o) => o !== b);
-    const sorteio = sorteioDe(b);
-    const mon = createMon(sorteio.id, sorteio.nivel, { shiny: sorteio.shiny });
-    this.startBattle({ mon });
+    this.encontrarSelvagem(b);
     return true;
   }
 
@@ -3164,11 +3197,23 @@ export class OverworldScene {
    *  projeto. Pequeno o bastante pra não virar um NPC, grande o bastante pra
    *  dar pra reconhecer a espécie de longe — que é a razão de eles existirem. */
   drawSelvagem(ctx, b, cx, cy) {
-    const img = Assets.mon(b.id, 7);
-    if (!img) return;
-    const pulo = Math.abs(Math.sin(performance.now() / 380 + b.x * 1.7 + b.y)) * 2;
-    ctx.drawImage(img, Math.round(b.x * TILE - cx - 6),
-                  Math.round(b.y * TILE - cy - 12 - pulo), 28, 28);
+    const bruto = Assets.mon(b.mon.species, b.mon.seed);
+    if (!bruto) return;
+    // shiny no mato aparece shiny: o brilho é a informação que faz alguém
+    // atravessar a rota correndo, e escondê-la até a batalha seria escondê-la
+    const img = b.mon.shiny ? Assets.shiny(bruto) : bruto;
+    const caca = cacando(b, this.st.player);
+    // quem está caçando pula mais rápido e mais alto: o bicho parece afobado
+    // antes de você ler o aviso, e é assim que se avisa sem texto
+    const vel = caca ? 150 : 380;
+    const pulo = Math.abs(Math.sin(performance.now() / vel + b.x * 1.7 + b.y)) * (caca ? 4 : 2);
+    const x = Math.round(b.x * TILE - cx - 6), y = Math.round(b.y * TILE - cy - 12 - pulo);
+    ctx.drawImage(img, x, y, 28, 28);
+    // e o AVISO em cima dele. Perseguidor sem aviso é armadilha: quem toma uma
+    // batalha que não pediu tem que ter tido a chance de ver ela chegando.
+    if (caca && Math.floor(performance.now() / 220) % 2 === 0) {
+      drawText(ctx, "!", x + 11, y - 8, "#ff5566", { shadow: "#2b0a12" });
+    }
   }
 
   /** O COMPANHEIRO, no compasso do seu passo. Interpolar com a MESMA fração do
