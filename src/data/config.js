@@ -47,12 +47,27 @@ export const CONFIG = {
     // ganhava reputação nenhuma e não dava pra aprender nada andando por ela.
     persegue: 5,         // de quantos tiles um bravo enxerga você
     pressa: 0.55,        // o passo do bravo, em fração do passo normal
+    // ARISCOS: batem e correm. Eles fogem de você o tempo todo, mas se você
+    // encurralar um — chegar do lado dele — ele te dá um choque e dispara. É o
+    // PIKACHU e companhia: não vêm te procurar, mas também não são de apanhar
+    // calados. A lista está junto com a dos bravos, em src/data/bravos.js.
+    fuga: 0.45,          // o passo do arisco fugindo, em fração do passo normal
+    disparada: 4,        // segundos correndo depois de te dar o choque
     // O BOTE, como nos LEGENDS: o bravo que te alcança NÃO abre batalha. Ele
     // bate ali mesmo, no mapa, e pula pra trás. Abrir batalha ao encostar
     // tirava do jogador a única coisa que ele ganhou quando os bichos ficaram
     // visíveis: decidir. Do jeito novo, tomar pancada é a consequência de não
     // ter corrido, e lutar continua sendo escolha sua — é você que encosta.
-    dano: 0.12,          // fração do HP máximo do seu líder por pancada
+    // O DANO É EM VOCÊ, e não na sua equipe. Bater no Pokémon do lado fazia dele
+    // um escudo — e ele é o seu companheiro, não a sua armadura. Agora quem
+    // apanha por não ter corrido é quem não correu.
+    vidaMax: 24,         // a sua vida
+    dano: 4,             // quanto uma pancada tira de você
+    // Quanto a vida volta POR SEGUNDO, andando fora de perigo. A 0,6 são 40
+    // segundos pra encher do zero: tempo de atravessar uma rota. Estava em 3,6
+    // por engano (o nome dizia "por passo" e a conta multiplicava por 60), e aí
+    // ela enchia em dez segundos — o que é o mesmo que não ter vida nenhuma.
+    curaPorSegundo: 0.6,
     recuo: 3,            // tiles que ele salta pra trás depois do bote
     respiro: 2.2,        // segundos de carência antes de você poder tomar outra
   },

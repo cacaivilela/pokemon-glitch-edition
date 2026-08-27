@@ -32,14 +32,27 @@ const cfg = () => DB.CONFIG?.selvagens || {};
  *  (LAPROCUNO ataca porque o ARTICUNO ataca), e a mega herda da espécie de
  *  origem. Sem herança, ou a lista teria 65 mil linhas ou toda fusão seria
  *  mansa — e as fusões são metade da graça deste jogo. */
-export function ehBravo(id, fundo = 0) {
+function naLista(lista, id, fundo = 0) {
   if (!id || fundo > 3) return false;
-  if ((DB.BRAVOS || []).includes(id)) return true;
+  if ((lista || []).includes(id)) return true;
   const p = partes(id);
-  if (p) return ehBravo(p.cabeca, fundo + 1) || ehBravo(p.corpo, fundo + 1);
+  if (p) return naLista(lista, p.cabeca, fundo + 1) || naLista(lista, p.corpo, fundo + 1);
   const sp = DB.SPECIES?.[id];
-  if (sp?.megaDe) return ehBravo(sp.megaDe, fundo + 1);
+  if (sp?.megaDe) return naLista(lista, sp.megaDe, fundo + 1);
   return false;
+}
+
+export const ehBravo = (id) => naLista(DB.BRAVOS, id);
+export const ehArisco = (id) => naLista(DB.ARISCOS, id);
+
+/** O temperamento daquela espécie. BRAVO ganha do ARISCO quando as duas listas
+ *  batem — o que acontece o tempo todo em fusão, que herda dos dois lados: um
+ *  PIKACHU fundido com um BEEDRILL vem te procurar, e não foge. Quem vai atrás
+ *  de você é a informação mais importante das duas, então ela manda. */
+export function temperamento(id) {
+  if (ehBravo(id)) return "bravo";
+  if (ehArisco(id)) return "arisco";
+  return "manso";
 }
 
 /** Tenta pôr mais um no mundo. `livre(x, y)` vem da cena, que é quem conhece
@@ -76,7 +89,8 @@ export function nascer(lista, jogador, sortear, livre) {
     const bicho = {
       mon: enc.mon, glitch: !!enc.glitch, x, y, vida: 0,
       t: Math.random() * (c.passo ?? 1.2),
-      bravo: ehBravo(enc.mon.species),
+      genio: temperamento(enc.mon.species),
+      bravo: ehBravo(enc.mon.species),        // atalho: é o que o desenho pergunta
     };
     lista.push(bicho);
     return bicho;
@@ -89,7 +103,15 @@ export function nascer(lista, jogador, sortear, livre) {
  *  persegue — e quem NÃO tem como chegar não pode ficar piscando aviso do outro
  *  lado de uma cerca, porque aviso que não vira nada ensina a ignorar aviso. */
 export function cacando(b, jogador) {
-  if (!b?.bravo || b.travado) return false;
+  if (b?.genio !== "bravo" || b.travado) return false;
+  return Math.abs(b.x - jogador.x) + Math.abs(b.y - jogador.y) <= (cfg().persegue ?? 5);
+}
+
+/** O arisco está fugindo de você AGORA? Serve pro desenho: quem foge corre, e
+ *  correr tem que dar pra ver. */
+export function fugindo(b, jogador) {
+  if (b?.genio !== "arisco") return false;
+  if (b.disparada > 0) return true;
   return Math.abs(b.x - jogador.x) + Math.abs(b.y - jogador.y) <= (cfg().persegue ?? 5);
 }
 
@@ -155,10 +177,12 @@ export function andar(lista, dt, jogador, livre, atravessa = livre) {
     // O BRAVO NÃO ENVELHECE ENQUANTO CAÇA. Sem isto ele evaporava no meio da
     // perseguição, e sumir na cara de quem estava fugindo é pior do que nunca
     // ter vindo: a fuga deixa de significar alguma coisa.
+    if (b.disparada > 0) b.disparada -= dt;
     // `travado` é recalculado a cada passo dele; enquanto isso ele conta como
     // bravo pra decidir SE tenta, e só o resultado da busca é que diz se dá
-    const caca = b.bravo && dist <= (c.persegue ?? 5);
-    if (caca && !b.travado) b.vida = 0;
+    const caca = b.genio === "bravo" && dist <= (c.persegue ?? 5);
+    const foge = b.genio === "arisco" && (b.disparada > 0 || dist <= (c.persegue ?? 5));
+    if ((caca && !b.travado) || foge) b.vida = 0;
     if (dist > perto + 4 || b.vida > some) continue;   // some sem despedida
     b.t -= dt;
     if (b.t <= 0) {
@@ -172,6 +196,25 @@ export function andar(lista, dt, jogador, livre, atravessa = livre) {
           if (alvo[0] === jogador.x && alvo[1] === jogador.y) encostou = encostou || b;
           else { b.x = alvo[0]; b.y = alvo[1]; }
         }
+      } else if (foge) {
+        // O ARISCO. Encurralado — você chegou do lado dele — ele DÁ O TROCO e
+        // dispara; senão, só põe distância. É o "bate e corre": ele não vai te
+        // procurar, mas também não apanha calado.
+        b.t = passo * (c.fuga ?? 0.45);
+        if (dist <= 1) {
+          encostou = encostou || b;
+          b.disparada = c.disparada ?? 4;
+        }
+        // o passo que mais te afasta, entre os que dá pra pisar
+        let melhor = null, maior = dist;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = b.x + dx, ny = b.y + dy;
+          if (nx === jogador.x && ny === jogador.y) continue;
+          if (!atravessa(nx, ny)) continue;
+          const d = Math.abs(nx - jogador.x) + Math.abs(ny - jogador.y);
+          if (d > maior) { maior = d; melhor = [nx, ny]; }
+        }
+        if (melhor) { b.x = melhor[0]; b.y = melhor[1]; }
       } else {
         b.t = passo * (0.6 + Math.random() * 0.8);     // nem todos no mesmo compasso
         const [dx, dy] = [[1, 0], [-1, 0], [0, 1], [0, -1]][Math.floor(Math.random() * 4)];

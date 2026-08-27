@@ -19,6 +19,11 @@
 // nunca daria conta: as fusões são 255 x 256 e ninguém vai escrever 65 mil
 // linhas pra dizer quem morde.
 //
+// SÃO DUAS LISTAS. `BRAVOS` vem te procurar. `ARISCOS` faz o contrário: foge de
+// você o tempo todo — mas se você ENCURRALAR um, ele te dá um choque e dispara.
+// É o PIKACHU e companhia: não vêm atrás de ninguém, e também não são de
+// apanhar calados. Quem não está em nenhuma das duas anda à toa e nunca encosta.
+//
 // Editar aqui vale na hora: o arquivo tem hot-swap como o resto dos dados.
 export const BRAVOS = [
   // O ENXAME DA FLORESTA. Quem jogou FireRed lembra de atravessar a FLORESTA
@@ -51,3 +56,26 @@ export const BRAVOS = [
   "elgyem", "lunatone", "solrock", "archen", "cranidos", "rampardos",
   "bastiodon", "shieldon", "duskull", "dusclops", "lampent", "chandelure",
 ];
+
+/** BATEM E CORREM. Fogem de você; encurralados, dão o troco e disparam.
+ *
+ *  A régua aqui é outra: entra o bicho pequeno, rápido ou tímido — o que
+ *  fugiria de uma pessoa de verdade mas tem com que se defender. O PIKACHU é o
+ *  caso exemplar (ele solta faísca e some), o ABRA é o caso extremo (ele nem
+ *  espera). Quem é grande demais pra fugir está na lista de cima; quem não tem
+ *  com que se defender não está em nenhuma. */
+export const ARISCOS = [
+  // os elétricos pequenos: dão choque e somem
+  "pikachu", "raichu", "magnemite", "voltorb",
+
+  // os que somem de verdade
+  "abra", "kadabra", "ditto", "haunter",
+
+  // pequeno, rápido e assustado
+  "eevee", "vulpix", "growlithe", "meowth", "sandshrew", "nidoran-f", "nidoran-m",
+  "jigglypuff", "clefairy", "psyduck", "poliwag", "goldeen", "seel", "staryu",
+  "krabby", "horsea", "shellder", "ponyta", "doduo", "rattata", "pidgey",
+  "caterpie", "weedle", "oddish", "bellsprout", "paras", "diglett", "dugtrio",
+  "chansey", "dratini", "porygon", "lickitung", "tangela", "mr. mime",
+];
+

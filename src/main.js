@@ -47,6 +47,11 @@ function newState() {
     seen: {},
     caught: {},
     playtime: 0,
+    // A SUA vida. Os selvagens bravos batem em VOCÊ, não na sua equipe (o
+    // Pokémon do lado é seu companheiro, não seu escudo). Zerou, você apaga no
+    // mato e acorda no último lugar seguro. Enche num Centro, na sua mãe ou
+    // descansando na barraca — nos mesmos lugares que curam a equipe.
+    vida: null,        // preenchido no primeiro quadro (ver `vidaMax` no config)
     respawn: { map: DB.START_MAP, ...DB.MAPS[DB.START_MAP].spawn },
   };
 }

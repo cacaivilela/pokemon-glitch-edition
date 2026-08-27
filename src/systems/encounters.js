@@ -67,11 +67,12 @@ export function rollEncounter(mapId, corruption = 0, glitchOn = false, sorte = 1
     return { mon: createMon("missingno", lvl, { corrupt: true, shiny }), glitch: true };
   }
 
-  // A FUSÃO SELVAGEM: raríssima, e antes da tabela porque ela não está na
-  // tabela de mapa nenhum. `garantirEspecie` monta a espécie na hora (o id
+  // A FUSÃO SELVAGEM: raríssima, com ENDEREÇO (`mapas`, em extra.js), e antes da
+  // tabela porque ela não está na tabela de mapa nenhum. `garantirEspecie` monta a espécie na hora (o id
   // carrega a dupla e a variante), como o jogo já faz pra fusão que vem de save.
   const rara = DB.FUSAO_SELVAGEM;
-  if (rara && chance(rara.chance ?? 0) && garantirEspecie(rara.id)) {
+  const noLugarDela = !rara?.mapas || rara.mapas.includes(mapId);
+  if (rara && noLugarDela && chance(rara.chance ?? 0) && garantirEspecie(rara.id)) {
     return { mon: createMon(rara.id, randRange(rara.min, rara.max), { shiny }), glitch: true };
   }
 

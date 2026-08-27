@@ -483,12 +483,11 @@ export const STORY = {
     // Curtos de propósito: o recado é uma tarja de 240px, e a fala anterior
     // ("DEU O BOTE! {MON} PERDEU {N} DE HP") tinha 47 letras — passava da tela e
     // era cortada no meio da palavra. Cabe em 38.
-    bote: "{BICHO} ATACOU! {MON} -{N} HP",
-    caiu: "{MON} CAIU!",
+    bote: "{BICHO} ATACOU VOCÊ! -{N}",
     apagou: [
-      "VOCÊ NÃO TEM MAIS POKÉMON EM CONDIÇÕES DE LUTAR.",
-      "TUDO ESCURECE NO MEIO DO MATO...",
-      "VOCÊ VOLTOU PRO ÚLTIMO LUGAR SEGURO.",
+      "VOCÊ APANHOU DEMAIS NO MATO.",
+      "TUDO ESCURECE...",
+      "VOCÊ ACORDOU NO ÚLTIMO LUGAR SEGURO.",
     ],
   },
 

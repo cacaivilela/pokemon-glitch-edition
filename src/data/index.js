@@ -281,6 +281,7 @@ export function buildDB() {
     CONCURSO: concurso.CONCURSO,
     MISSOES: missoes.MISSOES,
     BRAVOS: bravos.BRAVOS,
+    ARISCOS: bravos.ARISCOS,
     RIVAL: rival.RIVAL,
     VERSAO: versao.VERSAO,
     MISSAO_TEXTO: missoes.MISSAO_TEXTO,

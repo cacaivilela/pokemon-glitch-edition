@@ -20,7 +20,7 @@ import {
   heal, hpPct, gainXp, xpForLevel, createMon, evolutionFor, learnableMoves,
 } from "../systems/mon.js";
 import { scatterDimLoot } from "../systems/loot.js";
-import { nascer, andar, emCima, cacando, encontroDe } from "../systems/selvagens.js";
+import { nascer, andar, emCima, cacando, fugindo, encontroDe } from "../systems/selvagens.js";
 import { montarChefe, temPortal, abrirPortal, portalAberto, fecharPortal, corrupcaoDoPortal, pertoDoPortal }
   from "../systems/raid.js";
 import { pedrasIniciaisDevidas } from "../systems/mega.js";
@@ -554,6 +554,15 @@ export class OverworldScene {
     } else if (!this.move) this.movendo = false;
     this.updateWander(dt);
     this.updateSelvagens(dt);
+    // A VIDA VOLTA ANDANDO, devagar, e só quando ninguém está te caçando. Sem
+    // isso, uma pancada no começo do jogo te seguiria até o próximo Centro; com
+    // regeneração durante a perseguição, apanhar não custaria nada.
+    if (this.invuln <= 0 && !this.selvagens.some((b) => cacando(b, this.st.player))) {
+      const max = this.vidaMax();
+      if (this.vidaAgora() < max) {
+        this.st.vida = Math.min(max, this.st.vida + (DB.CONFIG?.selvagens?.curaPorSegundo ?? 0.6) * dt);
+      }
+    }
     this.updateFragmentTimer();
     if (this.rustle) {
       this.rustle.t += dt;
@@ -738,28 +747,36 @@ export class OverworldScene {
   levarBote(b) {
     const st = this.st;
     if ((this.invuln || 0) > 0) return;          // carência: nada de te moerem
-    const lider = st.party.find((m) => m.hp > 0);
-    if (!lider) return;
     const C = DB.CONFIG?.selvagens || {};
     const S = DB.STORY.selvagem;
     this.invuln = C.respiro ?? 2.2;
-    const dano = Math.max(1, Math.round(lider.maxHp * (C.dano ?? 0.12)));
-    lider.hp = Math.max(0, lider.hp - dano);
+    // QUEM APANHA É VOCÊ. Antes o dano ia no líder da equipe, e isso fazia do
+    // Pokémon do seu lado um ESCUDO — ele é seu companheiro, não sua armadura.
+    // E a conta ficava errada nos dois sentidos: com a equipe cheia você tinha
+    // seis vidas contra um pidgey, e com um bicho fraco na frente você perdia
+    // ele por andar no mato.
+    const dano = Math.max(1, C.dano ?? 4);
+    st.vida = Math.max(0, this.vidaAgora() - dano);
     this.tremor = 1;
     this.clarao = 0.35;
     Audio2.hit();
     Glitch.hit(0.5);
     this.empurrarSelvagem(b);
     const quem = DB.SPECIES[b.mon.species]?.name || b.mon.species;
-    this.avisar(S.bote.replace("{BICHO}", quem)
-      .replace("{MON}", lider.nickname).replace("{N}", dano));
-    if (lider.hp <= 0) {
-      Audio2.faint();
-      this.avisar(S.caiu.replace("{MON}", lider.nickname));
-    }
+    this.avisar(S.bote.replace("{BICHO}", quem).replace("{N}", dano));
     this.game.autosave?.();
-    if (!st.party.some((m) => m.hp > 0)) this.apagarNoMato();
+    if (st.vida <= 0) this.apagarNoMato();
   }
+
+  /** A sua vida agora. `vida` nasce nula (save antigo, jogo novo) e enche na
+   *  primeira vez que alguém pergunta: assim ninguém precisa migrar save. */
+  vidaAgora() {
+    const st = this.st;
+    const max = DB.CONFIG?.selvagens?.vidaMax ?? 24;
+    if (st.vida == null || st.vida > max) st.vida = max;
+    return st.vida;
+  }
+  vidaMax() { return DB.CONFIG?.selvagens?.vidaMax ?? 24; }
 
   /** Depois de bater ele PULA PRA TRÁS. Sem isso ele fica colado em você e o
    *  respiro só adia a próxima pancada — com o pulo, o respiro vira a janela em
@@ -786,6 +803,7 @@ export class OverworldScene {
   apagarNoMato() {
     const st = this.st;
     st.party.forEach(heal);
+    st.vida = this.vidaMax();
     st.surfando = null;
     const back = st.respawn || { map: DB.START_MAP, ...DB.MAPS[DB.START_MAP].spawn };
     Object.assign(st.player, { map: back.map, x: back.x, y: back.y, dir: back.dir || "down" });
@@ -1461,6 +1479,7 @@ export class OverworldScene {
       return void this.dlg.say(npc?.semMon || DB.STORY.joy.semMon);
     }
     this.st.party.forEach(heal);
+    this.st.vida = this.vidaMax();      // quem cura a equipe cura você também
     this.st.respawn = { map: this.st.player.map, x: this.st.player.x, y: this.st.player.y };
     Audio2.heal();
     this.game.autosave?.();
@@ -3203,6 +3222,7 @@ export class OverworldScene {
     if (Online.aviso) this.drawAvisoOnline(ctx);
     this.drawSinal(ctx);
 
+    this.drawVida(ctx);
     if (this.banner > 0) this.drawBanner(ctx);
     if (this.menu) this.drawMenu(ctx);
     this.dlg.render(ctx);
@@ -3299,10 +3319,13 @@ export class OverworldScene {
     // atravessar a rota correndo, e escondê-la até a batalha seria escondê-la
     const img = b.mon.shiny ? Assets.shiny(bruto) : bruto;
     const caca = cacando(b, this.st.player);
+    const corre = !caca && fugindo(b, this.st.player);
     // quem está caçando pula mais rápido e mais alto: o bicho parece afobado
-    // antes de você ler o aviso, e é assim que se avisa sem texto
-    const vel = caca ? 150 : 380;
-    const pulo = Math.abs(Math.sin(performance.now() / vel + b.x * 1.7 + b.y)) * (caca ? 4 : 2);
+    // antes de você ler o aviso, e é assim que se avisa sem texto. O ARISCO
+    // também se mexe mais — só que fugindo, e sem o aviso vermelho: ele não é
+    // uma ameaça a caminho, é uma coisa saindo de perto.
+    const vel = caca ? 150 : corre ? 200 : 380;
+    const pulo = Math.abs(Math.sin(performance.now() / vel + b.x * 1.7 + b.y)) * (caca || corre ? 4 : 2);
     const x = Math.round(b.x * TILE - cx - 6), y = Math.round(b.y * TILE - cy - 12 - pulo);
     ctx.drawImage(img, x, y, 28, 28);
     // e o AVISO em cima dele. Perseguidor sem aviso é armadilha: quem toma uma
@@ -3369,6 +3392,19 @@ export class OverworldScene {
     }
     const img = Assets.actor(n.sprite)[n.dir || "down"][0];
     ctx.drawImage(img, x, y + TILE - img.height);
+  }
+
+  /** A SUA vida, no canto de baixo. Só aparece quando falta alguma coisa: uma
+   *  barra sempre cheia na tela é enfeite, e o jogo passa a maior parte do tempo
+   *  sem ninguém batendo em você. */
+  drawVida(ctx) {
+    const max = this.vidaMax();
+    const v = this.vidaAgora();
+    if (v >= max) return;
+    const larg = 46;
+    const x = 4, y = H - 12;
+    panel(ctx, x, y - 4, larg + 8, 14);
+    bar(ctx, x + 4, y, larg, 4, v / max, v / max > 0.5 ? PAL.hpGreen : v / max > 0.25 ? PAL.hpYellow : PAL.hpRed);
   }
 
   /** O recado do bote, no alto e sem caixa. Some sozinho. */

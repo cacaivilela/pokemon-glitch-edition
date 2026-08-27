@@ -184,7 +184,30 @@ export const RARE_LEGEND = { id: "deoxys", chance: 0.0008, min: 45, max: 60 };
 // 1/4096 aqui dá um a cada ~37 mil passos no mato. É pra ser história de
 // jogador, não item de lista. Se a ficha dela sumir do acervo, a espécie ainda
 // existe (`garantirEspecie` remonta a automática) — o encontro não quebra.
-export const FUSAO_SELVAGEM = { id: "fus-articuno-lapras~laprocuno", chance: 1 / 4096, min: 30, max: 42 };
+/** A FUSÃO SELVAGEM: uma só, raríssima, e ELA TEM ENDEREÇO.
+ *
+ *  Sem `mapas` ela saía em qualquer grama de Kanto, e um LAPROCUNO — LAPRAS com
+ *  ARTICUNO, água e gelo — aparecendo na FLORESTA VIRIDIAN não é raridade, é
+ *  erro de lugar. Agora ela mora em volta de CINNABAR, no mar entre a ilha e a
+ *  VILA PALETA.
+ *
+ *  E A CHANCE SUBIU MUITO, de 1 em 4096 pra 1 em 220. Não é generosidade, é a
+ *  troca: raríssima em Kanto inteira, ela era um acidente que ninguém procurava
+ *  — e agora que tem endereço, 1 em 4096 num pedaço só de mato seria pior
+ *  ainda, porque você saberia ONDE e mesmo assim não acharia. Coisa com lugar
+ *  certo tem que ser achável indo até lá; é isso que transforma um número raro
+ *  numa história que alguém conta.
+ *
+ *  A ROTA 21 NORTE É A ÚNICA QUE FUNCIONA HOJE, e é de propósito que as outras
+ *  estão escritas: `route21_south` tem tabela mas ainda não tem grama alta, e a
+ *  ilha e a ROTA 20 não têm tabela nenhuma. No dia em que ganharem, a fusão já
+ *  está esperando lá — e até lá elas não atrapalham, porque o sorteio nem chega
+ *  perto num mapa sem tabela. */
+export const FUSAO_SELVAGEM = {
+  id: "fus-articuno-lapras~laprocuno",
+  chance: 1 / 220, min: 30, max: 42,
+  mapas: ["route21_north", "route21_south", "route20", "cinnabar_island"],
+};
 
 /** chance do lendário aparecer no terreno dele (0.3%) */
 export const TRIO_CHANCE = 0.003;
