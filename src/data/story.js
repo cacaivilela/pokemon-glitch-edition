@@ -480,6 +480,17 @@ export const STORY = {
     olha: "A FITA ESTÁ PARADA NO MEIO DE UMA PALAVRA QUE NÃO É NOME DE NINGUÉM.",
   },
 
+  /** A DISTORÇÃO ESPAÇO-TEMPO da FLORESTA VIRIDIAN (missão DISTORÇÕES BIZARRAS). */
+  distorcao: {
+    investigou: [
+      "O AR AQUI É MAIS GROSSO. VOCÊ ENFIA A MÃO E ELA DEMORA A CHEGAR.",
+      "DENTRO DA MOLDURA TEM A MESMA FLORESTA — MAS SEM AS ÁRVORES QUE VOCÊ ACABOU DE PASSAR.",
+      "E TEM COISA ANDANDO LÁ.",
+      "ELAS ATRAVESSAM. UMA POR UMA, SEM PRESSA, COMO QUEM VOLTA PRA CASA.",
+      "VOCÊ CONHECE ESSES BICHOS DO MUSEU. LÁ ELES SÃO PEDRA.",
+    ],
+  },
+
   /** OS SELVAGENS À VISTA, e o bote dos bravos (src/systems/selvagens.js). */
   selvagem: {
     // Curtos de propósito: o recado é uma tarja de 240px, e a fala anterior

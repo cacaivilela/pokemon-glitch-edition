@@ -67,6 +67,14 @@ const OBJETIVOS = {
     return { feito: n >= o.quantos, atual: n, alvo: o.quantos };
   },
 
+  /** uma bandeira do save ficou marcada. É o objetivo de quem pede pra você IR
+   *  a um lugar e olhar: não existe item pra conferir, nem bicho na equipe —
+   *  existe só o fato de você ter estado lá, e o mundo escreve isso. */
+  "bandeira": (st, o) => {
+    const tem = !!st?.flags?.[o.flag];
+    return { feito: tem, atual: tem ? 1 : 0, alvo: 1 };
+  },
+
   /** espécies capturadas que não são das 151 (as da fenda) */
   "capturou-fenda": (st, o) => {
     const n = Object.keys(st?.caught || {})

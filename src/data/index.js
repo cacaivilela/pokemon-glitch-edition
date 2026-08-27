@@ -283,6 +283,7 @@ export function buildDB() {
     FUSOES_FEITAS: feitas.FUSOES_FEITAS,
     CONCURSO: concurso.CONCURSO,
     MISSOES: missoes.MISSOES,
+    DISTORCAO: missoes.DISTORCAO,
     BRAVOS: bravos.BRAVOS,
     REGIOES: iniciais.REGIOES,
     ARISCOS: bravos.ARISCOS,

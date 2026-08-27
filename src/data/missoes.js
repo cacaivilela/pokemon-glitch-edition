@@ -19,8 +19,27 @@
 //   resumo    a linha do diário, curta
 //   oferta / lembrete / entrega   o que ele fala em cada momento
 //   requer    { insignias, missao, flag } — trava até a condição bater
+//   distorcao onde a coisa a investigar fica, e o que sai dela (só a das
+//             DISTORÇÕES BIZARRAS usa; ver DISTORCAO aqui embaixo)
 //   travado   o que ele fala enquanto `requer` não bate (opcional)
 //   premio    { dinheiro, item, qtd }
+
+/** A DISTORÇÃO ESPAÇO-TEMPO da FLORESTA VIRIDIAN (missão `distorcoes`).
+ *
+ *  Ela fica parada no meio do mato e só existe enquanto o pedido está aberto —
+ *  investigada uma vez, some. Encostar nela faz sair o que ela guarda: FÓSSEIS
+ *  VIVOS, e não os remontados do museu.
+ *
+ *  A escolha das espécies é o argumento inteiro da missão: se saísse um bicho
+ *  qualquer da fenda, a distorção seria mais um buraco pra outro LUGAR, que o
+ *  jogo já tem de sobra. Saindo bicho que morreu há milhões de anos, ela vira
+ *  um buraco pra outro TEMPO — e é isso que o cientista descobre na entrega. */
+export const DISTORCAO = {
+  mapa: "viridian_forest", x: 27, y: 43,
+  quantos: 4,                 // quantos saem de dentro
+  nivel: [12, 20],
+  saem: ["cranidos", "shieldon", "lileep", "anorith", "tirtouga", "archen"],
+};
 
 export const MISSOES = [
   {
@@ -75,6 +94,34 @@ export const MISSOES = [
       "LEVA ISSO AQUI. EU GUARDEI A VIDA INTEIRA E NÃO USEI NENHUM.",
     ],
     premio: { dinheiro: 3000, item: "doce raro", qtd: 5 },
+  },
+  {
+    id: "distorcoes",
+    nome: "DISTORÇÕES BIZARRAS",
+    mapa: "viridian_forest", x: 26, y: 59, sprite: "cientista",
+    // Ela precisa da FENDA já aberta: o que sai da distorção é bicho de fora de
+    // Kanto, e antes da máquina do laboratório funcionar nada tinha de onde vir.
+    requer: { flag: "dimUnlocked" },
+    travado: [
+      "MEDINDO. NÃO ENCOSTE.",
+      "...NÃO, AINDA NÃO DÁ PRA EXPLICAR. VOLTA DEPOIS QUE VOCÊ TIVER VISTO A FENDA POR DENTRO.",
+    ],
+    objetivo: { tipo: "bandeira", flag: "distorcaoVista" },
+    resumo: "INVESTIGAR A DISTORÇÃO NO MEIO DA FLORESTA VIRIDIAN.",
+    oferta: [
+      "VOCÊ TAMBÉM ESTÁ VENDO? OLHA A ÁRVORE ALI ATRÁS. AGORA OLHA DE NOVO.",
+      "ELA MUDA DE LUGAR. NÃO ANDA — MUDA. E VOLTA.",
+      "TEM UMA COISA NO MEIO DESTA FLORESTA QUE NÃO É UM BURACO NO CHÃO. É UM BURACO NO QUANDO.",
+      "EU NÃO ENTRO NAQUILO. VOCÊ ENTRA EM FENDA POR ESPORTE — VAI LÁ E ME CONTA O QUE VOCÊ VÊ.",
+    ],
+    lembrete: ["NO MEIO DA FLORESTA. ONDE O AR FICA MORNO E O SOM CHEGA ATRASADO."],
+    entrega: [
+      "FÓSSEIS. ANDANDO.",
+      "NÃO SÃO REMONTADOS COMO OS DO MUSEU. SÃO OS BICHOS, DO JEITO QUE ELES ERAM.",
+      "ENTÃO NÃO É UM BURACO PRA OUTRO LUGAR. É UM BURACO PRA OUTRO TEMPO, E ELE ESTÁ VAZANDO PRA CÁ.",
+      "TOMA. EU IA USAR PRA CAVAR, MAS AGORA EU SEI QUE NÃO PRECISA CAVAR NADA.",
+    ],
+    premio: { dinheiro: 2500, item: "pedra do crepúsculo", qtd: 1 },
   },
   {
     id: "primeira-fusao",

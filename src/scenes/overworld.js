@@ -15,6 +15,7 @@ import { OnlineMenuScene } from "./online.js";
 import { TradeScene } from "./trade.js";
 import { LinkBattleScene } from "./linkbattle.js";
 import { Glitch } from "../systems/glitchfx.js";
+import { randRange } from "../core/rng.js";
 import { rollEncounter, rollDimEncounter, rollFlores } from "../systems/encounters.js";
 import {
   heal, hpPct, gainXp, xpForLevel, createMon, evolutionFor, learnableMoves,
@@ -355,6 +356,8 @@ export class OverworldScene {
         extra.push({ id: `bola${i}`, x: b.x, y: b.y, sprite: "ball", loot: b, dir: "down" });
       });
     }
+    const dist = this.distorcaoNpc();
+    if (dist) extra.push(dist);
     const rasgo = portalAberto(this.st, mapa);
     if (rasgo) extra.push({ id: "rasgo", x: rasgo.x, y: rasgo.y, sprite: "rasgo", raidPortal: true, dir: "down" });
     const f = this.st.fragment;
@@ -362,6 +365,40 @@ export class OverworldScene {
       extra.push({ id: "fragmento", x: f.x, y: f.y, sprite: "portal", fragment: true, dir: "down" });
     }
     return extra.length ? [...base, ...extra] : base;
+  }
+
+  /** A DISTORÇÃO ESPAÇO-TEMPO da FLORESTA VIRIDIAN. Ela só existe enquanto o
+   *  pedido está aberto: sem ninguém ter te contado, um buraco no ar no meio do
+   *  mato seria só um enfeite estranho; investigada, some. */
+  distorcaoNpc() {
+    const D = DB.DISTORCAO;
+    if (!D || this.st.player.map !== D.mapa) return null;
+    if (this.st.flags?.distorcaoVista) return null;
+    if (!this.st.missoes?.distorcoes) return null;       // ninguém te falou dela ainda
+    return { id: "distorcao", x: D.x, y: D.y, dir: "down", sprite: "distorcao", distorcao: true };
+  }
+
+  /** Encostar nela. O que sai é FÓSSIL VIVO — o argumento inteiro da missão
+   *  (ver DISTORCAO em src/data/missoes.js). */
+  investigarDistorcao() {
+    const D = DB.DISTORCAO;
+    const S = DB.STORY.distorcao;
+    this.st.flags.distorcaoVista = true;
+    this.tremor = 1.2;
+    this.clarao = 0.4;
+    if (DB.CONFIG?.sustos) { Glitch.hit(2.5); Audio2.glitch(); }
+    else { Audio2.tone(147, 0.26, "triangle", 0.5); Audio2.tone(220, 0.3, "sine", 0.35); }
+    // eles nascem em volta de você, do mesmo jeito que qualquer selvagem à
+    // vista — a distorção não abre batalha, ela SOLTA bicho no mato
+    for (let i = 0; i < (D?.quantos || 4); i++) {
+      nascer(this.selvagens, this.st.player, () => {
+        const id = D.saem[Math.floor(Math.random() * D.saem.length)];
+        if (!DB.SPECIES[id]) return null;
+        return { mon: createMon(id, randRange(D.nivel[0], D.nivel[1])), glitch: true };
+      }, (x, y) => this.daPraSelvagem(x, y));
+    }
+    this.game.autosave?.();
+    this.dlg.say(S.investigou);
   }
 
   /** o que está esperando do outro lado da fenda */
@@ -645,7 +682,9 @@ export class OverworldScene {
       // encostar no rasgo não dá esbarrão: ele puxa. É a única coisa no mapa
       // que responde ao ESBARRO em vez de esperar você apertar Z, e é de
       // propósito — quem anda pra cima de um buraco no ar já decidiu.
-      if (this.npcAt(nx, ny)?.raidPortal) return this.entrarNoRasgo();
+      const alvo = this.npcAt(nx, ny);
+      if (alvo?.distorcao) return this.investigarDistorcao();
+      if (alvo?.raidPortal) return this.entrarNoRasgo();
       if (!this.bumpCd) { Audio2.bump(); this.bumpCd = 0.35; }
       return;
     }
@@ -1255,6 +1294,7 @@ export class OverworldScene {
     if (npc.aurora) return this.talkVelhaAurora(state);
     if (npc.escort) return this.talkEscort(npc);
     if (npc.boss) return this.startBossBattle(npc);
+    if (npc.distorcao) return this.investigarDistorcao();
     if (npc.raidPortal) return this.entrarNoRasgo();
     if (npc.portal) return this.usePortal();
     if (npc.fragment) return this.useFragment();
@@ -3398,6 +3438,37 @@ export class OverworldScene {
         const s2 = 14 - i * 3;
         ctx.fillRect(x + (16 - s2) / 2, y + (16 - s2) / 2, s2, s2);
       }
+      return;
+    }
+    // A DISTORÇÃO: um quadrado de ar que não está no lugar. Ela não é um buraco
+    // como o rasgo — ela é o MESMO pedaço de mundo, repetido fora de hora, então
+    // o desenho é uma moldura que respira e um miolo que troca de cor devagar.
+    // Rápido demais viraria irmão do rasgo, e são coisas diferentes.
+    if (n.sprite === "distorcao") {
+      const t = performance.now() / 700;
+      const cx2 = x + 8, cy2 = y + 8;
+      // ELA TEM QUE SER VISTA DE LONGE. A tela mostra 15 x 10 tiles e a floresta
+      // tem 54 x 69: uma moldura do tamanho de um tile some no mato, e procurar
+      // uma coisa que não dá pra ver não é procurar, é varrer. Ela ocupa quase
+      // três tiles e clareia o chão em volta — quem entra na tela já sabe.
+      ctx.globalAlpha = 0.16 + Math.sin(t * 2) * 0.06;
+      ctx.fillStyle = "#8fd0f0";
+      ctx.fillRect(cx2 - 26, cy2 - 26, 52, 52);
+      const cores = ["#f4f2ff", "#8fd0f0", "#b455ff"];
+      for (let i = 0; i < 4; i++) {
+        // as molduras respiram fora de fase: é o MESMO pedaço de floresta
+        // repetido fora de hora, e é o descompasso que diz isso sem texto
+        const d = 22 - i * 5 + Math.sin(t * 1.6 + i * 0.9) * 2.5;
+        ctx.globalAlpha = 0.75 - i * 0.12;
+        ctx.strokeStyle = cores[i % cores.length];
+        ctx.lineWidth = 1;
+        ctx.strokeRect(Math.round(cx2 - d), Math.round(cy2 - d), Math.round(d * 2), Math.round(d * 2));
+      }
+      const r = 5 + Math.sin(t * 3) * 1.5;
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = "#0a0810";
+      ctx.fillRect(Math.round(cx2 - r), Math.round(cy2 - r), Math.round(r * 2), Math.round(r * 2));
+      ctx.globalAlpha = 1;
       return;
     }
     // O RASGO: faixas tortas que não param quietas, empilhadas num buraco alto
