@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -33,6 +33,7 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./maps.js" + V),
   import("./acampamento.js" + V),
   import("./bravos.js" + V),
+  import("./iniciais.js" + V),
   fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
 
@@ -239,7 +240,9 @@ export function buildDB() {
     MOVES: moves.MOVES,
     GEN1: gen1.GEN1,
     DEX_ORDER: gen1.DEX_ORDER,
-    SPECIES: species.buildSpecies({ ...gen1.GEN1, ...extra.EXTRA, ...mega.MEGA_FORMS }, types.TYPE_COLOR),
+    SPECIES: species.buildSpecies(
+      { ...gen1.GEN1, ...extra.EXTRA, ...iniciais.INICIAIS_ESPECIES, ...mega.MEGA_FORMS },
+      types.TYPE_COLOR),
     EXTRA: extra.EXTRA,
     DIM_ENCOUNTERS: extra.DIM_ENCOUNTERS,
     WEATHER_TRIO: extra.WEATHER_TRIO,
@@ -281,6 +284,7 @@ export function buildDB() {
     CONCURSO: concurso.CONCURSO,
     MISSOES: missoes.MISSOES,
     BRAVOS: bravos.BRAVOS,
+    REGIOES: iniciais.REGIOES,
     ARISCOS: bravos.ARISCOS,
     RIVAL: rival.RIVAL,
     VERSAO: versao.VERSAO,

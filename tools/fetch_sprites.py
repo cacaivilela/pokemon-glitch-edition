@@ -31,7 +31,11 @@ EXTRA_DEX = [201, 233, 235, 292, 337, 338, 345, 347, 382, 383, 384, 386, 408, 40
              436, 474, 479, 493, 564, 566, 599, 605, 606, 607, 608, 609, 615, 622, 641,
              642, 645, 649,
              716, 717, 718,
-             880, 881, 882, 883]
+             880, 881, 882, 883,
+             # os INICIAIS das outras regiões (src/data/iniciais.js): dá pra
+             # escolher qualquer um deles como primeiro Pokémon
+             152, 155, 158, 252, 255, 258, 387, 390, 393, 495, 498, 501,
+             650, 653, 656, 722, 725, 728, 810, 813, 816, 906, 909, 912]
 # formas MEGA (ids de FORMA da PokeAPI, não da Pokédex). Nenhuma delas existia
 # na geração III, então elas vêm com a arte moderna mesmo — os arquivos saem
 # como 10033.png e são achados pelo campo `spriteDex` de src/data/mega.js.

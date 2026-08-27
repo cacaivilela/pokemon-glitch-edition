@@ -2611,19 +2611,46 @@ export class OverworldScene {
       return void this.dlg.say("AS OUTRAS POKÉ BOLAS SÃO DO PROFESSOR. MELHOR NÃO MEXER.");
     }
     const sp = DB.SPECIES[npc.starter];
-    this.dlg.ask(`ESTA POKÉ BOLA CONTÉM ${sp.name}. LEVAR?`, ["SIM", "NÃO"], (i) => {
+    // "OUTRA REGIÃO" abre as nove. As três bolas continuam sendo as de Kanto e
+    // continuam funcionando com um SIM — quem quer o CHARMANDER de sempre não
+    // atravessa menu nenhum, e quem quer um FUECOCO acha o caminho na primeira
+    // pergunta em vez de descobrir que não dá.
+    this.dlg.ask(`ESTA POKÉ BOLA CONTÉM ${sp.name}. LEVAR?`,
+                 ["SIM", "OUTRA REGIÃO", "NÃO"], (i) => {
+      if (i === 1) return this.escolherRegiao(state);
       if (i !== 0) return;
-      const mon = this.game.giveStarter(npc.starter);
-      state.hidden = true;
-      this.st.flags.starterChosen = true;
-      this.st.flags.meuInicial = npc.starter;    // o AZUL escolhe a partir disto
-      Audio2.heal();
-      this.dlg.say([
-        `VOCÊ RECEBEU ${mon.nickname}!`,
-        "PROF. CARVALHO: BOA ESCOLHA! AGORA SIGA PELA ROTA 1.",
-        "VIRIDIAN FICA AO NORTE. LÁ TEM CENTRO POKÉMON E LOJA.",
-      ]);
+      this.entregarInicial(npc.starter, state);
     });
+  }
+
+  /** As nove regiões. Nove cabem na caixa de escolha; vinte e sete não caberiam,
+   *  e é por isso que a escolha é em dois passos e não numa lista só. */
+  escolherRegiao(state) {
+    const regioes = DB.REGIOES || [];
+    this.dlg.ask("DE QUE REGIÃO?", [...regioes.map((r) => r.nome), "VOLTAR"], (i) => {
+      const r = regioes[i];
+      if (!r) return;
+      const nomes = r.mons.map((id) => DB.SPECIES[id]?.name || id);
+      this.dlg.ask(`OS TRÊS DE ${r.nome}:`, [...nomes, "VOLTAR"], (j) => {
+        const id = r.mons[j];
+        if (!id) return this.escolherRegiao(state);
+        this.entregarInicial(id, state);
+      });
+    });
+  }
+
+  /** Entrega o inicial escolhido, venha ele de qual bola ou de qual região vier. */
+  entregarInicial(id, state) {
+    const mon = this.game.giveStarter(id);
+    state.hidden = true;
+    this.st.flags.starterChosen = true;
+    this.st.flags.meuInicial = id;             // o AZUL escolhe a partir disto
+    Audio2.heal();
+    this.dlg.say([
+      `VOCÊ RECEBEU ${mon.nickname}!`,
+      "PROF. CARVALHO: BOA ESCOLHA! AGORA SIGA PELA ROTA 1.",
+      "VIRIDIAN FICA AO NORTE. LÁ TEM CENTRO POKÉMON E LOJA.",
+    ]);
   }
 
   // ---------------------------------------------------------------- menu

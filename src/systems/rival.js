@@ -41,10 +41,31 @@ function meuInicial(st) {
 /** O inicial dele. Ele escolhe o que PERDE pro seu achando que ganha, e a
  *  escolha fica gravada no save — se um dia a tabela mudar, o AZUL daquela
  *  partida continua com o bicho que ele já tinha. */
+/** O QUE PERDE PRO SEU, quando você começou fora de Kanto.
+ *
+ *  A tabela `escolhe` só conhece os três de Kanto, e desde que dá pra começar
+ *  com um FUECOCO ou um ROWLET (src/data/iniciais.js) ela deixaria o AZUL SEM
+ *  POKÉMON — ele simplesmente não apareceria, e o rival é metade da história.
+ *
+ *  A REGRA É A MESMA QUE A TABELA ESCREVE À MÃO, E ELA É AO CONTRÁRIO DO QUE
+ *  PARECE: ele pega o que PERDE pro seu, convencido de que fez a conta certa.
+ *  É a piada que sustenta o personagem (o cabeçalho de src/data/rival.js
+ *  explica), então um atalho que "corrigisse" isso pra escolha esperta faria o
+ *  AZUL de fora de Kanto ser um AZUL diferente do de Kanto.
+ *
+ *  Os três de toda região são PLANTA, FOGO e ÁGUA nessa ordem, e nessa roda
+ *  cada um ganha do ANTERIOR — então o que perde pro seu é o anterior a ele. */
+function perdeProMeu(id) {
+  const r = (DB.REGIOES || []).find((x) => x.mons.includes(id));
+  if (!r) return null;
+  const i = r.mons.indexOf(id);
+  return r.mons[(i + r.mons.length - 1) % r.mons.length];
+}
+
 export function inicialDoRival(st) {
   if (st?.flags?.rivalInicial) return st.flags.rivalInicial;
   const meu = meuInicial(st);
-  const dele = cfg().escolhe?.[meu];
+  const dele = cfg().escolhe?.[meu] || perdeProMeu(meu);
   if (!dele) return null;
   (st.flags ||= {}).rivalInicial = dele;
   return dele;
