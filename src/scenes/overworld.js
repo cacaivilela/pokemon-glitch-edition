@@ -3447,26 +3447,37 @@ export class OverworldScene {
     if (n.sprite === "distorcao") {
       const t = performance.now() / 700;
       const cx2 = x + 8, cy2 = y + 8;
-      // ELA TEM QUE SER VISTA DE LONGE. A tela mostra 15 x 10 tiles e a floresta
-      // tem 54 x 69: uma moldura do tamanho de um tile some no mato, e procurar
-      // uma coisa que não dá pra ver não é procurar, é varrer. Ela ocupa quase
-      // três tiles e clareia o chão em volta — quem entra na tela já sabe.
-      ctx.globalAlpha = 0.16 + Math.sin(t * 2) * 0.06;
-      ctx.fillStyle = "#8fd0f0";
-      ctx.fillRect(cx2 - 26, cy2 - 26, 52, 52);
-      const cores = ["#f4f2ff", "#8fd0f0", "#b455ff"];
-      for (let i = 0; i < 4; i++) {
-        // as molduras respiram fora de fase: é o MESMO pedaço de floresta
-        // repetido fora de hora, e é o descompasso que diz isso sem texto
-        const d = 22 - i * 5 + Math.sin(t * 1.6 + i * 0.9) * 2.5;
-        ctx.globalAlpha = 0.75 - i * 0.12;
-        ctx.strokeStyle = cores[i % cores.length];
-        ctx.lineWidth = 1;
+      // ELA TEM QUE SER VISTA DE LONGE, E NUMA FLORESTA ESCURA. A primeira
+      // versão tinha um MIOLO PRETO e molduras claras finas: no meio das
+      // árvores, o preto virava sombra de copa e as molduras sumiam no verde —
+      // ela lia como buraco do cenário, não como coisa mágica. Agora é o
+      // contrário: o miolo é a parte mais CLARA da tela e o brilho em volta
+      // levanta ela do mato. Nada escuro, porque a floresta já é escura.
+      ctx.globalAlpha = 0.22 + Math.sin(t * 2) * 0.08;
+      ctx.fillStyle = "#bff4ff";
+      ctx.fillRect(cx2 - 28, cy2 - 28, 56, 56);
+      const cores = ["#ffffff", "#7ff0ff", "#d99bff"];
+      for (let i = 0; i < 3; i++) {
+        const d = 23 - i * 6 + Math.sin(t * 1.6 + i * 0.9) * 3;
+        ctx.globalAlpha = 0.95 - i * 0.16;
+        ctx.strokeStyle = cores[i];
+        ctx.lineWidth = 2;
         ctx.strokeRect(Math.round(cx2 - d), Math.round(cy2 - d), Math.round(d * 2), Math.round(d * 2));
       }
-      const r = 5 + Math.sin(t * 3) * 1.5;
-      ctx.globalAlpha = 0.85;
-      ctx.fillStyle = "#0a0810";
+      // faíscas girando: é o que diz "encosta em mim" sem escrever nada
+      for (let i = 0; i < 5; i++) {
+        const a = t * 1.1 + (i * Math.PI * 2) / 5;
+        const raio = 17 + Math.sin(t * 2.3 + i) * 4;
+        ctx.globalAlpha = 0.6 + Math.sin(t * 3 + i) * 0.35;
+        ctx.fillStyle = i % 2 ? "#ffffff" : "#7ff0ff";
+        ctx.fillRect(Math.round(cx2 + Math.cos(a) * raio) - 1,
+                     Math.round(cy2 + Math.sin(a) * raio) - 1, 2, 2);
+      }
+      const r = 6 + Math.sin(t * 3) * 2;
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#7ff0ff";
+      ctx.fillRect(Math.round(cx2 - r - 1), Math.round(cy2 - r - 1), Math.round(r * 2 + 2), Math.round(r * 2 + 2));
+      ctx.fillStyle = "#ffffff";
       ctx.fillRect(Math.round(cx2 - r), Math.round(cy2 - r), Math.round(r * 2), Math.round(r * 2));
       ctx.globalAlpha = 1;
       return;
