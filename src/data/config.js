@@ -7,6 +7,18 @@ export const CONFIG = {
   // Velocidade das animações de batalha (1 = normal, 0 desliga)
   battleAnim: 1,
 
+  // SUSTOS. Ligado, a GLITCH RAID assusta: a tela corrompe cada vez mais
+  // conforme você chega perto de um rasgo e dá solavancos sozinha, o rasgo abre
+  // com um estouro de ruído, o chefe cresce sacudindo a tela e a casca racha num
+  // clarão. Desligado, TUDO ISSO CONTINUA ACONTECENDO — só que sem os efeitos
+  // que fazem pular da cadeira: o rasgo abre com um sino curto, a tela não
+  // corrompe, o chefe cresce liso e a casca racha com o som normal de pancada.
+  //
+  // Nada de mecânica muda com esta chave. O rasgo abre na mesma frequência, nos
+  // mesmos pontos fracos, o chefe tem o mesmo escudo e o mesmo bug. É só o
+  // barulho e o tremor.
+  sustos: false,
+
   // DIA E NOITE (src/systems/ciclo.js). A fase troca a cada `cicloMinutos`, e os
   // últimos `viradaMinutos` dela são a virada: de dia começa a escurecer, de
   // noite começa a amanhecer. `noiteMax` é o quanto o céu escurece na noite

@@ -166,8 +166,8 @@ export class BattleScene {
     } else if (this.raid) {
       // a GLITCH RAID nunca tinha se apresentado: `raidApareceu` estava escrito
       // no story.js e não era dito por ninguém
-      Glitch.hit(3);
-      Audio2.glitch();
+      if (DB.CONFIG?.sustos) { Glitch.hit(3); Audio2.glitch(); }
+      else Audio2.tone(147, 0.3, "triangle", 0.5);
       await this.say(DB.STORY.glitch.raidApareceu);
       await this.crescer();
       await this.say(`${this.foe.nickname} ESTÁ NO CAMINHO.`);
@@ -324,7 +324,8 @@ export class BattleScene {
       const G = DB.STORY.glitch;
       if (this.quebrou) {
         this.quebrou = false;
-        Glitch.hit(2.5); Audio2.glitch(); this.flash = 0.6;
+        if (DB.CONFIG?.sustos) { Glitch.hit(2.5); Audio2.glitch(); this.flash = 0.6; }
+        else Audio2.hit();
         await this.say(G.escudoQuebrou);
       }
       // O GLITCHBOOSTER come o dano que quem levou o golpe tomou e devolve em
@@ -341,7 +342,8 @@ export class BattleScene {
         const antes = bonusDe(target);
         const r = acumular(target, dano);
         if (r.virou) {
-          Glitch.hit(3); Audio2.glitch();
+          if (DB.CONFIG?.sustos) { Glitch.hit(3); Audio2.glitch(); }
+          else Audio2.faint();
           await this.say(G.virouByte.replace("{NOME}", target.nickname));
         } else if (who === "f" && r.bonus > antes) {
           Glitch.hit(0.6);
@@ -695,13 +697,14 @@ export class BattleScene {
       const k = Math.min(1, c.t / c.dur);
       const macio = k * k * (3 - 2 * k);
       this.sp.f.escala = RAID.cresceDe + macio * (RAID.tamanho - RAID.cresceDe);
-      if (Math.random() < dt * 8) { Glitch.hit(0.7); this.shake = 0.14; }
+      // O TREMOR E O ESTOURO SÃO SUSTO. Sem eles ele cresce liso e para: o
+      // tamanho continua dizendo o que ele é, sem sacudir a tela pra dizer.
+      const susto = !!DB.CONFIG?.sustos;
+      if (susto && Math.random() < dt * 8) { Glitch.hit(0.7); this.shake = 0.14; }
       if (k >= 1) {
         this.crescendo = null;
-        this.shake = 0.45;
-        this.flash = 0.55;
-        Glitch.hit(2.5);
-        Audio2.glitch();
+        if (susto) { this.shake = 0.45; this.flash = 0.55; Glitch.hit(2.5); Audio2.glitch(); }
+        else Audio2.tone(196, 0.22, "triangle", 0.5);
       }
     }
     this.flash = Math.max(0, this.flash - dt * 1.6);

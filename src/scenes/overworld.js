@@ -519,14 +519,18 @@ export class OverworldScene {
     // vezes o normal, e ligado à força mesmo com o glitchMode desligado. É o
     // único aviso de que um abriu — não tem texto nem seta, você vê a tela
     // estragar e vai procurar.
-    const rasgo = portalAberto(this.st, this.st.player.map);
+    // A TELA CORROMPENDO PERTO DO RASGO É SUSTO, e sai com `CONFIG.sustos`
+    // desligado. Era o efeito mais forte que a raid tinha: a tela ia se
+    // estragando sozinha conforme você chegava perto, e ainda dava solavancos em
+    // horas que ninguém escolhia. Sem ele o rasgo continua abrindo no mesmo
+    // lugar e na mesma hora — você acha ele olhando, e não sentindo a tela
+    // apodrecer.
+    const rasgo = DB.CONFIG?.sustos ? portalAberto(this.st, this.st.player.map) : null;
     if (rasgo) {
       Glitch.forced = true;
       Glitch.level = corrupcaoDoPortal(this.st, this.st.player.map);
       this.rasgoForcou = true;
       // e ele PULSA: quanto mais perto, mais vezes a tela dá um solavanco.
-      // Sem isto a corrupção fica parada, e corrupção parada o olho aceita
-      // depois de dez segundos — o rasgo tem que continuar incomodando.
       const perto = pertoDoPortal(this.st, this.st.player.map);
       if (perto > 0 && Math.random() < dt * 3 * perto) Glitch.hit(0.5 * perto);
     } else if (this.rasgoForcou) {
@@ -879,8 +883,10 @@ export class OverworldScene {
     const aberto = abrirPortal(st, st.player.map, (x, y) =>
       livre(x, y) && [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => livre(x + dx, y + dy)).length >= 3);
     if (!aberto) return;
-    Glitch.hit(2.5);
-    Audio2.glitch();
+    // com susto, o estouro de ruído de sempre; sem, um sino curto — você ainda
+    // sabe que abriu, mas ninguém pula da cadeira
+    if (DB.CONFIG?.sustos) { Glitch.hit(2.5); Audio2.glitch(); }
+    else { Audio2.tone(880, 0.09, "sine", 0.4); Audio2.tone(1174, 0.14, "sine", 0.3); }
     // o aviso só na primeira vez da partida; depois disso a tela estragando
     // já diz tudo, e uma caixa de texto a cada rasgo viraria castigo
     if (!st.flags.rasgoVisto) {
@@ -895,8 +901,8 @@ export class OverworldScene {
     const chefe = montarChefe(DB.DIM_ENCOUNTERS?.terra || []);
     fecharPortal(this.st);
     if (!chefe) return void this.dlg.say(DB.STORY.glitch.rasgoVazio);
-    Glitch.hit(3);
-    Audio2.glitch();
+    if (DB.CONFIG?.sustos) { Glitch.hit(3); Audio2.glitch(); }
+    else Audio2.select();
     this.dlg.say(DB.STORY.glitch.rasgoEntrou, () => {
       this.startBattle({ mon: chefe.mon, glitch: true, raid: chefe });
     });
@@ -1095,7 +1101,8 @@ export class OverworldScene {
 
   startBattle(enc) {
     Audio2.stopLoop();
-    if (enc.raid) { Glitch.hit(3); Audio2.glitch(); }
+    // a entrada na batalha de raid: o estouro também é susto
+    if (enc.raid && DB.CONFIG?.sustos) { Glitch.hit(3); Audio2.glitch(); }
     if (enc.glitch) { Glitch.hit(2); Audio2.glitch(); }
     Audio2.tone(880, 0.08); Audio2.tone(660, 0.12);
     this.fx = { t: 0, cb: () => this.game.scenes.push(new BattleScene(),
@@ -3334,7 +3341,9 @@ export class OverworldScene {
     // O RASGO: faixas tortas que não param quietas, empilhadas num buraco alto
     // demais pro tile. Não é um sprite — é o desenho falhando naquele pedaço.
     if (n.sprite === "rasgo") {
-      const t = performance.now() / 90;
+      // sem sustos ele pisca bem mais devagar: a mesma imagem, sem a
+      // estroboscopia que faz o olho reagir antes da cabeça
+      const t = performance.now() / (DB.CONFIG?.sustos ? 90 : 300);
       const cores = ["#b455ff", "#00ffcc", "#ff0066", "#ffffff"];
       const meio = x + 8, topo = y - 14;
       // o miolo: o buraco propriamente dito, que é onde não tem desenho nenhum
