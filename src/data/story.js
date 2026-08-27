@@ -547,7 +547,8 @@ export const STORY = {
     raidEscudo: "TEM UMA CASCA DE DADO NA FRENTE DELE.",
     escudoQuebrou: "A CASCA RACHOU! AGORA O DANO CHEGA NELE.",
     raidSemBola: "A CASCA AINDA ESTÁ DE PÉ. A BOLA NEM ENCOSTA.",
-    raidGanhou: "A GLITCH RAID CAIU! VOCÊ ACHOU $ {DINHEIRO} NO CHÃO DA FENDA.",
+    raidCaiu: "{NOME} NÃO SE SUSTENTA MAIS. O DADO DELE ESTÁ SE FECHANDO.",
+    raidGanhou: "A CASCA VIROU BOLA, E A BOLA É SUA. VOCÊ AINDA ACHOU $ {DINHEIRO} NO CHÃO.",
   },
 
   /** LEILÃO (balcão da loja, com a BARRACA DE LEILÃO na mochila). */

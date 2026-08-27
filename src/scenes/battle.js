@@ -151,7 +151,15 @@ export class BattleScene {
    *  inchaço anda no relógio do jogo e não numa fila de setTimeout. */
   crescer() {
     if (!this.raid) return Promise.resolve();
-    this.crescendo = { t: 0, dur: RAID.cresceEm };
+    this.crescendo = { t: 0, dur: RAID.cresceEm, de: RAID.cresceDe, para: RAID.tamanho };
+    return this.until(() => !this.crescendo);
+  }
+
+  /** O CAMINHO DE VOLTA: ele desinfla até sumir. Mesma conta do crescer, ao
+   *  contrário — o chefe entra ficando grande e sai ficando pequeno, e é isso
+   *  que faz o fim parecer o começo rodando pra trás. */
+  encolher() {
+    this.crescendo = { t: 0, dur: RAID.cresceEm * 0.55, de: this.sp.f.escala, para: 0 };
     return this.until(() => !this.crescendo);
   }
   syncHp() { return this.until(() => this.disp.p === this.mine.hp && this.disp.f === this.foe.hp); }
@@ -400,46 +408,21 @@ export class BattleScene {
   }
 
   async onFoeFaint() {
+    // A GLITCH RAID NÃO DESMAIA: ELA VIRA BOLA. Derrubar o chefe é a captura —
+    // ele desinfla até sumir, a bola cai no lugar onde ele estava, e ele é seu.
+    //
+    // É a única luta do jogo em que ganhar É pegar, e é de propósito: o chefe
+    // tem cinco vidas de HP, uma casca na frente e engorda a cada pancada. Quem
+    // chegou ao fim disso já fez por merecer, e mandar essa pessoa jogar bola
+    // num bicho que ela acabou de derrubar seria cobrar o preço duas vezes.
+    if (this.raid) return this.raidVirouBola();
+
     Audio2.faint();
     this.sp.f.faint = true;
     await this.wait(0.7);
     await this.say(`${this.trainer ? "O " + this.foe.nickname + " INIMIGO" : this.foe.nickname + " SELVAGEM"} DESMAIOU!`);
 
-    // GLITCH RAID derrubada: dinheiro no chão da fenda, e a experiência dobrada
-    if (this.raid) {
-      const pr = premioRaid();
-      this.st.money = Math.min(999999, (this.st.money || 0) + pr.dinheiro);
-      this.raid.xp = pr.xp;
-      Glitch.hit(2);
-      Audio2.heal();
-      await this.say(DB.STORY.glitch.raidGanhou.replace("{DINHEIRO}", pr.dinheiro));
-    }
-
-    // o SANDUÍCHE DOCE do acampamento entra aqui, multiplicando o que se aprende
-    const xp = Math.floor(xpYieldFor(this.foe) * (this.trainer ? 1.5 : 1)
-                          * fator(this.st, "xp") * (this.raid?.xp || 1));
-    const share = DB.CONFIG?.shareXp !== false;
-    // desmaiado não ganha experiência (senão ele subiria de nível dentro da bola)
-    const winners = (share ? this.st.party : [this.mine]).filter((m) => !isFainted(m));
-    const ativo = isFainted(this.mine) ? null : this.mine;   // pode ter caído junto
-
-    if (ativo) await this.say(`${ativo.nickname} GANHOU ${xp} DE EXP.!`);
-    const outros = winners.filter((m) => m !== ativo).length;
-    if (share && outros) {
-      await this.say(`${ativo ? "O RESTO DA EQUIPE TAMBÉM GANHOU" : "A EQUIPE GANHOU"} ${xp} DE EXP.!`);
-    }
-    for (const mon of winners) {
-      for (const ev of gainXp(mon, xp)) {
-        if (ev.type === "level") {
-          Audio2.heal();
-          await this.say(`${mon.nickname} SUBIU PARA O NÍVEL ${ev.level}!`);
-        }
-        if (ev.type === "move") await this.say(`${mon.nickname} APRENDEU ${DB.MOVES[ev.id].name}!`);
-        if (ev.type === "moveFull") {
-          await this.say(`${mon.nickname} TENTOU APRENDER ${DB.MOVES[ev.id].name}, MAS JÁ SABE 4 GOLPES.`);
-        }
-      }
-    }
+    await this.premiarExp();
 
     if (this.trainer && this.foeIdx < this.foeParty.length - 1) {
       this.foeIdx++;
@@ -571,26 +554,7 @@ export class BattleScene {
       if (reverterMega(this.foe)) {
         await this.say(DB.STORY.mega.voltou.replace("{MON}", this.foe.nickname));
       }
-      this.st.caught[this.foe.species] = true;
-      if (this.boss && this.npcKey) (this.st.npcState[this.npcKey] ||= {}).defeated = true;
-      if (this.st.party.length < 6) {
-        this.st.party.push(this.foe);
-        await this.say(`${this.foe.nickname} ENTROU NA EQUIPE.`);
-      } else {
-        await this.say(`${this.foe.nickname} FOI ENVIADO AO PC.`);
-        this.st.box.push(this.foe);
-      }
-      if (this.boss) await this.say(DB.STORY.dimension.caught);
-      if (this.foe.species === "missingno") {
-        // fim do arco: o mundo volta ao normal
-        this.st.flags.caughtMissingno = true;
-        this.st.flags.glitchWorld = false;
-        this.st.corruption = 0;
-        Glitch.forced = false;
-        Glitch.burst = 0;
-        for (const line of DB.STORY.ending) await this.say(line);
-      }
-      await this.finish();
+      await this.guardarCapturado();
       return;
     }
     this.ballAnim = null;
@@ -599,6 +563,101 @@ export class BattleScene {
     const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
     if (fMove) await this.useMove("f", fMove);
     await this.checkFaints();
+  }
+
+  /** A EXPERIÊNCIA de derrubar aquele bicho. Virou método porque a GLITCH RAID
+   *  não passa mais pelo desmaio (ela vira bola), e sem isto ela deixaria de
+   *  dar experiência nenhuma — o chefe mais difícil do jogo pagando menos que
+   *  um pidgey. */
+  async premiarExp() {
+    // o SANDUÍCHE DOCE do acampamento entra aqui, multiplicando o que se aprende
+    const xp = Math.floor(xpYieldFor(this.foe) * (this.trainer ? 1.5 : 1)
+                          * fator(this.st, "xp") * (this.raid?.xp || 1));
+    const share = DB.CONFIG?.shareXp !== false;
+    // desmaiado não ganha experiência (senão ele subiria de nível dentro da bola)
+    const winners = (share ? this.st.party : [this.mine]).filter((m) => !isFainted(m));
+    const ativo = isFainted(this.mine) ? null : this.mine;   // pode ter caído junto
+
+    if (ativo) await this.say(`${ativo.nickname} GANHOU ${xp} DE EXP.!`);
+    const outros = winners.filter((m) => m !== ativo).length;
+    if (share && outros) {
+      await this.say(`${ativo ? "O RESTO DA EQUIPE TAMBÉM GANHOU" : "A EQUIPE GANHOU"} ${xp} DE EXP.!`);
+    }
+    for (const mon of winners) {
+      for (const ev of gainXp(mon, xp)) {
+        if (ev.type === "level") {
+          Audio2.heal();
+          await this.say(`${mon.nickname} SUBIU PARA O NÍVEL ${ev.level}!`);
+        }
+        if (ev.type === "move") await this.say(`${mon.nickname} APRENDEU ${DB.MOVES[ev.id].name}!`);
+        if (ev.type === "moveFull") {
+          await this.say(`${mon.nickname} TENTOU APRENDER ${DB.MOVES[ev.id].name}, MAS JÁ SABE 4 GOLPES.`);
+        }
+      }
+    }
+  }
+
+  /** O CHEFE VIRANDO BOLA. Ele encolhe até sumir, a bola cai, e a captura é
+   *  a mesma de sempre daí pra frente. */
+  async raidVirouBola() {
+    const G = DB.STORY.glitch;
+    const pr = premioRaid();
+    this.st.money = Math.min(999999, (this.st.money || 0) + pr.dinheiro);
+    this.raid.xp = pr.xp;
+    if (DB.CONFIG?.sustos) { Glitch.hit(2); Audio2.glitch(); }
+    else Audio2.tone(392, 0.16, "triangle", 0.5);
+    await this.say(G.raidCaiu.replace("{NOME}", this.foe.nickname));
+    await this.premiarExp();                 // a experiência do chefe vem antes da bola
+
+    await this.encolher();                   // desinfla até sumir
+    this.sp.f.alpha = 0;
+    Audio2.tone(700, 0.06, "square", 0.6);
+    this.ballAnim = { t: 0.7, shakes: 0 };   // a bola já no chão, sem o arco
+    await this.wait(0.5);
+    for (let i = 0; i < 3; i++) {            // os três chacoalhos, por costume
+      this.ballAnim.shakes = i + 1;
+      Audio2.tone(300 + i * 60, 0.08);
+      await this.wait(0.45);
+    }
+    this.ballAnim.caught = true;
+    Audio2.heal();
+    await this.say(G.raidGanhou.replace("{DINHEIRO}", pr.dinheiro));
+    await this.say(`GOTCHA! ${this.foe.nickname} FOI CAPTURADO!`);
+
+    // Ele entra INTEIRO. Estava em zero porque você acabou de derrubar, e um
+    // prêmio que chega desmaiado é um prêmio que você não pode usar até o
+    // próximo Centro — o que transforma a recompensa em ida e volta.
+    heal(this.foe);
+    if (reverterMega(this.foe)) {
+      await this.say(DB.STORY.mega.voltou.replace("{MON}", this.foe.nickname));
+    }
+    await this.guardarCapturado();
+  }
+
+  /** O QUE ACONTECE DEPOIS DE PEGAR. Vale pra bola jogada por você e pra GLITCH
+   *  RAID derrubada — os dois terminam no mesmo lugar, e um jeito só de guardar
+   *  é um jeito só de errar. */
+  async guardarCapturado() {
+    this.st.caught[this.foe.species] = true;
+    if (this.boss && this.npcKey) (this.st.npcState[this.npcKey] ||= {}).defeated = true;
+    if (this.st.party.length < 6) {
+      this.st.party.push(this.foe);
+      await this.say(`${this.foe.nickname} ENTROU NA EQUIPE.`);
+    } else {
+      await this.say(`${this.foe.nickname} FOI ENVIADO AO PC.`);
+      this.st.box.push(this.foe);
+    }
+    if (this.boss) await this.say(DB.STORY.dimension.caught);
+    if (this.foe.species === "missingno") {
+      // fim do arco: o mundo volta ao normal
+      this.st.flags.caughtMissingno = true;
+      this.st.flags.glitchWorld = false;
+      this.st.corruption = 0;
+      Glitch.forced = false;
+      Glitch.burst = 0;
+      for (const line of DB.STORY.ending) await this.say(line);
+    }
+    await this.finish();
   }
 
   async tryFlee() {
@@ -696,7 +755,7 @@ export class BattleScene {
       c.t += dt;
       const k = Math.min(1, c.t / c.dur);
       const macio = k * k * (3 - 2 * k);
-      this.sp.f.escala = RAID.cresceDe + macio * (RAID.tamanho - RAID.cresceDe);
+      this.sp.f.escala = c.de + macio * (c.para - c.de);
       // O TREMOR E O ESTOURO SÃO SUSTO. Sem eles ele cresce liso e para: o
       // tamanho continua dizendo o que ele é, sem sacudir a tela pra dizer.
       const susto = !!DB.CONFIG?.sustos;
