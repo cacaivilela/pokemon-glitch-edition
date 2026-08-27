@@ -480,6 +480,20 @@ export const STORY = {
     olha: "A FITA ESTÁ PARADA NO MEIO DE UMA PALAVRA QUE NÃO É NOME DE NINGUÉM.",
   },
 
+  /** A BALSA das ILHAS SEVII (src/data/sevii.js). */
+  sevii: {
+    pergunta: "A BALSA SAI AGORA. PRA ONDE?",
+    aquiNao: "AGORA NÃO",
+    voltar: "VOLTAR PRO CONTINENTE",
+    travado: [
+      "SETE ILHAS A LESTE, E EU LEVO QUALQUER UM QUE AGUENTE O QUE MORA LÁ.",
+      "VOLTA QUANDO TIVER TRÊS INSÍGNIAS. NÃO É REGRA MINHA — É QUE EU NÃO GOSTO DE TRAZER GENTE DE VOLTA CARREGADA.",
+    ],
+    zarpou: "A BALSA ZARPA. O CONTINENTE VAI FICANDO PARA TRÁS.",
+    chegou: "VOCÊ CHEGOU EM {ONDE}.",
+    fala: ["EU FAÇO A LINHA DAS SETE ILHAS. SOBE AÍ."],
+  },
+
   /** A DISTORÇÃO ESPAÇO-TEMPO da FLORESTA VIRIDIAN (missão DISTORÇÕES BIZARRAS). */
   distorcao: {
     // A tarja do canto, quando uma abre em algum canto de Kanto. Curta: ela tem

@@ -359,6 +359,8 @@ export class OverworldScene {
     }
     const dist = this.distorcaoNpc();
     if (dist) extra.push(dist);
+    const balsa = this.marinheiroSevii();
+    if (balsa) extra.push(balsa);
     const rasgo = portalAberto(this.st, mapa);
     if (rasgo) extra.push({ id: "rasgo", x: rasgo.x, y: rasgo.y, sprite: "rasgo", raidPortal: true, dir: "down" });
     const f = this.st.fragment;
@@ -366,6 +368,73 @@ export class OverworldScene {
       extra.push({ id: "fragmento", x: f.x, y: f.y, sprite: "portal", fragment: true, dir: "down" });
     }
     return extra.length ? [...base, ...extra] : base;
+  }
+
+  // ------------------------------------------------- A BALSA DAS SEVII
+  /** O marinheiro da balsa: um no cais de VERMILION, um em cada porto de ilha.
+   *  É o mesmo NPC nos oito lugares, porque é o mesmo barco. */
+  marinheiroSevii() {
+    const S = DB.SEVII;
+    if (!S) return null;
+    const aqui = this.st.player.map;
+    if (aqui === S.embarque.mapa) {
+      return { id: "balsa", x: S.embarque.x, y: S.embarque.y, dir: "right",
+               sprite: "marinheiro", balsa: true, lines: DB.STORY.sevii.fala };
+    }
+    if ((DB.PORTOS || []).includes(aqui)) {
+      return { id: "balsa", x: S.chegada.x - 2, y: S.chegada.y, dir: "right",
+               sprite: "marinheiro", balsa: true, lines: DB.STORY.sevii.fala };
+    }
+    return null;
+  }
+
+  /** O menu da balsa: pra onde dá pra ir daqui. A ilha em que você já está não
+   *  entra na lista — oferecer o lugar onde a pessoa está é ocupar uma linha
+   *  da caixa pra não fazer nada. */
+  pegarBalsa() {
+    const S = DB.SEVII, T = DB.STORY.sevii;
+    const st = this.st;
+    if ((st.badges || []).length < (S.requer?.insignias ?? 0)) {
+      return void this.dlg.say(T.travado);
+    }
+    const aqui = st.player.map;
+    const destinos = S.ilhas.filter((i) => i.porto !== aqui);
+    const rotulos = destinos.map((i) => i.nome);
+    const voltar = aqui !== S.embarque.mapa;
+    if (voltar) rotulos.push(T.voltar);
+    rotulos.push(T.aquiNao);
+    this.dlg.ask(T.pergunta, rotulos, (i) => {
+      if (i < destinos.length) return this.zarparPara(destinos[i]);
+      if (voltar && i === destinos.length) {
+        return this.zarparPara({ nome: S.embarque.nome, porto: S.embarque.mapa,
+                                 x: S.embarque.x + 1, y: S.embarque.y + 1 });
+      }
+    });
+  }
+
+  /** A travessia. Mesma transição de qualquer viagem: some a tela, troca o
+   *  mundo, volta. */
+  zarparPara(destino) {
+    const S = DB.SEVII, T = DB.STORY.sevii;
+    const st = this.st;
+    Audio2.tone(392, 0.14, "triangle", 0.5);
+    this.dlg.say(T.zarpou, () => {
+      this.fx = { t: 0, cb: () => {
+        Object.assign(st.player, {
+          map: destino.porto,
+          x: destino.x ?? S.chegada.x,
+          y: destino.y ?? S.chegada.y,
+          dir: "down",
+        });
+        st.surfando = null;
+        this.selvagens = [];
+        this.compa = null;
+        this.justWarped = true;
+        this.afterTravel();
+        this.game.autosave?.(true);
+        this.dlg.say(T.chegou.replace("{ONDE}", destino.nome));
+      } };
+    });
   }
 
   /** A DISTORÇÃO DE AGORA. Ela troca de lugar sozinha de tempos em tempos, e a
@@ -1309,6 +1378,7 @@ export class OverworldScene {
     if (npc.aurora) return this.talkVelhaAurora(state);
     if (npc.escort) return this.talkEscort(npc);
     if (npc.boss) return this.startBossBattle(npc);
+    if (npc.balsa) return this.pegarBalsa();
     if (npc.distorcao) return this.investigarDistorcao();
     if (npc.raidPortal) return this.entrarNoRasgo();
     if (npc.portal) return this.usePortal();

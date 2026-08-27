@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -35,6 +35,7 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./bravos.js" + V),
   import("./iniciais.js" + V),
   import("./distorcoes.js" + V),
+  import("./sevii.js" + V),
   fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
 
@@ -86,6 +87,12 @@ function mergeMaps(kanto, authored) {
       spawn: first ? { x: first.x, y: first.y, dir: c.interior ? "up" : "down" }
                    : pontoSeco(geo),
     };
+  }
+  // AS SEVII ganham nome de gente. O nome montado do id sai "ONE ILHA", que é
+  // inglês e português no mesmo rótulo — e ele aparece na faixa toda vez que
+  // alguém entra num lugar.
+  for (const [id, nome] of Object.entries(sevii.NOMES || {})) {
+    if (out[id]) out[id].name = nome;
   }
   for (const [id, m] of Object.entries(authored)) {
     const base = out[id] || {};
@@ -285,6 +292,9 @@ export function buildDB() {
     CONCURSO: concurso.CONCURSO,
     MISSOES: missoes.MISSOES,
     DISTORCOES: distorcoes.DISTORCOES,
+    SEVII: sevii.SEVII,
+    NOMES_SEVII: sevii.NOMES,
+    PORTOS: sevii.PORTOS,
     BRAVOS: bravos.BRAVOS,
     REGIOES: iniciais.REGIOES,
     LINHAS: iniciais.LINHAS,

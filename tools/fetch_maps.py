@@ -39,6 +39,19 @@ FuchsiaCity Route12 Route13 Route14 Route15 Route19 Route20 CinnabarIsland
 Route21_North Route21_South Route22 Route23 VictoryRoad_1F VictoryRoad_2F
 VictoryRoad_3F DiglettsCave_B1F PowerPlant
 BirthIsland_Exterior
+
+OneIsland OneIsland_KindleRoad OneIsland_TreasureBeach OneIsland_Harbor
+MtEmber_Exterior
+TwoIsland TwoIsland_CapeBrink TwoIsland_Harbor
+ThreeIsland ThreeIsland_BondBridge ThreeIsland_Port ThreeIsland_Harbor
+ThreeIsland_BerryForest
+FourIsland FourIsland_Harbor
+FiveIsland FiveIsland_Meadow FiveIsland_ResortGorgeous FiveIsland_WaterLabyrinth
+FiveIsland_MemorialPillar FiveIsland_Harbor
+SixIsland SixIsland_WaterPath SixIsland_GreenPath SixIsland_OutcastIsland
+SixIsland_RuinValley SixIsland_Harbor
+SevenIsland SevenIsland_Harbor SevenIsland_SevaultCanyon_Entrance
+SevenIsland_SevaultCanyon SevenIsland_TanobyRuins
 """.split()
 
 GATES = """
@@ -61,6 +74,12 @@ FuchsiaCity_PokemonCenter_1F FuchsiaCity_Mart
 CinnabarIsland_PokemonCenter_1F CinnabarIsland_Mart
 Route4_PokemonCenter_1F Route10_PokemonCenter_1F
 PalletTown_PlayersHouse_1F PalletTown_ProfessorOaksLab
+
+OneIsland_PokemonCenter_1F TwoIsland_PokemonCenter_1F
+ThreeIsland_PokemonCenter_1F ThreeIsland_Mart
+FourIsland_PokemonCenter_1F FourIsland_Mart
+FiveIsland_PokemonCenter_1F SixIsland_PokemonCenter_1F SixIsland_Mart
+SevenIsland_PokemonCenter_1F SevenIsland_Mart
 """.split()
 
 GYMS = """
