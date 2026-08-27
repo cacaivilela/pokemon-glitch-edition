@@ -157,7 +157,6 @@ export class OverworldScene {
     this.wanderT = 0;
     this.rustle = null;      // tufo de grama quando pisa
     this.selvagens = [];     // os bichos à vista (cenário vivo: não vão pro save)
-    this.movendo = false;
     this.nascerT = 0;
     this.compa = null;       // o COMPANHEIRO: quem da equipe está te seguindo
     this.fx = null;          // transição de batalha
@@ -544,14 +543,6 @@ export class OverworldScene {
       Glitch.forced = !!(this.st.flags?.glitchWorld || this.st.mission);
     }
     Online.mandaPos(dt, this.st.player, !!this.move);
-    // O COMPANHEIRO sai andando NO MESMO QUADRO que você, indo pro tile que
-    // você está deixando — aqui o `player.x/y` ainda é o de trás, que é
-    // exatamente o que ele precisa. Fechar o passo dele no fim do seu o fazia
-    // teleportar de tile em tile enquanto você deslizava.
-    if (this.move && !this.movendo) {
-      this.movendo = true;
-      this.moverCompanheiro(this.st.player.x, this.st.player.y, this.move.dx, this.move.dy);
-    } else if (!this.move) this.movendo = false;
     this.updateWander(dt);
     this.updateSelvagens(dt);
     // A VIDA VOLTA ANDANDO, devagar, e só quando ninguém está te caçando. Sem
@@ -855,7 +846,26 @@ export class OverworldScene {
     return this.st.party?.find((m) => m.hp > 0) || null;
   }
 
-  /** Chamado no fim de cada passo, com o tile que o jogador está DEIXANDO. */
+  /** O passo do companheiro começa no MESMO quadro que o seu.
+   *
+   *  O GANCHO FICA NO DESENHO, e não no update, porque o movimento é CRIADO no
+   *  fim do update: uma checagem no começo dele perde justamente o quadro em
+   *  que o passo nasceu. Nesse quadro o companheiro era desenhado com os dados
+   *  do passo ANTERIOR — dois tiles atrás — e pulava pro lugar no quadro
+   *  seguinte. Era esse o estalo, e é o mesmo defeito que o jogador já teve (a
+   *  conta do `playerPixel` tem a anotação disso).
+   *
+   *  A marca vai no próprio `move`: ele nasce e morre com o passo, então não
+   *  existe estado pra limpar nem jeito de sincronizar duas vezes o mesmo. */
+  sincronizarCompanheiro() {
+    if (!this.move || this.move.compaOk) return;
+    this.move.compaOk = true;
+    const p = this.st.player;
+    this.moverCompanheiro(p.x, p.y, this.move.dx, this.move.dy);
+  }
+
+  /** Põe o companheiro andando pro tile que o jogador está DEIXANDO (aqui o
+   *  `player.x/y` ainda é o de trás, que é exatamente o que ele precisa). */
   moverCompanheiro(x, y, dx, dy) {
     const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
     // primeira vez: ele sai de debaixo do jogador, e não do canto do mapa
@@ -3130,6 +3140,8 @@ export class OverworldScene {
       ctx.translate(Math.round((Math.random() * 2 - 1) * this.tremor * 3),
                     Math.round((Math.random() * 2 - 1) * this.tremor * 3));
     }
+    // antes de qualquer desenho: o companheiro tem que saber deste passo
+    this.sincronizarCompanheiro();
     const cx = Math.round(this.cam.x), cy = Math.round(this.cam.y);
 
     const art = mapArt(this.st.player.map);
