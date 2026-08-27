@@ -3605,14 +3605,21 @@ export class OverworldScene {
           drawText(ctx, sp.name, 148, 78, PAL.ink);
           drawText(ctx, sp.types.join("/").slice(0, 14), 148, 90, PAL.ink2);
           drawText(ctx, `TOTAL ${sp.bst}`, 148, 100, PAL.ink2);
-          const avessa = atual.origem === "auto" && vs.length === 1
-            && versoesInvertidas(m.cabeca.species, escolhido.species).quantas > 0;
+          // FICHA AO CONTRÁRIO: existe desenho pra essa dupla, mas com os lados
+          // trocados. A etiqueta agora diz o NOME dela, e não só que ela
+          // existe: "AO CONTRÁRIO" sozinho é um diagnóstico — quem lê não
+          // descobre que tem um BASTIORDOS pronto do outro lado, e vai embora
+          // achando que o desenho sumiu.
+          const inv = atual.origem === "auto" && vs.length === 1
+            ? versoesInvertidas(m.cabeca.species, escolhido.species) : null;
+          const avessa = inv?.quantas > 0;
           const cor = atual.origem === "sua" ? "#00ffcc"
             : atual.origem === "jogo" ? "#f0c419"
             : atual.origem === "jogador" ? "#59d99b"
             : avessa ? "#f0c419" : PAL.ink2;
-          drawText(ctx, avessa ? F.fichaAoContrario : atual.rotulo, 148, 110, cor);
-          if (vs.length > 1) drawText(ctx, `C ${(m.variante || 0) + 1}/${vs.length}`, 148, 120, PAL.ink2);
+          drawText(ctx, avessa ? (inv.nome || "?").slice(0, 15) : atual.rotulo, 148, 110, cor);
+          if (avessa) drawText(ctx, F.fichaAoContrario, 148, 120, "#f0c419");
+          else if (vs.length > 1) drawText(ctx, `C ${(m.variante || 0) + 1}/${vs.length}`, 148, 120, PAL.ink2);
         } else drawText(ctx, F.naoDaParaFundir.slice(0, 14), 148, 60, PAL.ink2);
       } else if (escolhido) {
         ctx.drawImage(Assets.mon(escolhido.species, escolhido.seed), 164, 26, 48, 48);

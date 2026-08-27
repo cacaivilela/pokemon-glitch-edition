@@ -374,7 +374,9 @@ export const STORY = {
     saiuBrilhando: "OS DOIS SAÍRAM BRILHANDO.",
     // a ficha existe, mas ao contrário (fez A+B e está fundindo B+A)
     temFichaTag: "FICHA: {NOME}",
-    fichaAoContrario: "FICHA AO CONTRÁRIO",
+    // Vai EMBAIXO do nome da ficha invertida, então diz o que fazer em vez de
+    // repetir que ela existe — o nome logo acima já disse isso.
+    fichaAoContrario: "TROQUE OS LADOS",
     perguntaInverter: "SUA FICHA É {NOME}, COM {CABECA} NA CABEÇA. E VOCÊ PEDIU {OUTRO} NA CABEÇA.",
     opcoesInverter: ["TROCAR OS LADOS", "FUNDIR DO MEU JEITO", "CANCELAR"],
     copiarInvertida: "COPIAR A FICHA AO CONTRÁRIO",
