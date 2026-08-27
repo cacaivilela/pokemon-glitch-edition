@@ -5,7 +5,14 @@
 //
 // Este jogo não tem troca entre jogadores, então as quatro evoluções por troca
 // do FireRed (ALAKAZAM, MACHAMP, GOLEM, GENGAR) viraram evolução por nível alto.
+import { EVO_INICIAIS } from "./iniciais.js";
+
 export const EVOLUTIONS = {
+  // OS INICIAIS DAS OUTRAS REGIÕES. As regras saem de src/data/iniciais.js,
+  // montadas das linhagens de lá — escrever as 24 linhagens aqui de novo seria
+  // manter a mesma informação em dois lugares, e um dia um deles fica pra trás.
+  ...EVO_INICIAIS,
+
   // iniciais
   bulbasaur: [{ lvl: 16, to: "ivysaur" }],
   ivysaur: [{ lvl: 32, to: "venusaur" }],

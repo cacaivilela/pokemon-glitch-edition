@@ -482,6 +482,9 @@ export const STORY = {
 
   /** A DISTORÇÃO ESPAÇO-TEMPO da FLORESTA VIRIDIAN (missão DISTORÇÕES BIZARRAS). */
   distorcao: {
+    // A tarja do canto, quando uma abre em algum canto de Kanto. Curta: ela tem
+    // 240px de tela e some sozinha.
+    abriu: "DISTORÇÃO EM {ONDE}!",
     investigou: [
       "O AR AQUI É MAIS GROSSO. VOCÊ ENFIA A MÃO E ELA DEMORA A CHEGAR.",
       "DENTRO DA MOLDURA TEM A MESMA FLORESTA — MAS SEM AS ÁRVORES QUE VOCÊ ACABOU DE PASSAR.",

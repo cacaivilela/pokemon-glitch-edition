@@ -75,7 +75,11 @@ export function inicialDoRival(st) {
  *  insígnias — ele treina junto com você. */
 function formaDoInicial(st) {
   const base = inicialDoRival(st);
-  const linha = cfg().linhas?.[base];
+  // `linhas` do rival.js só conhece Kanto; `DB.LINHAS` tem as 24 das outras
+  // regiões. Sem a segunda, um AZUL que pegou SPRIGATITO ficaria com um
+  // SPRIGATITO nível 60 na última luta — ele treina junto com você, e isso é o
+  // que faz cada reencontro pesar mais que o anterior.
+  const linha = cfg().linhas?.[base] || DB.LINHAS?.[base];
   if (!linha) return base;
   const n = (st?.badges || []).length;
   return linha[n >= 6 ? 2 : n >= 3 ? 1 : 0] || base;

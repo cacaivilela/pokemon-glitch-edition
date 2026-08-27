@@ -19,27 +19,8 @@
 //   resumo    a linha do diário, curta
 //   oferta / lembrete / entrega   o que ele fala em cada momento
 //   requer    { insignias, missao, flag } — trava até a condição bater
-//   distorcao onde a coisa a investigar fica, e o que sai dela (só a das
-//             DISTORÇÕES BIZARRAS usa; ver DISTORCAO aqui embaixo)
 //   travado   o que ele fala enquanto `requer` não bate (opcional)
 //   premio    { dinheiro, item, qtd }
-
-/** A DISTORÇÃO ESPAÇO-TEMPO da FLORESTA VIRIDIAN (missão `distorcoes`).
- *
- *  Ela fica parada no meio do mato e só existe enquanto o pedido está aberto —
- *  investigada uma vez, some. Encostar nela faz sair o que ela guarda: FÓSSEIS
- *  VIVOS, e não os remontados do museu.
- *
- *  A escolha das espécies é o argumento inteiro da missão: se saísse um bicho
- *  qualquer da fenda, a distorção seria mais um buraco pra outro LUGAR, que o
- *  jogo já tem de sobra. Saindo bicho que morreu há milhões de anos, ela vira
- *  um buraco pra outro TEMPO — e é isso que o cientista descobre na entrega. */
-export const DISTORCAO = {
-  mapa: "viridian_forest", x: 27, y: 43,
-  quantos: 4,                 // quantos saem de dentro
-  nivel: [12, 20],
-  saem: ["cranidos", "shieldon", "lileep", "anorith", "tirtouga", "archen"],
-};
 
 export const MISSOES = [
   {
@@ -107,14 +88,17 @@ export const MISSOES = [
       "...NÃO, AINDA NÃO DÁ PRA EXPLICAR. VOLTA DEPOIS QUE VOCÊ TIVER VISTO A FENDA POR DENTRO.",
     ],
     objetivo: { tipo: "bandeira", flag: "distorcaoVista" },
-    resumo: "INVESTIGAR A DISTORÇÃO NO MEIO DA FLORESTA VIRIDIAN.",
+    resumo: "ENCOSTAR NUMA DISTORÇÃO. O JOGO AVISA ONDE A ATUAL ABRIU.",
     oferta: [
       "VOCÊ TAMBÉM ESTÁ VENDO? OLHA A ÁRVORE ALI ATRÁS. AGORA OLHA DE NOVO.",
       "ELA MUDA DE LUGAR. NÃO ANDA — MUDA. E VOLTA.",
-      "TEM UMA COISA NO MEIO DESTA FLORESTA QUE NÃO É UM BURACO NO CHÃO. É UM BURACO NO QUANDO.",
-      "EU NÃO ENTRO NAQUILO. VOCÊ ENTRA EM FENDA POR ESPORTE — VAI LÁ E ME CONTA O QUE VOCÊ VÊ.",
+      "TEM UMA COISA QUE NÃO É UM BURACO NO CHÃO. É UM BURACO NO QUANDO.",
+      "E ELA NÃO FICA PARADA: DE CINCO EM CINCO MINUTOS ELA FECHA E ABRE EM OUTRO CANTO DE KANTO.",
+      "EU MONTEI UM APITO QUE AVISA ONDE. TOMA — AGORA VOCÊ SABE SEMPRE. VAI LÁ E ME CONTA O QUE VOCÊ VÊ.",
     ],
-    lembrete: ["NO MEIO DA FLORESTA. ONDE O AR FICA MORNO E O SOM CHEGA ATRASADO."],
+    // O LEMBRETE DIZ ONDE A ATUAL ESTÁ. É o conserto do "não acho": o
+    // cientista sabe, então ele fala. `{ONDE}` vira o nome do mapa.
+    lembrete: ["A DE AGORA ABRIU EM {ONDE}. CORRE, QUE ELA TROCA DE LUGAR."],
     entrega: [
       "FÓSSEIS. ANDANDO.",
       "NÃO SÃO REMONTADOS COMO OS DO MUSEU. SÃO OS BICHOS, DO JEITO QUE ELES ERAM.",

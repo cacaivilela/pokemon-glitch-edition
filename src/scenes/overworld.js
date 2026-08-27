@@ -22,6 +22,7 @@ import {
 } from "../systems/mon.js";
 import { scatterDimLoot } from "../systems/loot.js";
 import { nascer, andar, emCima, cacando, fugindo, encontroDe } from "../systems/selvagens.js";
+import { distorcaoDeAgora, distorcaoAqui, ondeEla } from "../systems/distorcoes.js";
 import { montarChefe, temPortal, abrirPortal, portalAberto, fecharPortal, corrupcaoDoPortal, pertoDoPortal }
   from "../systems/raid.js";
 import { pedrasIniciaisDevidas } from "../systems/mega.js";
@@ -367,23 +368,36 @@ export class OverworldScene {
     return extra.length ? [...base, ...extra] : base;
   }
 
-  /** A DISTORÇÃO ESPAÇO-TEMPO da FLORESTA VIRIDIAN. Ela só existe enquanto o
-   *  pedido está aberto: sem ninguém ter te contado, um buraco no ar no meio do
-   *  mato seria só um enfeite estranho; investigada, some. */
+  /** A DISTORÇÃO DE AGORA. Ela troca de lugar sozinha de tempos em tempos, e a
+   *  troca AVISA: um evento que acontece e não se anuncia é um evento que não
+   *  acontece — a tela mostra 10 tiles de altura e a ROTA 11 tem 285 de mato.
+   *
+   *  O aviso é a tarja do canto, e não caixa de diálogo: ela abre enquanto você
+   *  anda, e parar o jogo a cada cinco minutos seria pior que não avisar. */
+  updateDistorcao() {
+    const { trocou } = distorcaoDeAgora(this.st);
+    if (!trocou) return;
+    this.avisar(DB.STORY.distorcao.abriu.replace("{ONDE}", ondeEla(this.st)));
+    Audio2.tone(880, 0.1, "sine", 0.35);
+    Audio2.tone(1318, 0.16, "sine", 0.28);
+    this.game.autosave?.();
+  }
+
+  /** Ela no mapa em que você está — o desenho e o encosto saem daqui. */
   distorcaoNpc() {
-    const D = DB.DISTORCAO;
-    if (!D || this.st.player.map !== D.mapa) return null;
-    if (this.st.flags?.distorcaoVista) return null;
-    if (!this.st.missoes?.distorcoes) return null;       // ninguém te falou dela ainda
-    return { id: "distorcao", x: D.x, y: D.y, dir: "down", sprite: "distorcao", distorcao: true };
+    const d = distorcaoAqui(this.st, this.st.player.map);
+    if (!d) return null;
+    return { id: "distorcao", x: d.x, y: d.y, dir: "down", sprite: "distorcao", distorcao: true };
   }
 
   /** Encostar nela. O que sai é FÓSSIL VIVO — o argumento inteiro da missão
    *  (ver DISTORCAO em src/data/missoes.js). */
   investigarDistorcao() {
-    const D = DB.DISTORCAO;
+    const D = DB.DISTORCOES;
     const S = DB.STORY.distorcao;
     this.st.flags.distorcaoVista = true;
+    // encostada, ela fecha na hora e a próxima já marca hora de abrir
+    delete this.st.distorcao;
     this.tremor = 1.2;
     this.clarao = 0.4;
     if (DB.CONFIG?.sustos) { Glitch.hit(2.5); Audio2.glitch(); }
@@ -581,6 +595,7 @@ export class OverworldScene {
     }
     Online.mandaPos(dt, this.st.player, !!this.move);
     this.updateWander(dt);
+    this.updateDistorcao();
     this.updateSelvagens(dt);
     // A VIDA VOLTA ANDANDO, devagar, e só quando ninguém está te caçando. Sem
     // isso, uma pancada no começo do jogo te seguiria até o próximo Centro; com
@@ -2178,7 +2193,12 @@ export class OverworldScene {
     if (agora === "pronta") return this.entregarMissao(missao);
     // missão de viagem: enquanto ela estiver aberta, ele é o barco
     if (agora === "ativa" && missao.viagem) return this.oferecerViagem(missao);
-    if (agora === "ativa") return void this.dlg.say(missao.lembrete);
+    if (agora === "ativa") {
+      // `{ONDE}` no lembrete vira o lugar da distorção de agora: o cientista
+      // sabe onde ela está, então ele fala. É o conserto do "não acho".
+      const onde = ondeEla(st);
+      return void this.dlg.say([].concat(missao.lembrete).map((l) => l.replace("{ONDE}", onde)));
+    }
 
     this.dlg.say(missao.oferta, () => {
       this.dlg.ask(T.aceitar, T.opcoes, (i) => {

@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -34,6 +34,7 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./acampamento.js" + V),
   import("./bravos.js" + V),
   import("./iniciais.js" + V),
+  import("./distorcoes.js" + V),
   fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
 
@@ -283,9 +284,10 @@ export function buildDB() {
     FUSOES_FEITAS: feitas.FUSOES_FEITAS,
     CONCURSO: concurso.CONCURSO,
     MISSOES: missoes.MISSOES,
-    DISTORCAO: missoes.DISTORCAO,
+    DISTORCOES: distorcoes.DISTORCOES,
     BRAVOS: bravos.BRAVOS,
     REGIOES: iniciais.REGIOES,
+    LINHAS: iniciais.LINHAS,
     ARISCOS: bravos.ARISCOS,
     RIVAL: rival.RIVAL,
     VERSAO: versao.VERSAO,
