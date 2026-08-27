@@ -1129,5 +1129,33 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/bulbasaur+arceus~bulbarceus.png",
       "lore": "BULBASAUR NA CABEÇA, ARCEUS NO CORPO."
     }
+  ],
+  "bastiodon+rampardos": [
+    {
+      "id": "bastiordos",
+      "nome": "BASTIORDOS",
+      "autor": "",
+      "tipos": [
+        "PEDRA"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 5.6,
+        "atk": 5.6,
+        "def": 4.9,
+        "spa": 2.8,
+        "spd": 2.1,
+        "spe": 6.8
+      },
+      "sprite": "assets/fusoes/bastiodon+rampardos~bastiordos.png",
+      "lore": "BASTIODON NA CABEÇA, RAMPARDOS NO CORPO."
+    }
   ]
 };
