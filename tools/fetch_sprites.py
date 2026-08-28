@@ -45,7 +45,10 @@ EXTRA_DEX = [201, 233, 235, 292, 337, 338, 345, 347, 382, 383, 384, 386, 408, 40
 # na geração III, então elas vêm com a arte moderna mesmo — os arquivos saem
 # como 10033.png e são achados pelo campo `spriteDex` de src/data/mega.js.
 MEGA_DEX = [10033, 10034, 10035, 10036, 10037, 10038, 10039, 10040,
-            10041, 10042, 10043, 10044, 10071, 10073, 10090]
+            10041, 10042, 10043, 10044, 10071, 10073, 10090,
+            # os PIKACHU DE BONÉ das ilhas SEVII (src/data/bones.js). São FORMAS,
+            # como as MEGA: o número é o da forma na PokeAPI, não o da Pokédex.
+            10094, 10095, 10096, 10097, 10098, 10099, 10148, 10160]
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "assets", "sprites", "pokemon")
 

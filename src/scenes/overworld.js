@@ -361,6 +361,8 @@ export class OverworldScene {
     if (dist) extra.push(dist);
     const balsa = this.marinheiroSevii();
     if (balsa) extra.push(balsa);
+    const cristal = this.cristalNoCume();
+    if (cristal) extra.push(cristal);
     const rasgo = portalAberto(this.st, mapa);
     if (rasgo) extra.push({ id: "rasgo", x: rasgo.x, y: rasgo.y, sprite: "rasgo", raidPortal: true, dir: "down" });
     const f = this.st.fragment;
@@ -368,6 +370,25 @@ export class OverworldScene {
       extra.push({ id: "fragmento", x: f.x, y: f.y, sprite: "portal", fragment: true, dir: "down" });
     }
     return extra.length ? [...base, ...extra] : base;
+  }
+
+  /** O CRISTAL Z, parado no cume da ROCHA NAVEL. Some quando você pega. */
+  cristalNoCume() {
+    const C = DB.CRISTAL;
+    if (!C || this.st.player.map !== C.mapa) return null;
+    if (this.st.flags?.cristalZ) return null;
+    return { id: "cristalz", x: C.x, y: C.y, dir: "down", sprite: "ball", cristal: true };
+  }
+
+  /** Pegar o cristal. */
+  pegarCristal() {
+    const C = DB.CRISTAL;
+    this.st.flags.cristalZ = true;
+    this.st.items[C.item] = (this.st.items[C.item] || 0) + 1;
+    Audio2.heal();
+    Glitch.hit(0.6);
+    this.game.autosave?.(true);
+    this.dlg.say(C.achou);
   }
 
   // ------------------------------------------------- A BALSA DAS SEVII
@@ -398,7 +419,14 @@ export class OverworldScene {
       return void this.dlg.say(T.travado);
     }
     const aqui = st.player.map;
-    const destinos = S.ilhas.filter((i) => i.porto !== aqui);
+    // A ILHA NOVE só entra no menu depois que você tem um PIKACHU DE BONÉ. O
+    // que existe lá é o CRISTAL Z, que serve pra exatamente uma coisa: um item
+    // que só funciona com um bicho que você não tem é um item que não faz nada.
+    const C = DB.CRISTAL;
+    const temBone = [...(st.party || []), ...(st.box || [])]
+      .some((m) => DB.EH_BONE?.has(m.species));
+    const lista = temBone && C ? [...S.ilhas, C.ilha] : S.ilhas;
+    const destinos = lista.filter((i) => i.porto !== aqui);
     const rotulos = destinos.map((i) => i.nome);
     const voltar = aqui !== S.embarque.mapa;
     if (voltar) rotulos.push(T.voltar);
@@ -1378,6 +1406,7 @@ export class OverworldScene {
     if (npc.aurora) return this.talkVelhaAurora(state);
     if (npc.escort) return this.talkEscort(npc);
     if (npc.boss) return this.startBossBattle(npc);
+    if (npc.cristal) return this.pegarCristal();
     if (npc.balsa) return this.pegarBalsa();
     if (npc.distorcao) return this.investigarDistorcao();
     if (npc.raidPortal) return this.entrarNoRasgo();

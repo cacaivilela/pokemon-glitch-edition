@@ -69,6 +69,13 @@ export const NOMES = {
   five_island_pokemon_center_1f: "CENTRO POKÉMON — ILHA CINCO",
   six_island_pokemon_center_1f: "CENTRO POKÉMON — ILHA SEIS",
   seven_island_pokemon_center_1f: "CENTRO POKÉMON — ILHA SETE",
+  // A ROCHA NAVEL é a ILHA NOVE: a última pedra do arquipélago, sem cidade,
+  // sem loja e sem grama. Só uma escada que sobe.
+  navel_rock_harbor: "PORTO DA ILHA NOVE",
+  navel_rock_exterior: "ROCHA NAVEL",
+  navel_rock_fork: "ESCADA DA ROCHA",
+  navel_rock_base: "BASE DA ROCHA",
+  navel_rock_summit: "CUME DA ROCHA",
   three_island_mart: "LOJA — ILHA TRÊS",
   four_island_mart: "LOJA — ILHA QUATRO",
   six_island_mart: "LOJA — ILHA SEIS",

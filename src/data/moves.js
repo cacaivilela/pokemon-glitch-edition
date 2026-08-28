@@ -26,6 +26,10 @@ export const MOVES = {
   folhanavalha:  { name: "FOLHA NAVALHA", type: "PLANTA",     power: 55, acc: 95,  pp: 25, category: "especial", crit: 2 },
   choquedotrovao:{ name: "CHOQUE DO TROVÃO", type: "ELÉTRICO",power: 40, acc: 100, pp: 30, category: "especial", para: 0.1 },
   ondadechoque:  { name: "ONDA DE CHOQUE",type: "ELÉTRICO",   power: 60, acc: 100, pp: 20, category: "especial" },
+  // O GOLPE Z DOS PIKACHU DE BONÉ. Não se aprende: ele sai do CRISTAL Z, uma
+  // vez por batalha, e só na mão de um Pikachu de boné (ver src/data/bones.js).
+  // `pp: 1` é a marca de que ele é de uso único — quem o dispara é a mochila.
+  dezmilhoes:    { name: "10.000.000 DE VOLTS", type: "ELÉTRICO", power: 195, acc: 100, pp: 1, category: "especial", crit: 0.5 },
   trovoada:      { name: "TROVOADA",      type: "ELÉTRICO",   power: 90, acc: 100, pp: 15, category: "especial", para: 0.1 },
   fiodeseda:     { name: "FIO DE SEDA",   type: "INSETO",     power: 0,  acc: 95,  pp: 40, category: "status", stat: { target: "foe", key: "spe", delta: -1 } },
   picada:        { name: "PICADA",        type: "INSETO",     power: 35, acc: 100, pp: 35, category: "fisico" },

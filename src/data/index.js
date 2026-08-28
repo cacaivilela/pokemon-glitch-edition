@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -36,6 +36,7 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./iniciais.js" + V),
   import("./distorcoes.js" + V),
   import("./sevii.js" + V),
+  import("./bones.js" + V),
   fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
 
@@ -249,7 +250,8 @@ export function buildDB() {
     GEN1: gen1.GEN1,
     DEX_ORDER: gen1.DEX_ORDER,
     SPECIES: species.buildSpecies(
-      { ...gen1.GEN1, ...extra.EXTRA, ...iniciais.INICIAIS_ESPECIES, ...mega.MEGA_FORMS },
+      { ...gen1.GEN1, ...extra.EXTRA, ...iniciais.INICIAIS_ESPECIES,
+        ...bones.BONES_ESPECIES, ...mega.MEGA_FORMS },
       types.TYPE_COLOR),
     EXTRA: extra.EXTRA,
     DIM_ENCOUNTERS: extra.DIM_ENCOUNTERS,
@@ -258,7 +260,9 @@ export function buildDB() {
     FUSAO_SELVAGEM: extra.FUSAO_SELVAGEM,
     DEOXYS_FORMS: extra.DEOXYS_FORMS,
     TEMPESTADE: extra.TEMPESTADE,
-    ESTATICOS: extra.ESTATICOS,
+    ESTATICOS: [...extra.ESTATICOS, ...bones.BONES_ESTATICOS],
+    CRISTAL: bones.CRISTAL,
+    EH_BONE: bones.EH_BONE,
     TRIO_CHANCE: extra.TRIO_CHANCE,
     SHINY_EVERY: extra.SHINY_EVERY,
     FRAGMENT_SPOTS: frags.FRAGMENT_SPOTS,

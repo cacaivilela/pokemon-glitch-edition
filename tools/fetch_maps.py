@@ -52,6 +52,7 @@ SixIsland SixIsland_WaterPath SixIsland_GreenPath SixIsland_OutcastIsland
 SixIsland_RuinValley SixIsland_Harbor
 SevenIsland SevenIsland_Harbor SevenIsland_SevaultCanyon_Entrance
 SevenIsland_SevaultCanyon SevenIsland_TanobyRuins
+NavelRock_Exterior NavelRock_Harbor NavelRock_Fork NavelRock_Base NavelRock_Summit
 """.split()
 
 GATES = """

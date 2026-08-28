@@ -69,6 +69,7 @@ export class BattleScene {
     this.flash = 0;
     this.fx = [];                 // os efeitos das cutscenes de golpe
     this.raid = args.raid || null;   // GLITCH RAID: a casca do chefe
+    this.cristalUsado = false;       // o GOLPE Z é uma vez por batalha
     this.disp = { p: this.mine.hp, f: this.foe.hp };
     this.sp = { p: this.newSprite(-90), f: this.newSprite(90) };
     // o chefe entra do tamanho de um filhote; `crescer()` faz o resto
@@ -493,6 +494,13 @@ export class BattleScene {
     out.push({ item: "poção", label: "POÇÃO", bola: false });
     // o GLITCHBOOSTER só aparece na mochila da batalha quando dá pra usar: com
     // o visor no rosto e o professor já tendo explicado o que é isso
+    // O CRISTAL Z: só aparece com um PIKACHU DE BONÉ na frente e uma vez por
+    // batalha. Aparecer sem poder ser usado seria oferecer o que não existe.
+    const C = DB.CRISTAL;
+    if (C && (this.st.items?.[C.item] || 0) > 0 && DB.EH_BONE?.has(this.mine.species)
+        && !this.cristalUsado) {
+      out.push({ item: C.item, label: "CRISTAL Z", bola: false, cristal: true });
+    }
     if (podeUsarBooster(this.st) && !bugado(this.mine)) {
       out.push({ item: GLITCHBOOSTER.item, label: "GLITCHBOOSTER", bola: false, booster: true });
     }
@@ -501,6 +509,30 @@ export class BattleScene {
 
   /** Liga a GLITCHFORM em quem está na frente: daqui pra frente o dano que ele
    *  tomar vira atributo. Gasta o turno, como qualquer item. */
+  /** O GOLPE Z. Uma vez por batalha, e ele não gasta o cristal — o cristal é
+   *  item-chave, como o GLITCHBOOSTER: o que acaba é a vez, não o objeto. */
+  async usarCristalZ() {
+    const C = DB.CRISTAL;
+    this.menu = null;
+    if (!DB.EH_BONE?.has(this.mine.species)) return void this.say(C.semDono);
+    if (this.cristalUsado) return void this.say(C.jaUsou);
+    this.cristalUsado = true;
+    Glitch.hit(1.2);
+    this.flash = 0.6;
+    Audio2.tone(880, 0.08, "square", 0.7);
+    Audio2.tone(1318, 0.14, "square", 0.6);
+    await this.say(C.usou.replace("{MON}", this.mine.nickname));
+    // um `moveRef` descartável: o `useMove` procura o golpe pelo id, e o PP
+    // deste aqui não é de ninguém — quem controla o uso único é `cristalUsado`
+    await this.useMove("p", { id: C.golpe, pp: 1 });
+    await this.checkFaints();
+    if (this.foe.hp > 0 && !isFainted(this.mine)) {
+      const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
+      if (fMove) await this.useMove("f", fMove);
+      await this.checkFaints();
+    }
+  }
+
   async usarBooster() {
     const G = DB.STORY.glitch;
     this.menu = null;
@@ -856,7 +888,8 @@ export class BattleScene {
       if (Input.consume("a")) {
         Audio2.select();
         const it = itens[Math.min(m.index, n - 1)];
-        this.run(it.booster ? this.usarBooster()
+        this.run(it.cristal ? this.usarCristalZ()
+          : it.booster ? this.usarBooster()
                  : it.bola ? this.tryCatch(it.item) : this.usePotion());
       }
       return;
