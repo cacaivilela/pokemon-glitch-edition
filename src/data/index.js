@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -39,6 +39,7 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./bones.js" + V),
   import("./zcristais.js" + V),
   import("./descida.js" + V),
+  import("./motoqueiros.js" + V),
   fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
 
@@ -268,6 +269,7 @@ export function buildDB() {
     CRISTAL: bones.CRISTAL,
     ZCRISTAIS: zc.ZCRISTAIS,
     DESCIDA: desc.DESCIDA,
+    MOTOQUEIROS: moto.MOTOQUEIROS,
     EH_BONE: bones.EH_BONE,
     TRIO_CHANCE: extra.TRIO_CHANCE,
     SHINY_EVERY: extra.SHINY_EVERY,

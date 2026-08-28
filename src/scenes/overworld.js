@@ -24,6 +24,8 @@ import { scatterDimLoot } from "../systems/loot.js";
 import { nascer, andar, emCima, cacando, fugindo, encontroDe } from "../systems/selvagens.js";
 import { distorcaoDeAgora, distorcaoAqui, ondeEla } from "../systems/distorcoes.js";
 import { quemDesce, noTopo } from "../systems/descida.js";
+import { oMaisRapido, ganhaDaBike, aindaEstao, ehMotoqueiro }
+  from "../systems/motoqueiros.js";
 import { montarChefe, temPortal, abrirPortal, portalAberto, fecharPortal, corrupcaoDoPortal, pertoDoPortal }
   from "../systems/raid.js";
 import { pedrasIniciaisDevidas } from "../systems/mega.js";
@@ -340,7 +342,11 @@ export class OverworldScene {
       .filter((n) => !((n.boss || n.sumirDepois) && this.st.npcState[`${mapa}.${n.id}`]?.defeated))
       // `someComFlag`: o NPC sai de cena quando aquilo já aconteceu (o AZUL do
       // laboratório some assim que você escolhe, e volta montado em runtime)
-      .filter((n) => !(n.someComFlag && this.st.flags?.[n.someComFlag]));
+      .filter((n) => !(n.someComFlag && this.st.flags?.[n.someComFlag]))
+      // os MOTOQUEIROS da ILHA TRÊS somem depois de espantados. É por sprite e
+      // não por `someComFlag` escrito no mapa porque esses NPCs vêm do decomp:
+      // qualquer coisa anotada neles à mão morre na próxima reimportação.
+      .filter((n) => !(ehMotoqueiro(n, mapa) && !aindaEstao(this.st)));
     const extra = [];
     const e = this.st.escort;
     if (e && e.map === this.st.player.map) extra.push(this.escortNpc(e));
@@ -419,6 +425,27 @@ export class OverworldScene {
       .filter((c) => c.mapa === aqui && !this.st.items?.[c.item])
       .map((c) => ({ id: `z_${c.golpe}`, x: c.x, y: c.y, dir: "down",
                      sprite: "ball", zcristal: c }));
+  }
+
+  /** OS MOTOQUEIROS DA ILHA TRÊS. Eles se gabam da velocidade da bicicleta, e é
+   *  isso que abre: chegue com alguém mais rápido que a marca deles e eles saem
+   *  pedalando. Vale o MAIS RÁPIDO da equipe, não o primeiro — o time já é o que
+   *  é, ninguém devia ter que reordenar pra provar. */
+  espantarMotoqueiros() {
+    const M = DB.MOTOQUEIROS;
+    const diz = (linhas, m) => this.dlg.say(linhas.map((l) => l
+      .replace("{MARCA}", M.marca)
+      .replace("{MON}", m ? m.nickname : "")
+      .replace("{SPE}", m ? m.stats.spe : "")));
+    const veloz = oMaisRapido(this.st);
+    if (!veloz) return void diz(M.semTime);
+    if (!ganhaDaBike(veloz)) return void diz(M.devagar, veloz);
+    this.st.flags[M.flag] = true;
+    Audio2.tone(660, 0.06, "square", 0.5);
+    Audio2.tone(880, 0.06, "square", 0.5);
+    Audio2.tone(1174, 0.12, "square", 0.45);
+    this.game.autosave?.(true);
+    diz([...M.corrida, M.depois], veloz);
   }
 
   /** Pegar um cristal do chão — de tipo ou de espécie. O de espécie precisa
@@ -1472,6 +1499,7 @@ export class OverworldScene {
     // professor"), e os cristais são desenhados como bola: sem esta ordem, o
     // PIKASHUNIUM Z no cume e os dezoito da ILHA DOIS respondiam com a fala das
     // bolas do Carvalho, a meio mundo de distância dele.
+    if (ehMotoqueiro(npc, this.st.player.map)) return this.espantarMotoqueiros();
     if (npc.zcristal) return this.pegarZ(npc.zcristal);
     if (npc.cristal) return this.pegarCristal();
     if (npc.sprite === "ball") return this.pickStarter(npc, state);
