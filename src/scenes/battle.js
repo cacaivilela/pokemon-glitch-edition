@@ -11,6 +11,7 @@ import { Glitch } from "../systems/glitchfx.js";
 import { cenaDoGolpe } from "../systems/cutscenes.js";
 import { veu, temCeu } from "../systems/ciclo.js";
 import { fator } from "../systems/acampamento.js";
+import { partes } from "../systems/fusao.js";
 import { podeUsarBooster, ligar, acumular, bugado, bonusDe, limpar, limparTudo } from "../systems/glitchboost.js";
 import { bater, podeCapturar, premio as premioRaid, RAID } from "../systems/raid.js";
 import { GLITCHBOOSTER } from "../data/glitch.js";
@@ -279,8 +280,17 @@ export class BattleScene {
    *  um golpe daquele tipo. Ter o cristal sem o golpe não serve de nada. */
   cristaisAqui() {
     const tipos = new Set((this.mine?.moves || []).map((m) => DB.MOVES[m.id]?.type));
-    return (DB.ZCRISTAIS || [])
-      .filter((c) => tipos.has(c.tipo) && (this.st.items?.[c.item] || 0) > 0);
+    return (DB.ZCRISTAIS || []).filter((c) => {
+      if (!(this.st.items?.[c.item] || 0)) return false;
+      if (!tipos.has(c.tipo)) return false;
+      // cristal de ESPÉCIE serve a um bicho só; o de tipo serve a quem souber
+      // um golpe daquele tipo. A fusão vale pelos dois lados dela, como em todo
+      // o resto do jogo — um PIKACHU fundido continua sendo um PIKACHU dentro.
+      if (!c.especie) return true;
+      const p = partes(this.mine.species);
+      return this.mine.species === c.especie
+        || (p && (p.cabeca === c.especie || p.corpo === c.especie));
+    });
   }
 
   /** O golpe Z daquele golpe, se houver cristal pra ele. */

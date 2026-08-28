@@ -364,7 +364,7 @@ export class OverworldScene {
     if (balsa) extra.push(balsa);
     const cristal = this.cristalNoCume();
     if (cristal) extra.push(cristal);
-    extra.push(...this.cristaisDaIlhaDois());
+    extra.push(...this.cristaisNoChao());
     const rasgo = portalAberto(this.st, mapa);
     if (rasgo) extra.push({ id: "rasgo", x: rasgo.x, y: rasgo.y, sprite: "rasgo", raidPortal: true, dir: "down" });
     const f = this.st.fragment;
@@ -413,7 +413,7 @@ export class OverworldScene {
 
   /** OS CRISTAIS Z DE TIPO, espalhados pela ILHA DOIS e pelo CABO DA BEIRA.
    *  Cada um some quando é pego, e só o dele. */
-  cristaisDaIlhaDois() {
+  cristaisNoChao() {
     const aqui = this.st.player.map;
     return (DB.ZCRISTAIS || [])
       .filter((c) => c.mapa === aqui && !this.st.items?.[c.item])
@@ -421,13 +421,21 @@ export class OverworldScene {
                      sprite: "ball", zcristal: c }));
   }
 
-  /** Pegar um cristal de tipo. */
+  /** Pegar um cristal do chão — de tipo ou de espécie. O de espécie precisa
+   *  dizer de quem ele é: um cristal que só serve pra um bicho e não conta qual
+   *  é um item que o jogador guarda pra sempre sem nunca usar. */
   pegarZ(c) {
     const Z = DB.STORY.zcristal;
     this.st.items[c.item] = 1;
     Audio2.heal();
     this.game.autosave?.(true);
-    this.dlg.say([Z.achou.replace("{TIPO}", c.tipo), Z.comoUsa]);
+    if (!c.especie) return void this.dlg.say([Z.achou.replace("{TIPO}", c.tipo), Z.comoUsa]);
+    const dono = c.especie.toUpperCase();
+    this.dlg.say([
+      Z.achouEspecie.replace("{ITEM}", c.item.toUpperCase()),
+      Z.soDele.replace("{DONO}", dono),
+      Z.comoUsaEspecie.replace("{DONO}", dono).replace("{TIPO}", c.tipo),
+    ]);
   }
 
   /** Pegar o cristal. */

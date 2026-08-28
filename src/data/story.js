@@ -485,6 +485,9 @@ export const STORY = {
     usou: "O CRISTAL DE {TIPO} RESPONDE. {MON} PASSA DO LIMITE!",
     achou: "VOCÊ ACHOU O CRISTAL Z DE {TIPO}!",
     comoUsa: "APERTE Q NA BATALHA E ESCOLHA UM GOLPE DESSE TIPO.",
+    achouEspecie: "VOCÊ ACHOU O {ITEM}!",
+    soDele: "SÓ {DONO} CONSEGUE USAR ESSE. E BATE MAIS FORTE QUE OS OUTROS.",
+    comoUsaEspecie: "APERTE Q COM {DONO} EM CAMPO, NUM GOLPE DE {TIPO}.",
   },
 
   /** A BALSA das ILHAS SEVII (src/data/sevii.js). */
