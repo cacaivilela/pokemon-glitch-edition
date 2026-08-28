@@ -36,6 +36,7 @@ const TABLE = [
  *  nada — nem cidade, nem loja, nem grama. Só uma escada que sobe. O cristal
  *  está lá em cima.
  *
+ *  A ilha em si está com as outras, em src/data/sevii.js, marcada `pedeBone`.
  *  A BALSA SÓ TE LEVA DEPOIS QUE VOCÊ TIVER UM PIKACHU DE BONÉ. Não é uma
  *  trava por trava: o cristal serve pra exatamente uma coisa, e um item que só
  *  funciona com um bicho que você não tem é um item que não faz nada. Assim a
@@ -48,7 +49,6 @@ export const CRISTAL = {
   golpe: "dezmilhoes",
   mapa: "navel_rock_summit",
   x: 9, y: 12,
-  ilha: { id: "nine", nome: "ILHA NOVE", porto: "navel_rock_harbor" },
   achou: [
     "NO ALTO DA ROCHA TEM UM CRISTAL AMARELO EM CIMA DE UMA PEDRA LISA.",
     "ELE ESTALA QUANDO VOCÊ CHEGA PERTO — E É O MESMO ESTALO DO BONÉ.",

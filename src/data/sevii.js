@@ -32,6 +32,12 @@ export const SEVII = {
     { id: "five", nome: "ILHA CINCO", porto: "five_island_harbor" },
     { id: "six", nome: "ILHA SEIS", porto: "six_island_harbor" },
     { id: "seven", nome: "ILHA SETE", porto: "seven_island_harbor" },
+    // A ILHA NOVE (a ROCHA NAVEL) mora aqui junto com as outras, e não solta em
+    // outro arquivo. Ela ficava definida com o CRISTAL Z, em bones.js, e por
+    // isso não entrava em PORTOS — o marinheiro não aparecia no porto dela e
+    // quem desembarcava ali FICAVA PRESO. Ilha é ilha: todas na mesma lista, e
+    // o que muda é só quem pode ir.
+    { id: "nine", nome: "ILHA NOVE", porto: "navel_rock_harbor", pedeBone: true },
   ],
 };
 
@@ -92,5 +98,6 @@ export const NOMES = {
   seven_island_mart: "LOJA — ILHA SETE",
 };
 
-/** Todo porto de ilha, pra cena saber quando pôr o marinheiro da volta. */
+/** TODO porto de ilha — inclusive o da NOVE. É esta lista que diz onde o
+ *  marinheiro fica, e porto sem marinheiro é ilha sem volta. */
 export const PORTOS = SEVII.ilhas.map((i) => i.porto);

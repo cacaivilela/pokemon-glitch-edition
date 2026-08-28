@@ -469,14 +469,18 @@ export class OverworldScene {
       return void this.dlg.say(T.travado);
     }
     const aqui = st.player.map;
-    // A ILHA NOVE só entra no menu depois que você tem um PIKACHU DE BONÉ. O
-    // que existe lá é o CRISTAL Z, que serve pra exatamente uma coisa: um item
-    // que só funciona com um bicho que você não tem é um item que não faz nada.
-    const C = DB.CRISTAL;
+    // A ILHA NOVE (`pedeBone`) só entra no menu depois que você tem um PIKACHU
+    // DE BONÉ. O que existe lá é o PIKASHUNIUM Z, que serve pra exatamente uma
+    // coisa: um item que só funciona com um bicho que você não tem é um item
+    // que não faz nada.
+    //
+    // A trava é só pra CHEGAR. De lá pra qualquer lugar a balsa sempre leva —
+    // ilha que se entra e não se sai não é destino, é armadilha.
     const temBone = [...(st.party || []), ...(st.box || [])]
       .some((m) => DB.EH_BONE?.has(m.species));
-    const lista = temBone && C ? [...S.ilhas, C.ilha] : S.ilhas;
-    const destinos = lista.filter((i) => i.porto !== aqui);
+    const destinos = S.ilhas
+      .filter((i) => i.porto !== aqui)
+      .filter((i) => !i.pedeBone || temBone);
     const rotulos = destinos.map((i) => i.nome);
     const voltar = aqui !== S.embarque.mapa;
     if (voltar) rotulos.push(T.voltar);
