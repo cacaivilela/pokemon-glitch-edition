@@ -480,6 +480,13 @@ export const STORY = {
     olha: "A FITA ESTÁ PARADA NO MEIO DE UMA PALAVRA QUE NÃO É NOME DE NINGUÉM.",
   },
 
+  /** OS CRISTAIS Z de tipo (src/data/zcristais.js). */
+  zcristal: {
+    usou: "O CRISTAL DE {TIPO} RESPONDE. {MON} PASSA DO LIMITE!",
+    achou: "VOCÊ ACHOU O CRISTAL Z DE {TIPO}!",
+    comoUsa: "APERTE Q NA BATALHA E ESCOLHA UM GOLPE DESSE TIPO.",
+  },
+
   /** A BALSA das ILHAS SEVII (src/data/sevii.js). */
   sevii: {
     pergunta: "A BALSA SAI AGORA. PRA ONDE?",

@@ -70,6 +70,7 @@ export class BattleScene {
     this.fx = [];                 // os efeitos das cutscenes de golpe
     this.raid = args.raid || null;   // GLITCH RAID: a casca do chefe
     this.cristalUsado = false;       // o GOLPE Z é uma vez por batalha
+    this.zArmado = false;
     this.disp = { p: this.mine.hp, f: this.foe.hp };
     this.sp = { p: this.newSprite(-90), f: this.newSprite(90) };
     // o chefe entra do tamanho de um filhote; `crescer()` faz o resto
@@ -219,7 +220,22 @@ export class BattleScene {
       this.megaArmada = null;
       await this.fazerMega("p", regra);
     }
-    const pMove = this.mine.moves[moveSlot];
+    let pMove = this.mine.moves[moveSlot];
+    // O GOLPE Z: armado com Q e com o cristal do tipo do golpe escolhido. O
+    // golpe original NÃO gasta PP — quem foi usado foi o cristal, e a vez dele
+    // é uma por batalha.
+    const cristal = this.zArmado ? this.zPara(pMove) : null;
+    this.zArmado = false;
+    if (cristal) {
+      this.cristalUsado = true;
+      Glitch.hit(1);
+      this.flash = 0.5;
+      Audio2.tone(988, 0.08, "square", 0.6);
+      Audio2.tone(1318, 0.14, "square", 0.5);
+      await this.say(DB.STORY.zcristal.usou
+        .replace("{MON}", this.mine.nickname).replace("{TIPO}", cristal.tipo));
+      pMove = { id: cristal.golpe, pp: 1 };
+    }
     const fMoveRef = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
 
     const pSpe = effectiveStat(this.mine, "spe", this.pStages);
@@ -247,6 +263,30 @@ export class BattleScene {
     const atual = this.megaArmada ? megas.findIndex((r) => r.to === this.megaArmada.to) : -1;
     this.megaArmada = megas[atual + 1] || null;
     Audio2.tone(this.megaArmada ? 880 : 320, 0.07, "square", 0.45);
+  }
+
+  /** O CRISTAL Z se arma com Q, do mesmo jeito que a MEGA se arma com C. Um
+   *  jogo que ensina um gesto uma vez e o reaproveita pede menos da cabeça de
+   *  quem joga do que um gesto novo por sistema. */
+  tentarArmarZ() {
+    if (!Input.consume("z")) return;
+    if (this.cristalUsado || !this.cristaisAqui().length) return void Audio2.cancel();
+    this.zArmado = !this.zArmado;
+    Audio2.tone(this.zArmado ? 988 : 330, 0.07, "square", 0.45);
+  }
+
+  /** Os cristais que servem AGORA: você tem o cristal, e o bicho na frente sabe
+   *  um golpe daquele tipo. Ter o cristal sem o golpe não serve de nada. */
+  cristaisAqui() {
+    const tipos = new Set((this.mine?.moves || []).map((m) => DB.MOVES[m.id]?.type));
+    return (DB.ZCRISTAIS || [])
+      .filter((c) => tipos.has(c.tipo) && (this.st.items?.[c.item] || 0) > 0);
+  }
+
+  /** O golpe Z daquele golpe, se houver cristal pra ele. */
+  zPara(mv) {
+    const tipo = DB.MOVES[mv?.id]?.type;
+    return this.cristaisAqui().find((c) => c.tipo === tipo) || null;
   }
 
   /** formas que o Pokémon na frente pode assumir agora (anel + pedra + 1 por luta) */
@@ -849,6 +889,7 @@ export class BattleScene {
       const items = ["LUTAR", "MOCHILA", "POKÉMON", "FUGIR"];
       const move = (d) => { m.index = (m.index + d + 4) % 4; Audio2.blip(); };
       this.tentarArmarMega();
+      this.tentarArmarZ();
       if (Input.consume("up")) move(-2);
       if (Input.consume("down")) move(2);
       if (Input.consume("left")) move(-1);
@@ -866,6 +907,7 @@ export class BattleScene {
       const n = this.mine.moves.length;
       const move = (d) => { m.index = (m.index + d + n) % n; Audio2.blip(); };
       this.tentarArmarMega();
+      this.tentarArmarZ();
       if (Input.consume("up")) move(-2);
       if (Input.consume("down")) move(2);
       if (Input.consume("left")) move(-1);
@@ -1121,6 +1163,7 @@ export class BattleScene {
         if (i === m.index) cursor(ctx, x, y);
       });
       this.marcaMega(ctx, 10, 146, true);
+      if (this.zArmado) drawText(ctx, "Z!", 92, 146, "#ffd166", { shadow: "#7a4a10" });
       return;
     }
     if (m.type === "moves") {

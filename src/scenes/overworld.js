@@ -363,6 +363,7 @@ export class OverworldScene {
     if (balsa) extra.push(balsa);
     const cristal = this.cristalNoCume();
     if (cristal) extra.push(cristal);
+    extra.push(...this.cristaisDaIlhaDois());
     const rasgo = portalAberto(this.st, mapa);
     if (rasgo) extra.push({ id: "rasgo", x: rasgo.x, y: rasgo.y, sprite: "rasgo", raidPortal: true, dir: "down" });
     const f = this.st.fragment;
@@ -378,6 +379,25 @@ export class OverworldScene {
     if (!C || this.st.player.map !== C.mapa) return null;
     if (this.st.flags?.cristalZ) return null;
     return { id: "cristalz", x: C.x, y: C.y, dir: "down", sprite: "ball", cristal: true };
+  }
+
+  /** OS CRISTAIS Z DE TIPO, espalhados pela ILHA DOIS e pelo CABO DA BEIRA.
+   *  Cada um some quando é pego, e só o dele. */
+  cristaisDaIlhaDois() {
+    const aqui = this.st.player.map;
+    return (DB.ZCRISTAIS || [])
+      .filter((c) => c.mapa === aqui && !this.st.items?.[c.item])
+      .map((c) => ({ id: `z_${c.golpe}`, x: c.x, y: c.y, dir: "down",
+                     sprite: "ball", zcristal: c }));
+  }
+
+  /** Pegar um cristal de tipo. */
+  pegarZ(c) {
+    const Z = DB.STORY.zcristal;
+    this.st.items[c.item] = 1;
+    Audio2.heal();
+    this.game.autosave?.(true);
+    this.dlg.say([Z.achou.replace("{TIPO}", c.tipo), Z.comoUsa]);
   }
 
   /** Pegar o cristal. */
@@ -1406,6 +1426,7 @@ export class OverworldScene {
     if (npc.aurora) return this.talkVelhaAurora(state);
     if (npc.escort) return this.talkEscort(npc);
     if (npc.boss) return this.startBossBattle(npc);
+    if (npc.zcristal) return this.pegarZ(npc.zcristal);
     if (npc.cristal) return this.pegarCristal();
     if (npc.balsa) return this.pegarBalsa();
     if (npc.distorcao) return this.investigarDistorcao();
