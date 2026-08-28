@@ -3652,7 +3652,11 @@ export class OverworldScene {
       return void ctx.drawImage(img, x - 12, y - 24, 40, 40);
     }
     const img = Assets.actor(n.sprite)[n.dir || "down"][0];
-    ctx.drawImage(img, x, y + TILE - img.height);
+    // O sprite é encostado no CANTO do tile, e isso só funciona enquanto ele
+    // tem a largura de um tile. O MOTOQUEIRO tem 32 (é o `.width` do decomp), e
+    // encostado no canto ele ficava meio tile à direita do lugar. Centralizar
+    // pela largura vale pra qualquer tamanho e não muda nada nos de 16.
+    ctx.drawImage(img, x - (img.width - TILE) / 2, y + TILE - img.height);
   }
 
   /** A SUA vida, no canto de baixo. Só aparece quando falta alguma coisa: uma
