@@ -201,7 +201,19 @@ $("form-senha").addEventListener("submit", async (e) => {
   senha = tentativa;
   $("porta").classList.add("escondido");
   $("acervo").classList.remove("escondido");
-  abrirAcervo();
+  // UMA PÁGINA QUE TRAVA TEM QUE DIZER ONDE TRAVOU. Sem isto, qualquer erro aqui
+  // dentro some no console e o que sobra na tela é "carregando..." pra sempre —
+  // e quem está olhando não tem como saber se é lentidão ou se quebrou.
+  abrirAcervo().catch((e) => {
+    // COM A PILHA. Só a mensagem ("name is undefined") não diz de qual arquivo
+    // ela saiu, e sem isso quem for consertar fica caçando o nome no projeto
+    // inteiro. As três primeiras linhas da pilha dizem o arquivo e a linha.
+    const pilha = String(e && e.stack || "").split("\n").slice(0, 4).join("\n");
+    $("estado").textContent = "parou aqui: " + (e && (e.message || e)) + "\n" + pilha;
+    $("estado").style.whiteSpace = "pre-wrap";
+    $("estado").style.textAlign = "left";
+    $("estado").className = "msg bad";
+  });
 });
 
 // --- medir o acervo (uma vez) ----------------------------------------------
@@ -236,12 +248,21 @@ async function abrirAcervo() {
     olha();
   });
 
+  // MEDIR EM PARALELO, de oito em oito. Uma de cada vez, cada ficha esperava os
+  // dois sprites dela chegarem ANTES de a próxima nem começar a pedir os seus —
+  // e o navegador ficava parado com a rede vazia. Oito juntas porque é rede, não
+  // conta: o gargalo é a espera, e esperar oito ao mesmo tempo custa o mesmo que
+  // esperar uma.
   let feitas = 0;
-  for (const { chave, ficha } of todas) {
+  const medirUma = async ({ chave, ficha }) => {
     const [cabeca, corpo] = chave.split("+");
     await Promise.all([esperar(cabeca), esperar(corpo)]);
-    medidas.push({ chave, ficha, desenhado: await FX.quantoFoiDesenhado(chave, ficha) });
+    const desenhado = await FX.quantoFoiDesenhado(chave, ficha);
     $("estado").textContent = `medindo os desenhos... ${++feitas}/${todas.length}`;
+    return { chave, ficha, desenhado };
+  };
+  for (let i = 0; i < todas.length; i += 8) {
+    medidas.push(...await Promise.all(todas.slice(i, i + 8).map(medirUma)));
   }
 
   $("estado").textContent = "medido com o código do jogo, pixel a pixel.";

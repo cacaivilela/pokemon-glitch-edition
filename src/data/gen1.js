@@ -163,7 +163,14 @@ export const slugify = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, "");
 export const GEN1 = {};
 export const DEX_ORDER = [];
 
+// Linha vazia é PULADA. Sem isto, uma linha em branco no meio da tabela faz
+// `name` sair `undefined`, e a primeira coisa que se faz com ele é chamar
+// `.toLowerCase()` — o arquivo inteiro morre, o DB não monta e O JOGO NÃO ABRE,
+// por um espaço. Já aconteceu: um separador em branco entre dois blocos de
+// espécies derrubou o jogo inteiro, e o erro que aparecia era "name is
+// undefined", que não diz nada sobre tabela nenhuma.
 for (const line of TABLE.trim().split("\n")) {
+  if (!line.trim()) continue;
   const [dex, name, types, hp, atk, def, spa, spd, spe] = line.trim().split(/\s+/);
   const base = { hp: +hp, atk: +atk, def: +def, spa: +spa, spd: +spd, spe: +spe };
   const bst = Object.values(base).reduce((a, b) => a + b, 0);

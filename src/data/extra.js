@@ -55,7 +55,6 @@ const TABLE = `
 220 SWINUB GELO/TERRA 50 50 40 30 30 50
 221 PILOSWINE GELO/TERRA 100 100 80 60 60 50
 473 MAMOSWINE GELO/TERRA 110 130 80 70 60 80
-
 233 PORYGON2 NORMAL 85 80 90 105 95 60
 474 PORYGON-Z NORMAL 85 80 70 135 75 90
 408 CRANIDOS PEDRA 67 125 40 30 30 58
@@ -144,7 +143,14 @@ export const LORE = {
 };
 
 export const EXTRA = {};
+// Linha vazia é PULADA. Sem isto, uma linha em branco no meio da tabela faz
+// `name` sair `undefined`, e a primeira coisa que se faz com ele é chamar
+// `.toLowerCase()` — o arquivo inteiro morre, o DB não monta e O JOGO NÃO ABRE,
+// por um espaço. Já aconteceu: um separador em branco entre dois blocos de
+// espécies derrubou o jogo inteiro, e o erro que aparecia era "name is
+// undefined", que não diz nada sobre tabela nenhuma.
 for (const line of TABLE.trim().split("\n")) {
+  if (!line.trim()) continue;
   const [dex, name, types, hp, atk, def, spa, spd, spe] = line.trim().split(/\s+/);
   const base = { hp: +hp, atk: +atk, def: +def, spa: +spa, spd: +spd, spe: +spe };
   const bst = Object.values(base).reduce((a, b) => a + b, 0);
