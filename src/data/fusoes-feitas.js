@@ -1157,5 +1157,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/bastiodon+rampardos~bastiordos.png",
       "lore": "BASTIODON NA CABEÇA, RAMPARDOS NO CORPO."
     }
+  ],
+  "rampardos+porygonz": [
+    {
+      "id": "ramparygonz",
+      "nome": "RAMPARYGONZ",
+      "autor": "",
+      "tipos": [
+        "PEDRA",
+        "NORMAL"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 2,
+        "atk": 1.5,
+        "def": 1.5,
+        "spa": 1.5,
+        "spd": 1.5,
+        "spe": 1.5
+      },
+      "sprite": "assets/fusoes/rampardos+porygonz~ramparygonz.png",
+      "lore": "RAMPARDOS NA CABEÇA, PORYGON-Z NO CORPO."
+    }
   ]
 };
