@@ -23,6 +23,7 @@ import {
 import { scatterDimLoot } from "../systems/loot.js";
 import { nascer, andar, emCima, cacando, fugindo, encontroDe } from "../systems/selvagens.js";
 import { distorcaoDeAgora, distorcaoAqui, ondeEla } from "../systems/distorcoes.js";
+import { quemDesce, noTopo } from "../systems/descida.js";
 import { montarChefe, temPortal, abrirPortal, portalAberto, fecharPortal, corrupcaoDoPortal, pertoDoPortal }
   from "../systems/raid.js";
 import { pedrasIniciaisDevidas } from "../systems/mega.js";
@@ -371,6 +372,35 @@ export class OverworldScene {
       extra.push({ id: "fragmento", x: f.x, y: f.y, sprite: "portal", fragment: true, dir: "down" });
     }
     return extra.length ? [...base, ...extra] : base;
+  }
+
+  /** DESCER O CUME SEM ESCADA. Sobe-se por dezessete andares; descer de novo
+   *  pelos mesmos dezessete é o tipo de caminho que faz ninguém voltar num
+   *  lugar. Com alguém de PEDRA, de AÇO ou que pule muito bem, dá pra descer
+   *  direto (ver src/data/descida.js). */
+  tentarDescer() {
+    const D = DB.DESCIDA;
+    const quem = quemDesce(this.st);
+    if (!quem) return void this.dlg.say(D.semNinguem);
+    this.dlg.ask(D.pergunta.replace("{MON}", quem.nickname), D.opcoes, (i) => {
+      if (i !== 0) return;
+      Audio2.tone(523, 0.07, "triangle", 0.5);
+      Audio2.tone(392, 0.12, "triangle", 0.45);
+      this.dlg.say(D.desceu.map((l) => l.replace("{MON}", quem.nickname)), () => {
+        this.fx = { t: 0, cb: () => {
+          // o dado usa `mapa` (como o resto do arquivo de dados) e o jogador
+          // usa `map`; espalhar `...D.para` direto criava um campo `mapa` solto
+          // no jogador e deixava o `map` como estava — descia sem sair do cume
+          Object.assign(this.st.player,
+            { map: D.para.mapa, x: D.para.x, y: D.para.y, dir: D.para.dir || "down" });
+          this.selvagens = [];
+          this.compa = null;
+          this.justWarped = true;
+          this.afterTravel();
+          this.game.autosave?.();
+        } };
+      });
+    });
   }
 
   /** O CRISTAL Z, parado no cume da ROCHA NAVEL. Some quando você pega. */
@@ -814,6 +844,10 @@ export class OverworldScene {
       // encostar no rasgo não dá esbarrão: ele puxa. É a única coisa no mapa
       // que responde ao ESBARRO em vez de esperar você apertar Z, e é de
       // propósito — quem anda pra cima de um buraco no ar já decidiu.
+      // NO TOPO DA ROCHA NAVEL, encostar pra cima é pedir pra descer. É a
+      // mesma mão da água: você anda contra a coisa e o jogo pergunta — sem
+      // item, sem menu, sem ninguém ter que te contar que existe.
+      if (noTopo(this.st)) return this.tentarDescer();
       const alvo = this.npcAt(nx, ny);
       if (alvo?.distorcao) return this.investigarDistorcao();
       if (alvo?.raidPortal) return this.entrarNoRasgo();
