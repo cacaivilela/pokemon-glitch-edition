@@ -2,7 +2,9 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Pokémon Glitch Edition</title>
 <style>
   :root { color-scheme: dark; }
@@ -51,6 +53,21 @@
   }
   #desatualizado b { background:#2b2f38; color:#ffd166; padding:1px 6px; border-radius:4px; }
   @media (max-width:720px) { #hud { display:none; } #oficina { bottom:-24px; } #aviso { bottom:-68px; } }
+
+  /* ------------------------------------------------------------ CELULAR
+     A classe entra no <body> só em aparelho de dedo (src/core/toque.js).
+     Duas coisas mudam: a página PARA DE ROLAR — sem isto, arrastar pra andar
+     puxa a página inteira e o "puxar pra atualizar" recarrega o jogo no meio
+     da batalha — e o jogo sobe pro alto, porque a metade de baixo da tela
+     agora é o controle. O aviso e o link continuam existindo, embaixo dos
+     botões: eles são obrigação legal, não enfeite que se esconde no celular. */
+  body.celular { touch-action:none; overscroll-behavior:none;
+                 align-items:flex-start; padding-top:8px; }
+  body.celular #shell { margin-bottom:0; }
+  body.celular canvas#screen { box-shadow:0 0 0 2px #1b2027; border-radius:2px; }
+  body.celular #oficina { position:static; margin-top:8px; font-size:12px; }
+  body.celular #aviso { position:static; margin-top:6px; font-size:9px;
+                        padding:0 10px; max-width:none; }
 </style>
 </head>
 <body>

@@ -93,6 +93,30 @@ function ligaMouse(tela) {
   tela.addEventListener("contextmenu", (e) => e.preventDefault());
 }
 
+// ------------------------------------------------------------------ toque
+// O CELULAR NÃO TEM TECLADO. Os botões da tela (src/core/toque.js) entram no
+// MESMO conjunto que o teclado usa — `down`, `pressed`, `released` — em vez de
+// terem um caminho só deles. Assim nenhuma cena do jogo precisa saber se quem
+// apertou foi um dedo ou uma tecla: elas continuam perguntando `Input.pressed`
+// e pronto. Um segundo caminho de entrada seria um segundo lugar pra esquecer
+// de tratar um botão novo.
+export const Toque = {
+  aperta(b) {
+    if (digitando) return;
+    if (!down.has(b)) pressed.add(b);
+    down.add(b);
+  },
+  solta(b) {
+    if (!down.has(b)) return;
+    down.delete(b);
+    released.add(b);
+  },
+  /** o dedo saiu da tela / a aba perdeu o foco: ninguém fica preso apertado */
+  soltaTudo() {
+    for (const b of [...down]) { down.delete(b); released.add(b); }
+  },
+};
+
 export const Input = {
   held: (b) => down.has(b),
   pressed: (b) => pressed.has(b),

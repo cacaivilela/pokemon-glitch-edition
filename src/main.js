@@ -2,6 +2,7 @@
 import { DB, ILHA_GERADA } from "./data/index.js";
 import { Assets } from "./core/assets.js";
 import { initInput, Input } from "./core/input.js";
+import { ligarToque, ehCelular, alturaDosBotoes } from "./core/toque.js";
 import { Audio2 } from "./core/audio.js";
 import { Save } from "./core/save.js";
 import { Opcoes } from "./core/opcoes.js";
@@ -427,12 +428,28 @@ function resize() {
   // a escala precisa cair em pixels INTEIROS do monitor: em telas HiDPI
   // (devicePixelRatio 1.25/1.5) uma escala quebrada faz o cenário cintilar
   const dpr = window.devicePixelRatio || 1;
-  const fit = Math.min(window.innerWidth / W, (window.innerHeight - 60) / H);
-  const scale = Math.max(1, Math.floor(fit * dpr)) / dpr;
+  // no celular o que sobra é a altura MENOS os botões de tela: sem descontar
+  // eles, a tela do jogo cresce por baixo do polegar e some metade do cenário
+  const reservado = celular ? alturaDosBotoes() + 12 : 60;
+  const fit = Math.min(window.innerWidth / W, (window.innerHeight - reservado) / H);
+  // no celular a escala inteira é uma prisão: num aparelho estreito ela cai pra
+  // 1 e o jogo fica do tamanho de um selo. Lá vale a escala cheia — a tela é de
+  // pontos tão pequenos que a borda quebrada não aparece, e o que importa é
+  // enxergar. No monitor continua inteira, que é onde o cintilar se vê.
+  const scale = celular ? Math.max(1, fit) : Math.max(1, Math.floor(fit * dpr)) / dpr;
   display.style.width = W * scale + "px";
   display.style.height = H * scale + "px";
 }
+// OS BOTÕES DE TELA. Só entram em aparelho de dedo: num computador eles seriam
+// um enfeite que rouba altura da tela do jogo.
+const celular = ehCelular();
+if (celular) {
+  document.body.classList.add("celular");
+  ligarToque();
+}
 window.addEventListener("resize", resize);
+// virar o celular muda tudo de tamanho, e o `resize` nem sempre chega sozinho
+window.addEventListener("orientationchange", () => setTimeout(resize, 120));
 resize();
 
 // ---------------------------------------------------------------- loop
@@ -481,7 +498,12 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
-window.addEventListener("keydown", () => Audio2.unlock(), { once: true });
+// O SOM SÓ COMEÇA DEPOIS DE UM GESTO — é regra do navegador, não escolha nossa.
+// No celular NÃO EXISTE `keydown`: preso só nele, o jogo ficaria mudo pra sempre
+// no aparelho onde mais gente vai jogar. Vale qualquer primeiro contato.
+for (const ev of ["keydown", "pointerdown", "touchstart"]) {
+  window.addEventListener(ev, () => Audio2.unlock(), { once: true });
+}
 
 // fechar a aba, recarregar ou trocar de janela salva a partida
 const gravarSaindo = () => {
