@@ -1186,5 +1186,35 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/rampardos+porygonz~ramparygonz.png",
       "lore": "RAMPARDOS NA CABEÇA, PORYGON-Z NO CORPO."
     }
+  ],
+  "onix+magneton": [
+    {
+      "id": "oniton",
+      "nome": "ONITON",
+      "autor": "CAIO",
+      "tipos": [
+        "PEDRA",
+        "AÇO"
+      ],
+      "inicial": {
+        "hp": 13,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 2.4,
+        "atk": 2.6,
+        "def": 3.6,
+        "spa": 1.6,
+        "spd": 1.8,
+        "spe": 1.4
+      },
+      "sprite": "assets/fusoes/onix+magneton~oniton.png",
+      "lore": "OS ANÉIS DO MEIO VIRARAM ÍMÃ. TUDO QUE É DE METAL NA CAVERNA GRUDA NELE.",
+      "protegida": true
+    }
   ]
 };
