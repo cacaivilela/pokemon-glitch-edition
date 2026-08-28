@@ -107,6 +107,8 @@ export class BattleScene {
     const palco = {
       de: centro(who), para: centro(alvo), dir: who === "p" ? 1 : -1,
       som: Audio2,
+      // a cor do tipo, pronta: a cena desenha, quem sabe de dados é daqui
+      cor: DB.TYPE_COLOR?.[mv?.type] || "#ffffff",
       fx: (o) => this.fx.push({ t: 0, vida: 0.4, fade: true, vx: 0, vy: 0, g: 0, gira: 0, ang: 0, ...o }),
       wait: (s) => this.wait(s / vel),
       flash: (a) => { this.flash = Math.max(this.flash, a); },

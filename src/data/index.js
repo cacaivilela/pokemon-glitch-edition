@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -40,6 +40,7 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./zcristais.js" + V),
   import("./descida.js" + V),
   import("./motoqueiros.js" + V),
+  import("./lugares.js" + V),
   fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
 
@@ -97,6 +98,13 @@ function mergeMaps(kanto, authored) {
   // alguém entra num lugar.
   for (const [id, nome] of Object.entries(sevii.NOMES || {})) {
     if (out[id]) out[id].name = nome;
+  }
+  // E os LUGARES FECHADOS (cavernas, torres, prédios): mesmo problema das
+  // SEVII, e a mesma hora de resolver. Lá é tabela porque são nomes próprios de
+  // ilha; aqui é regra porque são cento e nove nomes com a mesma forma.
+  for (const id of Object.keys(out)) {
+    const nome = lugares.nomeDoLugar(id);
+    if (nome) out[id].name = nome;
   }
   for (const [id, m] of Object.entries(authored)) {
     const base = out[id] || {};

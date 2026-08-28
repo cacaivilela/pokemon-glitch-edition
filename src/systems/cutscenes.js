@@ -1010,7 +1010,79 @@ const PADRAO = PORTIPO.NORMAL;
 
 /** A cena daquele golpe, nesta ordem: a própria dele, a da categoria (status não
  *  bate em ninguém, então não tem baque), a do tipo, e por fim a padrão. */
+// ------------------------------------------------------------- O GOLPE Z
+//
+// Antes, o golpe mais forte do jogo usava A MESMA CENA de um lança-chamas
+// qualquer: os Z caíam em `PORTIPO` como qualquer golpe do tipo deles. O que a
+// tela mostrava não tinha nada a ver com o que o jogo tinha acabado de dizer.
+//
+// A cena Z ENVOLVE a cena do tipo em vez de trocar por outra: entra uma CARGA
+// antes e um ESTRONDO depois, e no meio passa a cena do elemento, inteira. São
+// vinte e cinco cristais no jogo — escrever vinte e cinco animações à mão daria
+// vinte e cinco chances de uma sair pior que as outras. Assim todo Z é grande
+// pelo mesmo motivo, e cada um continua parecendo o que ele é: o Z de FOGO
+// queima, o de ÁGUA molha, o de PLANTA corta.
+//
+// A COR SAI DO TIPO, e vem pronta no palco (`c.cor`). Este arquivo não importa
+// nada de propósito — ele desenha, não sabe de dados — e uma tabela de cores
+// copiada pra cá seria uma segunda verdade sobre a mesma coisa.
+
+/** A CARGA: o cristal chama, e o mundo é sugado pra dentro de quem vai bater.
+ *  Os anéis FECHAM (de grande pra pequeno) porque aqui a energia está entrando,
+ *  não saindo — a que sai é a do estrondo, lá embaixo. */
+async function cargaZ(c, cor) {
+  c.som.tone(330, 0.10, "square", 0.35);
+  for (let i = 0; i < 4; i++) {
+    const r = 42 - i * 9;
+    c.fx({ forma: "anel", cor, r, h: 2, x: c.de.x, y: c.de.y, vida: 0.34, fade: true });
+    // faíscas caindo PRA DENTRO: nascem longe e são puxadas pro bicho
+    for (let k = 0; k < 5; k++) {
+      const a = rnd(0, 6.3), d = rnd(30, 46);
+      c.fx({ forma: "bola", cor: escolha([cor, "#ffffff"]), r: rnd(1, 2),
+             x: c.de.x + Math.cos(a) * d, y: c.de.y + Math.sin(a) * d,
+             vx: -Math.cos(a) * d * 3.2, vy: -Math.sin(a) * d * 3.2, vida: 0.3 });
+    }
+    c.som.tone(520 + i * 160, 0.05, "square", 0.4);
+    await c.wait(0.09);
+  }
+  c.flash(0.45);
+  c.som.tone(1568, 0.14, "square", 0.5);
+  await c.wait(0.12);
+}
+
+/** O ESTRONDO: o que a carga juntou volta pra fora, em cima de quem apanhou. */
+async function estrondoZ(c, cor) {
+  c.flash(0.7); c.shake(0.5); c.piscaAlvo(0.7);
+  c.som.noise(0.3, 0.8);
+  c.som.tone(196, 0.28, "square", 0.55);
+  // três anéis ABRINDO no alvo
+  for (let i = 0; i < 3; i++) {
+    c.fx({ forma: "anel", cor: i % 2 ? "#ffffff" : cor, r: 6 + i * 4, h: 3,
+           x: c.para.x, y: c.para.y, vida: 0.5, cresce: 150 });
+    await c.wait(0.06);
+  }
+  estouro(c, [cor, "#ffffff", cor], 22, 170);
+  // riscos saindo em estrela
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * 6.28;
+    c.fx({ forma: "risco", cor: i % 2 ? cor : "#ffffff", w: rnd(14, 26), h: 2, ang: a,
+           x: c.para.x, y: c.para.y, vx: Math.cos(a) * 90, vy: Math.sin(a) * 90, vida: 0.42 });
+  }
+  await c.wait(0.3);
+}
+
+/** A cena de um golpe Z: carga, a cena do elemento, estrondo. */
+const cenaZ = (mv) => async (c) => {
+  const cor = c.cor || "#ffe14a";
+  await cargaZ(c, cor);
+  await (PORTIPO[mv?.type] || PADRAO)(c);
+  await estrondoZ(c, cor);
+};
+
 export function cenaDoGolpe(id, mv) {
+  // O Z VEM ANTES DE TUDO, inclusive de `PORGOLPE`: um golpe Z que caísse na
+  // cena do golpe comum de mesmo nome perderia justamente o que o torna Z.
+  if (mv?.z) return cenaZ(mv);
   if (PORGOLPE[id]) return PORGOLPE[id];
   // GLITCH fica de fora: a cena dele já é toda de tela, sem baque nenhum, e
   // RUÍDO BRANCO sem as faixas deixaria de parecer o que ele é.

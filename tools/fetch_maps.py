@@ -95,7 +95,55 @@ PewterCity_Gym CeruleanCity_Gym VermilionCity_Gym CeladonCity_Gym
 FuchsiaCity_Gym SaffronCity_Gym CinnabarIsland_Gym ViridianCity_Gym
 """.split()
 
-MAPS = OUTDOOR + GATES + SERVICES + GYMS
+# OS LUGARES FECHADOS: as cavernas, torres e prédios que o FireRed tem e que
+# ainda não estavam aqui. São 109 mapas de uma vez, e é de propósito que seja de
+# uma vez: warp aponta pra mapa, e importar metade de um prédio deixa a outra
+# metade com porta que não abre — foi exatamente o que aconteceu com a ROCHA
+# NAVEL quando eu trouxe 5 dos 22 andares dela.
+#
+# Os nomes NÃO foram digitados de cabeça: saíram da lista de `data/maps` do
+# próprio decomp. Nome errado aqui não dá erro, dá mapa faltando.
+DUNGEONS = """
+CeruleanCave_1F CeruleanCave_2F CeruleanCave_B1F
+FiveIsland_LostCave_Entrance FiveIsland_LostCave_Room1
+FiveIsland_LostCave_Room10 FiveIsland_LostCave_Room11
+FiveIsland_LostCave_Room12 FiveIsland_LostCave_Room13
+FiveIsland_LostCave_Room14 FiveIsland_LostCave_Room2
+FiveIsland_LostCave_Room3 FiveIsland_LostCave_Room4
+FiveIsland_LostCave_Room5 FiveIsland_LostCave_Room6
+FiveIsland_LostCave_Room7 FiveIsland_LostCave_Room8
+FiveIsland_LostCave_Room9 FourIsland_IcefallCave_1F
+FourIsland_IcefallCave_B1F FourIsland_IcefallCave_Back
+FourIsland_IcefallCave_Entrance FuchsiaCity_SafariZone_Entrance
+FuchsiaCity_SafariZone_Office MtEmber_Exterior MtEmber_RubyPath_1F
+MtEmber_RubyPath_B1F MtEmber_RubyPath_B1F_Stairs MtEmber_RubyPath_B2F
+MtEmber_RubyPath_B2F_Stairs MtEmber_RubyPath_B3F MtEmber_RubyPath_B4F
+MtEmber_RubyPath_B5F MtEmber_Summit MtEmber_SummitPath_1F
+MtEmber_SummitPath_2F MtEmber_SummitPath_3F PokemonMansion_1F
+PokemonMansion_2F PokemonMansion_3F PokemonMansion_B1F PokemonTower_1F
+PokemonTower_2F PokemonTower_3F PokemonTower_4F PokemonTower_5F
+PokemonTower_6F PokemonTower_7F RocketHideout_B1F RocketHideout_B2F
+RocketHideout_B3F RocketHideout_B4F RocketHideout_Elevator SafariZone_Center
+SafariZone_Center_RestHouse SafariZone_East SafariZone_East_RestHouse
+SafariZone_North SafariZone_North_RestHouse SafariZone_SecretHouse
+SafariZone_West SafariZone_West_RestHouse SeafoamIslands_1F
+SeafoamIslands_B1F SeafoamIslands_B2F SeafoamIslands_B3F SeafoamIslands_B4F
+SevenIsland_SevaultCanyon_TanobyKey SevenIsland_TanobyRuins
+SevenIsland_TanobyRuins_DilfordChamber SevenIsland_TanobyRuins_LiptooChamber
+SevenIsland_TanobyRuins_MoneanChamber SevenIsland_TanobyRuins_RixyChamber
+SevenIsland_TanobyRuins_ScufibChamber SevenIsland_TanobyRuins_ViapoisChamber
+SevenIsland_TanobyRuins_WeepthChamber SevenIsland_TrainerTower SilphCo_10F
+SilphCo_11F SilphCo_1F SilphCo_2F SilphCo_3F SilphCo_4F SilphCo_5F
+SilphCo_6F SilphCo_7F SilphCo_8F SilphCo_9F SilphCo_Elevator
+SixIsland_AlteringCave SixIsland_DottedHole_1F SixIsland_DottedHole_B1F
+SixIsland_DottedHole_B2F SixIsland_DottedHole_B3F SixIsland_DottedHole_B4F
+SixIsland_DottedHole_SapphireRoom SixIsland_PatternBush
+ThreeIsland_DunsparceTunnel TrainerTower_1F TrainerTower_2F TrainerTower_3F
+TrainerTower_4F TrainerTower_5F TrainerTower_6F TrainerTower_7F
+TrainerTower_8F TrainerTower_Elevator TrainerTower_Lobby TrainerTower_Roof
+""".split()
+
+MAPS = OUTDOOR + GATES + SERVICES + GYMS + DUNGEONS
 
 # ids curtos para os mapas do começo (compatibilidade com src/data/maps.js)
 ALIAS = {
@@ -230,6 +278,19 @@ def wild_tables():
     return out
 
 
+def warp_id(v):
+    """O número da porta de destino.
+
+    Os ELEVADORES do FireRed usam `WARP_ID_DYNAMIC`: o destino é decidido na
+    hora, pelo andar de onde a pessoa entrou. Aqui não existe porta que decide
+    nada — então ela vira a porta 0 do mapa de destino, e o elevador anda para
+    um andar fixo em vez de não andar para lugar nenhum.
+
+    Sem isto, os dois elevadores não importavam, e um elevador que não existe
+    deixa as portas dos onze andares da SILPH abrindo pra lugar nenhum."""
+    return 0 if str(v).startswith("WARP_ID") else int(v)
+
+
 def layouts():
     data = json.loads(fetch("data/layouts/layouts.json", binary=False))["layouts"]
     return {l["id"]: l for l in data if l.get("id")}
@@ -266,7 +327,7 @@ def convert(folder, layout_index, dest_index, wild):
     write_png(os.path.join(OUT, f"{gid}_over.png"), w * 16, h * 16, over)
 
     warps = [{"x": p["x"], "y": p["y"], "to": dest_index.get(p["dest_map"]),
-              "toWarp": int(p["dest_warp_id"]), "destName": p["dest_map"]}
+              "toWarp": warp_id(p["dest_warp_id"]), "destName": p["dest_map"]}
              for p in mapjson.get("warp_events", [])]
     conns = [{"dir": c["direction"], "offset": c["offset"], "to": dest_index.get(c["map"]),
               "destName": c["map"]} for c in (mapjson.get("connections") or [])]
@@ -289,7 +350,13 @@ def convert(folder, layout_index, dest_index, wild):
     content = {
         "name": pretty(folder), "music": music_for(folder, interior, lay), "interior": interior,
         "npcs": npcs,
-        "encounters": wild.get(f"MAP_{re.sub(r'(?<!^)(?=[A-Z])', '_', folder).upper().replace('__', '_')}", []),
+        # a chave do decomp sai do `map_const`, que já existe e é usado no
+        # `dest_index`. Aqui a mesma regra estava reescrita à mão — e escrita
+        # errado: ela punha um `_` antes do F de "1F", então MtMoon_1F virava
+        # MAP_MT_MOON_1_F e não achava nada. TODO mapa de andar ficou sem
+        # selvagem por causa disso: MONTE LUA, TÚNEL DA PEDRA, ESTRADA DA
+        # VITÓRIA. Regra copiada é regra que se perde de si mesma.
+        "encounters": wild.get(map_const(folder), []),
     }
     return {"w": w, "h": h, "tags": "".join(str(t) for t in tags), "warps": warps,
             "connections": conns, "content": content,

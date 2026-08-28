@@ -21,6 +21,30 @@ export const EVOLUTIONS = {
   squirtle: [{ lvl: 16, to: "wartortle" }],
   wartortle: [{ lvl: 36, to: "blastoise" }],
 
+  // OS MORADORES DOS LUGARES NOVOS (src/data/extra.js). Cada base com a sua
+  // linhagem: adicionar NATU sem XATU é prometer uma evolução que nunca chega.
+  // As três que no jogo original pedem item raro ou golpe específico (YANMEGA,
+  // MISMAGIUS, DUDUNSPARCE) evoluem por NÍVEL aqui, pelo mesmo motivo que
+  // ALAKAZAM e MACHAMP evoluem: este jogo não tem troca nem aquelas pedras.
+  sentret: [{ lvl: 15, to: "furret" }],
+  ledyba: [{ lvl: 18, to: "ledian" }],
+  spinarak: [{ lvl: 22, to: "ariados" }],
+  natu: [{ lvl: 25, to: "xatu" }],
+  marill: [{ lvl: 18, to: "azumarill" }],
+  hoppip: [{ lvl: 18, to: "skiploom" }],
+  skiploom: [{ lvl: 27, to: "jumpluff" }],
+  yanma: [{ lvl: 33, to: "yanmega" }],
+  misdreavus: [{ lvl: 35, to: "mismagius" }],
+  dunsparce: [{ lvl: 32, to: "dudunsparce" }],
+  phanpy: [{ lvl: 25, to: "donphan" }],
+  larvitar: [{ lvl: 30, to: "pupitar" }],
+  pupitar: [{ lvl: 55, to: "tyranitar" }],
+  sneasel: [{ lvl: 45, to: "weavile" }],
+  slugma: [{ lvl: 38, to: "magcargo" }],
+  swinub: [{ lvl: 33, to: "piloswine" }],
+  piloswine: [{ lvl: 50, to: "mamoswine" }],
+  // WOBBUFFET e HERACROSS não têm evolução em jogo nenhum — não é esquecimento.
+
   // insetos e pássaros do começo
   caterpie: [{ lvl: 7, to: "metapod" }],
   metapod: [{ lvl: 10, to: "butterfree" }],

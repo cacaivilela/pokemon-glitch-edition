@@ -27,7 +27,12 @@ BLACK_WHITE = f"{ROOT_SPRITES}/generation-v/black-white"
 MODERN = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon"
 
 # espécies de fora de Kanto que aparecem na 011GLITCHDIMENSION110
-EXTRA_DEX = [201, 233, 235, 292, 337, 338, 345, 347, 382, 383, 384, 386, 408, 409, 410, 411,
+# os moradores dos lugares que entraram depois (src/data/extra.js)
+EXTRA_DEX = [161, 165, 167, 177, 183, 187, 193, 200, 202, 206, 214, 231, 246,
+             # e a linhagem de cada um deles
+             162, 166, 168, 178, 184, 188, 189, 232, 247, 248, 429, 469, 982,
+             215, 461, 218, 219, 220, 221, 473,
+             201, 233, 235, 292, 337, 338, 345, 347, 382, 383, 384, 386, 408, 409, 410, 411,
              436, 474, 479, 493, 564, 566, 599, 605, 606, 607, 608, 609, 615, 622, 641,
              642, 645, 649,
              716, 717, 718,

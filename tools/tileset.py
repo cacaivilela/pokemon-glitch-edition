@@ -1,5 +1,6 @@
 """Leitura dos tilesets do decomp pret/pokefirered (tiles 8x8 -> metatiles 16x16)."""
 import os
+import re
 import struct
 import urllib.request
 import zlib
@@ -103,6 +104,33 @@ def folder_for(label):
     return f"{kind}/{out}"
 
 
+HEADERS_H = "src/data/tilesets/headers.h"
+_arte = None
+
+
+def arte_de(folder):
+    """A pasta de onde sai a ARTE deste tileset.
+
+    Quase sempre é a dele mesmo — mas nem sempre: `gTileset_SilphCo` tem
+    metatiles próprios e usa `.tiles = gTilesetTiles_Condominiums`. A pasta
+    dele no decomp nem tem tiles.png, e pedir esse arquivo dava 404 nos onze
+    andares da SILPH de uma vez.
+
+    Quem responde é o `headers.h` DO DECOMP, não uma lista de exceção escrita
+    aqui: tileset que empreste arte amanhã já entra certo, e nenhum nome fica
+    guardado em dois lugares."""
+    global _arte
+    if _arte is None:
+        txt = fetch(HEADERS_H, binary=False)
+        _arte = {}
+        for bloco in re.findall(r"gTileset_(\w+)\s*=\s*\{(.*?)\}", txt, re.S):
+            nome, corpo = bloco
+            m = re.search(r"\.tiles\s*=\s*gTilesetTiles_(\w+)", corpo)
+            if m and m.group(1) != nome:
+                _arte[folder_for("gTileset_" + nome)] = folder_for("gTileset_" + m.group(1))
+    return _arte.get(folder, folder)
+
+
 class Tileset:
     _cache = {}
 
@@ -111,13 +139,15 @@ class Tileset:
             return cls._cache[folder]
         self = super().__new__(cls)
         base = f"data/tilesets/{folder}"
+        # os METATILES são deste tileset; a ARTE pode ser emprestada de outro
+        arte = f"data/tilesets/{arte_de(folder)}"
         self.folder = folder
-        self.w, self.h, self.px = png_indices(fetch(f"{base}/tiles.png"))
+        self.w, self.h, self.px = png_indices(fetch(f"{arte}/tiles.png"))
         self.cols = self.w // 8
         self.meta = fetch(f"{base}/metatiles.bin")
         self.attrs = fetch(f"{base}/metatile_attributes.bin")
         self.count = len(self.meta) // 16
-        self.pals = [load_pal(f"{base}/palettes/{i:02d}.pal") for i in range(16)]
+        self.pals = [load_pal(f"{arte}/palettes/{i:02d}.pal") for i in range(16)]
         cls._cache[folder] = self
         return self
 
