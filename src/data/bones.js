@@ -41,7 +41,10 @@ const TABLE = [
  *  funciona com um bicho que você não tem é um item que não faz nada. Assim a
  *  ilha aparece no menu no dia em que ela passa a significar alguma coisa. */
 export const CRISTAL = {
-  item: "cristal z do pikachu",
+  // O nome de verdade dele. Vale a pena usar o oficial aqui: quem procura este
+  // item procura por "pikashunium", e um item com nome inventado é um item que
+  // não se acha nem na mochila.
+  item: "pikashunium z",
   golpe: "dezmilhoes",
   mapa: "navel_rock_summit",
   x: 9, y: 12,
@@ -49,7 +52,7 @@ export const CRISTAL = {
   achou: [
     "NO ALTO DA ROCHA TEM UM CRISTAL AMARELO EM CIMA DE UMA PEDRA LISA.",
     "ELE ESTALA QUANDO VOCÊ CHEGA PERTO — E É O MESMO ESTALO DO BONÉ.",
-    "VOCÊ PEGOU O CRISTAL Z DO PIKACHU!",
+    "VOCÊ PEGOU O PIKASHUNIUM Z!",
   ],
   usou: "{MON} ERGUEU O BONÉ. O CRISTAL RESPONDE.",
   semDono: "O CRISTAL NÃO ESTALA. ELE SÓ RESPONDE A UM PIKACHU DE BONÉ.",

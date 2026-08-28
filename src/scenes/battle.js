@@ -539,7 +539,7 @@ export class BattleScene {
     const C = DB.CRISTAL;
     if (C && (this.st.items?.[C.item] || 0) > 0 && DB.EH_BONE?.has(this.mine.species)
         && !this.cristalUsado) {
-      out.push({ item: C.item, label: "CRISTAL Z", bola: false, cristal: true });
+      out.push({ item: C.item, label: "PIKASHUNIUM Z", bola: false, cristal: true });
     }
     if (podeUsarBooster(this.st) && !bugado(this.mine)) {
       out.push({ item: GLITCHBOOSTER.item, label: "GLITCHBOOSTER", bola: false, booster: true });

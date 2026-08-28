@@ -53,6 +53,13 @@ SixIsland_RuinValley SixIsland_Harbor
 SevenIsland SevenIsland_Harbor SevenIsland_SevaultCanyon_Entrance
 SevenIsland_SevaultCanyon SevenIsland_TanobyRuins
 NavelRock_Exterior NavelRock_Harbor NavelRock_Fork NavelRock_Base NavelRock_Summit
+NavelRock_1F NavelRock_B1F
+NavelRock_SummitPath_2F NavelRock_SummitPath_3F NavelRock_SummitPath_4F
+NavelRock_SummitPath_5F
+NavelRock_BasePath_B1F NavelRock_BasePath_B2F NavelRock_BasePath_B3F
+NavelRock_BasePath_B4F NavelRock_BasePath_B5F NavelRock_BasePath_B6F
+NavelRock_BasePath_B7F NavelRock_BasePath_B8F NavelRock_BasePath_B9F
+NavelRock_BasePath_B10F NavelRock_BasePath_B11F
 """.split()
 
 GATES = """
