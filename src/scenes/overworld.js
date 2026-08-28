@@ -1421,13 +1421,18 @@ export class OverworldScene {
 
     if (npc.loot) return this.takeLoot(npc.loot);
     if (npc.sprite === "ball" && npc.gift) return this.pegarItemBall(npc, state, key);
+    // BOLA QUE CARREGA COISA VEM ANTES DA BOLA GENÉRICA. O último `if` desta
+    // trinca manda toda bola pro fluxo do laboratório ("as outras são do
+    // professor"), e os cristais são desenhados como bola: sem esta ordem, o
+    // PIKASHUNIUM Z no cume e os dezoito da ILHA DOIS respondiam com a fala das
+    // bolas do Carvalho, a meio mundo de distância dele.
+    if (npc.zcristal) return this.pegarZ(npc.zcristal);
+    if (npc.cristal) return this.pegarCristal();
     if (npc.sprite === "ball") return this.pickStarter(npc, state);
     if (npc.monShop && !state.comprou) return this.venderMon(npc, state);
     if (npc.aurora) return this.talkVelhaAurora(state);
     if (npc.escort) return this.talkEscort(npc);
     if (npc.boss) return this.startBossBattle(npc);
-    if (npc.zcristal) return this.pegarZ(npc.zcristal);
-    if (npc.cristal) return this.pegarCristal();
     if (npc.balsa) return this.pegarBalsa();
     if (npc.distorcao) return this.investigarDistorcao();
     if (npc.raidPortal) return this.entrarNoRasgo();

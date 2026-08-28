@@ -11,4 +11,4 @@
 // O jogo compara este número com o do servidor (buscado sem cache) e avisa
 // quando a página está velha, em vez de deixar o jogador achar que quebrou.
 // Suba um número aqui a cada publicação que valha um aviso.
-export const VERSAO = "2026-08-28.4";
+export const VERSAO = "2026-08-28.5";
