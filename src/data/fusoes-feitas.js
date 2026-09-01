@@ -1187,17 +1187,17 @@ export const FUSOES_FEITAS = {
       "lore": "RAMPARDOS NA CABEÇA, PORYGON-Z NO CORPO."
     }
   ],
-  "onix+magneton": [
+  "krabby+hitmonchan": [
     {
-      "id": "oniton",
-      "nome": "ONITON",
+      "id": "krabbochan",
+      "nome": "KRABBOCHAN",
       "autor": "CAIO",
       "tipos": [
-        "PEDRA",
-        "AÇO"
+        "ÁGUA",
+        "LUTADOR"
       ],
       "inicial": {
-        "hp": 13,
+        "hp": 10,
         "atk": 5,
         "def": 5,
         "spa": 5,
@@ -1205,16 +1205,15 @@ export const FUSOES_FEITAS = {
         "spe": 5
       },
       "crescimento": {
-        "hp": 2.4,
-        "atk": 2.6,
-        "def": 3.6,
-        "spa": 1.6,
-        "spd": 1.8,
-        "spe": 1.4
+        "hp": 2,
+        "atk": 6.3,
+        "def": 3.4,
+        "spa": 8.1,
+        "spd": 2.7,
+        "spe": 5
       },
-      "sprite": "assets/fusoes/onix+magneton~oniton.png",
-      "lore": "OS ANÉIS DO MEIO VIRARAM ÍMÃ. TUDO QUE É DE METAL NA CAVERNA GRUDA NELE.",
-      "protegida": true
+      "sprite": "assets/fusoes/krabby+hitmonchan~krabbochan.png",
+      "lore": "KRABBY NA CABEÇA, HITMONCHAN NO CORPO."
     }
   ]
 };
