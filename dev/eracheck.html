@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem das TRÊS ERAS — Pokémon Glitch Edition</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+  pre { color:#678; font:11px/1.05 ui-monospace,monospace; margin:2px 0; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=7000">
+<script type="module">
+// AS TRÊS ERAS soltas, sem abrir o jogo: as espécies, os três mapas gerados e a
+// fila que abre uma era depois da outra.
+//
+// O que este arquivo existe pra pegar é UMA coisa acima de todas: MAPA GERADO
+// EM QUE O GUARDIÃO NÃO É ALCANÇÁVEL. O ruído é determinístico, mas ninguém
+// promete que ele deixa caminho — e o jogador que cai nisso anda meia hora numa
+// era achando que o problema é ele. Aqui o caminho é conferido a pé, por
+// alagamento, do ponto de chegada até o guardião.
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+const erros = [];
+const teste = (nome, ok) => { p(`${ok ? "ok  " : "NÃO "} ${nome}`, ok ? "ok" : "erro"); if (!ok) erros.push(nome); };
+
+try {
+  const { DB } = await import("/src/data/index.js");
+  const S = await import("/src/systems/eras.js");
+  const ERAS = DB.ERAS || [];
+
+  h("AS ESPÉCIES NOVAS");
+  const novas = Object.keys(await import("/src/data/eras.js").then((m) => m.ERAS_ESPECIES));
+  p(`${novas.length} espécies: ${novas.join(" ")}`);
+  teste("todas entraram no DB.SPECIES", novas.every((id) => !!DB.SPECIES[id]));
+  teste("todas têm nome, tipos válidos e seis atributos", novas.every((id) => {
+    const s = DB.SPECIES[id];
+    return s.name && s.types.length && s.types.every((t) => DB.TYPES.includes(t))
+      && Object.values(s.base).every((v) => Number.isFinite(v) && v > 0);
+  }));
+  teste("todas têm frase própria na Pokédex (nada de texto genérico)",
+        novas.every((id) => DB.SPECIES[id].lore));
+  teste("os nomes de duas palavras sobreviveram ao parser",
+        DB.SPECIES.greattusk?.name === "GREAT TUSK" && DB.SPECIES.ironhands?.name === "IRON HANDS");
+  const bugado = novas.filter((id) => /[^A-ZÁÉÍÓÚÂÊÔÃÕÇ.\- ]/.test(DB.SPECIES[id].name));
+  teste("nenhum nome saiu torto", bugado.length === 0);
+
+  h("AS METADES QUE FALTAVAM");
+  for (const [de, para] of [["lileep", "cradily"], ["anorith", "armaldo"],
+                            ["tirtouga", "carracosta"], ["archen", "archeops"],
+                            ["tyrunt", "tyrantrum"], ["amaura", "aurorus"]]) {
+    teste(`${de.toUpperCase()} vira ${para.toUpperCase()}`,
+          !!DB.EVOLUTIONS[de]?.some((r) => r.to === para) && !!DB.SPECIES[para]);
+  }
+  const meia = Object.keys(DB.SPECIES).filter((id) => DB.EVOLUTIONS[id]?.some((r) => !DB.SPECIES[r.to]));
+  teste("nenhuma evolução aponta pra espécie que não existe", meia.length === 0);
+  if (meia.length) p("apontam pro vazio: " + meia.join(" "), "erro");
+
+  h("OS TRÊS MAPAS");
+  for (const era of ERAS) {
+    const geo = DB.KANTO[era.mapa], mapa = DB.MAPS[era.mapa];
+    if (!geo || !mapa) { teste(`${era.mapa} existe`, false); continue; }
+    const em = (x, y) => geo.tags[y * geo.w + x];
+    const anda = (i) => geo.tags[i] === "0" || geo.tags[i] === "2";
+    // alagamento a pé, a partir da chegada
+    const visto = new Uint8Array(geo.w * geo.h);
+    const fila = [era.geo.entrada.y * geo.w + era.geo.entrada.x];
+    visto[fila[0]] = 1;
+    for (let k = 0; k < fila.length; k++) {
+      const i = fila[k], x = i % geo.w, y = (i / geo.w) | 0;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= geo.w || ny >= geo.h) continue;
+        const j = ny * geo.w + nx;
+        if (visto[j] || !anda(j)) continue;
+        visto[j] = 1; fila.push(j);
+      }
+    }
+    const mato = [...geo.tags].filter((t) => t === "2").length;
+    const matoDaqui = fila.filter((i) => geo.tags[i] === "2").length;
+    const agua = [...geo.tags].filter((t) => t === "3").length;
+    h(`${era.mapa} — ${mapa.name}`);
+    p(`${geo.w}x${geo.h}  chão andável ${fila.length}  mato ${mato} (alcançável ${matoDaqui})  água ${agua}`);
+    teste("a chegada é chão", anda(era.geo.entrada.y * geo.w + era.geo.entrada.x));
+    teste("o tile do CELEBI na chegada é chão",
+          anda(era.geo.entrada.y * geo.w + era.geo.entrada.x + 1));
+    teste("O GUARDIÃO É ALCANÇÁVEL A PÉ", !!visto[era.geo.guardiao.y * geo.w + era.geo.guardiao.x]);
+    teste("tem mato alcançável (senão não nasce bicho)", matoDaqui > 40);
+    teste("o mapa é ao ar livre (a fenda é a única exceção do jogo)", !mapa.interior);
+    teste("a música da era existe", !!DB.MUSIC[mapa.music]);
+    teste("a tabela de encontros chegou no mapa", mapa.encounters.length === era.encontros.length);
+    const semEspecie = [...era.encontros.map((e) => e.id), era.guardiao.id].filter((id) => !DB.SPECIES[id]);
+    teste("todo mundo da tabela e o guardião existem", semEspecie.length === 0);
+    if (semEspecie.length) p("não existem: " + semEspecie.join(" "), "erro");
+    teste("a borda inteira é parede", (() => {
+      for (let x = 0; x < geo.w; x++) if (em(x, 0) !== "1" || em(x, geo.h - 1) !== "1") return false;
+      for (let y = 0; y < geo.h; y++) if (em(0, y) !== "1" || em(geo.w - 1, y) !== "1") return false;
+      return true;
+    })());
+    // um retrato do mapa, pra olhar de longe
+    const desenho = [];
+    for (let y = 0; y < geo.h; y += 2) {
+      let l = "";
+      for (let x = 0; x < geo.w; x++) {
+        const t = em(x, y);
+        l += (x === era.geo.entrada.x && Math.abs(y - era.geo.entrada.y) <= 1) ? "@"
+           : (x === era.geo.guardiao.x && Math.abs(y - era.geo.guardiao.y) <= 1) ? "K"
+           : t === "1" ? "#" : t === "2" ? '"' : t === "3" ? "~" : ".";
+      }
+      desenho.push(l);
+    }
+    linhas.push("<pre>" + desenho.join("\n") + "</pre>");
+  }
+
+  h("O MESMO VALE, DEPOIS");
+  const [, passado, futuro] = ERAS;
+  teste("4 MILHÕES e O FUTURO são o mesmo buraco (mesmo seed)",
+        passado.geo.seed === futuro.geo.seed && passado.mapa !== futuro.mapa);
+  teste("e mesmo assim são mapas diferentes na tela",
+        DB.KANTO[passado.mapa].tags !== DB.KANTO[futuro.mapa].tags);
+
+  h("A CLAREIRA DO CELEBI");
+  const C = DB.CELEBI, vf = DB.KANTO[C.mapa];
+  const tagC = vf.tags[C.y * vf.w + C.x];
+  teste("o tile dele é chão livre", tagC === "0");
+  teste("dá pra falar com ele de baixo", "02".includes(vf.tags[(C.y + 1) * vf.w + C.x]));
+  teste("ninguém mais mora naquele tile",
+        !(DB.MAPS[C.mapa].npcs || []).some((n) => n.x === C.x && n.y === C.y));
+  teste("o CELEBI existe como espécie (é o sprite dele)", !!DB.SPECIES.celebi);
+
+  h("A FILA DAS ERAS");
+  const save = (f) => ({ flags: f.flags || {}, caught: f.caught || {} });
+  const zero = save({});
+  const posFenda = save({ flags: { caughtMissingno: true } });
+  const comRei = save({ flags: { caughtMissingno: true }, caught: { tyrantrum: true } });
+  const comOsDois = save({ flags: { caughtMissingno: true }, caught: { tyrantrum: true, koraidon: true } });
+  const tudo = save({ flags: { caughtMissingno: true },
+                      caught: { tyrantrum: true, koraidon: true, miraidon: true } });
+  teste("antes de MISSINGNO. o CELEBI não aparece", !S.celebiApareceu(zero));
+  teste("antes de MISSINGNO. nenhuma era abre", S.erasAbertas(zero).length === 0);
+  teste("com a fenda fechada abre a primeira, e só ela", S.erasAbertas(posFenda).map((e) => e.id).join() === "fosseis");
+  teste("capturar o TYRANTRUM abre 4 MILHÕES", S.erasAbertas(comRei).map((e) => e.id).join() === "fosseis,paradoxo");
+  teste("capturar o KORAIDON abre O FUTURO", S.erasAbertas(comOsDois).length === 3);
+  teste("derrubar sem capturar NÃO abre nada",
+        S.erasAbertas(save({ flags: { caughtMissingno: true }, caught: {} })).length === 1);
+  teste("com os três na mão o CELEBI se despede", S.acabouOTempo(tudo) && !S.acabouOTempo(comOsDois));
+  teste("cada mapa acha a era dele", ERAS.every((e) => S.eraDoMapa(e.mapa)?.id === e.id));
+  teste("mapa de Kanto não é era nenhuma", !S.eraDoMapa("viridian_forest"));
+
+  h("RESULTADO");
+  p(erros.length ? erros.join(" | ") : "as três eras estão de pé", erros.length ? "erro" : "ok");
+  const texto = linhas.join("\n").replace(/<[^>]+>/g, "");
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "eracheck", log: texto }) });
+} catch (e) {
+  p("QUEBROU: " + (e && e.stack || e), "erro");
+  await fetch("/__capture", { method: "POST",
+    body: JSON.stringify({ name: "eracheck", log: "QUEBROU: " + (e && e.stack || e) }) }).catch(() => {});
+}
+out.innerHTML = linhas.join("");
+</script>
+</body>
+</html>

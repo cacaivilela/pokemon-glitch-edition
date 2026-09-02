@@ -840,6 +840,60 @@ export const Assets = {
     return cv;
   },
 
+  /** AS TRÊS ERAS (src/data/eras.js), desenhadas em runtime. É UMA FUNÇÃO SÓ
+   *  pras três: o que muda de uma pra outra é a PALETA, e paleta é dado — está
+   *  escrita junto da era, no arquivo de dados, e tem hot-swap com ela.
+   *
+   *  Três funções quase iguais era o caminho fácil, e seria a terceira vez que
+   *  este arquivo desenharia chão-mato-pedra-água com nomes diferentes. */
+  eraArt(geo, pal, seed = 66000) {
+    const r = makeRng(seed);
+    const { w: tw, h: th, tags } = geo;
+    const { cv, ctx } = makeCanvas(tw * 16, th * 16);
+    for (let y = 0; y < th; y++) {
+      for (let x = 0; x < tw; x++) {
+        const tag = tags[y * tw + x];
+        const base = tag === "3" ? pal.agua : pal.chao;
+        for (let py = 0; py < 16; py += 4) {
+          for (let px2 = 0; px2 < 16; px2 += 4) {
+            ctx.fillStyle = r.chance(pal.faiscaChance || 0) ? pal.faisca : r.pick(base);
+            ctx.fillRect(x * 16 + px2, y * 16 + py, 4, 4);
+          }
+        }
+        if (tag === "3" && r.chance(0.14)) {          // crista / reflexo na água
+          ctx.fillStyle = pal.espuma;
+          ctx.fillRect(x * 16 + r.int(10), y * 16 + r.int(12), 5 + r.int(3), 1);
+        }
+        if (tag === "1") {                            // pedra: bloco com topo claro
+          ctx.fillStyle = r.pick(pal.pedra);
+          ctx.fillRect(x * 16, y * 16, 16, 16);
+          ctx.fillStyle = pal.pedra[pal.pedra.length - 1];
+          ctx.fillRect(x * 16, y * 16 + 12, 16, 4);
+          ctx.fillStyle = pal.pedra[0];
+          ctx.fillRect(x * 16 + 2, y * 16 + 2, 12, 2);
+        } else if (tag === "2") {                     // o mato onde nasce bicho
+          ctx.fillStyle = pal.mato[pal.mato.length - 1];
+          ctx.fillRect(x * 16, y * 16 + 7, 16, 9);
+          for (let k = 0; k < 11; k++) {
+            const bx = x * 16 + r.int(15);
+            const topo = y * 16 + 1 + r.int(9);
+            ctx.fillStyle = r.pick(pal.mato);
+            ctx.fillRect(bx, topo, 1, y * 16 + 16 - topo);
+          }
+        }
+      }
+    }
+    // O FUTURO ganha a grade por cima de tudo: linhas horizontais finas, como
+    // tela ligada. As outras duas não passam `linhas` e não pagam por isto.
+    if (pal.linhas) {
+      ctx.globalAlpha = 0.16;
+      ctx.fillStyle = pal.linhas;
+      for (let y = 0; y < cv.height; y += 4) ctx.fillRect(0, y, cv.width, 1);
+      ctx.globalAlpha = 1;
+    }
+    return cv;
+  },
+
   glitchRoom(geo, seed = 4242) {
     const r = makeRng(seed);
     const { w: tw, h: th, tags, terrain } = geo;

@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -41,6 +41,8 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./descida.js" + V),
   import("./motoqueiros.js" + V),
   import("./lugares.js" + V),
+  import("./eras.js" + V),
+  import("./bolas.js" + V),
   fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
 
@@ -133,7 +135,14 @@ function mergeMaps(kanto, authored) {
     for (const npc of mapa.npcs || []) {
       if (!npc.shop) continue;
       const tem = new Set(npc.shop.map((x) => x.item));
-      npc.shop = [...npc.shop, ...acamp.ESTOQUE.filter((x) => !tem.has(x.item))];
+      // AS BOLAS entram GRUDADAS NA POKÉ BOLA, e não no fim da lista: bola se
+      // compra ao lado de bola. Jogadas no fim, a GREAT BALL aparecia depois
+      // das cinco pedras de evolução e dos ingredientes de sanduíche.
+      const novas = bolas.ESTOQUE_BOLAS.filter((x) => !tem.has(x.item));
+      const i = npc.shop.findIndex((x) => x.item === "poké bola");
+      const comBolas = i < 0 ? [...npc.shop, ...novas]
+        : [...npc.shop.slice(0, i + 1), ...novas, ...npc.shop.slice(i + 1)];
+      npc.shop = [...comBolas, ...acamp.ESTOQUE.filter((x) => !tem.has(x.item))];
     }
   }
 
@@ -244,6 +253,80 @@ function stormMap(story) {
   };
 }
 
+/** AS TRÊS ERAS (src/data/eras.js), desenhadas em código como a fenda e a
+ *  tempestade: chão, tufos de mato onde nasce bicho, pedra que não deixa
+ *  passar e uma lagoa num canto só.
+ *
+ *  A LAGOA FICA NUM CANTO DE PROPÓSITO. Água espalhada pelo mapa inteiro corta
+ *  o caminho de quem chegou sem SURFAR — e ninguém escolhe a equipe que leva
+ *  numa viagem no tempo pensando em água. Melhor um mar pequeno num canto que
+ *  um mapa bonito onde o guardião fica do outro lado. */
+function eraMap(era) {
+  const g = era.geo;
+  const { w, h, seed } = g;
+  const lag = g.lagoa;
+  const perto = (x, y, c, r = 2) => Math.abs(x - c.x) <= r && Math.abs(y - c.y) <= r;
+  const celulas = [];
+  let terrain = "";
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const borda = x === 0 || y === 0 || x === w - 1 || y === h - 1;
+      const naLagoa = !!lag && x >= lag.x0 * w && x <= lag.x1 * w
+                            && y >= lag.y0 * h && y <= lag.y1 * h
+                            && blob(x, y, seed + 13, g.escala) < lag.limite;
+      terrain += naLagoa ? "g" : "t";
+      if (borda) { celulas.push("1"); continue; }
+      // clareira na chegada e no pé do guardião: ninguém nasce dentro da pedra
+      if (perto(x, y, g.entrada) || perto(x, y, g.guardiao)) { celulas.push("0"); continue; }
+      if (naLagoa) { celulas.push("3"); continue; }
+      const pedra = blob(x, y, seed + 77, 3) > g.pedra;
+      const mato = !pedra && blob(x, y, seed + 31, 2.5) > g.mato;
+      celulas.push(pedra ? "1" : mato ? "2" : "0");
+    }
+  }
+  abrirCaminho(celulas, w, h, g.entrada, g.guardiao);
+  return {
+    w, h, tags: celulas.join(""), terrain,
+    warps: [], connections: [], signs: [], objects: [],
+    content: {
+      name: era.nome, music: era.music, interior: false, npcs: [],
+      encounters: era.encontros || [],
+    },
+  };
+}
+
+/** A REDE DE SEGURANÇA DO MAPA GERADO: o ruído é determinístico, mas ninguém
+ *  garante que ele ligue a chegada ao guardião. Se não ligar, o jogador anda
+ *  meia hora numa era pra descobrir que o caminho não existe — e ele não tem
+ *  como saber que o problema não é ele. Então: alaga o mapa a partir da
+ *  chegada; se o guardião não foi alcançado, abre um corredor em L até ele.
+ *  Com os `seed` escritos hoje isto não dispara — é justamente por isso que
+ *  fica aqui, pro dia em que alguém mexer num número. */
+function abrirCaminho(celulas, w, h, de, ate) {
+  const anda = (i) => celulas[i] === "0" || celulas[i] === "2";
+  const visto = new Uint8Array(w * h);
+  const fila = [de.y * w + de.x];
+  visto[fila[0]] = 1;
+  for (let k = 0; k < fila.length; k++) {
+    const i = fila[k], x = i % w, y = (i / w) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+      const j = ny * w + nx;
+      if (visto[j] || !anda(j)) continue;
+      visto[j] = 1;
+      fila.push(j);
+    }
+  }
+  if (visto[ate.y * w + ate.x]) return;
+  console.warn("[eras] caminho fechado: abrindo corredor até o guardião");
+  for (let y = Math.min(de.y, ate.y); y <= Math.max(de.y, ate.y); y++) celulas[y * w + de.x] = "0";
+  for (let x = Math.min(de.x, ate.x); x <= Math.max(de.x, ate.x); x++) celulas[ate.y * w + x] = "0";
+}
+
+/** { era_fosseis: geo, era_paradoxo: geo, era_futuro: geo } */
+const MAPAS_ERAS = Object.fromEntries((eras.ERAS || []).map((e) => [e.mapa, eraMap(e)]));
+
 /** true quando a ilha está sendo desenhada aqui, e não veio do decomp */
 export const ILHA_GERADA = !kanto?.birth_island;
 
@@ -263,7 +346,7 @@ export function buildDB() {
     GEN1: gen1.GEN1,
     DEX_ORDER: gen1.DEX_ORDER,
     SPECIES: species.buildSpecies(
-      { ...gen1.GEN1, ...extra.EXTRA, ...iniciais.INICIAIS_ESPECIES,
+      { ...gen1.GEN1, ...extra.EXTRA, ...eras.ERAS_ESPECIES, ...iniciais.INICIAIS_ESPECIES,
         ...bones.BONES_ESPECIES, ...mega.MEGA_FORMS },
       types.TYPE_COLOR),
     EXTRA: extra.EXTRA,
@@ -277,6 +360,10 @@ export function buildDB() {
     CRISTAL: bones.CRISTAL,
     ZCRISTAIS: zc.ZCRISTAIS,
     DESCIDA: desc.DESCIDA,
+    BOLAS: bolas.BOLAS,
+    ERAS: eras.ERAS,
+    CELEBI: eras.CELEBI,
+    ERAS_TEXTO: eras.ERAS_TEXTO,
     MOTOQUEIROS: moto.MOTOQUEIROS,
     EH_BONE: bones.EH_BONE,
     TRIO_CHANCE: extra.TRIO_CHANCE,
@@ -298,7 +385,7 @@ export function buildDB() {
     FLY_SPOTS: field.FLY_SPOTS,
     MUSIC: music.MUSIC,
     MUSIC_ALIAS: music.MUSIC_ALIAS,
-    ITEM_LORE: { ...loot.ITEM_LORE, ...mega.PEDRA_LORE },
+    ITEM_LORE: { ...loot.ITEM_LORE, ...mega.PEDRA_LORE, ...bolas.BOLA_LORE },
     STARTERS: species.STARTERS,
     BOX: box.BOX,
     BOX_PAPEIS: box.BOX_PAPEIS,
@@ -332,10 +419,10 @@ export function buildDB() {
     GIFT_CODES: gifts.GIFT_CODES,
     GIFT_TEXTO: gifts.GIFT_TEXTO,
     MAPS: mergeMaps({ ...kanto, ...ilhaFallback, glitchdim: dimensionMap(story.STORY),
-                     tempestade: stormMap(story.STORY) }, maps.MAPS),
+                     tempestade: stormMap(story.STORY), ...MAPAS_ERAS }, maps.MAPS),
     STORY: story.STORY,
     KANTO: { ...(kanto || {}), ...ilhaFallback, glitchdim: dimensionMap(story.STORY),
-             tempestade: stormMap(story.STORY) },
+             tempestade: stormMap(story.STORY), ...MAPAS_ERAS },
     TAG: maps.TAG,
     LEDGE_DIR: maps.LEDGE_DIR,
     START_MAP: maps.START_MAP,

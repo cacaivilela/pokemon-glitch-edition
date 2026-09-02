@@ -1,6 +1,7 @@
 // Cena de batalha por turnos. O fluxo usa async/await: cada `await this.say()`
 // espera o jogador apertar Z, o que deixa a logica linear e facil de estender.
 import { DB } from "../data/index.js";
+import { bolaPorItem, jogou as jogouBola } from "../data/bolas.js";
 import { Assets } from "../core/assets.js";
 import { trainerArt, adiantarMons } from "../core/sprites.js";
 import { Input } from "../core/input.js";
@@ -539,7 +540,11 @@ export class BattleScene {
   /** O que dá pra usar em batalha. A GLITCHBALL só aparece se você tiver uma. */
   itensMochila() {
     const g = DB.STORY.glitchball;
-    const out = [{ item: "poké bola", label: "POKÉ BOLA", bola: true }];
+    // A POKÉ BOLA está sempre na lista (mesmo zerada: é ela que diz "VOCÊ NÃO
+    // TEM POKÉ BOLAS!"); as outras só aparecem com pelo menos uma na mochila.
+    // Bola que você não tem ocupando linha é linha a menos pro que dá pra usar.
+    const out = (DB.BOLAS || []).filter((b) => b.insignias === 0 || (this.st.items[b.item] || 0) > 0)
+      .map((b) => ({ item: b.item, label: b.label, bola: true }));
     if (g && (this.st.items[g.item] || 0) > 0) {
       out.push({ item: g.item, label: g.item.toUpperCase(), bola: true, glitch: true });
     }
@@ -613,16 +618,20 @@ export class BattleScene {
       this.menu = { type: "main", index: 0 };
       return;
     }
+    const bola = bolaPorItem(item);
     if ((this.st.items[item] || 0) <= 0) {
-      await this.say(ehGlitch ? "VOCÊ NÃO TEM NENHUMA GLITCHBALL!" : "VOCÊ NÃO TEM POKÉ BOLAS!");
+      await this.say(ehGlitch ? "VOCÊ NÃO TEM NENHUMA GLITCHBALL!"
+                              : `VOCÊ NÃO TEM NENHUMA ${(bola?.label || item).toUpperCase()}!`);
       this.menu = { type: "main", index: 0 };
       return;
     }
     this.gastar(item);
     if (ehGlitch) { Glitch.hit(2); Audio2.glitch(); }
-    await this.say(ehGlitch ? g.jogou : "VOCÊ JOGOU UMA POKÉ BOLA!");
+    await this.say(ehGlitch ? g.jogou : jogouBola(item));
     this.ballAnim = { t: 0, shakes: 0 };
-    const shakes = ehGlitch ? catchGlitchball(this.foe) : catchAttempt(this.foe);
+    // o bônus da bola entra na mesma fórmula de sempre (`catchAttempt`): 1 na
+    // comum, 1,5 na GREAT e 2 na ULTRA, como no jogo original
+    const shakes = ehGlitch ? catchGlitchball(this.foe) : catchAttempt(this.foe, bola?.bonus || 1);
     await this.wait(0.7);
     for (let i = 0; i < Math.min(3, shakes); i++) {
       this.ballAnim.shakes = i + 1;
@@ -1196,12 +1205,23 @@ export class BattleScene {
     }
     if (m.type === "bag") {
       panel(ctx, 2, 110, 236, 48);
-      this.itensMochila().forEach((it, i) => {
+      // A CAIXA SÓ TEM TRÊS LINHAS. Com as duas bolas novas, o CRISTAL Z e o
+      // GLITCHBOOSTER a lista chega a sete itens, e o que passava da terceira
+      // linha era desenhado POR CIMA da borda e do "X VOLTA" — item que existe,
+      // dá pra escolher com a seta e não aparece. Agora a lista anda: a janela
+      // segue o cursor e as setinhas da direita dizem que tem mais.
+      const itens = this.itensMochila();
+      const JANELA = 3;
+      const inicio = Math.max(0, Math.min(itens.length - JANELA, m.index - 1));
+      itens.slice(inicio, inicio + JANELA).forEach((it, k) => {
+        const i = inicio + k, y = 116 + k * LINE_H;
         const q = this.st.items[it.item] || 0;
-        drawText(ctx, `${it.label}  x${q}`, 24, 118 + i * LINE_H, it.bola && it.glitch ? PAL.glitch : PAL.ink);
-        if (i === m.index) cursor(ctx, 12, 118 + i * LINE_H);
+        drawText(ctx, `${it.label}  x${q}`, 24, y, it.bola && it.glitch ? PAL.glitch : PAL.ink);
+        if (i === m.index) cursor(ctx, 12, y);
       });
-      drawText(ctx, "X VOLTA", 180, 140, PAL.ink2);
+      if (inicio > 0) drawText(ctx, "▲", 224, 116, PAL.ink2);
+      if (inicio + JANELA < itens.length) drawText(ctx, "▼", 224, 140, PAL.ink2);
+      drawText(ctx, "X VOLTA", 168, 148, PAL.ink2);
       return;
     }
     if (m.type === "party") {

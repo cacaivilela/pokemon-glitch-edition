@@ -630,6 +630,36 @@ Jurados, falas, rivais, prêmios e o peso de cada critério estão em
 o concurso rolando. As contas ficam em `src/systems/concurso.js` e a tela em
 `src/scenes/concurso.js`. Pra testar: `?map=cinnabar_island&party=gengar:40,onix:40`.
 
+## As bolas
+
+Três bolas de comprar, na tabela `src/data/bolas.js` — a mesma multiplicação do
+jogo original entrando na fórmula de captura (`catchAttempt`):
+
+| bola | preço | bônus | aparece na loja com |
+| --- | --- | --- | --- |
+| **POKÉ BOLA** | 200 | ×1 | desde sempre |
+| **GREAT BALL** | 600 | ×1,5 | 3 insígnias |
+| **ULTRA BALL** | 1200 | ×2 | 6 insígnias |
+
+O que segura as duas novas na prateleira não é uma cena que aconteceu, é quanta
+estrada você já tem nas costas — por isso a loja passou a entender `insignias`
+além de `requer`. ULTRA BALL na primeira loja da VILA VIRIDIAN transformaria a
+captura inteira do jogo num problema de dinheiro.
+
+Elas entram em **qualquer** balconista de Kanto, grudadas na POKÉ BOLA (bola se
+compra ao lado de bola), e na mochila da batalha só aparecem quando você tem
+pelo menos uma. Em TYRANTRUM nível 70, a 15% de HP e dormindo, a conta fica:
+**27%** com a comum, **41%** com a GREAT, **51%** com a ULTRA.
+
+A **GLITCHBALL** continua sendo outra coisa, e continua fora dessa tabela: ela
+não multiplica nada — num MISSINGNO. ela simplesmente não falha.
+
+Com sete itens possíveis na mochila da batalha (as três bolas, a GLITCHBALL, a
+POÇÃO, o CRISTAL Z e o GLITCHBOOSTER), a caixa de três linhas passou a **rolar**,
+com setinha de "tem mais" nos dois lados. Antes disso, o que passava da terceira
+linha era desenhado por cima da borda: item que existe, que dá pra escolher com
+a seta, e que não aparece.
+
 ## Modo Glitch
 
 `src/data/config.js` tem `glitchMode: false`. Desligado (o padrão), o jogo é 100%
@@ -659,6 +689,50 @@ A fenda tem conteúdo que não existe em Kanto:
   garantido e a chance cai pra 49%, recomeçando o ciclo.
 
 Os sprites das espécies de fora vêm com `python3 tools/fetch_sprites.py --extra`.
+
+## AS TRÊS ERAS: o pós-jogo com o CELEBI
+
+Capturado o MISSINGNO., a fenda fecha — e a última linha do FIM. é
+"...POR ENQUANTO.". O buraco que ela deixou não é num lugar: é num **quando**.
+
+Na **FLORESTA VIRIDIAN** aparece uma clareira que não estava lá, e dentro dela o
+**CELEBI**. Ele não é capturável: ele é a porta. Fale com ele e escolha o ano.
+São três viagens, uma abrindo a outra, e dá pra voltar a qualquer uma quantas
+vezes quiser depois de aberta.
+
+| era | quem mora lá | guardião |
+| --- | --- | --- |
+| **66 MILHÕES DE ANOS ATRÁS** | os fósseis ainda vivos: TYRUNT, AMAURA, CRANIDOS, SHIELDON, LILEEP, ANORITH, TIRTOUGA, ARCHEN, OMANYTE, KABUTO, AERODACTYL, RELICANTH e as evoluções de todos | **TYRANTRUM** nv 70 |
+| **4 MILHÕES DE ANOS ATRÁS** | os **PARADOXOS DO PASSADO** de Paldea: GREAT TUSK, SCREAM TAIL, BRUTE BONNET, FLUTTER MANE, SLITHER WING, SANDY SHOCKS, ROARING MOON, WALKING WAKE, GOUGING FIRE, RAGING BOLT | **KORAIDON** nv 72 |
+| **O FUTURO** | os **PARADOXOS DO FUTURO**: IRON TREADS, IRON BUNDLE, IRON HANDS, IRON JUGULIS, IRON MOTH, IRON THORNS, IRON VALIANT, IRON LEAVES, IRON BOULDER, IRON CROWN | **MIRAIDON** nv 72 |
+
+O guardião fica **parado** no fundo do mapa, como os três de Kanto: você
+atravessa a era a pé e encosta nele. **Capturar** é o que abre a era seguinte —
+derrubar sem capturar não conta, e ele está de pé de novo na próxima viagem.
+
+Três detalhes que valem saber:
+
+- **As metades que faltavam.** LILEEP, ANORITH, TIRTOUGA e ARCHEN moravam na
+  fenda desde sempre com meia linhagem, subindo de nível a vida toda esperando
+  virar uma coisa que não existia. Agora existem: **CRADILY**, **ARMALDO**,
+  **CARRACOSTA** e **ARCHEOPS**, com as regras de evolução junto.
+- **Os quatro remontados errado não estão no passado.** DRACOZOLT, DRACOVISH,
+  ARCTOZOLT e ARCTOVISH continuam só na fenda, e é de propósito: eles nunca
+  existiram. São erro de museu, e o passado é justamente o lugar onde essa
+  mentira não cabe.
+- **O FUTURO é o MESMO VALE dos 4 MILHÕES.** Os dois mapas são gerados com o
+  mesmo `seed`: o buraco é o mesmo buraco, com o mesmo desenho de chão. Só o que
+  cresce em cima é que mudou — lá é mato, aqui é placa. Quem olha o chão
+  reconhece o lugar.
+
+Os três mapas e a arte deles são gerados em código (`src/data/eras.js`,
+`src/data/index.js` e `Assets.eraArt`), com música própria pra cada era. Os
+sprites saem no mesmo `python3 tools/fetch_sprites.py --extra`.
+
+Atalhos de dev: `?eras=1` põe o CELEBI na clareira (como se a fenda já tivesse
+fechado) e `?era=paradoxo` joga direto dentro de uma era. `dev/eracheck.html`
+confere as espécies, os três mapas (inclusive se dá pra chegar a pé no guardião)
+e a fila que abre uma era depois da outra.
 
 ## Acampar
 
@@ -1284,6 +1358,8 @@ src/
     concurso.js        o concurso de Cinnabar: jurados, rivais, prêmios, critérios
     idiomas.js         os dicionários de tradução (pt -> en/es)
     missoes.js         as side quests: pedido, lugar, objetivo e prêmio
+    eras.js            AS TRÊS ERAS: espécies novas, os três mapas e o CELEBI
+    bolas.js           as bolas: preço, bônus de captura e quando entram na loja
     rival.js           o AZUL: onde ele aparece, o que fala e o time dele
     fusoes.js          as fusões escritas à mão (GENGQUAZA, ALAKAGAR, PIKASAUR...)
     fusoes-feitas.js   as fichas que jogadores publicaram (escrito pelo jogo)
@@ -1296,6 +1372,7 @@ src/
     fusao.js           fundir/separar, a espécie montada na hora e as fichas do jogador
     concurso.js        as notas dos três jurados e a rodada com os rivais
     missoes.js         estado das missões e os checadores de objetivo
+    eras.js            que era está aberta, e quem é o guardião de cada mapa
     faxina.js          a revisão semanal do acervo de fusões
     rival.js           monta o AZUL na hora certa, com o inicial que ele errou
     online.js          presença, convites, chat e o filtro do que vem de fora
@@ -1319,6 +1396,7 @@ dev/ciclocheck.html    anda com o relógio e confere a virada do dia e da noite
 dev/acampacheck.html   as regras do acampamento soltas + a cena aberta no jogo
 dev/leilaocheck.html   as regras do leilão soltas + a cena aberta no jogo
 dev/glitchcheck.html   glitchbooster (as trancas, o byte) e a casca das raids
+dev/eracheck.html      as três eras: espécies, mapas (dá pra chegar no guardião?) e a fila
 giveglitch/            versão web do mesmo terminal (fora do jogo)
 faxinamissingno/       a FAXINA MISSINGNO.: o acervo medido, com a senha pra jogar fora
 save/save.json         o save (um por máquina; fora do git)

@@ -6,12 +6,21 @@
 // Este jogo não tem troca entre jogadores, então as quatro evoluções por troca
 // do FireRed (ALAKAZAM, MACHAMP, GOLEM, GENGAR) viraram evolução por nível alto.
 import { EVO_INICIAIS } from "./iniciais.js";
+import { EVO_ERAS } from "./eras.js";
 
 export const EVOLUTIONS = {
   // OS INICIAIS DAS OUTRAS REGIÕES. As regras saem de src/data/iniciais.js,
   // montadas das linhagens de lá — escrever as 24 linhagens aqui de novo seria
   // manter a mesma informação em dois lugares, e um dia um deles fica pra trás.
   ...EVO_INICIAIS,
+
+  // AS METADES QUE FALTAVAM. LILEEP, ANORITH, TIRTOUGA e ARCHEN moravam na
+  // fenda desde sempre sem a segunda forma — subiam de nível a vida toda
+  // esperando virar uma coisa que não existia. As espécies vieram com AS TRÊS
+  // ERAS (src/data/eras.js) e as regras vêm de lá junto, pelo mesmo motivo dos
+  // iniciais: a mesma informação em dois arquivos é um dos dois ficando pra
+  // trás.
+  ...EVO_ERAS,
 
   // iniciais
   bulbasaur: [{ lvl: 16, to: "ivysaur" }],

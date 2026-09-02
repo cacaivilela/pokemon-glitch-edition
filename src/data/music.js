@@ -606,6 +606,76 @@ export const MUSIC = {
       { wave: "ruido", vol: 0.5, notes: [["x", 0.5], ["x", 0.25], ["x", 0.25], ["-", 0.5]] },
     ],
   },
+
+  // AS TRÊS ERAS (src/data/eras.js). São três faixas e não uma porque o lugar é
+  // o mesmo três vezes: se o mapa é o mesmo vale em anos diferentes, o que
+  // conta pro jogador que ele viajou é o OUVIDO.
+
+  // 66 MILHÕES DE ANOS ATRÁS: grave, lenta e sem semitom nenhum — a melodia é
+  // pentatônica, que é a escala que soa "antes de tudo". O tambor é o dobro do
+  // resto: aqui embaixo, o que existe é passo de bicho grande.
+  era_fosseis: {
+    bpm: 76,
+    tracks: [
+      { ...melodia(0.34), notes: [
+        ["D3", 3], ["F3", 1], ["G3", 2], ["D3", 2],
+        ["A3", 3], ["G3", 1], ["F3", 2], ["D3", 2],
+        ["C3", 4], ["D3", 4],
+      ] },
+      { ...contra(0.14), notes: [
+        ["D4", 1], ["-", 1], ["F4", 1], ["-", 1], ["C4", 1], ["-", 1], ["D4", 1], ["-", 1],
+      ] },
+      { ...baixo(0.62), notes: [...raiz("D1", "D1", "F1", "D1"), ...raiz("C1", "C1", "D1", "D1")] },
+      { wave: "ruido", vol: 0.5, notes: [
+        ["x", 2], ["-", 2], ["x", 1], ["x", 1], ["-", 2],
+        ["x", 2], ["-", 2], ["x", 1], ["-", 3],
+      ] },
+    ],
+  },
+
+  // 4 MILHÕES: o vale dos PARADOXOS. Mesma pentatônica de cima, um tom acima e
+  // três vezes mais rápida — é o mesmo mundo já com pressa. O `glitch` baixinho
+  // é a única coisa que lembra de onde esses bichos saíram.
+  era_paradoxo: {
+    bpm: 104,
+    glitch: 0.03,
+    tracks: [
+      { ...melodia(0.42), notes: [
+        ["E4", 1], ["G4", 0.5], ["A4", 0.5], ["B4", 1], ["A4", 1],
+        ["G4", 1], ["E4", 0.5], ["D4", 0.5], ["E4", 2],
+        ["B4", 1], ["D5", 0.5], ["E5", 0.5], ["D5", 1], ["B4", 1],
+        ["A4", 1.5], ["G4", 0.5], ["E4", 2],
+      ] },
+      { ...contra(0.2), notes: contratempo("B3", "E4", "G4", "E4") },
+      { ...baixo(0.55), notes: [...anda("E1", "B1"), ...anda("C2", "G1")] },
+      bateria(0.4),
+    ],
+  },
+
+  // O FUTURO: nada de tambor de pele — a percussão é chiado curto, o baixo é
+  // serra e a melodia anda em quartas, que é o intervalo que não escolhe se é
+  // alegre ou triste. A faixa é mais rápida que as duas e mesmo assim soa
+  // parada: tudo aqui é repetição exata, de propósito.
+  era_futuro: {
+    bpm: 138,
+    glitch: 0.05,
+    tracks: [
+      { ...melodia(0.38), notes: [
+        ["A4", 1], ["D5", 1], ["A4", 1], ["E5", 1],
+        ["A4", 1], ["D5", 1], ["G5", 1.5], ["F5", 0.5],
+        ["E5", 2], ["A4", 2],
+      ] },
+      { wave: "sawtooth", vol: 0.16, legato: 0.4, notes: [
+        ["A3", 0.25], ["E4", 0.25], ["A4", 0.25], ["E4", 0.25],
+        ["G3", 0.25], ["D4", 0.25], ["G4", 0.25], ["D4", 0.25],
+      ] },
+      { wave: "triangle", vol: 0.6, notes: [...oitavos("A1"), ...oitavos("G1")] },
+      { wave: "ruido", vol: 0.2, notes: [
+        ["x", 0.5], ["-", 0.5], ["x", 0.25], ["x", 0.25], ["-", 0.5],
+        ["x", 0.5], ["-", 1], ["x", 0.5],
+      ] },
+    ],
+  },
 };
 
 /** música de cada tipo de mapa; o que não estiver aqui cai em pallet */

@@ -40,6 +40,8 @@ import { temBarraca } from "../systems/leilao.js";
 import { temVisor, explicado } from "../systems/glitchboost.js";
 import { podeAcampar, fator, buff, minutosDoBuff } from "../systems/acampamento.js";
 import { rivalNpc } from "../systems/rival.js";
+import { eraDoMapa, erasAbertas, celebiApareceu, chaveGuardiao, acabouOTempo }
+  from "../systems/eras.js";
 import { ehFusao, fundivel, previsao, partes, temFicha, fichasProntas, variantes,
          buscarDoMundo, especiePorTexto, montarEspecie, servidorMundo,
          importarFicha, trocarVariante, versoesInvertidas } from "../systems/fusao.js";
@@ -356,6 +358,9 @@ export class OverworldScene {
     if (deo) extra.push(deo);
     extra.push(...this.tempestadeNpcs());
     extra.push(...this.estaticosNpcs());
+    const celebi = this.celebiNpc();
+    if (celebi) extra.push(celebi);
+    extra.push(...this.erasNpcs());
     const azul = rivalNpc(this.st);        // o AZUL aparece quando é a vez dele
     if (azul) extra.push(azul);
     if (this.st.mission && this.st.player.map === "glitchdim") {
@@ -1514,6 +1519,8 @@ export class OverworldScene {
     if (npc.fragment) return this.useFragment();
     if (npc.id === "carvalho") return this.talkOak(npc, state);
     if (npc.concurso) return this.talkConcurso(npc, state);
+    if (npc.celebi) return this.talkCelebi();
+    if (npc.voltaTempo) return this.voltarDoTempo();
     if (npc.voltaBarco) return this.voltarDeBarco(npc);
     if (npc.missao) return this.talkMissao(npc);
 
@@ -2508,6 +2515,116 @@ export class OverworldScene {
     return lista;
   }
 
+  /** O CELEBI, na clareira da FLORESTA VIRIDIAN.
+   *
+   *  Ele não está lá desde o começo: só aparece depois que MISSINGNO. foi
+   *  capturado (`flags.caughtMissingno`). Antes disso a clareira é só clareira
+   *  — do mesmo jeito que a usina é só usina enquanto ninguém te contou do
+   *  YVELTAL. Um bicho parado dizendo "ainda não" durante o jogo inteiro é
+   *  pior que bicho nenhum: ele estraga a surpresa e não entrega nada. */
+  celebiNpc() {
+    const C = DB.CELEBI;
+    if (!C || this.st.player.map !== C.mapa || !celebiApareceu(this.st)) return null;
+    return { id: "celebi", x: C.x, y: C.y, dir: "down", sprite: C.sprite, celebi: true, lines: [] };
+  }
+
+  /** Quem está do outro lado do tempo: o CELEBI, que traz de volta, e o
+   *  guardião da era, parado, esperando você atravessar o mapa até ele.
+   *
+   *  Capturou: ele some pra sempre e a era seguinte abre. Derrubou sem
+   *  capturar: ele volta NA PRÓXIMA VIAGEM (`viajarNoTempo` limpa o estado
+   *  dele), que é a mesma regra do lendário da tempestade — a viagem inteira
+   *  entre você e a segunda chance já é preço bastante. */
+  erasNpcs() {
+    const era = eraDoMapa(this.st.player.map);
+    if (!era) return [];
+    const T = DB.ERAS_TEXTO || {};
+    const lista = [{
+      id: "celebi", x: era.geo.entrada.x + 1, y: era.geo.entrada.y, dir: "left",
+      sprite: DB.CELEBI?.sprite || "mon:celebi", voltaTempo: true, lines: T.espera || [],
+    }];
+    const g = era.guardiao;
+    const caiu = this.st.npcState[chaveGuardiao(era)]?.defeated;
+    if (g && DB.SPECIES[g.id] && !this.st.caught[g.id] && !caiu) {
+      lista.push({
+        id: "guardiao", x: era.geo.guardiao.x, y: era.geo.guardiao.y, dir: "down",
+        sprite: `mon:${g.id}`, boss: { id: g.id, lvl: g.nivel || 70 }, lines: g.lines || [],
+      });
+    }
+    return lista;
+  }
+
+  /** A conversa da clareira: ele pergunta PRA QUANDO e a lista é só o que já
+   *  está aberto. Era trancada não entra no menu como opção cinza — ela
+   *  simplesmente não está lá, e o CELEBI diz por quê. */
+  talkCelebi() {
+    const C = DB.CELEBI, st = this.st;
+    const todas = DB.ERAS || [];
+    const abertas = erasAbertas(st);
+    if (!abertas.length) return void this.dlg.say(C.trancada);
+    const primeira = !st.flags?.celebiFalou;
+    const acabou = acabouOTempo(st);
+    const linhas = primeira ? [...C.primeira] : acabou ? [...C.fim] : [...C.falas];
+    if (!primeira && !acabou && abertas.length < todas.length) linhas.push(C.trancada);
+    (st.flags ||= {}).celebiFalou = true;
+    this.dlg.say(linhas, () => {
+      this.dlg.ask(C.pergunta, [...abertas.map((e) => e.curto), C.agora], (i) => {
+        const era = abertas[i];
+        if (!era) return void this.dlg.say(C.recusa);
+        this.viajarNoTempo(era);
+      });
+    });
+  }
+
+  /** A viagem. Guarda DE ONDE você saiu (é pra cá que ele te devolve) e põe
+   *  você na clareira de chegada da era. */
+  viajarNoTempo(era) {
+    const T = DB.ERAS_TEXTO || {};
+    this.dlg.say(T.indo || [], () => {
+      Audio2.tone(660, 0.1, "triangle", 0.5);
+      Audio2.tone(990, 0.18, "triangle", 0.4);
+      this.transition(() => {
+        const p = this.st.player;
+        this.st.tempo = { map: p.map, x: p.x, y: p.y, dir: p.dir, era: era.id };
+        this.st.surfando = null;
+        // derrubado sem capturar na viagem passada: ele está de pé de novo
+        if (!this.st.caught[era.guardiao.id]) delete this.st.npcState[chaveGuardiao(era)];
+        p.map = era.mapa; p.x = era.geo.entrada.x; p.y = era.geo.entrada.y; p.dir = "up";
+        this.justWarped = true;
+        this.afterTravel();
+        this.game.autosave?.(true);
+        this.dlg.say(era.chegada || []);
+      });
+    });
+  }
+
+  /** A volta. `st.tempo` é o endereço de casa; se ele sumir (save de uma versão
+   *  anterior, VOAR pra fora da era e voltar por outro caminho), o CELEBI
+   *  devolve na clareira dele — nunca deixa ninguém preso num ano. */
+  voltarDoTempo() {
+    const T = DB.ERAS_TEXTO || {}, C = DB.CELEBI, st = this.st;
+    const era = eraDoMapa(st.player.map);
+    const g = era?.guardiao;
+    // o comentário dele sobre o guardião capturado, uma vez só
+    const marca = era && `eraFim_${era.id}`;
+    const fecho = (g && st.caught?.[g.id] && !st.flags?.[marca]) ? (g.capturado || []) : [];
+    if (fecho.length) (st.flags ||= {})[marca] = true;
+    const perguntar = () => this.dlg.ask(T.perguntaVolta, T.opcoesVolta, (i) => {
+      if (i !== 0) return void this.dlg.say(T.ficar);
+      this.transition(() => {
+        const casa = st.tempo || { map: C.mapa, x: C.x, y: C.y + 1, dir: "up" };
+        Object.assign(st.player, { map: casa.map, x: casa.x, y: casa.y, dir: casa.dir || "down" });
+        st.tempo = null;
+        st.surfando = null;
+        this.justWarped = true;
+        this.afterTravel();
+        this.game.autosave?.(true);
+      });
+    });
+    if (fecho.length) this.dlg.say(fecho, perguntar);
+    else perguntar();
+  }
+
   entregarMissao(missao) {
     const linhas = entregar(this.st, missao.id);
     Audio2.heal();
@@ -2955,13 +3072,20 @@ export class OverworldScene {
     return [...base, "SALVAR", "OPÇÕES", "SAIR"];
   }
 
-  /** O que esta loja mostra AGORA: item com `requer` só entra depois da flag, e
-   *  item `unico` sai da prateleira depois de comprado. Vender o que o jogador
-   *  ainda não pode usar é vender problema; vender de novo o que não gasta é
-   *  vender a mesma coisa duas vezes. */
+  /** O que esta loja mostra AGORA: item com `requer` só entra depois da flag,
+   *  item com `insignias` só entra depois de tantas insígnias, e item `unico`
+   *  sai da prateleira depois de comprado. Vender o que o jogador ainda não
+   *  pode usar é vender problema; vender de novo o que não gasta é vender a
+   *  mesma coisa duas vezes.
+   *
+   *  `insignias` existe pelas BOLAS (src/data/bolas.js): a GREAT BALL e a ULTRA
+   *  BALL na primeira loja do jogo transformariam a captura inteira num
+   *  problema de dinheiro. Flag não servia — o que segura elas não é uma cena
+   *  que aconteceu, é quanto de estrada você já tem nas costas. */
   prateleira(shop) {
     return (shop || [])
       .filter((x) => !x.requer || this.st.flags?.[x.requer])
+      .filter((x) => !x.insignias || (this.st.badges || []).length >= x.insignias)
       .filter((x) => !x.unico || !(this.st.items?.[x.item] > 0));
   }
 

@@ -260,7 +260,7 @@ if (stash?.state && !game.isValid(stash.state)) {
   // de dev (?map=, ?battle=) — nesses dois casos ninguém quer ver fanfarra, e
   // no primeiro ela apareceria a cada arquivo salvo.
   const busca = new URLSearchParams(location.search);   // o `q` do arquivo só nasce mais abaixo
-  const atalhoDeDev = busca.has("map") || busca.has("battle") || busca.has("starter");
+  const atalhoDeDev = busca.has("map") || busca.has("battle") || busca.has("starter") || busca.has("era");
   game.scenes.push(atalhoDeDev ? new TitleScene() : new AberturaScene());
 }
 
@@ -279,8 +279,9 @@ function addMons(state, spec) {
 // ------------------------------------------------- atalhos de desenvolvimento
 // ?map=route1&x=7&y=10  |  ?battle=missingno&lvl=8  |  ?starter=squirtle  |  ?debug=1
 // ?map=route1&rasgo=1 -> um rasgo aberto do seu lado (a GLITCH RAID)
+// ?era=fosseis | ?map=viridian_forest&x=21&y=23&eras=1 -> o pós-jogo do CELEBI
 const q = new URLSearchParams(location.search);
-if (q.has("map") || q.has("battle")) {
+if (q.has("map") || q.has("battle") || q.has("era")) {
   game.newGame();
   {
     const [sid, slvl] = (q.get("starter") || "charmander").split(":");
@@ -348,6 +349,24 @@ if (q.has("map") || q.has("battle")) {
     game.state.items[DB.FUSAO.item] = 1;
     game.state.flags.decodificador = true;
   }
+  // AS TRÊS ERAS (pós-jogo). ?eras=1 põe o CELEBI na clareira da FLORESTA
+  // VIRIDIAN (é como se MISSINGNO. já tivesse sido capturado); ?era=paradoxo
+  // joga direto dentro daquela era, já com o caminho de volta guardado.
+  if (q.get("eras") || q.has("era")) game.state.flags.caughtMissingno = true;
+  if (q.has("era")) {
+    const era = (DB.ERAS || []).find((e) => e.id === q.get("era") || e.mapa === q.get("era"));
+    if (!era) console.warn("[eras] era desconhecida:", q.get("era"));
+    else {
+      const C = DB.CELEBI;
+      game.state.tempo = { map: C.mapa, x: C.x, y: C.y + 1, dir: "up", era: era.id };
+      Object.assign(game.state.player, {
+        map: era.mapa,
+        x: q.has("x") ? +q.get("x") : era.geo.entrada.x,
+        y: q.has("y") ? +q.get("y") : era.geo.entrada.y,
+        dir: q.get("dir") || "up",
+      });
+    }
+  }
   if (q.get("frag")) {   // ?frag=1 -> fragmento colado no jogador, pra testar
     const p2 = game.state.player;
     game.state.flags.dimUnlocked = true;
@@ -386,6 +405,11 @@ if (q.has("give")) {
 
 SpriteStore.maps.glitchdim = Assets.glitchRoom(DB.KANTO.glitchdim);
 SpriteStore.maps.tempestade = Assets.stormArt(DB.KANTO.tempestade);
+// AS TRÊS ERAS: mesma função pras três, cada uma com a paleta dela (o `seed` é
+// o do mapa, então a pintura sai igual toda vez que o jogo abre).
+for (const e of DB.ERAS || []) {
+  if (DB.KANTO[e.mapa]) SpriteStore.maps[e.mapa] = Assets.eraArt(DB.KANTO[e.mapa], e.paleta, e.geo.seed);
+}
 // só desenha a ilha em código quando o mapa do decomp não foi importado
 if (ILHA_GERADA) SpriteStore.maps.birth_island = Assets.islandArt(DB.KANTO.birth_island);
 mapArt(game.state.player.map); // começa a carregar a arte do mapa atual

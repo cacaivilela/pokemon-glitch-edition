@@ -45,7 +45,15 @@ EXTRA_DEX = [161, 165, 167, 177, 183, 187, 193, 200, 202, 206, 214, 231, 246,
              153, 154, 156, 157, 159, 160, 253, 254, 256, 257, 259, 260,
              388, 389, 391, 392, 394, 395, 496, 497, 499, 500, 502, 503,
              651, 652, 654, 655, 657, 658, 723, 724, 726, 727, 729, 730,
-             811, 812, 814, 815, 817, 818, 907, 908, 910, 911, 913, 914]
+             811, 812, 814, 815, 817, 818, 907, 908, 910, 911, 913, 914,
+             # AS TRÊS ERAS (src/data/eras.js): o CELEBI que leva, os fósseis
+             # vivos de 66 milhões de anos atrás — com as evoluções que faltavam
+             # pro LILEEP, ANORITH, TIRTOUGA e ARCHEN — e os PARADOXOS de
+             # Paldea, os do passado e os do futuro, com KORAIDON e MIRAIDON
+             251,
+             346, 348, 565, 567, 696, 697, 698, 699, 369,
+             984, 985, 986, 987, 988, 989, 1005, 1009, 1020, 1021, 1007,
+             990, 991, 992, 993, 994, 995, 1006, 1010, 1022, 1023, 1008]
 # formas MEGA (ids de FORMA da PokeAPI, não da Pokédex). Nenhuma delas existia
 # na geração III, então elas vêm com a arte moderna mesmo — os arquivos saem
 # como 10033.png e são achados pelo campo `spriteDex` de src/data/mega.js.
