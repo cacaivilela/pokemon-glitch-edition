@@ -1215,5 +1215,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/krabby+hitmonchan~krabbochan.png",
       "lore": "KRABBY NA CABEÇA, HITMONCHAN NO CORPO."
     }
+  ],
+  "onix+magneton": [
+    {
+      "id": "onton",
+      "nome": "ONTON",
+      "autor": "",
+      "tipos": [
+        "PEDRA",
+        "AÇO"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 6.8,
+        "atk": 3.7,
+        "def": 5.4,
+        "spa": 1.5,
+        "spd": 3.2,
+        "spe": 5.1
+      },
+      "sprite": "assets/fusoes/onix+magneton~onton.png",
+      "lore": "ONIX NA CABEÇA, MAGNETON NO CORPO."
+    }
   ]
 };
