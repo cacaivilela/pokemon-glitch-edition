@@ -1302,5 +1302,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/victreebel+tentacool~victreecool.png",
       "lore": "VICTREEBEL NA CABEÇA, TENTACOOL NO CORPO."
     }
+  ],
+  "cranidos+cubone": [
+    {
+      "id": "cranine",
+      "nome": "CRANINE",
+      "autor": "",
+      "tipos": [
+        "PEDRA",
+        "TERRA"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 3.4,
+        "atk": 3,
+        "def": 3.4,
+        "spa": 6.7,
+        "spd": 7.2,
+        "spe": 7
+      },
+      "sprite": "assets/fusoes/cranidos+cubone~cranine.png",
+      "lore": "CRANIDOS NA CABEÇA, CUBONE NO CORPO."
+    }
   ]
 };
