@@ -1359,5 +1359,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/lickitung+raticate~lickite.png",
       "lore": "LICKITUNG NA CABEÇA, RATICATE NO CORPO."
     }
+  ],
+  "gengar+gengar": [
+    {
+      "id": "gengar",
+      "nome": "GENGAR",
+      "autor": "",
+      "tipos": [
+        "FANTASMA",
+        "VENENO"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 5,
+        "atk": 4.4,
+        "def": 5.4,
+        "spa": 1.5,
+        "spd": 2.1,
+        "spe": 4.4
+      },
+      "sprite": "assets/fusoes/gengar+gengar~gengar.png",
+      "lore": "GENGAR NA CABEÇA, GENGAR NO CORPO."
+    }
   ]
 };
