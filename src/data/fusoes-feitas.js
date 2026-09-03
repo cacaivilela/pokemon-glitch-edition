@@ -1244,5 +1244,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/onix+magneton~onton.png",
       "lore": "ONIX NA CABEÇA, MAGNETON NO CORPO."
     }
+  ],
+  "porygon+psyduck": [
+    {
+      "id": "poryduck",
+      "nome": "PORYDUCK",
+      "autor": "",
+      "tipos": [
+        "NORMAL",
+        "ÁGUA"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 3.4,
+        "atk": 3,
+        "def": 3.4,
+        "spa": 6.7,
+        "spd": 7.2,
+        "spe": 7
+      },
+      "sprite": "assets/fusoes/porygon+psyduck~poryduck.png",
+      "lore": "PORYGON NA CABEÇA, PSYDUCK NO CORPO."
+    }
   ]
 };
