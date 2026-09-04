@@ -984,35 +984,6 @@ export const FUSOES_FEITAS = {
       "lore": "TAUROS NA CABEÇA, ROTOM NO CORPO."
     }
   ],
-  "zygarde+weedle": [
-    {
-      "id": "zygadle",
-      "nome": "ZYGADLE",
-      "autor": "",
-      "tipos": [
-        "DRAGÃO",
-        "VENENO"
-      ],
-      "inicial": {
-        "hp": 10,
-        "atk": 5,
-        "def": 5,
-        "spa": 5,
-        "spd": 5,
-        "spe": 5
-      },
-      "crescimento": {
-        "hp": 3.8,
-        "atk": 6.7,
-        "def": 4.3,
-        "spa": 6.1,
-        "spd": 4,
-        "spe": 5.2
-      },
-      "sprite": "assets/fusoes/zygarde+weedle~zygadle.png",
-      "lore": "ZYGARDE NA CABEÇA, WEEDLE NO CORPO."
-    }
-  ],
   "cranidos+blastoise": [
     {
       "id": "cranistoise",
