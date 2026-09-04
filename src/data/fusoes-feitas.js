@@ -240,8 +240,7 @@ export const FUSOES_FEITAS = {
         "spd": 2.1,
         "spe": 1.8
       },
-      "sprite": "assets/fusoes/rayquaza+kyogre~rayogre.png",
-      "protegida": true
+      "sprite": "assets/fusoes/rayquaza+kyogre~rayogre.png"
     }
   ],
   "unown+unown": [
