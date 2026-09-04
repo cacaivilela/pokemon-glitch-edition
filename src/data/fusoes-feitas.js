@@ -215,34 +215,6 @@ export const FUSOES_FEITAS = {
       "protegida": true
     }
   ],
-  "rayquaza+kyogre": [
-    {
-      "id": "rayogre",
-      "nome": "RAYOGRE",
-      "autor": "VERMELHO",
-      "tipos": [
-        "DRAGÃO",
-        "ÁGUA"
-      ],
-      "inicial": {
-        "hp": 12,
-        "atk": 6,
-        "def": 7,
-        "spa": 7,
-        "spd": 8,
-        "spe": 13
-      },
-      "crescimento": {
-        "hp": 3.1,
-        "atk": 2.3,
-        "def": 1.8,
-        "spa": 3,
-        "spd": 2.1,
-        "spe": 1.8
-      },
-      "sprite": "assets/fusoes/rayquaza+kyogre~rayogre.png"
-    }
-  ],
   "unown+unown": [
     {
       "id": "kingunown",
