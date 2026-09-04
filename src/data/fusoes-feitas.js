@@ -1013,34 +1013,6 @@ export const FUSOES_FEITAS = {
       "lore": "ZYGARDE NA CABEÇA, WEEDLE NO CORPO."
     }
   ],
-  "weezing+grimer": [
-    {
-      "id": "weemer",
-      "nome": "WEEMER",
-      "autor": "",
-      "tipos": [
-        "VENENO"
-      ],
-      "inicial": {
-        "hp": 10,
-        "atk": 5,
-        "def": 5,
-        "spa": 5,
-        "spd": 5,
-        "spe": 5
-      },
-      "crescimento": {
-        "hp": 6.7,
-        "atk": 3.8,
-        "def": 7.1,
-        "spa": 3.6,
-        "spd": 7.1,
-        "spe": 3.8
-      },
-      "sprite": "assets/fusoes/weezing+grimer~weemer.png",
-      "lore": "WEEZING NA CABEÇA, GRIMER NO CORPO."
-    }
-  ],
   "cranidos+blastoise": [
     {
       "id": "cranistoise",
