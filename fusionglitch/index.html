@@ -121,8 +121,13 @@
       <button class="ferramenta" data-ferramenta="borracha">🧽 Borracha</button>
       <button class="ferramenta" data-ferramenta="balde">🪣 Balde</button>
       <button class="ferramenta" data-ferramenta="pipeta">💧 Conta-gotas</button>
+      <button id="mover">✋ Mover tudo</button>
       <button id="desfazer">↶ Desfazer</button>
       <button id="limpar">🗑 Limpar</button>
+    </div>
+    <div class="aviso" id="dicaMover" hidden style="margin:0">
+      ✋ <b>Peça solta.</b> Arraste ela pra onde quiser, ou empurre com as setas do teclado
+      (segurando SHIFT anda 8 de uma vez). <b>ENTER</b> cola no desenho, <b>ESC</b> devolve.
     </div>
 
     <div class="linha-botoes" style="justify-content:center;align-items:center">
@@ -221,6 +226,7 @@ ctx.imageSmoothingEnabled = false;
 const estado = {
   cabeca: null, corpo: null,
   ferramenta: "pincel", grosso: 1, cor: "#000000",
+  peca: null,                     // a peça solta, quando tem uma (ver soltar())
   paleta: "PADRÃO", undos: [], pintando: false,
   crescimento: { hp: 2, atk: 1.5, def: 1.5, spa: 1.5, spd: 1.5, spe: 1.5 },
   inicial: { hp: 10, atk: 5, def: 5, spa: 5, spd: 5, spe: 5 },
@@ -338,6 +344,7 @@ function guardarUndo() {
 async function montarAuto() {
   const { cabeca, corpo } = estado;
   if (!cabeca || !corpo) return;
+  esquecerPeca();                  // a automática recomeça o desenho do zero
   const [ic, ib] = await Promise.all([carregar(cabeca), carregar(corpo)]);
   guardarUndo();
   ctx.clearRect(0, 0, LADO, LADO);
@@ -389,10 +396,97 @@ async function encaixar(qual) {
   const img = await carregar(sp);
   if (!img) return recado("Não consegui carregar esse sprite.", "erro");
   guardarUndo();
-  const meio = qual === "topo" ? 0.46 : qual === "base" ? 0.54 : 1;
-  if (qual === "topo") ctx.drawImage(img, 0, 0, img.width, img.height * 0.46, 0, 0, LADO, LADO * 0.46);
-  else if (qual === "base") ctx.drawImage(img, 0, img.height * 0.46, img.width, img.height * 0.54, 0, LADO * 0.46, LADO, LADO * 0.54);
-  else ctx.drawImage(img, 0, 0, LADO, LADO);
+  // A peça nasce onde a montagem automática colocaria, mas SOLTA: daí você
+  // arrasta pro lugar certo e só então ela entra no desenho.
+  if (qual === "topo")
+    soltar(recorte(img, 0, 0, img.width, img.height * 0.46, LADO, LADO * 0.46), 0, 0);
+  else if (qual === "base")
+    soltar(recorte(img, 0, img.height * 0.46, img.width, img.height * 0.54, LADO, LADO * 0.54),
+           0, Math.round(LADO * 0.46));
+  else
+    soltar(recorte(img, 0, 0, img.width, img.height, LADO, LADO), 0, 0);
+  recado("Arraste a peça pro lugar e aperte ENTER pra colar.", "");
+}
+
+/** Solta o desenho INTEIRO, pra empurrar tudo de uma vez (subir o bicho que
+ *  ficou colado na borda de cima, centralizar, etc). */
+function moverTudo() {
+  if (estado.peca) return;                       // já tem uma solta: mexe nela
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = LADO;
+  cv.getContext("2d").drawImage(tela, 0, 0);
+  guardarUndo();
+  ctx.clearRect(0, 0, LADO, LADO);               // a base fica vazia...
+  soltar(cv, 0, 0);                              // ...e o desenho todo vira peça
+  recado("O desenho inteiro está solto. Arraste e aperte ENTER.", "");
+}
+
+/* ------------------------------------------------------- a peça que anda
+   Uma peça encaixada não entra no desenho na hora: ela fica SOLTA por cima,
+   e você arruma o lugar dela antes de colar. Enquanto está solta, o que a
+   tela mostra é `base` (o desenho de verdade) + a peça no x,y de agora; o
+   desenho só muda quando cola. Assim dá pra mexer à vontade sem estragar
+   nada — e sair andando com a peça não gasta um passo do desfazer. */
+
+function soltar(cv, x = 0, y = 0) {
+  fixarPeca();                                   // se já tinha uma solta, cola
+  estado.peca = { cv, x, y, base: ctx.getImageData(0, 0, LADO, LADO) };
+  redesenhar();
+  if (document.activeElement?.tagName === "BUTTON") document.activeElement.blur();
+  $("dicaMover").hidden = false;
+  tela.style.cursor = "move";
+}
+
+function redesenhar() {
+  const p = estado.peca;
+  if (!p) return;
+  ctx.putImageData(p.base, 0, 0);
+  ctx.drawImage(p.cv, p.x, p.y);
+}
+
+/** Cola a peça no desenho. Chamada por todo mundo que precisa da tela pronta:
+ *  as ferramentas de pintura, o publicar, o baixar, a montagem automática. */
+function fixarPeca() {
+  if (!estado.peca) return;
+  redesenhar();                                  // a tela JÁ fica com ela
+  esquecerPeca();
+}
+
+/** Tira a peça de cima sem colar — o desenho volta a ser o que era. O passo
+ *  guardado no encaixe volta junto: quem soltou a peça guardou um undo logo
+ *  antes, e no MOVER TUDO é só ele que sabe o desenho inteiro (a base ficou
+ *  vazia, porque o desenho todo virou peça). */
+function devolverPeca() {
+  if (!estado.peca) return false;
+  ctx.putImageData(estado.undos.pop() || estado.peca.base, 0, 0);
+  esquecerPeca();
+  return true;
+}
+
+function esquecerPeca() {
+  estado.peca = null;
+  estado.arrastando = null;
+  $("dicaMover").hidden = true;
+  tela.style.cursor = "";
+}
+
+function moverPeca(dx, dy) {
+  if (!estado.peca) return;
+  estado.peca.x += dx;
+  estado.peca.y += dy;
+  redesenhar();
+}
+
+/** Um pedaço de sprite recortado e esticado pro tamanho da tela, num canvas
+ *  do tamanho que ele vai ocupar — é isso que anda por cima do desenho. */
+function recorte(img, sx, sy, sw, sh, larg, alt) {
+  const cv = document.createElement("canvas");
+  cv.width = Math.round(larg);
+  cv.height = Math.round(alt);
+  const c = cv.getContext("2d");
+  c.imageSmoothingEnabled = false;
+  c.drawImage(img, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+  return cv;
 }
 
 function pontoDoMouse(ev) {
@@ -446,6 +540,11 @@ function pipeta(x, y) {
 
 tela.addEventListener("pointerdown", (ev) => {
   const { x, y } = pontoDoMouse(ev);
+  if (estado.peca) {                             // com peça solta, o clique arrasta
+    estado.arrastando = { x: x - estado.peca.x, y: y - estado.peca.y };
+    try { tela.setPointerCapture(ev.pointerId); } catch { /* ponteiro de teste */ }
+    return;
+  }
   if (estado.ferramenta === "pipeta") return pipeta(x, y);
   guardarUndo();
   if (estado.ferramenta === "balde") return balde(x, y);
@@ -454,11 +553,28 @@ tela.addEventListener("pointerdown", (ev) => {
   pintar(x, y);
 });
 tela.addEventListener("pointermove", (ev) => {
-  if (!estado.pintando) return;
   const { x, y } = pontoDoMouse(ev);
+  if (estado.arrastando) {
+    estado.peca.x = x - estado.arrastando.x;
+    estado.peca.y = y - estado.arrastando.y;
+    return redesenhar();
+  }
+  if (!estado.pintando) return;
   pintar(x, y);
 });
-addEventListener("pointerup", () => { estado.pintando = false; });
+addEventListener("pointerup", () => { estado.pintando = false; estado.arrastando = null; });
+
+// As setas empurram de 1 em 1 (com SHIFT, de 8 em 8) — é como se acerta o
+// pixel certo sem tremer a mão. Só quando não estou escrevendo num campo.
+addEventListener("keydown", (ev) => {
+  if (!estado.peca) return;
+  if (/^(INPUT|SELECT|TEXTAREA)$/.test(ev.target.tagName)) return;
+  const passo = ev.shiftKey ? 8 : 1;
+  const setas = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+  if (setas[ev.key]) { moverPeca(setas[ev.key][0] * passo, setas[ev.key][1] * passo); ev.preventDefault(); }
+  else if (ev.key === "Enter") { fixarPeca(); recado("Colei a peça.", "ok"); }
+  else if (ev.key === "Escape") { devolverPeca(); recado("Tirei a peça.", ""); }
+});
 
 // ---------------------------------------------------------------- a paleta
 function desenharPaleta() {
@@ -478,6 +594,7 @@ $("paletaEscolha").innerHTML = Object.keys(PALETAS).map((n) => `<option>${n}</op
 $("paletaEscolha").onchange = (ev) => { estado.paleta = ev.target.value; desenharPaleta(); };
 
 function escolherFerramenta(f) {
+  fixarPeca();                     // pegou o pincel? então a peça já era do desenho
   estado.ferramenta = f;
   document.querySelectorAll(".ferramenta").forEach((b) => b.classList.toggle("on", b.dataset.ferramenta === f));
 }
@@ -490,11 +607,14 @@ document.querySelectorAll(".grosso").forEach((b) => {
 });
 document.querySelectorAll("[data-peca]").forEach((b) => { b.onclick = () => encaixar(b.dataset.peca); });
 $("auto").onclick = montarAuto;
+$("mover").onclick = moverTudo;
 $("desfazer").onclick = () => {
+  // Com uma peça solta, desfazer é tirar ela de cima.
+  if (devolverPeca()) return;
   const img = estado.undos.pop();
   if (img) ctx.putImageData(img, 0, 0);
 };
-$("limpar").onclick = () => { guardarUndo(); ctx.clearRect(0, 0, LADO, LADO); };
+$("limpar").onclick = () => { esquecerPeca(); guardarUndo(); ctx.clearRect(0, 0, LADO, LADO); };
 
 // ----------------------------------------------------------------- a ficha
 $("tipo1").innerHTML = TIPOS.map((t) => `<option>${t}</option>`).join("");
@@ -577,6 +697,7 @@ async function conferirDesenho() {
 }
 
 function montarFicha() {
+  fixarPeca();                     // o que está solto entra na ficha
   const { cabeca, corpo } = estado;
   if (!cabeca || !corpo) { recado("Escolha a cabeça e o corpo.", "erro"); return null; }
   const nome = ($("nome").value || nomeFusao(cabeca.nome, corpo.nome)).toUpperCase().slice(0, 11);

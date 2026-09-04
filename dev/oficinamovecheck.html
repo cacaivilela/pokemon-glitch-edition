@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem do mover da oficina</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  h2 { color:#b455ff; font:bold 13px ui-monospace,monospace; margin:10px 0 2px; }
+  iframe { width:1100px; height:1000px; border:0; position:absolute; left:-3000px; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=20000">
+<iframe id="fr" src="/fusionglitch/"></iframe>
+<script type="module">
+// Dirige a oficina de fora, só pelo que dá pra ver de fora: clica nos botões,
+// manda ponteiro e tecla, e confere o resultado nos PIXELS da tela (o script
+// dela é module, então as variáveis de dentro não existem aqui — o que é bom:
+// o teste passa a checar o que o desenhista vê, não o que o código guarda).
+// MISSINGNO. nos dois lados de propósito: ele é desenhado em código, então
+// nada aqui depende de baixar sprite.
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+let falhas = 0;
+const ok = (t, c) => { if (!c) falhas++; p(`${t}: ${c ? "OK" : "FALHOU"}`, c ? "ok" : "erro"); };
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+
+try {
+  const fr = document.getElementById("fr");
+  const W = fr.contentWindow;
+  for (let i = 0; i < 200 && !W.document.getElementById("mover"); i++) await espera(50);
+  const D = W.document;
+  const tela = D.getElementById("tela");
+  ok("a oficina carregou, com o botão de mover", !!tela && !!D.getElementById("mover"));
+
+  const cx = tela.getContext("2d", { willReadFrequently: true });
+  const dados = () => cx.getImageData(0, 0, 64, 64).data;
+  const foto = () => Array.from(dados()).join(",");
+  const pintados = () => { const d = dados(); let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 40) n++; return n; };
+  function caixa() {                                  // onde o desenho começa
+    const d = dados();
+    let x0 = 99, y0 = 99, x1 = -1, y1 = -1;
+    for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
+      if (d[(y * 64 + x) * 4 + 3] <= 40) continue;
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+    return { x0, y0, x1, y1 };
+  }
+  const solta = () => D.getElementById("dicaMover").hidden === false;
+  const botao = (sel) => D.querySelector(sel);
+  const tecla = (key, shift = false, alvo = W) =>
+    alvo.dispatchEvent(new W.KeyboardEvent("keydown", { key, shiftKey: shift, bubbles: true, cancelable: true }));
+  function ponteiro(tipo, x, y) {                     // x,y em pixels do desenho
+    const r = tela.getBoundingClientRect();
+    const e = new W.PointerEvent(tipo, { bubbles: true, cancelable: true, pointerId: 1,
+      clientX: r.left + (x + 0.5) * (r.width / 64), clientY: r.top + (y + 0.5) * (r.height / 64) });
+    (tipo === "pointerup" ? W : tela).dispatchEvent(e);
+  }
+  const arrastar = (x, y, dx, dy) => {
+    ponteiro("pointerdown", x, y); ponteiro("pointermove", x + dx, y + dy); ponteiro("pointerup", x + dx, y + dy);
+  };
+  async function encaixar(peca) { botao(`[data-peca="${peca}"]`).click(); await espera(250); }
+
+  h("BANCADA");
+  for (const lado of ["cabeca", "corpo"]) {
+    const inp = D.getElementById(lado);
+    inp.value = "MISSINGNO";
+    inp.dispatchEvent(new W.Event("change", { bubbles: true }));
+  }
+  await espera(400);
+  D.getElementById("limpar").click();                  // tela vazia: o que aparecer é a peça
+  ok("a tela começou vazia", pintados() === 0);
+
+  h("ENCAIXAR SOLTA A PEÇA");
+  await encaixar("topo");
+  const c0 = caixa();
+  ok("desenhou a peça", pintados() > 100);
+  ok("a dica de peça solta apareceu", solta());
+  ok("o cursor virou de mover", tela.style.cursor === "move");
+  ok("a peça nasceu no topo, como a montagem automática faria", c0.y0 === 0);
+  ok("a peça é só o topo (não desce até embaixo)", c0.y1 < 40);
+
+  h("ARRASTAR");
+  arrastar(20, 10, 12, 16);
+  const c1 = caixa();
+  ok(`andou 12,16 (${c0.x0},${c0.y0}) -> (${c1.x0},${c1.y0})`, c1.x0 === c0.x0 + 12 && c1.y0 === c0.y0 + 16);
+
+  h("SETAS");
+  tecla("ArrowLeft"); tecla("ArrowUp");
+  const c2 = caixa();
+  ok("seta anda 1", c2.x0 === c1.x0 - 1 && c2.y0 === c1.y0 - 1);
+  tecla("ArrowRight", true);
+  ok("com SHIFT anda 8", caixa().x0 === c2.x0 + 8);
+  const campo = D.getElementById("nome");
+  campo.focus();
+  tecla("ArrowLeft", false, campo);
+  ok("escrevendo num campo, a seta NÃO empurra a peça", caixa().x0 === c2.x0 + 8);
+  campo.blur();
+
+  h("ENTER COLA");
+  const antesDoEnter = foto();
+  tecla("Enter");
+  ok("a dica sumiu", !solta());
+  ok("o cursor voltou ao normal", tela.style.cursor === "");
+  ok("o desenho é exatamente o que estava na tela", foto() === antesDoEnter);
+  ok("a peça ficou onde eu larguei, não na origem", caixa().y0 > 0);
+
+  h("ESC DEVOLVE");
+  const antesDoEsc = foto();
+  await encaixar("cabeca");
+  arrastar(10, 10, 20, 20);
+  ok("tem peça solta e ela andou", solta() && caixa().y1 > 40);
+  tecla("Escape");
+  ok("a dica sumiu", !solta());
+  ok("o desenho voltou pixel por pixel ao de antes do encaixe", foto() === antesDoEsc);
+
+  h("DESFAZER COM PEÇA SOLTA");
+  await encaixar("corpo");
+  arrastar(30, 30, -8, -8);
+  D.getElementById("desfazer").click();
+  ok("desfazer tirou a peça e devolveu o desenho", !solta() && foto() === antesDoEsc);
+
+  h("MOVER TUDO");
+  const antesDoMover = foto(), altoAntes = caixa().y0;
+  D.getElementById("mover").click();
+  await espera(150);
+  ok("soltou o desenho inteiro", solta());
+  arrastar(32, 32, 0, -10);
+  ok("o desenho todo subiu 10", caixa().y0 === altoAntes - 10);
+  tecla("Enter");
+  ok("colou no lugar novo", !solta() && foto() !== antesDoMover);
+  D.getElementById("desfazer").click();
+  ok("desfazer devolveu o desenho inteiro de antes do mover", foto() === antesDoMover);
+
+  h("MOVER TUDO + DESFAZER NO MEIO");
+  D.getElementById("mover").click();
+  await espera(150);
+  arrastar(32, 32, 8, 8);
+  D.getElementById("desfazer").click();
+  ok("voltou o desenho inteiro (a base estava vazia)", foto() === antesDoMover && pintados() > 100);
+
+  h("A PEÇA VIRA DESENHO QUANDO PRECISA");
+  await encaixar("topo");
+  const antesDoPincel = foto();
+  botao('[data-ferramenta="pincel"]').click();
+  ok("pegar o pincel colou a peça", !solta() && foto() === antesDoPincel);
+  await encaixar("topo");
+  D.getElementById("limpar").click();
+  ok("limpar não deixa peça pendurada", !solta() && pintados() === 0);
+  ok("a tela do desenho continua 64x64", tela.width === 64 && tela.height === 64);
+} catch (e) {
+  falhas++;
+  p("EXPLODIU: " + (e?.stack || e), "erro");
+}
+p(falhas ? `${falhas} FALHA(S)` : "TUDO OK", falhas ? "erro" : "ok");
+out.innerHTML = linhas.join("");
+const texto = linhas.join("\n").replace(/<h2>/g, "\n").replace(/<[^>]+>/g, "");
+try { await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "oficinamove", log: texto }) }); } catch (e) {}
+document.title = "pronto";
+</script>
+</body>
+</html>
