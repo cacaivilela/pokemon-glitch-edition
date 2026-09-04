@@ -776,6 +776,33 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/rotom+voltorb~roltorb.png",
       "lore": "ROTOM NA CABEÇA, VOLTORB NO CORPO.",
       "protegida": true
+    },
+    {
+      "id": "pokball",
+      "nome": "POKÉBALL",
+      "autor": "CAIO",
+      "tipos": [
+        "ELÉTRICO",
+        "AÇO"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 3.2,
+        "atk": 4.8,
+        "def": 3.4,
+        "spa": 4.1,
+        "spd": 3.6,
+        "spe": 9
+      },
+      "sprite": "assets/fusoes/rotom+voltorb~pokball.png",
+      "lore": "ROTOM NA CABEÇA, VOLTORB NO CORPO."
     }
   ],
   "rotom+lampent": [
