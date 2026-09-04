@@ -218,6 +218,11 @@ $("form-senha").addEventListener("submit", async (e) => {
 
 // --- medir o acervo (uma vez) ----------------------------------------------
 async function abrirAcervo() {
+  // SEM `?v=` AQUI. Furar o cache de módulo parecia esperto e quebrou a página:
+  // com a query, `faxina.js?v=1` continua importando `./index.js` SEM query, e
+  // passam a existir DUAS cópias de tudo — dois DB, dois SpriteStore. O que a
+  // página inicializa não é o que ela lê. O servidor já manda `no-cache`; quem
+  // quiser dados novos recarrega a página, e isso basta.
   const [{ DB }, { Assets }, sprites, faxina] = await Promise.all([
     import("/src/data/index.js"),
     import("/src/core/assets.js"),
