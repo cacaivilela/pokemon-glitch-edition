@@ -1415,5 +1415,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/gengar+gengar~gengar.png",
       "lore": "GENGAR NA CABEÇA, GENGAR NO CORPO."
     }
+  ],
+  "kabutops+bellsprout": [
+    {
+      "id": "kabulsprout",
+      "nome": "KABULSPROUT",
+      "autor": "CAIO",
+      "tipos": [
+        "PEDRA",
+        "VENENO"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 7.5,
+        "atk": 4.3,
+        "def": 8.6,
+        "spa": 5.6,
+        "spd": 6.3,
+        "spe": 1
+      },
+      "sprite": "assets/fusoes/kabutops+bellsprout~kabulsprout.png",
+      "lore": "KABUTOPS NA CABEÇA, BELLSPROUT NO CORPO."
+    }
   ]
 };
