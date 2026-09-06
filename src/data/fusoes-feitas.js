@@ -1358,5 +1358,33 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/magnemite+golem~magnelem.png",
       "lore": "MAGNEMITE NA CABEÇA, GOLEM NO CORPO."
     }
+  ],
+  "golduck+poliwag": [
+    {
+      "id": "gowag",
+      "nome": "GOWAG",
+      "autor": "",
+      "tipos": [
+        "ÁGUA"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 2,
+        "atk": 1.5,
+        "def": 1.5,
+        "spa": 1.5,
+        "spd": 1.5,
+        "spe": 1.5
+      },
+      "sprite": "assets/fusoes/golduck+poliwag~gowag.png",
+      "lore": "GOLDUCK NA CABEÇA, POLIWAG NO CORPO."
+    }
   ]
 };
