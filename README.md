@@ -929,8 +929,10 @@ grama, barranco e água vão junto com o desenho. Você nasce num tile qualquer 
 que dá pra ficar de pé, **sem olhar os vizinhos**: em uns 30% das vezes nasce
 preso entre quatro paredes, e o jogo avisa na hora ("VOCÊ ESTÁ PRESO ENTRE OS
 TILES. MAS ESSAS PAREDES NÃO NASCERAM AQUI. INSISTA NELAS."). A faixa mostra o
-nome da fonte corrompido (`R0T4 3`, `CID4DE VIR1D14N`) e os bichos do mato são
-os da fonte.
+nome da fonte corrompido (`R0T4 3`, `CID4DE VIR1D14N`), os bichos do mato são
+os da fonte e **a música é a da fonte com as notas fora de ordem** — mesmo
+ritmo, mesmas pausas, bateria intacta, alturas embaralhadas pela semente
+(`musicaDaZona`), então cada zona toca sempre a mesma versão errada.
 
 **Ficar preso é parte da coisa, preso pra sempre não é.** Três saídas:
 esbarrar **6 vezes** na mesma parede faz ela ceder e virar chão (fica um

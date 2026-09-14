@@ -190,6 +190,23 @@ ler(HISUI, "HISUI");
 ler(PALDEA, "PALDEA");
 ler(BASES, null);
 
+// ------------------------------------------------------ LEARNSETS À MÃO
+// O resto ganha o learnset automático pelo tipo (src/data/species.js). Quem
+// está aqui tem motivo pra ter o seu:
+//
+// O BASCULEGION sabe SURFAR DESDE O NÍVEL 4. Em Hisui ele ERA o surf — o bicho
+// em que se montava pra atravessar água — e um Pokémon que é a própria
+// travessia não devia esperar o nível 40 da regra por tipo (FIELD_LEARNERS)
+// pra fazer a única coisa que ele é. É a mesma exceção do LAPRAS, ao
+// contrário: lá o próprio learnset atrasa o SURFAR pro 70; aqui ele adianta.
+const LEARNSETS = {
+  basculegion: [[1, "investida"], [1, "lambida"], [4, "surfar"], [12, "mordida"],
+                [20, "bolasombria"], [30, "cabecada"]],
+};
+for (const [id, learnset] of Object.entries(LEARNSETS)) {
+  if (REGIONAIS[id]) REGIONAIS[id].learnset = learnset;
+}
+
 /** Os ids de forma da PokeAPI que precisam ser baixados
  *  (`python3 tools/fetch_sprites.py --regionais`). */
 export const SPRITES_FORMA = Object.values(REGIONAIS)

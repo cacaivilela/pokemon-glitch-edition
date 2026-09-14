@@ -118,7 +118,9 @@ export function montarZona(z) {
   const geo = { w, h, tags, perm, seed: z.seed, fonte: z.fonte, codigo: codigoDaZona(z),
                 warps: [], connections: [], signs: [], objects: [] };
   const mapa = {
-    name: z.nome || nomeCorrompido(nome, z.seed), music: "glitchdim", interior: false, npcs: [],
+    // a música é a do lugar de onde a zona veio, com as notas fora de ordem
+    // (ver musicaDaZona) — instalada em DB.MUSIC[ZONA] por garantirZona
+    name: z.nome || nomeCorrompido(nome, z.seed), music: ZONA, interior: false, npcs: [],
     // os bichos são os da fonte: o lugar está fora de ordem, os moradores não
     encounters: DB.MAPS?.[z.fonte]?.encounters || [],
     lockedWarps: {}, signs: {}, spawn: { x: z.x, y: z.y, dir: "down" },
@@ -162,12 +164,44 @@ export function alcance(geo, x0, y0, teto = 64) {
   return visto.size;
 }
 
+// ---------------------------------------------------------------- a música
+/** A trilha da zona: a MÚSICA DO LUGAR DE ONDE ELA VEIO, com as notas
+ *  embaralhadas — o mesmo que aconteceu com os tiles, agora com o som. O
+ *  ritmo fica (cada nota mantém a duração e as pausas ficam onde estão): é
+ *  o que faz a faixa continuar reconhecível por baixo do erro, como a GLITCH
+ *  CITY ainda parecia uma cidade. A bateria não muda de lugar — ruído
+ *  embaralhado é só ruído. Sai da semente: a mesma zona toca sempre igual. */
+export function musicaDaZona(z) {
+  const id = DB.MAPS?.[z.fonte]?.music || "route";
+  const base = DB.MUSIC?.[DB.MUSIC_ALIAS?.[id] || id] || DB.MUSIC?.route;
+  if (!base) return null;
+  const r = makeRng((z.seed ^ 0x27d4eb2f) >>> 0);
+  const tracks = (base.tracks || []).map((t) => {
+    if (t.wave === "ruido" || !Array.isArray(t.notes)) return t;
+    const idx = [];
+    t.notes.forEach((n, i) => { if (Array.isArray(n) && n[0] !== "-" && n[0] !== "x") idx.push(i); });
+    const alturas = idx.map((i) => t.notes[i][0]);
+    for (let i = alturas.length - 1; i > 0; i--) {         // Fisher-Yates
+      const j = r.int(i + 1);
+      [alturas[i], alturas[j]] = [alturas[j], alturas[i]];
+    }
+    const notes = t.notes.map((n) => n.slice ? n.slice() : n);
+    idx.forEach((i, k) => { notes[i][0] = alturas[k]; });
+    return { ...t, notes };
+  });
+  return { ...base, tracks, codigo: codigoDaZona(z), fonte: id };
+}
+
 /** Instala (ou reinstala) a zona do save no DB. Devolve a geometria. */
 export function garantirZona(st) {
   const z = st?.zona;
   if (!z) return null;
   const atual = DB.KANTO?.[ZONA];
-  if (atual && atual.codigo === codigoDaZona(z)) return atual;
+  const codigo = codigoDaZona(z);
+  // a trilha mora em DB.MUSIC, que o hot-swap reconstrói sem ela: confere
+  // sempre, e não só quando a geometria falta
+  if (DB.MUSIC && DB.MUSIC[ZONA]?.codigo !== codigo) DB.MUSIC[ZONA] = musicaDaZona(z);
+  if (atual && atual.codigo === codigo) return atual;
   const feito = montarZona(z);
   if (!feito) return null;
   DB.KANTO[ZONA] = feito.geo;

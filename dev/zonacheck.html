@@ -71,8 +71,20 @@ try {
   teste("o vão de saída é o tile em que você caiu", z.vao.x === z.x && z.vao.y === z.y);
   teste("a volta guarda a entrada", z.volta.map === entrada.mapa && z.volta.x === entrada.x && z.volta.y === entrada.y);
   p(`nome da faixa: ${DB.MAPS[Z.ZONA].name} (de ${DB.MAPS[z.fonte].name})`);
-  teste("a música é a da fenda e o lugar é de fora (VOAR funciona)",
-        DB.MAPS[Z.ZONA].music === "glitchdim" && !DB.MAPS[Z.ZONA].interior);
+  teste("o lugar é de fora (VOAR funciona)", !DB.MAPS[Z.ZONA].interior);
+  const mus = DB.MUSIC[DB.MAPS[Z.ZONA].music];
+  const idFonte = DB.MAPS[z.fonte].music, musFonte = DB.MUSIC[DB.MUSIC_ALIAS?.[idFonte] || idFonte] || DB.MUSIC.route;
+  p(`música: a de ${idFonte}, embaralhada (${mus?.tracks?.length} canais)`);
+  teste("a música é a da fonte com as notas fora de ordem",
+        !!mus && mus.bpm === musFonte.bpm && mus.tracks.length === musFonte.tracks.length
+        && mus.tracks.some((t, i) => t.notes.some((n, k) => n[0] !== musFonte.tracks[i].notes[k][0])));
+  teste("mas com o mesmo ritmo, as pausas no lugar e a bateria intacta",
+        mus.tracks.every((t, i) => t.notes.every((n, k) => {
+          const o = musFonte.tracks[i].notes[k];
+          return n[1] === o[1] && ((n[0] === "-") === (o[0] === "-")) && (t.wave !== "ruido" || n[0] === o[0]);
+        })));
+  teste("e é a mesma toda vez (sai da semente)",
+        JSON.stringify(Z.musicaDaZona(st.zona)) === JSON.stringify(mus));
   p(`alcance a pé de onde você cai: ${Z.alcance(geo, z.x, z.y, 64)} tiles`);
 
   h("PRESO ÀS VEZES, NÃO SEMPRE");
