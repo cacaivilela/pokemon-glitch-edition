@@ -336,6 +336,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         ok, erro = online.recebe(msg)
         self.json_out({"ok": ok, "erro": erro}, 200 if ok else 409)
 
+    def resgate_post(self):
+        """Conta (ou so confere) um resgate de codigo LIMITADO: {codigo, limite, quem, olhar}."""
+        msg = self.corpo()
+        if msg is None:
+            return self.send_error(400, "json invalido")
+        r = online.resgatar(msg.get("codigo"), msg.get("limite"), msg.get("quem"), bool(msg.get("olhar")))
+        if r["ok"] and not msg.get("olhar"):
+            print(f"\033[36m[resgate]\033[0m {msg.get('codigo')}: {r['usados']} usados, restam {r['restam']}", flush=True)
+        self.json_out(r)
+
     def gift_post(self):
         """Publica um cartao de PRESENTE MISTERIOSO neste servidor."""
         msg = self.corpo()
@@ -800,6 +810,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.net_post()
         if self.path.split("?")[0] == "/__gift":
             return self.gift_post()
+        if self.path.split("?")[0] == "/__resgate":
+            return self.resgate_post()
         if self.path.split("?")[0] == "/__ficha":
             return self.ficha_post()
         if self.path.split("?")[0] == "/__faxina":

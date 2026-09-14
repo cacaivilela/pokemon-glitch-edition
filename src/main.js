@@ -18,6 +18,8 @@ import { reverterTudo } from "./systems/mega.js";
 import { registrarDoEstado } from "./systems/fusao.js";
 import { Online } from "./systems/online.js";
 import { carregarDLC, aplicarDLC, ligarDoLink } from "./systems/dlc.js";
+import { lerCodigo as lerPokesave, criarPokesave } from "./systems/pokesave.js";
+import { guardar as guardarNoBox, cheio as boxCheio } from "./systems/box.js";
 import { TitleScene } from "./scenes/title.js";
 import { AberturaScene } from "./scenes/abertura.js";
 import { OverworldScene } from "./scenes/overworld.js";
@@ -275,7 +277,7 @@ if (stash?.state && !game.isValid(stash.state)) {
   // arquivo salvo.
   const busca = new URLSearchParams(location.search);   // o `q` do arquivo só nasce mais abaixo
   const atalhoDeDev = busca.has("map") || busca.has("battle") || busca.has("starter") || busca.has("era")
-    || busca.has("area");
+    || busca.has("area") || busca.has("pokesave");
   game.scenes.push(atalhoDeDev ? new TitleScene() : new AberturaScene());
 }
 
@@ -403,6 +405,81 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
     bs.fadeA = 0; bs.fadeDir = 0;
   }
   if (q.get("debug")) game.debug = true;
+}
+
+// ?presente=LENDAS001 -> entrega aquele PRESENTE MISTERIOSO (um código de
+// src/data/gifts.js ou de um DLC) na partida que for carregada — CONTINUAR ou
+// jogo novo, como o ?give=. Um por save, como no menu: quem já recebeu não
+// recebe de novo. Vários: ?presente=LENDAS001,LENDAS002. O parâmetro sai da
+// URL depois, pra recarregar não tentar de novo.
+if (q.has("presente")) {
+  const codigos = q.get("presente").split(",").map((c) => c.toUpperCase().replace(/[^A-Z0-9]/g, "")).filter(Boolean);
+  const entregar = (st) => {
+    if (!st?.player) return;
+    st.flags.presentes ||= {};
+    const falas = [];
+    for (const codigo of codigos) {
+      const cartao = DB.GIFT_CODES?.[codigo];
+      const id = `codigo-${codigo}`;
+      if (!cartao) { console.warn("[presente] código desconhecido:", codigo); continue; }
+      if (st.flags.presentes[id]) { console.log("[presente] já recebido:", codigo); continue; }
+      // os LIMITADOS (contados no mundo) só pelo menu, que pergunta ao servidor
+      if (cartao.limite) { console.warn("[presente] cartão limitado: resgate pelo PRESENTE MISTERIOSO no jogo:", codigo); continue; }
+      let deu = false;
+      for (const it of cartao.itens || []) {
+        const qtd = Math.max(1, Math.min(99, it.qtd | 0 || 1));
+        st.items[it.item] = Math.min(999, (st.items[it.item] || 0) + qtd);
+        deu = true;
+      }
+      for (const m of cartao.mons || []) {
+        if (!DB.SPECIES[m.id]) continue;
+        const mon = createMon(m.id, Math.max(1, Math.min(100, m.nv | 0 || 5)),
+          { shiny: !!m.shiny, luminoso: !!m.luminoso, nickname: m.apelido || undefined });
+        if (st.party.length < 6) st.party.push(mon);
+        else if (!boxCheio(st)) guardarNoBox(st, mon);
+        else continue;
+        st.seen[m.id] = true; st.caught[m.id] = true;
+        deu = true;
+      }
+      if (deu) { st.flags.presentes[id] = true; falas.push(cartao.titulo); }
+    }
+    if (falas.length) {
+      st.flags.presenteChegou = falas;      // a cena avisa ao entrar (overworld)
+      game.autosave(true);
+      console.log("%c[presente] entregue:", "color:#b455ff", falas.join(", "));
+    }
+    try {
+      const u = new URL(location.href);
+      u.searchParams.delete("presente");
+      history.replaceState(null, "", u.pathname + (u.search || "") + u.hash);
+    } catch {}
+  };
+  const loadOrig2 = game.loadGame.bind(game);
+  game.loadGame = () => { const st = loadOrig2(); entregar(st); return st; };
+  const newOrig2 = game.newGame.bind(game);
+  game.newGame = () => { const st = newOrig2(); entregar(st); return st; };
+  if (game.scenes.top instanceof OverworldScene) entregar(game.state);
+}
+
+// ?pokesave=vulpixalola.shiny.NEVE -> uma partida NOVA em que você é aquele
+// Pokémon (src/systems/pokesave.js; o link sai da página pokesave/). Apaga a
+// partida atual, como um NOVO JOGO — e tira o parâmetro da URL, senão cada
+// recarregada recomeçava do zero.
+if (q.has("pokesave") && !stash?.state) {
+  const pedido = lerPokesave(q.get("pokesave"));
+  if (!pedido) console.warn("[pokesave] código inválido:", q.get("pokesave"));
+  else {
+    game.newGame();
+    criarPokesave(game.state, pedido);
+    Glitch.level = game.state.corruption;
+    game.scenes.replace(new OverworldScene());
+    game.autosave(true);
+    try {
+      const u = new URL(location.href);
+      u.searchParams.delete("pokesave");
+      history.replaceState(null, "", u.pathname + (u.search || "") + u.hash);
+    } catch {}
+  }
 }
 
 // ?give=spearow:10,cranidos:19 -> entrega os Pokémon na partida que for carregada

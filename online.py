@@ -281,6 +281,49 @@ def _grava_cartoes(dados):
     os.replace(tmp, CARTOES)
 
 
+# ------------------------------------------------- OS CARTÕES LIMITADOS
+# Um código com `limite` (src/data/gifts.js) só pode ser resgatado N vezes NO
+# MUNDO — e "o mundo" é este servidor: a contagem mora em online/resgates.json
+# e sobe a cada resgate que o jogo pede em /__resgate. Quando chega no
+# limite, acabou pra todo mundo. Sem servidor o jogo não resgata esses.
+RESGATES = os.path.join(ROOT, "online", "resgates.json")
+_trava_resgate = threading.Lock()
+
+
+def _le_resgates():
+    try:
+        with open(RESGATES, encoding="utf-8") as f:
+            dados = json.load(f)
+        if isinstance(dados, dict):
+            return dados
+    except (OSError, ValueError):
+        pass
+    return {}
+
+
+def resgatar(codigo, limite, quem=None, so_olhar=False):
+    """Conta um resgate do código. Devolve {usados, restam, ok}."""
+    codigo = re.sub(r"[^A-Z0-9]", "", str(codigo or "").upper())[:32]
+    limite = max(0, int(limite or 0))
+    with _trava_resgate:
+        dados = _le_resgates()
+        entrada = dados.setdefault(codigo, {"usados": 0, "quem": []})
+        usados = int(entrada.get("usados", 0))
+        if so_olhar:
+            return {"usados": usados, "restam": max(0, limite - usados), "ok": usados < limite}
+        if usados >= limite:
+            return {"usados": usados, "restam": 0, "ok": False}
+        entrada["usados"] = usados + 1
+        if quem:
+            entrada["quem"] = (entrada.get("quem") or [])[-49:] + [str(quem)[:20]]
+        os.makedirs(os.path.dirname(RESGATES), exist_ok=True)
+        tmp = RESGATES + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(dados, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, RESGATES)
+        return {"usados": usados + 1, "restam": max(0, limite - usados - 1), "ok": True}
+
+
 def publica(cartao, sala=None):
     """Um jogador (ou o dono do servidor) publica um cartão novo."""
     if not isinstance(cartao, dict):

@@ -13,6 +13,7 @@ import { DB } from "../data/index.js";
 import { Net } from "../core/net.js";
 import { createMon, recalc } from "./mon.js";
 import { garantirEspecie } from "./fusao.js";
+import { spriteOnline } from "./pokesave.js";
 
 const cfg = () => DB.ONLINE || {};
 const txt = (k, vars = {}) =>
@@ -227,8 +228,9 @@ export const Online = {
   },
 
   /** Manda a posição — no máximo `ritmoPos` por segundo, e só se mudou algo. */
-  mandaPos(dt, player, andando) {
+  mandaPos(dt, st, andando) {
     if (!Net.ligado()) return;
+    const player = st.player;
     this._tPos -= dt;
     const chave = `${player.map}|${player.x}|${player.y}|${player.dir}|${andando ? 1 : 0}`;
     if (this._tPos > 0 || chave === this._ultimaPos) return;
@@ -236,7 +238,7 @@ export const Online = {
     this._ultimaPos = chave;
     Net.manda("pos", {
       mapa: player.map, x: player.x, y: player.y, dir: player.dir,
-      sprite: "hero", andando: !!andando,
+      sprite: spriteOnline(st), andando: !!andando,
     });
   },
 

@@ -43,12 +43,15 @@
 
 <main>
   <div id="lista"></div>
+  <h2 style="font-size:12px;letter-spacing:2px;color:var(--ink2);margin:18px 0 8px">OS PRESENTES MISTERIOSOS, POR LINK</h2>
+  <div id="presentes"></div>
   <p class="rodape">A escolha fica neste navegador, não no save: a mesma partida roda com ou sem os pacotes. Vale no próximo carregamento do jogo — se ele já estiver aberto em outra aba, dê F5 lá. Pra ligar por link: <code>?dlc=torneio</code> (vários: <code>?dlc=torneio,decamark</code>; <code>?dlc=nenhum</code> desliga todos).</p>
   <div class="aviso">Desligar a REVOLTA DE DECAMARK com um ?????????? na equipe ou no PC deixa o save incompatível — solte ele antes. Os PRESENTES MISTERIOSOS dos pacotes entram pelo título → PRESENTE MISTERIOSO → POR CÓDIGO, um por save.</div>
 </main>
 
 <script type="module">
 import * as D from "../src/systems/dlc.js";
+import { url } from "../src/core/base.js";
 
 const TEM = {
   glitchcitytour: "7 vãos novos (Pallet, Pewter, Cerulean, Vermilion, Celadon, Fuchsia, Saffron) · um guia em Pallet · MISSINGNO., PORYGON e UNOWN corrompidos só dentro das zonas",
@@ -72,6 +75,36 @@ function render() {
       <button class="${on ? "on" : ""}">${on ? "ligado" : "desligado"}</button>`;
     el.querySelector("button").onclick = () => { D.ligar(d.id, !on); render(); };
     lista.appendChild(el);
+  }
+  renderPresentes();
+}
+
+// OS LINKS DOS PRESENTES: um por cartão, `?presente=CÓDIGO`. Entrega na
+// partida que for carregada (um por save). O pacote precisa estar ligado no
+// navegador de quem abre — o link não liga sozinho... então ele liga: vai
+// com `&dlc=<id>` junto.
+async function renderPresentes() {
+  const alvo = document.getElementById("presentes");
+  if (!alvo) return;
+  alvo.innerHTML = "";
+  for (const d of D.CATALOGO) {
+    let pk;
+    try { pk = (await import(url(d.arquivo))).default; } catch { continue; }
+    const cartoes = Object.entries(pk.presentes || {});
+    if (!cartoes.length) continue;
+    const bloco = document.createElement("div"); bloco.className = "dlc"; bloco.style.display = "block";
+    bloco.innerHTML = `<h2>${d.nome} — ${cartoes.length} presentes</h2>`;
+    for (const [codigo, c] of cartoes) {
+      const link = `${location.origin}${url("")}?dlc=${d.id}&presente=${codigo}`;
+      const row = document.createElement("div"); row.className = "linha"; row.style.marginTop = "6px";
+      const conteudo = [...(c.mons || []).map((m) => `${m.id.toUpperCase()} nv${m.nv}${m.shiny ? " shiny" : ""}${m.luminoso ? " luminoso" : ""}`),
+                        ...(c.itens || []).map((i) => `${i.qtd}x ${i.item}`)].join(", ");
+      row.innerHTML = `<div style="flex:1;min-width:200px"><b>${codigo}</b> · ${c.titulo}<div class="tem">${conteudo}</div></div>
+        <a href="${link}" target="_blank" style="font-size:11px">abrir</a><button data-l="${link}" style="padding:4px 8px;font-size:11px">copiar link</button>`;
+      row.querySelector("button").onclick = async (e) => { try { await navigator.clipboard.writeText(e.target.dataset.l); e.target.textContent = "copiado!"; } catch { prompt("link:", e.target.dataset.l); } };
+      bloco.appendChild(row);
+    }
+    alvo.appendChild(bloco);
   }
 }
 await D.carregarDLC(true);     // só pra mostrar erro de carregamento, se houver

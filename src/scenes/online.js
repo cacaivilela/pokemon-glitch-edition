@@ -11,6 +11,8 @@ import { Net } from "../core/net.js";
 import { Online } from "../systems/online.js";
 import { Dialogue } from "../systems/dialogue.js";
 import { guardar, cheio } from "../systems/box.js";
+import { Save } from "../core/save.js";
+import { url } from "../core/base.js";
 import { createMon } from "../systems/mon.js";
 import { panel, menuBox, drawText, cursor, sinal, PAL, LINE_H } from "../core/gfx.js";
 
@@ -369,7 +371,24 @@ export class GiftScene {
     const codigo = String(digitado || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
     const cartao = DB.GIFT_CODES?.[codigo];
     if (!cartao) return void this.dlg.say(gtxt("naoExiste"));
+    if (cartao.limite) return void this.resgataLimitado(codigo, cartao);
     this.entrega({ id: `codigo-${codigo}`, ...cartao });
+  }
+
+  /** Um cartão CONTADO NO MUNDO: pergunta ao servidor se ainda tem, e só
+   *  então entrega. Quem já recebeu não gasta outro da contagem. */
+  async resgataLimitado(codigo, cartao) {
+    const id = `codigo-${codigo}`;
+    if (this.recebidos()[id]) return void this.dlg.say(gtxt("repetido"));
+    if (Save.offline?.()) return void this.dlg.say(gtxt("limitadoSemServidor"));
+    let r = null;
+    try {
+      const resp = await fetch(url("__resgate"), { method: "POST", body: JSON.stringify({
+        codigo, limite: cartao.limite, quem: this.st.player?.name || "?" }) });
+      r = await resp.json();
+    } catch { return void this.dlg.say(gtxt("semServidor")); }
+    if (!r?.ok) return void this.dlg.say(gtxt("acabaram", { LIMITE: cartao.limite }));
+    this.entrega({ id, ...cartao, texto: `${cartao.texto} ${gtxt("restam", { USADOS: r.usados, RESTAM: r.restam })}` });
   }
 
   async buscaCartoes() {

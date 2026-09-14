@@ -10,6 +10,7 @@ import { panel, drawText, cursor, bar, hpColor, fade, PAL, LINE_H } from "../cor
 import { Dialogue } from "../systems/dialogue.js";
 import { Glitch } from "../systems/glitchfx.js";
 import { randRange } from "../core/rng.js";
+import { DESOBEDIENCIA, chanceDeEscapar, escapar, RAIVA, desobedeceu, obedeceu, ordemForcada, nivelDeRaiva, cacadorPegou } from "../systems/pokesave.js";
 import { cenaDoGolpe } from "../systems/cutscenes.js";
 import { veu, temCeu } from "../systems/ciclo.js";
 import { fator } from "../systems/acampamento.js";
@@ -220,6 +221,133 @@ export class BattleScene {
     this.showTrainer = false;
     this.tOut = 0;
     this.sp.f = this.newSprite(90);
+  }
+
+  /** CAPTURADO (pokésave): quem luta é você, e quem manda é o seu dono. */
+  souDeAlguem() { return !!(this.st.capturado && this.mine?.eu && !this.trainer); }
+
+  /** A ORDEM DO DONO: ele escolhe um golpe seu (o de mais poder, na maioria
+   *  das vezes; às vezes qualquer um — dono nenhum acerta sempre). */
+  ordemDoDono() {
+    // a mesma cabeça que escolhe o golpe do inimigo: tipo contra tipo, STAB,
+    // e um pouco de sorte — dono nenhum acerta sempre, mas este pensa
+    const mv = chooseAiMove(this.mine, this.foe, this.pStages, this.fStages);
+    const slot = mv ? this.mine.moves.indexOf(mv) : 0;
+    return { slot: Math.max(0, slot) };
+  }
+
+  /** Ele joga a bola quando VALE: bicho fraco (quanto mais fraco, mais), com
+   *  status, e que mereça um lugar na equipe dele (se ela está cheia, só o
+   *  que é melhor que o pior dele). */
+  donoQuerBola() {
+    if (this.trainer || this.boss || this.raid) return false;
+    const c = this.st.cacador, eq = c?.equipe || [];
+    const pct = hpPct(this.foe);
+    if (eq.length >= 6) {
+      const pior = Math.min(...eq.map((e) => e.lvl));
+      if (this.foe.level <= pior && !this.foe.shiny && !this.foe.alfa) return false;
+    }
+    let chance = pct < 0.15 ? 0.9 : pct < 0.3 ? 0.6 : pct < 0.5 ? 0.3 : 0;
+    if (this.foe.status) chance += 0.2;
+    if (this.foe.shiny || this.foe.luminoso || this.foe.alfa) chance += 0.2;
+    return Math.random() < chance;
+  }
+
+  /** O DONO JOGA UMA BOLA no selvagem — pra equipe DELE, não pra sua. Se
+   *  pega, a batalha acaba e ele ganha um Pokémon; se escapa, o turno segue. */
+  async bolaDoDono() {
+    this.menu = null;
+    const cap = this.st.capturado;
+    await this.say(`${cap.nome} JOGOU UMA POKÉ BOLA!`);
+    this.ballAnim = { t: 0, shakes: 0 };
+    const shakes = catchAttempt(this.foe, 1);
+    await this.wait(0.7);
+    for (let i = 0; i < Math.min(3, shakes); i++) {
+      this.ballAnim.shakes = i + 1;
+      Audio2.tone(300 + i * 60, 0.08);
+      await this.wait(0.55);
+    }
+    if (shakes >= 4) {
+      Audio2.heal();
+      this.ballAnim.caught = true;
+      const msg = cacadorPegou(this.st, { mon: this.foe });
+      await this.say([`GOTCHA! ${msg || `${cap.nome} PEGOU ${this.foe.nickname}!`}`, `${this.foe.nickname} FOI PRA EQUIPE DE ${cap.nome}.`]);
+      return this.finish();
+    }
+    this.ballAnim = null;
+    await this.say("O POKÉMON ESCAPOU DA BOLA DELE!");
+    const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
+    if (fMove) await this.useMove("f", fMove);
+    await this.checkFaints();
+  }
+
+  /** Obedeceu: conta pra acalmar o dono (três seguidas tiram um ponto). */
+  async obedecerOrdem(slot) {
+    this.menu = null;
+    if (obedeceu(this.st)) await this.say(RAIVA.acalmou.replace("{TREINADOR}", this.st.capturado.nome));
+    return this.playerTurn(slot);
+  }
+
+  /** DESOBEDECER: você escolheu o que fazer em vez de obedecer (a lista é
+   *  DESOBEDIENCIA, em src/systems/pokesave.js). Cada vez conta — e a bola
+   *  segura menos a cada uma. */
+  async desobedecer(slotOrdem, d) {
+    this.menu = null;
+    const cap = this.st.capturado;
+    const vezes = cap.desobedeceu || 0;
+    const raiva = nivelDeRaiva(desobedeceu(this.st));   // cada vez, mais bravo
+    const fill = (t) => t.replace("{MON}", this.mine.nickname).replace("{TREINADOR}", cap.nome);
+    if (RAIVA.grito[raiva]) {
+      Glitch.hit(0.3 * raiva);
+      await this.say(fill(RAIVA.grito[raiva]));
+      // do nível 2 em diante ele aperta a bola, e a bola é você
+      if (raiva >= 2 && d.id !== "escapa") {
+        this.mine.hp = Math.max(1, this.mine.hp - Math.ceil(this.mine.maxHp * RAIVA.aperta));
+      }
+    }
+    if (d.id === "escapa" && Math.random() >= chanceDeEscapar(vezes)) {
+      Audio2.bump();
+      await this.say(fill(d.falhou));
+      const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
+      if (fMove && !isFainted(this.foe)) await this.useMove("f", fMove);
+      return this.checkFaints();
+    }
+    const texto = fill(d.texto);
+    const inimigoBate = async () => {
+      const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
+      if (fMove && !isFainted(this.foe)) await this.useMove("f", fMove);
+      await this.checkFaints();
+    };
+    Glitch.hit(0.4);
+    await this.say(texto);
+    if (d.id === "soneca") {
+      this.mine.hp = Math.min(this.mine.maxHp, this.mine.hp + Math.ceil(this.mine.maxHp * 0.12));
+      return inimigoBate();
+    }
+    if (d.id === "recusa") return inimigoBate();
+    if (d.id === "morde") {
+      this.st.money = (this.st.money || 0) + 200;
+      await this.say("VOCÊ PEGOU $200 DO CHÃO.");
+      return inimigoBate();
+    }
+    if (d.id === "outro") {
+      const outros = this.mine.moves.map((mv, i) => i).filter((i) => i !== slotOrdem && this.mine.moves[i].pp > 0);
+      return this.playerTurn(outros.length ? outros[Math.floor(Math.random() * outros.length)] : slotOrdem);
+    }
+    if (d.id === "tudo") {
+      const forte = this.mine.moves.map((mv, i) => i).filter((i) => this.mine.moves[i].pp > 0)
+        .sort((a, b) => (DB.MOVES[this.mine.moves[b].id]?.power || 0) - (DB.MOVES[this.mine.moves[a].id]?.power || 0))[0];
+      this.pStages.atk = Math.min(6, (this.pStages.atk || 0) + 1);
+      this.pStages.spa = Math.min(6, (this.pStages.spa || 0) + 1);
+      return this.playerTurn(forte ?? slotOrdem);
+    }
+    if (d.id === "foge") return this.finish();
+    if (d.id === "escapa") {
+      Glitch.hit(2); Audio2.glitch();
+      escapar(this.st);
+      await this.say(`${cap.nome} FICOU OLHANDO A BOLA QUEBRADA. VOCÊ NÃO OLHOU PRA TRÁS.`);
+      return this.finish();
+    }
   }
 
   async playerTurn(moveSlot) {
@@ -930,6 +1058,17 @@ export class BattleScene {
 
   updateMenu() {
     const m = this.menu;
+    // de alguém: o menu principal vira a ORDEM do dono — obedecer ou não
+    if (m.type === "main" && this.souDeAlguem()) {
+      // o selvagem fraco na frente dele: o dono joga a bola DELE (é caçador)
+      if (this.donoQuerBola()) {
+        this.run(this.bolaDoDono());
+        return;
+      }
+      // bravo o bastante, às vezes ele aperta a bola e a ordem vem sem escolha
+      this.menu = { type: "ordem", index: 0, forcada: ordemForcada(this.st), ...this.ordemDoDono() };
+      return;
+    }
     if (m.type === "main") {
       const items = ["LUTAR", "MOCHILA", "POKÉMON", "FUGIR"];
       const move = (d) => { m.index = (m.index + d + 4) % 4; Audio2.blip(); };
@@ -946,6 +1085,26 @@ export class BattleScene {
         else if (m.index === 2) this.menu = { type: "party", index: this.playerIdx };
         else this.run(this.tryFlee());
       }
+      return;
+    }
+    if (m.type === "ordem") {
+      if (!m.forcada && (Input.consume("up") || Input.consume("down"))) { m.index = 1 - m.index; Audio2.blip(); }
+      if (Input.consume("a")) {
+        Audio2.select();
+        if (m.index === 0 || m.forcada) this.run(this.obedecerOrdem(m.slot));
+        else this.menu = { type: "desobedecer", index: 0, slot: m.slot };
+      }
+      return;
+    }
+    if (m.type === "desobedecer") {
+      const n = DESOBEDIENCIA.length;
+      const move = (d) => { m.index = (m.index + d + n) % n; Audio2.blip(); };
+      if (Input.consume("up")) move(-2);
+      if (Input.consume("down")) move(2);
+      if (Input.consume("left")) move(-1);
+      if (Input.consume("right")) move(1);
+      if (Input.consume("b")) { this.menu = { type: "ordem", index: 0, slot: m.slot }; Audio2.cancel(); }
+      if (Input.consume("a")) { Audio2.select(); this.run(this.desobedecer(m.slot, DESOBEDIENCIA[m.index])); }
       return;
     }
     if (m.type === "moves") {
@@ -1198,6 +1357,39 @@ export class BattleScene {
 
   drawMenu(ctx) {
     const m = this.menu;
+    if (m.type === "ordem") {
+      const golpe = DB.MOVES[this.mine.moves[m.slot]?.id]?.name || "?";
+      panel(ctx, 2, 110, 236, 48);
+      drawText(ctx, `${this.st.capturado.nome.slice(0, 14)}:`, 10, 116, "#e0242a");
+      drawText(ctx, `"${this.mine.nickname}, ${golpe}!"`, 10, 128, PAL.ink, { maxChars: 20 });
+      const ops = m.forcada ? ["OBEDECER"] : ["OBEDECER", "DESOBEDECER"];
+      ops.forEach((it, i) => {
+        const y = 116 + i * LINE_H;
+        drawText(ctx, it, 152, y, PAL.ink);
+        if (i === m.index) cursor(ctx, 144, y);
+      });
+      if (m.forcada) drawText(ctx, "A BOLA APERTA", 152, 116 + LINE_H, "#e0242a");
+      // a raiva dele, em barrinhas: quanto mais, mais ele força
+      const raiva = this.st.capturado.raiva || 0;
+      drawText(ctx, `X${this.st.capturado.desobedeceu || 0}`, 10, 146, PAL.ink2);
+      for (let i = 0; i < RAIVA.max; i++) {
+        ctx.fillStyle = i < nivelDeRaiva(raiva) ? "#e0242a" : "#c8c8d0";
+        ctx.fillRect(40 + i * 7, 148, 5, 5);
+      }
+      if (raiva >= 1000) drawText(ctx, `RAIVA ${raiva}`, 80, 146, "#e0242a");
+      return;
+    }
+    if (m.type === "desobedecer") {
+      panel(ctx, 2, 110, 236, 48);
+      const pct = Math.round(chanceDeEscapar(this.st.capturado.desobedeceu || 0) * 100);
+      DESOBEDIENCIA.forEach((d, i) => {
+        const x = 8 + (i % 2) * 118, y = 114 + Math.floor(i / 2) * 11;
+        const rot = d.id === "escapa" ? `${d.rotulo} ${pct}%` : d.rotulo;
+        drawText(ctx, rot, x + 8, y, d.id === "escapa" ? "#e0242a" : PAL.ink);
+        if (i === m.index) cursor(ctx, x, y);
+      });
+      return;
+    }
     if (m.type === "main") {
       const items = ["LUTAR", "MOCHILA", "POKÉMON", "FUGIR"];
       panel(ctx, 2, 110, 236, 48);

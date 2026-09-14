@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body><img src="/__delay?ms=8000" width=1 height=1><script type="module">
+const log = [];
+try {
+  const { DB } = await import("/src/data/index.js");
+  const P = await import("/src/systems/pokesave.js");
+  const st = { player: { name: "V", map: "home", x: 5, y: 7 }, party: [], box: [], flags: {}, caught: {}, seen: {}, npcState: {}, money: 0 };
+  P.criarPokesave(st, P.lerCodigo("pidgey.comum.10.viridian.BICO"));
+  st.capturado = { nome: "IVY", naBola: true };
+  const cenaDe = (mapa) => { const g = DB.KANTO[mapa]; const npcs = DB.MAPS[mapa].npcs || []; return {
+    move: null, blocked: (x, y) => !(x >= 0 && y >= 0 && x < g.w && y < g.h) || !"02".includes(g.tags[y * g.w + x]) || npcs.some((n) => n.x === x && n.y === y),
+    warpAt: (x, y) => (g.warps || []).find((w) => w.x === x && w.y === y) || null,
+    useConnection: (c, dir) => { log.push(`ATRAVESSOU ${dir} -> ${c.to}`); st.player.map = c.to; }, passoDoDono: () => 1 }; };
+  let cena = cenaDe("viridian");
+  log.push(`começa em viridian (${st.player.x},${st.player.y}) conexões=${JSON.stringify(DB.KANTO.viridian.connections.map((c) => c.dir + ">" + c.to))}`);
+  for (let i = 0; i < 400 && st.player.map === "viridian"; i++) {
+    cena.move = null;
+    const r = P.andarNaBola(st, cena, 1, []);
+    if (cena.move) { st.player.x += cena.move.dx; st.player.y += cena.move.dy; }
+    if (i < 3 || i % 50 === 0) log.push(`passo ${i}: (${st.player.x},${st.player.y}) rumo=${JSON.stringify(st.capturado.rumo)}`);
+  }
+  log.push(`fim: mapa=${st.player.map} (${st.player.x},${st.player.y})`);
+} catch (e) { log.push("QUEBROU " + (e.stack || e)); }
+await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "ps8", log: log.join("\n") }) });
+</script></body></html>

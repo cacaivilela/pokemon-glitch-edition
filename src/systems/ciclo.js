@@ -38,7 +38,15 @@ export const escuroMaximo = () => cfg().noiteMax ?? 0.58;
  *  - `nome`      DIA / ENTARDECER / NOITE / AMANHECER
  *  - `faltam`    minutos até a próxima fase
  */
-export function agora(quando = Date.now()) {
+// O RELÓGIO DO MUNDO. Normalmente é o de verdade. Mas ele pode CORRER NA
+// FRENTE: `AVANCO` é quanto o mundo está adiantado em relação ao relógio da
+// parede — é o que o caçador furioso do pokésave faz (60 vezes: cada minuto
+// vira um segundo), e vai no save pra não voltar atrás num F5.
+let AVANCO = 0;
+export const relogio = () => Date.now() + AVANCO;
+export function ajustarRelogio(avancoMs) { AVANCO = Math.max(0, avancoMs || 0); }
+
+export function agora(quando = relogio()) {
   const fase = minutosDaFase() * 60000;
   const noite = Math.floor(quando / fase) % 2 === 1;
   const t = (quando % fase) / fase;
@@ -63,7 +71,7 @@ export function agora(quando = Date.now()) {
  *  A cor não é a mesma o tempo todo. No começo da virada o céu puxa pro
  *  alaranjado (é entardecer, não apagar a luz), e conforme escurece ele vai pro
  *  azul de noite. Sem isso, escurecer vira só "a tela ficando cinza". */
-export function veu(quando = Date.now()) {
+export function veu(quando = relogio()) {
   const { escuridao } = agora(quando);
   if (escuridao <= 0.001) return { alpha: 0, cor: "#000000" };
   const quente = [92, 42, 26];      // o laranja queimado do fim da tarde

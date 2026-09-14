@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>POKÉSAVE — Pokémon Glitch Edition</title>
+<meta name="description" content="Comece uma partida sendo um Pokémon: escolha a espécie, a cor e o nome, e ande por Kanto como um selvagem que virou treinador.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230e0b18'/><text y='.9em' font-size='78'>🐾</text></svg>">
+<style>
+  :root { --bg: #14101f; --panel: #1e1830; --panel2: #272040; --line: #3d3160; --ink: #f4f2ff; --ink2: #a99ec9; --glitch: #b455ff; --neon: #00ffcc; --ok: #59d99b; --warn: #ffd166; --bad: #e0524a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  header { padding: 14px 18px; border-bottom: 2px solid var(--line); background: linear-gradient(180deg, #241b3c, #14101f); display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  h1 { margin: 0; font-size: 18px; letter-spacing: 2px; text-transform: uppercase; }
+  h1 span { color: var(--glitch); }
+  .sub { color: var(--ink2); }
+  header a { color: var(--neon); margin-left: auto; font-size: 12px; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; padding: 16px; align-items: start; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 2px solid var(--line); border-radius: 8px; padding: 12px; }
+  .card h2 { margin: 0 0 10px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--ink2); }
+  input, select, button { font: inherit; background: var(--panel2); color: var(--ink); border: 2px solid var(--line); border-radius: 6px; padding: 6px 9px; }
+  input:focus, select:focus, button:focus { outline: 2px solid var(--glitch); outline-offset: 1px; }
+  button { cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+  button:hover { border-color: var(--glitch); }
+  button.primary { background: var(--neon); border-color: var(--neon); color: #0b1a17; font-weight: bold; }
+  button.primary:disabled { background: var(--panel2); border-color: var(--line); color: var(--ink2); cursor: not-allowed; }
+  .filtros { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .filtros input[type=search] { flex: 1 1 220px; }
+  .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; max-height: 66vh; overflow: auto; }
+  .mon { background: var(--panel2); border: 2px solid var(--line); border-radius: 6px; padding: 6px; text-align: center; cursor: pointer; }
+  .mon:hover { border-color: var(--glitch); }
+  .mon[aria-selected="true"] { border-color: var(--neon); box-shadow: 0 0 0 2px rgba(0,255,204,.3); }
+  .mon img { width: 64px; height: 64px; image-rendering: pixelated; display: block; margin: 0 auto; }
+  .mon .nome { font-size: 11px; word-break: break-word; }
+  .mon .reg { font-size: 9px; color: var(--glitch); }
+  .linha { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .linha label { flex: 0 0 70px; color: var(--ink2); font-size: 11px; text-transform: uppercase; }
+  .linha input[type=text], .linha select { flex: 1; min-width: 0; }
+  .previa { display: flex; gap: 12px; align-items: center; margin: 10px 0; }
+  .previa canvas { image-rendering: pixelated; background: #7ec850; border-radius: 6px; border: 2px solid var(--line); }
+  .previa .quem b { color: var(--neon); display: block; font-size: 14px; }
+  .msg { margin-top: 10px; padding: 8px; border-radius: 6px; border: 2px solid var(--line); background: var(--panel2); word-break: break-all; }
+  .msg.ok { border-color: var(--ok); color: var(--ok); }
+  .aviso { border-left: 3px solid var(--warn); padding: 6px 10px; color: var(--warn); font-size: 12px; margin-top: 12px; }
+  .dica { color: var(--ink2); font-size: 11px; margin: 6px 0 0; }
+  code { color: var(--glitch); }
+</style>
+</head>
+<body>
+<header>
+  <h1>poké<span>save</span></h1>
+  <div class="sub">uma partida em que você é um Pokémon — escolha quem, a cor e o nome</div>
+  <a href="../">← voltar pro jogo</a>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Quem você é <span id="contagem" class="sub"></span></h2>
+    <div class="filtros">
+      <input type="search" id="busca" placeholder="buscar por nome, nº, tipo ou região (ex: alola)">
+      <select id="grupo">
+        <option value="todos">todos</option>
+        <option value="kanto">só Kanto</option>
+        <option value="regional">só formas regionais</option>
+        <option value="fora">só os de fora</option>
+      </select>
+    </div>
+    <div class="grade" id="grade"></div>
+  </section>
+
+  <section class="card">
+    <h2>A partida</h2>
+    <div class="previa"><canvas id="previa" width="96" height="96"></canvas>
+      <div class="quem"><b id="quem">ninguém ainda</b><span id="tipos" class="sub"></span></div></div>
+    <div class="linha"><label for="cor">Cor</label>
+      <select id="cor"><option value="comum">comum</option><option value="shiny">shiny</option><option value="luminoso">luminoso</option></select></div>
+    <div class="linha"><label for="nome">Seu nome</label><input type="text" id="nome" maxlength="10" placeholder="(o da espécie)"></div>
+    <div class="linha"><label for="nivel">Nível</label><input type="number" id="nivel" min="1" max="100" value="5" style="flex:0 0 80px"></div>
+    <div class="linha"><label for="mapa">Nasce em</label><select id="mapa"></select></div>
+    <button class="primary" id="comecar" disabled style="width:100%;padding:11px">Começar a partida</button>
+    <button id="copiar" disabled style="width:100%;margin-top:6px">Copiar link</button>
+    <div id="msg"></div>
+    <div class="aviso">COMEÇAR cria uma partida NOVA e apaga a atual deste navegador/servidor. Salve o que quiser guardar antes — ou copie o link e abra em outro perfil.</div>
+    <p class="dica">Você nasce onde escolher, no nível que escolher, sozinho na equipe. Luta como qualquer Pokémon, pega os outros, sobe de nível e evolui — e quando evolui, o mapa evolui junto. <b>Sendo Pokémon, você faz o que o seu tipo faz</b>: de VOADOR voa, de ÁGUA nada, de LUTADOR/PEDRA/TERRA empurra e quebra pedra, de PLANTA/INSETO corta — sem precisar do golpe. E <b>tem sempre um caçador atrás de você</b>: em todo mapa de fora um treinador aparece longe e vem andando; quando encosta, é batalha, sem pergunta. Vencer paga, e ele some por uns minutos.</p>
+  </section>
+</main>
+
+<script type="module">
+import { DB } from "../src/data/index.js";
+import { Assets } from "../src/core/assets.js";
+import { pedirMon } from "../src/core/sprites.js";
+import { url } from "../src/core/base.js";
+import { codigo, mapasDeNascer } from "../src/systems/pokesave.js";
+
+const $ = (id) => document.getElementById(id);
+const pad3 = (n) => String(n).padStart(3, "0");
+const semAcento = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+Assets.init?.();
+
+const ESPECIES = Object.values(DB.SPECIES)
+  .filter((sp) => !sp.mega && !sp.fusao && sp.id !== "missingno" && (sp.dex > 0 || sp.dlc))
+  .sort((a, b) => (a.dex || 9999) - (b.dex || 9999) || a.name.localeCompare(b.name));
+let escolhido = null;
+
+function arte(sp) {
+  const img = new Image();
+  img.width = img.height = 64; img.alt = sp.name; img.loading = "lazy";
+  img.src = url(`assets/sprites/pokemon/${pad3(sp.spriteDex || sp.dex)}.png`);
+  img.onerror = () => { img.style.visibility = "hidden"; };
+  return img;
+}
+
+function render() {
+  const q = semAcento($("busca").value.trim());
+  const g = $("grupo").value;
+  const lista = ESPECIES.filter((sp) => {
+    if (g === "kanto" && !(sp.dex >= 1 && sp.dex <= 151 && !sp.regiao)) return false;
+    if (g === "regional" && !sp.regiao) return false;
+    if (g === "fora" && !(sp.dex > 151 && !sp.regiao)) return false;
+    if (!q) return true;
+    const texto = semAcento([sp.name, sp.dex, ...(sp.types || []), sp.regiao || ""].join(" "));
+    return texto.includes(q);
+  });
+  $("contagem").textContent = `(${lista.length})`;
+  const grade = $("grade"); grade.innerHTML = "";
+  for (const sp of lista) {
+    const el = document.createElement("div");
+    el.className = "mon"; el.setAttribute("aria-selected", escolhido === sp);
+    el.appendChild(arte(sp));
+    const n = document.createElement("div"); n.className = "nome"; n.textContent = sp.name; el.appendChild(n);
+    if (sp.regiao) { const r = document.createElement("div"); r.className = "reg"; r.textContent = sp.regiao; el.appendChild(r); }
+    el.onclick = () => { escolhido = sp; render(); previa(); };
+    grade.appendChild(el);
+  }
+}
+
+async function previa() {
+  const cv = $("previa"), c = cv.getContext("2d");
+  c.imageSmoothingEnabled = false; c.fillStyle = "#7ec850"; c.fillRect(0, 0, 96, 96);
+  $("comecar").disabled = $("copiar").disabled = !escolhido;
+  if (!escolhido) return;
+  $("quem").textContent = escolhido.name; $("tipos").textContent = (escolhido.types || []).join("/") + (escolhido.regiao ? " · " + escolhido.regiao : "");
+  pedirMon(escolhido.id, escolhido.spriteDex || escolhido.dex);
+  await new Promise((r) => setTimeout(r, 250));
+  const cor = $("cor").value;
+  const img = Assets.comCor(Assets.mon(escolhido.id, 7), { shiny: cor === "shiny", luminoso: cor === "luminoso" });
+  c.fillRect(0, 0, 96, 96); c.drawImage(img, 16, 16, 64, 64);
+}
+
+for (const m of mapasDeNascer()) { const o = document.createElement("option"); o.value = m.id; o.textContent = m.nome; $("mapa").appendChild(o); }
+$("mapa").value = "route1";
+const nivel = () => Math.max(1, Math.min(100, Math.round(+$("nivel").value || 5)));
+const link = () => `${location.origin}${url("")}?pokesave=${encodeURIComponent(codigo(escolhido.id, $("cor").value, nivel(), $("mapa").value, ($("nome").value || "").trim()))}`;
+$("busca").oninput = $("grupo").onchange = render;
+$("cor").onchange = previa;
+$("comecar").onclick = () => { if (confirm("Começar uma partida nova? A atual será apagada.")) location.href = link(); };
+$("copiar").onclick = async () => {
+  try { await navigator.clipboard.writeText(link()); $("msg").innerHTML = `<div class="msg ok">link copiado: ${link()}</div>`; }
+  catch { $("msg").innerHTML = `<div class="msg">${link()}</div>`; }
+};
+render(); previa();
+</script>
+</body>
+</html>

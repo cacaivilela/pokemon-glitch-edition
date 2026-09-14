@@ -39,13 +39,14 @@ import { estaNaHora, marcarFeita, fracas, apagarDoCodigo } from "../systems/faxi
 import * as Aniv from "../systems/aniversario.js";
 import { alvoDaPedra } from "../systems/regionais.js";
 import { guardar as guardarNoBox, cheio as boxCheio } from "../systems/box.js";
-import { veu, temCeu, agora as horaDoMundo } from "../systems/ciclo.js";
+import { veu, temCeu, agora as horaDoMundo, ajustarRelogio } from "../systems/ciclo.js";
 import { escuridaoDoLugar, ehCaverna, acesa, camadaDeLuz, brilho, RAIO } from "../systems/lanterna.js";
 import { AcampamentoScene } from "./acampamento.js";
 import { LeilaoScene } from "./leilao.js";
 import { temBarraca } from "../systems/leilao.js";
 import { vendaveis } from "../systems/venda.js";
 import { VENDA_TEXTO } from "../data/leilao.js";
+import { quemSou, desenharPokemon, pokesaveDoSprite, acompanharEvolucao, euSei, posicionarCacador, chegarCacador, cacadorNpc, andarCacador, cacadorPerdeu, cacadorPegou, cacadorTentaBola, NOITE, idDaNoite, fugirDormindo, fugitivoAmanheceu, correrTempo, centroMaisPerto, andarNaBola, CACADOR, esfriarRaiva, RAIVA, diaDoCacador, desafiarGinasio, curarNoCentro, campeaoSolta } from "../systems/pokesave.js";
 import { temVisor, explicado } from "../systems/glitchboost.js";
 import { podeAcampar, fator, buff, minutosDoBuff } from "../systems/acampamento.js";
 import { rivalNpc } from "../systems/rival.js";
@@ -195,6 +196,13 @@ export class OverworldScene {
 
   enter() {
     this.ligaOnline();
+    // um PRESENTE MISTERIOSO entregue pelo link (?presente=) na carga do save
+    if (this.st.flags.presenteChegou) {
+      const lista = this.st.flags.presenteChegou;
+      delete this.st.flags.presenteChegou;
+      Audio2.heal();
+      this.dlg.say(lista.map((t) => DB.GIFT_TEXTO.chegou.replace("{TITULO}", t)));
+    }
     this.ensureDimLoot();
     this.rollFragment();
     this.checarAniversario();
@@ -202,8 +210,35 @@ export class OverworldScene {
     this.mapaVisto = this.st.player.map;
     this.banner = 2.2;
     this.ajeitarNaAgua();
+    this.desencalhar();
+    ajustarRelogio(this.st.relogio || 0);       // o mundo pode estar adiantado (pokésave)
+    posicionarCacador(this.st, this);
     this.snapCamera();
     this.game.music(this.map.music);
+  }
+
+  /** Nasceu DENTRO de uma parede (um spawn errado, um mapa que mudou debaixo
+   *  do save): sai pro chão livre mais perto que tenha pra onde ir. Fora da
+   *  GLITCH ZONE só — lá, parede é parte da coisa (ver glitchzones.js). */
+  desencalhar() {
+    const p = this.st.player;
+    if (p.map === ZONA || this.st.surfando || this.st.voando) return;
+    if (this.tagAt(p.x, p.y) !== DB.TAG.BLOCK) return;
+    const livre = (x, y) => [DB.TAG.FREE, DB.TAG.GRASS].includes(this.tagAt(x, y)) && !this.warpAt(x, y);
+    // chão livre com pelo menos dois vizinhos livres: um tile isolado é outra
+    // parede com outro nome
+    const bom = (x, y) => livre(x, y)
+      && [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => livre(x + dx, y + dy)).length >= 2;
+    for (let r = 1; r <= 24; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r || !bom(p.x + dx, p.y + dy)) continue;
+          console.warn(`[mapa] nasceu em parede em ${p.map} (${p.x},${p.y}); indo pra (${p.x + dx},${p.y + dy})`);
+          p.x += dx; p.y += dy;
+          return;
+        }
+      }
+    }
   }
   resume() {
     if (this.game._adoptPending) {   // o arquivo mudou durante a batalha
@@ -211,6 +246,8 @@ export class OverworldScene {
       this.game._adoptPending = null;
       this.game.adoptSave(motivo);
     }
+    this.conferirCacador();
+    if (this.st.pokesave && !this.st.cacador?.map) posicionarCacador(this.st, this);
     if (this.rodarEvolucao()) return;   // quem subiu de nível evolui antes de tudo
     this.deoxysVolta();                 // na ilha: ele se remonta se não foi capturado
     this.checkPokedexAlert();           // venceu o Brock? a Pokédex apita agora
@@ -384,6 +421,8 @@ export class OverworldScene {
     extra.push(...this.erasNpcs());
     const azul = rivalNpc(this.st);        // o AZUL aparece quando é a vez dele
     if (azul) extra.push(azul);
+    const caca = cacadorNpc(this.st);      // POKÉSAVE: o treinador que te caça
+    if (caca) extra.push(caca);
     if (this.st.mission && this.st.player.map === "glitchdim") {
       extra.push({ id: "portal", x: 22, y: 30, sprite: "portal", portal: true, dir: "down" });
       (this.st.dimLoot || []).forEach((b, i) => {
@@ -688,6 +727,9 @@ export class OverworldScene {
   npcAt(x, y) {
     return this.npcsHere().find((n) => {
       if (this.st.npcState[`${this.st.player.map}.${n.id}`]?.hidden) return false;
+      // `tamanho` 2: o NPC ocupa um bloco 2x2 a partir do canto (o caçador furioso)
+      const t = n.tamanho || 1;
+      if (t > 1) return x >= n.x && x < n.x + t && y >= n.y && y < n.y + t;
       return n.x === x && n.y === y;
     });
   }
@@ -714,7 +756,7 @@ export class OverworldScene {
    *  devolve pro chão firme mais perto (sem cair em cima de uma porta). */
   ajeitarNaAgua() {
     const p = this.st.player;
-    if (this.st.surfando || this.tagAt(p.x, p.y) !== DB.TAG.WATER) return;
+    if (this.st.voando || this.st.surfando || this.tagAt(p.x, p.y) !== DB.TAG.WATER) return;
     const mon = this.quemSabe("surfar") || this.st.party.find((m) => m.hp > 0);
     if (mon) return void (this.st.surfando = mon.species);
     for (let r = 1; r <= 16; r++) {                  // do mais perto pro mais longe
@@ -733,7 +775,8 @@ export class OverworldScene {
 
   /** primeiro da equipe que sabe o golpe (e ainda está de pé) */
   quemSabe(golpe) {
-    return this.st.party.find((m) => m.hp > 0 && m.moves.some((mv) => mv.id === golpe)) || null;
+    // num POKÉSAVE o que você é conta: de VOADOR voa, de ÁGUA nada (euSei)
+    return this.st.party.find((m) => m.hp > 0 && m.moves.some((mv) => mv.id === golpe)) || euSei(this.st, golpe);
   }
   warpAt(x, y) { return (this.geo?.warps || []).find((w) => w.x === x && w.y === y); }
   facing() {
@@ -803,8 +846,10 @@ export class OverworldScene {
       this.rasgoForcou = false;
       Glitch.forced = !!(this.st.flags?.glitchWorld || this.st.mission);
     }
-    Online.mandaPos(dt, this.st.player, !!this.move);
+    Online.mandaPos(dt, this.st, !!this.move);
     this.updateWander(dt);
+    ajustarRelogio(correrTempo(this.st, dt));   // o fugitivo faz o tempo correr
+    this.updateCacador(dt);
     this.updateDistorcao();
     this.updateSelvagens(dt);
     // A VIDA VOLTA ANDANDO, devagar, e só quando ninguém está te caçando. Sem
@@ -850,6 +895,9 @@ export class OverworldScene {
     }
 
     if (Input.consume("b")) return this.openMenu();
+    // NA BOLA (capturado): quem anda é o dono, e ele anda sozinho, caçando.
+    // Você só olha — e abre o menu pra sair.
+    if (this.st.capturado?.naBola) return this.andarDentroDaBola(dt);
     if (Input.consume("a")) return this.interact();
     if (Input.consume("ceu")) return this.olharOCeu();
 
@@ -877,20 +925,29 @@ export class OverworldScene {
 
     // saindo por uma porta em que já estou parado: só andando pra baixo,
     // que é como se sai de qualquer prédio no FireRed
-    if (dir === "down") {
+    if (dir === "down" && !this.st.voando) {
       const standing = this.warpAt(p.x, p.y);
       if (standing && this.blocked(nx, ny)) return this.useWarp(standing);
     }
-
-    // porta: no FireRed o tile da porta é sólido, o warp vem antes da colisão
-    const target = this.warpAt(nx, ny);
-    if (target) return this.useWarp(target);
 
     // borda do mapa: conexão com o mapa vizinho (vila <-> rota <-> cidade)
     if (this.tagAt(nx, ny) === -1) {
       const conn = (this.geo.connections || []).find((c) => c.dir === dir && c.to);
       if (conn) return this.useConnection(conn, dir);
     }
+
+    // VOANDO (o pokésave de VOADOR): por cima de árvore, casa, água, barranco,
+    // gente e bicho — só a borda do mapa segura. Porta não entra: ninguém
+    // entra numa casa pelo ar; pra isso pousa.
+    if (this.st.voando) {
+      if (this.tagAt(nx, ny) < 0) return;
+      this.move = { dx, dy, n: 0, total: passo(Input.held("run") ? RUN : WALK) };
+      return;
+    }
+
+    // porta: no FireRed o tile da porta é sólido, o warp vem antes da colisão
+    const target = this.warpAt(nx, ny);
+    if (target) return this.useWarp(target);
 
     // barranco: só dá pra pular no sentido dele
     const ledge = DB.LEDGE_DIR[this.tagAt(nx, ny)];
@@ -925,6 +982,13 @@ export class OverworldScene {
 
   onArrive() {
     const p = this.st.player;
+    if (this.st.voando) return;              // no ar, o chão não te alcança
+    if (this.st.capturado?.naBola) {         // na bola, quem chegou foi o dono
+      // ...e se ele estava indo pra porta, ele entra (sai) por ela
+      const cap = this.st.capturado, w = this.warpAt(p.x, p.y);
+      if (cap.rumo?.porta && w?.to) { cap.rumo = null; return this.useWarp(w); }
+      return;
+    }
     const warp = this.warpAt(p.x, p.y);
     if (warp && !this.justWarped) return this.useWarp(warp);
     if (!warp) this.justWarped = false;
@@ -983,8 +1047,9 @@ export class OverworldScene {
     const passo = andar(this.selvagens, dt, st.player,
                         (x, y) => this.daPraSelvagem(x, y), (x, y) => this.podeCacar(x, y));
     this.selvagens = passo.vivos;
-    // um BRAVO chegou em você: ele BATE (não abre batalha)
-    if (passo.encostou) this.levarBote(passo.encostou);
+    // um BRAVO chegou em você: ele BATE (não abre batalha) — menos se você
+    // está voando: lá em cima ninguém alcança
+    if (passo.encostou && !this.st.voando) this.levarBote(passo.encostou);
     this.nascerT -= dt;
     if (this.nascerT <= 0) {
       // O SANDUÍCHE REFRESCANTE agora rareia os bichos à vista. Ele cortava o
@@ -1122,7 +1187,8 @@ export class OverworldScene {
    *  todo mundo, ninguém segue — e a tela fica dizendo isso sem uma linha de
    *  texto. */
   quemSegue() {
-    return this.st.party?.find((m) => m.hp > 0) || null;
+    // num POKÉSAVE o Pokémon que você é não te segue — ele é você
+    return this.st.party?.find((m) => m.hp > 0 && !m.eu) || null;
   }
 
   /** O passo do companheiro começa no MESMO quadro que o seu.
@@ -1312,6 +1378,8 @@ export class OverworldScene {
   useWarp(w) {
     const fromMap = this.st.player.map;
     if (!w.to) {
+      const cap = this.st.capturado;
+      if (cap?.dormindo?.mapa === fromMap) return void this.dlg.say(NOITE.escada.replace("{TREINADOR}", cap.nome));
       const msg = this.map.lockedWarps?.[`${w.x},${w.y}`];
       return void this.dlg.say(msg || "A PORTA ESTÁ TRANCADA.");
     }
@@ -1341,6 +1409,7 @@ export class OverworldScene {
     const dest = DB.KANTO[conn.to];
     const p = this.st.player;
     this.justWarped = true;
+    this.veioDe = OPPOSITE[dir];                     // o caçador entra por aqui
     this.transition(() => {
       if (dir === "up") { p.y = dest.h - 1; p.x = p.x - conn.offset; }
       else if (dir === "down") { p.y = 0; p.x = p.x - conn.offset; }
@@ -1460,7 +1529,24 @@ export class OverworldScene {
     return !(x === this.st.player.x && y === this.st.player.y);
   }
 
+  /** Voltou de uma batalha com o caçador e ele perdeu: some por um tempo. */
+  conferirCacador() {
+    const key = `${this.st.player.map}.cacador`;
+    if (this.st.npcState[key]?.defeated) { delete this.st.npcState[key]; cacadorPerdeu(this.st); }
+  }
+
   afterTravel() {
+    // CAPTURADO: saiu do Centro enquanto ele dorme lá em cima — isso é fugir
+    const cap = this.st.capturado;
+    if (cap?.dormindo && this.st.player.map !== cap.dormindo.mapa) {
+      const nome = cap.nome;
+      Glitch.hit(1); Audio2.glitch();
+      fugirDormindo(this.st);
+      this.compa = null;
+      this.dlg.say(NOITE.fugiu.map((t) => t.replace("{TREINADOR}", nome)));
+    }
+    posicionarCacador(this.st, this, { deOnde: this.veioDe });   // POKÉSAVE: o caçador vem atrás
+    this.veioDe = null;
     // OS SELVAGENS À VISTA FICAM NO MAPA DE ONDE SÃO. A lista guarda posição
     // no mapa de agora, então trocar de mapa com ela cheia trazia os bichos
     // junto, nas mesmas coordenadas: atravessar a cerca de PALLET pra ROTA 21
@@ -1552,6 +1638,100 @@ export class OverworldScene {
     // o retrato de batalha tem o mesmo nome do sprite de overworld do NPC
     const trainer = { sprite: npc.sprite, ...npc.trainer };
     this.fx = { t: 0, cb: () => this.game.scenes.push(new BattleScene(), { trainer, npcKey: key }) };
+  }
+
+  /** O CAÇADOR do pokésave vem andando; quando encosta, ataca sem perguntar. */
+  /** CAPTURADO, DE NOITE: o dono te leva pro Centro mais perto e sobe pra
+   *  dormir. Você fica embaixo até ele descer — ou sai, e isso é fugir. */
+  noiteDoDono() {
+    const cap = this.st.capturado;
+    if (!cap || this.fx || this.menu || this.dlg.active || this.move) return;
+    const fill = (t) => t.replace("{TREINADOR}", cap.nome);
+    const hora = horaDoMundo();
+    // ele está dormindo e amanheceu: desce, e nada mais acontece
+    if (cap.dormindo && !hora.noite) {
+      cap.dormindo = null;
+      cap.acordouEm = Date.now();
+      return void this.dlg.say(NOITE.acordou.map(fill));
+    }
+    if (cap.dormindo || !hora.noite) return;
+    const noite = idDaNoite();
+    if (cap.dormiuNoite === noite) return;       // já dormiu (e acordou) nesta noite
+    // com o tempo a 60x a noite chega a cada 30 segundos — e ninguém aguenta
+    // ser levado pro Centro a cada 30 segundos. Ele só dorme de novo depois
+    // de `entreSonos` minutos de relógio de parede.
+    if (cap.acordouEm && Date.now() - cap.acordouEm < CACADOR.entreSonos * 60000) return;
+    cap.dormiuNoite = noite;
+    const centro = centroMaisPerto(this.st);
+    cap.dormindo = { mapa: centro, noite };
+    this.transition(() => {
+      const sp = DB.MAPS[centro]?.spawn || { x: 7, y: 8, dir: "up" };
+      Object.assign(this.st.player, { map: centro, x: sp.x, y: sp.y, dir: "up" });
+      this.st.surfando = null; this.st.voando = false;
+      this.compa = null;
+      this.afterTravel();
+      this.game.autosave?.(true);
+      this.dlg.say(NOITE.dormiu.map(fill));
+    });
+  }
+
+  updateCacador(dt) {
+    if (!this.st.pokesave || this.fx || this.menu || this.dlg.active) return;
+    // a carreira dele anda um dia de cada vez (treino, captura, ginásio)
+    diaDoCacador(this.st);                          // a carreira anda em silêncio
+    if (this.st.capturado && campeaoSolta(this.st)) {   // campeão: ele te solta
+      Glitch.hit(1); Audio2.heal();
+      this.compa = null;
+      this.game.autosave?.(true);
+      return void this.dlg.say([`${this.st.cacador.nome} VENCEU A LIGA POKÉMON. É O NOVO CAMPEÃO.`,
+        "ELE ABRIU A BOLA E DISSE: \"VAI. VOCÊ JÁ FEZ O QUE TINHA QUE FAZER.\"", "VOCÊ ESTÁ LIVRE. DE VEZ."]);
+    }
+    if (this.st.capturado) {
+      // a raiva esfria com o tempo; quando desce um degrau, ele mostra
+      esfriarRaiva(this.st, dt);                      // a raiva esfria em silêncio
+      return this.noiteDoDono();
+    }
+    // amanheceu depois da fuga: ele percebe, e vem — de longe, sem folga, furioso
+    if (fugitivoAmanheceu(this.st)) {
+      Glitch.hit(2); Audio2.glitch();
+      posicionarCacador(this.st, this, { atraso: 3 });
+      return void this.dlg.say(NOITE.percebeu.map((t) => t.replace("{TREINADOR}", this.st.cacador.nome)));
+    }
+    chegarCacador(this.st, this);                    // deu a hora de ele entrar?
+    if (this.move) return;
+    const alvo = andarCacador(this.st, this, dt, this.selvagens);
+    if (!alvo) return;
+    if (alvo !== "voce") {                           // pegou um selvagem
+      this.selvagens = this.selvagens.filter((o) => o !== alvo);
+      cacadorPegou(this.st, alvo);
+      Audio2.tone(880, 0.06); Audio2.tone(1175, 0.1);
+      return;
+    }
+    const npc = cacadorNpc(this.st);
+    if (!npc || !this.st.party.some((m) => m.hp > 0)) return;
+    const key = `${this.st.player.map}.cacador`;
+    delete this.st.npcState[key];
+    this.st.player.dir = OPPOSITE[npc.dir];
+    Audio2.tone(988, 0.07); Audio2.tone(1319, 0.12);
+    // primeiro a bola — e VOCÊ decide: entra, ou resiste. Resistindo, a bola
+    // ainda pode te segurar (quanto mais ferido, mais); se não segura, ele luta.
+    const nome = npc.trainer.name;
+    const capturado = () => {
+      Glitch.hit(1.5); Audio2.glitch();
+      this.compa = null;
+      this.game.autosave?.(true);
+      this.dlg.say([`VOCÊ FOI CAPTURADO POR ${nome}!`,
+        "AGORA VOCÊ É O POKÉMON DE ALGUÉM. NA BATALHA, QUEM MANDA É ELE.",
+        "MAS NINGUÉM É OBRIGADO A OBEDECER."]);
+    };
+    this.dlg.say([npc.lines[0], `${nome} JOGOU UMA POKÉ BOLA EM VOCÊ!`], () => {
+      this.dlg.ask("A BOLA ESTÁ ABERTA NA SUA FRENTE.", ["ENTRAR", "RESISTIR"], (i) => {
+        if (i === 0) { cacadorTentaBola(this.st, true); return capturado(); }
+        if (cacadorTentaBola(this.st)) return capturado();
+        Audio2.bump();
+        this.dlg.say(["VOCÊ ESCAPOU DA BOLA!", npc.lines[1]], () => this.startTrainerBattle(npc, key));
+      });
+    });
   }
 
   updateWander(dt) {
@@ -3305,7 +3485,12 @@ export class OverworldScene {
     if (podeAcampar(this.st, this.map).ok) base.push("ACAMPAR");
     if (diario(this.st).length) base.push(DB.MISSAO_TEXTO.titulo);   // só depois do primeiro pedido
     base.push(DB.STORY.fusao.atualizar);   // baixa as fusões publicadas no mundo
-    if (this.quemSabe("voar")) base.push("VOAR");
+    // VOAR LIVRE é do pokésave de VOADOR: levanta e fica no ar até pousar. Pra
+    // quem tem um Pokémon que sabe VOAR, continua sendo a lista de cidades.
+    if (this.st.capturado) base.push(this.st.capturado.naBola ? "SAIR DA BOLA" : "FICAR NA BOLA");
+    if (this.st.voando) base.push("POUSAR");
+    else if (euSei(this.st, "voar") && !this.st.capturado?.naBola) base.push("LEVANTAR VOO");
+    else if (this.quemSabe("voar")) base.push("VOAR");
     if (DB.ONLINE?.ativo) base.push("ONLINE");
     return [...base, "SALVAR", "OPÇÕES", "SAIR"];
   }
@@ -3325,6 +3510,100 @@ export class OverworldScene {
       .filter((x) => !x.requer || this.st.flags?.[x.requer])
       .filter((x) => !x.insignias || (this.st.badges || []).length >= x.insignias)
       .filter((x) => !x.unico || !(this.st.items?.[x.item] > 0));
+  }
+
+  /** FICAR NA BOLA: você entra, e o dono te carrega. Ele anda sozinho pelo
+   *  mapa caçando bicho (é o que ele faz), você descansa lá dentro (a vida
+   *  volta devagar) e vê tudo por um vidro vermelho. Ninguém te encosta. */
+  entrarNaBola() {
+    const cap = this.st.capturado;
+    if (!cap || cap.naBola) return;
+    cap.naBola = true;
+    this.st.voando = false; this.st.surfando = null;
+    this.compa = null;
+    Audio2.tone(660, 0.06); Audio2.tone(440, 0.1);
+    this.dlg.say([`VOCÊ ENTROU NA BOLA. ${cap.nome} PRENDEU ELA NO CINTO.`, "LÁ DENTRO É VERMELHO, E TUDO BALANÇA."]);
+    this.game.autosave?.();
+  }
+
+  sairDaBola() {
+    const cap = this.st.capturado;
+    if (!cap?.naBola) return;
+    // só sai em chão em que dá pra ficar de pé (ele te solta ao lado)
+    const p = this.st.player;
+    const t = this.tagAt(p.x, p.y);
+    if (!(t === DB.TAG.FREE || t === DB.TAG.GRASS)) return void this.dlg.say("AQUI NÃO DÁ PRA SAIR.");
+    cap.naBola = false;
+    this.compa = null;
+    Audio2.tone(440, 0.06); Audio2.tone(660, 0.1);
+    this.dlg.say(`${cap.nome} ABRIU A BOLA. VOCÊ SAIU.`);
+    this.game.autosave?.();
+  }
+
+  /** quanto dura um passo do dono (o mesmo do seu andar) */
+  passoDoDono() { return passo(WALK); }
+
+  /** O dono andando com você no cinto: ele vai atrás do selvagem mais perto,
+   *  pega, e segue pro próximo. Quando não tem nenhum, fica parado esperando
+   *  nascer. Você descansa. */
+  andarDentroDaBola(dt) {
+    const eu = quemSou(this.st);
+    if (eu && eu.hp < eu.maxHp) eu.hp = Math.min(eu.maxHp, eu.hp + eu.maxHp * 0.02 * dt);
+    // chegou no Centro com você fraco: a cura
+    if (!this.move && curarNoCentro(this.st)) {
+      Audio2.heal();
+      return void this.dlg.say(`${this.st.capturado.nome} PEDIU PRA SRTA. JOY CUIDAR DE TODO MUNDO. VOCÊ ESTÁ CURADO.`);
+    }
+    // entrou no ginásio da vez: o desafio (você ouve de dentro da bola)
+    const desafio = !this.move && desafiarGinasio(this.st);
+    if (desafio) {
+      Audio2.tone(988, 0.07); Audio2.tone(1319, 0.12);
+      this.game.autosave?.();
+      return void this.dlg.say(desafio, () => Audio2.heal());
+    }
+    const pego = andarNaBola(this.st, this, dt, this.selvagens);
+    if (pego) {
+      // ele te manda pra briga: é uma batalha selvagem, você na frente e ele
+      // dando as ordens — e é ele quem joga a bola quando o bicho fraqueja
+      const eu = quemSou(this.st);
+      if (eu && eu.hp > 0 && !this.fx) {
+        return this.encontrarSelvagem(pego);
+      }
+      // sem você de pé, ele pega no braço, como antes
+      this.selvagens = this.selvagens.filter((o) => o !== pego);
+      Audio2.tone(880, 0.06); Audio2.tone(1175, 0.1);
+      cacadorPegou(this.st, pego);
+    }
+    this.snapCamera();
+  }
+
+  /** VOAR LIVRE (pokésave de VOADOR): sobe e fica no ar. */
+  levantarVoo() {
+    if (this.map.interior) return void this.dlg.say("AQUI DENTRO NÃO DÁ PRA LEVANTAR VOO.");
+    this.st.voando = true;
+    this.st.surfando = null;
+    Audio2.tone(523, 0.06); Audio2.tone(784, 0.1);
+    this.selvagens = [];
+    this.game.autosave?.();
+  }
+
+  /** ...e desce. Só em chão em que dá pra ficar de pé — ou na água, se você
+   *  também nada (aí pousa nadando). Em cima de árvore, casa ou gente, não. */
+  pousar() {
+    const p = this.st.player;
+    const t = this.tagAt(p.x, p.y);
+    const ocupado = this.npcAt(p.x, p.y) || this.obstaculoEm(p.x, p.y) || this.warpAt(p.x, p.y);
+    if (t === DB.TAG.WATER && !ocupado && this.quemSabe("surfar")) {
+      this.st.voando = false;
+      this.st.surfando = this.quemSabe("surfar").species;
+    } else if ((t === DB.TAG.FREE || t === DB.TAG.GRASS) && !ocupado) {
+      this.st.voando = false;
+    } else {
+      return void this.dlg.say("NÃO DÁ PRA POUSAR AQUI.");
+    }
+    Audio2.tone(784, 0.06); Audio2.tone(523, 0.1);
+    this.justWarped = true;                 // pousar em cima de porta não entra nela
+    this.game.autosave?.();
   }
 
   /** VENDER: a lista do que a mochila tem e o balcão compra. */
@@ -3444,6 +3723,10 @@ export class OverworldScene {
         Audio2.select();
         const pick = items[m.index];
         if (pick === "VOAR") { this.menu = null; return void this.abrirVoo(); }
+        if (pick === "LEVANTAR VOO") { this.menu = null; return void this.levantarVoo(); }
+        if (pick === "FICAR NA BOLA") { this.menu = null; return void this.entrarNaBola(); }
+        if (pick === "SAIR DA BOLA") { this.menu = null; return void this.sairDaBola(); }
+        if (pick === "POUSAR") { this.menu = null; return void this.pousar(); }
         if (pick === "ACAMPAR") {
           this.menu = null;
           return void this.game.scenes.push(new AcampamentoScene());
@@ -3915,7 +4198,7 @@ export class OverworldScene {
     for (const n of this.npcsHere()) {
       // `invisivel` nasce sem sprite (item escondido); `hidden` some depois de pego
       if (n.invisivel || this.st.npcState[`${this.st.player.map}.${n.id}`]?.hidden) continue;
-      actors.push({ y: n.y, draw: () => this.drawNpc(ctx, n, cx, cy) });
+      actors.push({ y: n.y + (n.tamanho || 1) - 1, draw: () => this.drawNpc(ctx, n, cx, cy) });
     }
     // OS SELVAGENS À VISTA e o COMPANHEIRO entram na MESMA lista de atores que
     // o resto: assim eles passam por trás e pela frente das coisas na ordem
@@ -3924,7 +4207,12 @@ export class OverworldScene {
       actors.push({ y: b.y, draw: () => this.drawSelvagem(ctx, b, cx, cy) });
     }
     const segue = this.quemSegue();
-    if (segue && this.compa && !this.st.surfando) {
+    // (dormindo ele está lá em cima: ninguém te segue até de manhã)
+    if (this.st.capturado && !this.st.capturado.naBola && !this.st.capturado.dormindo
+        && this.compa && !this.st.surfando && !this.st.voando) {
+      // CAPTURADO: quem te segue é o seu dono, com a bola na mão
+      actors.push({ y: this.compa.y, draw: () => this.drawDono(ctx, cx, cy) });
+    } else if (segue && this.compa && !this.st.surfando) {
       actors.push({ y: this.compa.y, draw: () => this.drawCompanheiro(ctx, segue, cx, cy) });
     }
     for (const o of this.pedrasAqui()) {
@@ -3985,6 +4273,12 @@ export class OverworldScene {
     if (Online.aviso) this.drawAvisoOnline(ctx);
     this.drawSinal(ctx);
 
+    if (this.st.capturado?.naBola) {
+      // o vidro da bola: vermelho em cima, branco embaixo, e a fresta no meio
+      ctx.fillStyle = "rgba(220,40,40,.22)"; ctx.fillRect(0, 0, W, H / 2);
+      ctx.fillStyle = "rgba(255,255,255,.18)"; ctx.fillRect(0, H / 2, W, H / 2);
+      ctx.fillStyle = "rgba(30,30,40,.5)"; ctx.fillRect(0, H / 2 - 2, W, 4);
+    }
     this.drawVida(ctx);
     // o HUD dos DLCs (o medidor da SHINY ZONE): por cima do mapa, por baixo
     // do menu e das falas
@@ -4013,6 +4307,26 @@ export class OverworldScene {
 
   drawPlayer(ctx, x, y) {
     const nadando = !!this.st.surfando;
+    // POKÉSAVE: você é um Pokémon, e é ele que anda (src/systems/pokesave.js).
+    // Nadando também: um Pokémon não precisa de outro pra atravessar.
+    if (this.st.capturado?.naBola) {
+      // dentro da bola: no mapa anda o dono, com você no cinto
+      const set = Assets.actor("cacador")?.[this.st.player.dir] || Assets.actor("hero")[this.st.player.dir];
+      const img = this.move ? set[this.stepParity ? 1 : 3] : set[0];
+      return void ctx.drawImage(img, Math.round(x), Math.round(y) + TILE - img.height);
+    }
+    if (this.st.pokesave) {
+      acompanharEvolucao(this.st);           // evoluiu? o mapa evolui junto
+      const k = this.move ? this.move.n / this.move.total : 0;
+      let bob = nadando ? Math.sin(performance.now() / 260) * 1.2 : 0;
+      if (this.st.voando) {
+        // no ar: a sombra fica no chão e o bicho sobe, balançando devagar
+        ctx.fillStyle = "rgba(0,0,0,.28)";
+        ctx.beginPath(); ctx.ellipse(Math.round(x) + 8, Math.round(y) + 14, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
+        bob = -12 + Math.sin(performance.now() / 320) * 2;
+      }
+      return desenharPokemon(ctx, this.st.pokesave, x, y + bob, this.st.player.dir, k);
+    }
     const set = Assets.actor("hero")[this.st.player.dir];
     // andando: um quadro de passo por tile, alternando a perna (o ciclo do GBA).
     // nadando: quadro parado sempre — quem se mexe é o Pokémon, o herói só vira.
@@ -4029,6 +4343,8 @@ export class OverworldScene {
   /** Outro jogador andando no mesmo mapa. */
   drawPeer(ctx, p, cx, cy) {
     const x = Math.round(p.px - cx), y = Math.round(p.py - cy);
+    const ps = pokesaveDoSprite(p.sprite);     // o outro jogador é um Pokémon?
+    if (ps) return desenharPokemon(ctx, ps, x, y, p.dir || "down", p.passo > 0 ? (p.passo % 1) : 0);
     const set = Assets.actor(p.sprite || "hero")[p.dir || "down"] || Assets.actor("hero").down;
     const img = p.passo > 0 ? set[(p.passo | 0) % 2 ? 1 : 3] : set[0];
     ctx.drawImage(img, x, y + TILE - img.height);
@@ -4107,6 +4423,17 @@ export class OverworldScene {
   /** O COMPANHEIRO, no compasso do seu passo. Interpolar com a MESMA fração do
    *  seu movimento é o que faz ele andar junto: com posição de tile inteiro ele
    *  pula de casa em casa enquanto você desliza, e a tela parece destravada. */
+  /** O caçador que te pegou, andando atrás de você. */
+  drawDono(ctx, cx, cy) {
+    const c = this.compa;
+    const k = this.move ? this.move.n / this.move.total : 1;
+    const x = (c.de.x + (c.x - c.de.x) * k) * TILE - cx;
+    const y = (c.de.y + (c.y - c.de.y) * k) * TILE - cy;
+    const set = Assets.actor("cacador")?.[c.dir || "down"] || Assets.actor("hero")[c.dir || "down"];
+    const img = this.move ? set[this.stepParity ? 1 : 3] : set[0];
+    ctx.drawImage(img, Math.round(x), Math.round(y) + TILE - img.height);
+  }
+
   drawCompanheiro(ctx, mon, cx, cy) {
     const img = Assets.mon(mon.species, mon.seed);
     if (!img) return;
@@ -4119,7 +4446,9 @@ export class OverworldScene {
   }
 
   drawNpc(ctx, n, cx, cy) {
-    const x = n.x * TILE - cx, y = n.y * TILE - cy;
+    // `fx, fy`: posição fracionária de quem está deslizando entre dois tiles
+    // (o caçador do pokésave); os outros ficam parados no tile deles
+    const x = (n.fx ?? n.x) * TILE - cx, y = (n.fy ?? n.y) * TILE - cy;
     if (n.sprite === "ball") return void ctx.drawImage(Assets.ball, x + 4, y + 4);
     if (n.sprite === "portal") {
       const t = performance.now() / 200;
@@ -4201,7 +4530,17 @@ export class OverworldScene {
       const img = Assets.mon(n.sprite.slice(4), 7);
       return void ctx.drawImage(img, x - 12, y - 24, 40, 40);
     }
-    const img = Assets.actor(n.sprite)[n.dir || "down"][0];
+    const set = Assets.actor(n.sprite)[n.dir || "down"];
+    // andando, alterna a perna como o jogador (a paridade sai da posição)
+    const img = n.andando ? set[Math.floor((n.fx + n.fy) * 2) % 2 ? 1 : 3] : set[0];
+    // GRANDE (o caçador com dez mil de raiva): o bloco 2x2 inteiro, o sprite
+    // esticado pra cobrir ele, e um tremor — ele não para quieto
+    if ((n.tamanho || 1) > 1) {
+      const t = n.tamanho, lado = TILE * t;
+      const j = Math.round((Math.random() * 2 - 1) * 0.6);
+      ctx.drawImage(img, x + j, y + lado - img.height * t, img.width * t, img.height * t);
+      return;
+    }
     // O sprite é encostado no CANTO do tile, e isso só funciona enquanto ele
     // tem a largura de um tile. O MOTOQUEIRO tem 32 (é o `.width` do decomp), e
     // encostado no canto ele ficava meio tile à direita do lugar. Centralizar

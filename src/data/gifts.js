@@ -54,6 +54,18 @@ export const GIFT_CODES = {
     itens: [{ item: "up-grade", qtd: 1 }, { item: "dubious disc", qtd: 1 }],
   },
 
+  // OS DOZE MIL KORAIDON. Um cartão LIMITADO: `limite` diz quantas vezes o
+  // código pode ser resgatado NO MUNDO — a contagem é do servidor
+  // (online/resgates.json, rota /__resgate), então quando os doze mil
+  // acabarem, acabaram pra todo mundo. Sem servidor, o cartão não abre.
+  K0RA1DON: {
+    titulo: "UM DOS DOZE MIL",
+    texto: "SAÍRAM DOZE MIL DESTES. TODOS DA MESMA COR ERRADA. QUANDO ACABAREM, ACABARAM.",
+    de: "PALDEA",
+    limite: 12000,
+    mons: [{ id: "koraidon", nv: 50, shiny: true }],
+  },
+
   "011SEMDONO110": {
     titulo: "PEDRA SEM DONO",
     texto: "ALGUÉM DEIXOU CAIR ISTO NA SALA. O DESENHO DE DENTRO PARECE UM GENGAR.",
@@ -74,6 +86,9 @@ export const GIFT_TEXTO = {
   foiProBox: "{MON} FOI PRO BOX: SEU TIME ESTÁ CHEIO.",
   semVaga: "SEM ESPAÇO NEM NO BOX. LIBERE UM LUGAR E VOLTE.",
   semServidor: "NÃO CONSEGUI FALAR COM O SERVIDOR.",
+  limitadoSemServidor: "ESTE CARTÃO É CONTADO NO MUNDO. PRECISA DO SERVIDOR PRA ABRIR.",
+  acabaram: "ACABARAM. OS {LIMITE} JÁ FORAM TODOS RESGATADOS.",
+  restam: "ESTE ERA O Nº {USADOS}. RESTAM {RESTAM}.",
   nenhumNoServidor: "O SERVIDOR NÃO ESTÁ OFERECENDO NENHUM CARTÃO.",
   mandarOque: "QUAL ITEM VOCÊ VAI MANDAR PRA SALA?",
   mandouCartao: "SEU CARTÃO FOI PUBLICADO NO SERVIDOR.",

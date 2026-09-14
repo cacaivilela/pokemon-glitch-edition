@@ -906,6 +906,135 @@ virando atributo (e o HP ficando de fora), os `stats` gravados intactos, o byte
 dando a volta em 270 → 14, o bug sumindo no fim, e a casca da raid segurando o
 dano até quebrar e deixar o resto passar.
 
+## POKÉSAVE: jogar como um Pokémon
+
+A página [`pokesave/`](pokesave/) monta uma partida em que **você é um
+Pokémon**: escolhe a espécie (qualquer uma do jogo, forma regional inclusive),
+a cor (comum, shiny ou luminoso), o nome, **o nível** e **onde nascer**
+(qualquer mapa de fora), e COMEÇAR abre `?pokesave=especie.cor.nivel.mapa.nome`
+— uma partida **nova** (apaga a atual), sem casa, mãe nem professor
+(`starterChosen` e `momGift` já marcados; a ROTA 1 tem ponto próprio, porque o
+spawn automático dela caía dentro da cerca — e `desencalhar()` tira do chão de
+parede quem nascer errado em qualquer mapa). O mapa desenha o sprite do Pokémon no lugar do herói — frente,
+costas quando sobe, espelhado quando vai pra direita, pulinho no passo — e a
+sala online vê você assim também (`sprite: "mon:especie:cor"`). O Pokémon que
+você é está na equipe com a marca `eu`: não te segue (ele é você), luta como
+qualquer um, e **quando evolui, o mapa evolui junto**.
+
+**Sendo Pokémon, você faz o que o seu tipo faz** (`euSei`): SURFAR de ÁGUA,
+CORTE, FORÇA e QUEBRA-ROCHA pelos tipos da mesma tabela que a SRTA. JOY usa
+(`FIELD_LEARNERS`) — sem precisar saber o golpe; `quemSabe()` olha você antes
+de olhar a equipe. E de VOADOR/DRAGÃO **você voa de verdade**: o menu mostra
+LEVANTAR VOO e você fica no ar (`st.voando`) — passa por cima de árvore, casa,
+água, barranco, gente e bicho; só a borda do mapa segura, e a conexão pro mapa
+vizinho continua funcionando. No ar nada te alcança (porta, vão, flor,
+selvagem, rasgo, o caçador), e o desenho sobe com uma sombra no chão. POUSAR
+só em chão livre — ou na água, se você também nada. A lista de cidades (o VOAR
+de sempre) fica pra quem tem um Pokémon que sabe o golpe.
+
+**E tem sempre um caçador atrás de você.** Um treinador (`CACADOR`, sprite
+`cacador`, nome sorteado) **começa em Pallet** — é de lá que todo treinador
+sai — e te segue de mapa em mapa: quando você troca de mapa, uns 7 s depois
+ele entra no seu pela borda por onde você entrou (ou num canto longe, se você
+veio de porta), sempre num tile de onde dá pra chegar em você a pé, e vem
+andando (busca em largura, um tile a cada 0,42 s). **Ele caça de verdade**: vai
+atrás do que estiver mais perto — um selvagem à vista ou você — e o selvagem
+que ele alcança some do mato e entra na equipe dele ("CAÇADORA IVY PEGOU
+RATTATA!"; até 6, a mais fraca sai). Quando encosta em você, é batalha **sem
+pergunta**, com o que ele pegou — ele sai de Pallet com um RATTATA nv3 e um
+PIDGEY nv4 (`CACADOR.inicio`) e cresce daí. Vencer paga (`300 + 20 × nível`),
+ele perde a equipe e some por 150 s. Voando, ele não te alcança. Mora no
+save em `st.cacador`.
+
+**Ele pensa.** No mapa, entre os selvagens ele prefere o que vale (shiny,
+luminoso, alfa, nível alto pesam mais que distância), só parte pra cima de
+você quando tem com que te enfrentar (três bichos, ou a equipe no seu nível
+menos três — antes disso caça mato até ficar forte; o fugitivo não pensa), e
+perto de um alvo corre (o passo encurta pra 60%). Dando ordens, usa a mesma
+cabeça do inimigo (`chooseAiMove`: tipo contra tipo, STAB, um pouco de sorte);
+a bola dele sai quando vale (`donoQuerBola`: quanto mais fraco o bicho, mais;
+status e cor rara pesam; com a equipe cheia, só o que é melhor que o pior).
+**E tem carreira** (`diaDoCacador`, `CARREIRA`): a cada dia do jogo (30 s com o
+tempo a 60×) a equipe dele sobe 1–2 níveis e evolui quando é hora, ele pega
+um bicho de uma rota do nível dele (60%), e com a equipe na média do próximo
+ginásio (12, 20, 26, 30, 36, 40, 44, 48) enfrenta o líder (50% por dia) e
+ganha a insígnia — simulado na tabela quando você anda ao lado dele, avisado
+na tela ("CAÇADOR NILTON VENCEU O GINÁSIO DE PEWTER E GANHOU A INSÍGNIA
+PEDRA!"). **Com você na bola ele vai até lá a pé**: `proximaSaida` acha o
+caminho por Kanto inteira tile por tile — bordas e portas, portão sul da
+floresta, floresta, portão norte — em ~10 ms, e a cada mapa ele segue pra
+saída certa, entra pela porta do ginásio e desafia o líder ("VOCÊ FICOU NA
+BOLA. DEU PRA OUVIR A LUTA DE DENTRO."). Água é parede pra ele: ilha (Cinnabar)
+não tem estrada, e esse ginásio fica na simulação. A caminho do ginásio ele
+não para pra caçar; sem ginásio na vez, caça: num lugar sem grama procura a
+saída (porta ou borda pra uma rota com mato), e onde tem grama vai pra grama. O nome dele mostra
+as insígnias (`CAÇADOR NILTON (3★)`), o prêmio sobe $400 por insígnia, e o que
+ele treinou luta no mínimo no seu nível menos quatro.
+
+**E ele te pega também.** Antes de lutar, ele joga uma bola em você, e
+**você decide**: ENTRAR (é dele, na hora) ou RESISTIR — resistindo, a bola
+ainda pode te segurar: `0,12 + 0,7 × (1 − hp/máx)` (`cacadorTentaBola`) —
+cheio de vida, ~11%; quase caído, ~80%. Pegou, **você é dele** (`st.capturado`): continua andando
+(é o Pokémon dele fora da bola, e ele vem atrás no lugar do companheiro), mas
+**na batalha quem manda é ele**: a cada turno o menu vira a ORDEM ("IVY: BICO,
+ATAQUE RÁPIDO!") com OBEDECER ou DESOBEDECER. Desobedecer abre a lista e
+**você escolhe** (`DESOBEDIENCIA`): SONECA (cura 12%, o inimigo bate), OUTRO
+GOLPE (um qualquer), COM TUDO (+1 ATK/SPA e o golpe mais forte), RECUSAR,
+MORDER o dono (+$200), SAIR CORRENDO da batalha, ou ESCAPAR — a única aposta:
+a bola cede com `6% + 7% × desobediências` (o menu mostra a porcentagem; na
+6ª, 41%), e se segura, o inimigo bate. Quem insiste, sai; escapar devolve o
+caçador pra folga de 150 s.
+
+**Desobedecer deixa o dono mais bravo** (`RAIVA`, `st.capturado.raiva`, 0 a 5;
+as barrinhas vermelhas no menu da ORDEM), e bravo ele força a barra: no 1 ele
+grita; do 2 em diante **aperta a bola** e você perde 8% da vida a cada
+desobediência; do 3 em diante **às vezes a ordem vem sem DESOBEDECER** ("A BOLA
+APERTA": 34%, 50%, 70% dos turnos nos níveis 3, 4 e 5). Obedecer três turnos
+seguidos acalma um ponto ("RESPIROU FUNDO"), e **a raiva esfria sozinha**
+(`esfriarRaiva`): um ponto a cada 40 s de relógio de parede — ou 2% por vez
+quando é a raiva de dez mil do fugitivo recapturado, que assim leva uns
+minutos pra voltar ao chão.
+
+**De noite ele dorme no Centro Pokémon.** Quando escurece (ciclo de
+`src/systems/ciclo.js`), uma vez por noite, ele te leva pro **Centro mais
+perto** (`centroMaisPerto`: o desta cidade, senão o último em que você passou,
+senão o de Viridian) e **sobe pra dormir no segundo andar** — a escada está
+fechada, "pra Pokémon e pra gente" (`useWarp`). Você fica embaixo. Ficar não
+faz nada; de manhã ele desce ("VAMOS."). **Sair do Centro antes de ele
+acordar é fugir** (`afterTravel`): sempre dá — ele está dormindo — mas **de
+manhã ele acorda com a bola vazia e você vira o fugitivo dele**
+(`fugirDormindo`, `fugitivoAmanheceu`): ele te enxerga de **6× mais longe** (48
+tiles em vez de 8 — fora da visão normal ele prefere caçar bicho), não tira
+folga nenhuma (perder pra você não o afasta), e ganha **DEZ MIL de raiva por
+dia** que passa procurando (`raivaDoFugitivo`). Se te pega de novo, é com essa
+raiva toda: acima de 1000 **toda ordem vem forçada**, e a plaquinha mostra o
+número. Só uma nova captura tira ele do modo fugitivo.
+
+**Dá pra ficar na bola.** Capturado, o menu tem FICAR NA BOLA / SAIR DA BOLA
+(`cap.naBola`). Dentro, quem anda no mapa é o dono, sozinho, caçando: vai
+atrás do selvagem mais perto, pega, segue pro próximo (`andarNaBola` move o
+corpo do jogador — a posição é a dele). Você vê tudo por um vidro vermelho e
+branco, descansa (2% da vida por segundo), ninguém te encosta, e a noite no
+Centro passa sem chance de fuga. Sair só em chão em que dá pra ficar de pé.
+Quando ele alcança um selvagem com você no cinto, **ele te manda pra briga**
+("IVY: VAI, BICO!"): batalha selvagem normal, você na frente e ele dando as
+ordens — e **é ele quem joga a bola** quando o bicho está abaixo de 40% de
+vida (`bolaDoDono`, metade das vezes): pegou, o Pokémon vai pra equipe dele e
+a batalha acaba; escapou, o turno segue. Com você caído, ele pega no braço,
+como quando anda sozinho.
+
+Com dez mil de raiva **ele cresce**: ocupa um bloco **2×2** de tiles
+(`tamanhoDoCacador`; o sprite esticado, tremendo, e `npcAt`/o caminho
+consideram as quatro células).
+
+**Num pokésave o tempo corre 60×** — cada minuto vira um segundo
+(`correrTempo` adianta o relógio do mundo, `ajustarRelogio` em
+`src/systems/ciclo.js`; o avanço vai no save em `st.relogio`). Uma fase de dia
+ou de noite dura 15 s em vez de 15 min: o caçador dorme e acorda no ritmo de
+quem não tem relógio, e a raiva do fugitivo, que é por dia, sobe rápido.
+`src/systems/pokesave.js`, `src/scenes/battle.js` (`souDeAlguem`,
+`ordemDoDono`, `desobedecer`).
+
 ## Os ALFA
 
 Um em 45 selvagens (`alfaOdds`, `src/data/config.js`) nasce **ALFA**, como nos
