@@ -20,7 +20,9 @@ export const DIM_LOOT = [
   { item: "doce raro",   qty: [1, 2], w: 16 },
   { item: "up-grade",    qty: [1, 1], w: 6, rare: true },
   { item: "dubious disc", qty: [1, 1], w: 4, rare: true },
-  { item: "bilhete voo",  qty: [1, 1], w: 8, rare: true },     // um já serve pra sempre
+  // o BILHETE VOO não cai mais aqui: VOAR pra cidade que você nunca pisou, de
+  // graça e pra sempre, saía da fenda cedo demais. Ele existe num lugar só —
+  // escondido no chão do laboratório (src/data/maps.js), uma vez.
   { item: "pedra do crepúsculo", qty: [1, 1], w: 5, rare: true },  // o que a LAMPENT espera
 ];
 

@@ -260,7 +260,8 @@ export const MAPS = {
       },
       // largada no chão ao lado do computador: quem deixou o 011GIVEGLITCH110
       // aberto também esqueceu isto aqui. Não tem sprite: é item escondido —
-      // só acha quem encostar em 4,2 e apertar Z.
+      // só acha quem encostar em 4,2 e apertar Z. É o ÚNICO lugar onde o
+      // BILHETE VOO existe (ele não cai mais na fenda).
       { id: "ball_voo", x: 4, y: 2, sprite: "ball", invisivel: true, gift: { item: "bilhete voo", qty: 1 } },
       { id: "ball0", x: 8, y: 4, sprite: "ball", starter: "bulbasaur" },
       { id: "ball1", x: 9, y: 4, sprite: "ball", starter: "charmander" },

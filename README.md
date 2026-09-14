@@ -1179,8 +1179,10 @@ antecedência), então a música não tropeça quando a aba engasga.
 
 ## BILHETE VOO
 
-O **BILHETE VOO** (achado na fenda, ou no chão do laboratório) é um bilhete com o
-campo "PARA" em branco: dobrado, ele vira avião de papel e pousa em **qualquer
+O **BILHETE VOO** é um bilhete com o campo "PARA" em branco. Existe **um só,
+escondido no chão do laboratório** (encoste em 4,2 e aperte Z) — ele não cai
+mais na fenda, porque voar pra cidade que você nunca pisou, de graça e pra
+sempre, chegava cedo demais como drop repetível: dobrado, ele vira avião de papel e pousa em **qualquer
 cidade de Kanto** — inclusive nas que você ainda não visitou, e sem precisar de
 ninguém na equipe que saiba **VOAR**. Ele se desdobra inteiro no pouso, então
 serve pra sempre.
