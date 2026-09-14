@@ -89,3 +89,12 @@ export function fade(ctx, alpha, color = "#000") {
 }
 
 export { drawText, wrapText, CHAR_W, LINE_H };
+
+/** Dinheiro na tela. Até bilhões sai como número; de 1e21 pra cima é ZILHÃO —
+ *  a unidade em que se vende o TROFÉU DE PALLET (src/data/leilao.js, VENDA). */
+export function moeda(n) {
+  n = Number(n) || 0;
+  if (n >= 1e21) { const z = n / 1e21; return `$${z >= 10 ? Math.floor(z) : Math.round(z * 10) / 10} ZILH\u00d5ES`; }
+  if (n >= 1e15) return `$${Math.floor(n / 1e12)} TRILH\u00d5ES`;
+  return `$${Math.floor(n)}`;
+}

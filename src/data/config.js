@@ -72,6 +72,23 @@ export const CONFIG = {
     respiro: 2.2,        // segundos de carência antes de você poder tomar outra
   },
 
+  // OS ALFA. Um em `alfaOdds` selvagens nasce ALFA, como nos LEGENDS: maior
+  // que o normal (o sprite cresce e ganha um contorno vermelho), `alfaNiveis`
+  // níveis acima da tabela do lugar, atributos `alfaForca` vezes mais fortes,
+  // e SEMPRE bravo — alfa não foge de gente, alfa vem. Derrubar um dá mais
+  // experiência (`alfaXp`) e derruba um item do chão dele (`alfaDrops`).
+  // Capturado, ele continua alfa: o tamanho, a força e a marca vão junto.
+  alfaOdds: 1 / 45,
+  alfaNiveis: [6, 12],
+  alfaForca: 1.2,
+  alfaXp: 1.6,
+  alfaDrops: [
+    { item: "doce raro", qty: [1, 2], w: 10 },
+    { item: "ultra ball", qty: [1, 3], w: 8 },
+    { item: "great ball", qty: [2, 4], w: 8 },
+    { item: "poção", qty: [2, 4], w: 12 },
+  ],
+
   // Shiny solto pela grama de Kanto: 1 em 1024 selvagens vem com a cor trocada.
   // (dentro da fenda a regra é outra: 1 a cada SHINY_EVERY vistos, em extra.js)
   shinyOdds: 1 / 1024,

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DLC — Pokémon Glitch Edition</title>
+<meta name="description" content="Os pacotes extras do Pokémon Glitch Edition: GLITCH CITY TOUR, TORNEIO DE PALLET e REVOLTA DE DECAMARK. Ligue e desligue.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230e0b18'/><text y='.9em' font-size='78'>🎁</text></svg>">
+<style>
+  :root {
+    --bg: #14101f; --panel: #1e1830; --panel2: #272040; --line: #3d3160;
+    --ink: #f4f2ff; --ink2: #a99ec9; --glitch: #b455ff; --neon: #00ffcc; --ok: #59d99b; --warn: #ffd166; --bad: #e0524a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  header { padding: 14px 18px; border-bottom: 2px solid var(--line); background: linear-gradient(180deg, #241b3c, #14101f); display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  h1 { margin: 0; font-size: 18px; letter-spacing: 2px; text-transform: uppercase; }
+  h1 span { color: var(--glitch); }
+  .sub { color: var(--ink2); }
+  header a { color: var(--neon); margin-left: auto; font-size: 12px; }
+  main { max-width: 760px; margin: 0 auto; padding: 16px; }
+  .dlc { background: var(--panel); border: 2px solid var(--line); border-radius: 8px; padding: 14px; margin-bottom: 12px; display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start; }
+  .dlc.on { border-color: var(--glitch); box-shadow: 0 0 0 2px rgba(180,85,255,.25); }
+  .dlc h2 { margin: 0 0 6px; font-size: 15px; letter-spacing: 2px; color: var(--neon); }
+  .dlc p { margin: 0 0 6px; }
+  .dlc .tem { color: var(--ink2); font-size: 11px; }
+  .dlc .erro { color: var(--bad); font-size: 11px; margin-top: 6px; }
+  button { font: inherit; background: var(--panel2); color: var(--ink); border: 2px solid var(--line); border-radius: 6px; padding: 8px 14px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
+  button:hover { border-color: var(--glitch); }
+  button.on { background: var(--glitch); border-color: var(--glitch); color: #120820; font-weight: bold; }
+  .rodape { color: var(--ink2); font-size: 11px; margin-top: 16px; }
+  .aviso { border-left: 3px solid var(--warn); padding: 6px 10px; color: var(--warn); font-size: 12px; margin-top: 12px; }
+  code { color: var(--glitch); }
+  a { color: var(--glitch); }
+</style>
+</head>
+<body>
+<header>
+  <h1>dlc<span>glitch</span></h1>
+  <div class="sub">pacotes extras — ligue o que quiser, desligue quando cansar</div>
+  <a href="../">← voltar pro jogo</a>
+</header>
+
+<main>
+  <div id="lista"></div>
+  <p class="rodape">A escolha fica neste navegador, não no save: a mesma partida roda com ou sem os pacotes. Vale no próximo carregamento do jogo — se ele já estiver aberto em outra aba, dê F5 lá. Pra ligar por link: <code>?dlc=torneio</code> (vários: <code>?dlc=torneio,decamark</code>; <code>?dlc=nenhum</code> desliga todos).</p>
+  <div class="aviso">Desligar a REVOLTA DE DECAMARK com um ?????????? na equipe ou no PC deixa o save incompatível — solte ele antes. Os PRESENTES MISTERIOSOS dos pacotes entram pelo título → PRESENTE MISTERIOSO → POR CÓDIGO, um por save.</div>
+</main>
+
+<script type="module">
+import * as D from "../src/systems/dlc.js";
+
+const TEM = {
+  glitchcitytour: "7 vãos novos (Pallet, Pewter, Cerulean, Vermilion, Celadon, Fuchsia, Saffron) · um guia em Pallet · MISSINGNO., PORYGON e UNOWN corrompidos só dentro das zonas",
+  torneio: "8 treinadores na praia de Pallet com 22 fusões publicadas (nv 28–50) · prêmio em dinheiro por rodada · o TROFÉU DE PALLET com o juiz",
+  decamark: "a espécie ?????????? (tipo GLITCH, sprite próprio) · nasce corrompida em toda rota e caverna, na fenda e nas zonas · vem pra cima · pesquisadora em Cinnabar e o REGISTRO 0x3F",
+  lendas: "ARTICUNO, ZAPDOS, MOLTRES, MEWTWO e MEW raros nos lugares deles · o velho do museu de Pewter · 9 PRESENTES MISTERIOSOS (códigos LENDAS001 a LENDAS009): as aves, os dois clones, DRAGONITE, LAPRAS shiny, TAUROS e as MEWTWONITAS",
+  silph: "Saffron ganha tabela de encontro (PORYGON, MAGNEMITE, VOLTORB, ROTOM) · ROTOM e PORYGON na Usina · funcionário com o CRACHÁ · 9 PRESENTES (SILPH001 a SILPH009): PORYGON, UP-GRADE, DUBIOUS DISC, MAGNETON, ROTOM, 20 ULTRA BALL, 10 DOCES, PIKACHU shiny, GENGARITA",
+  festival: "shiny em Kanto vira a chance clássica de 1 em 4096 · a SHINY ZONE no Safári: nasce TODO Pokémon do jogo na raridade dele, e a cada batalha a cor comum fica 1–10 pontos mais rara (zera ao sair) · medidor na tela com a chance, quantos spawns faltam e quantos nasceram · feirante na entrada · 9 PRESENTES (FESTIVAL001 a FESTIVAL009): oito shinies e uma caixa de bolas",
+  vizinhas: "iniciais e formas regionais no mato de Kanto (Alola no Monte Moon, Galar na floresta, Hisui na Rota 10, Paldea na beira d'água) · viajante em Celadon · 9 PRESENTES (VIZINHAS001 a VIZINHAS009): um inicial de cada região e um MEOWTH-GALAR shiny",
+};
+
+const lista = document.getElementById("lista");
+function render() {
+  lista.innerHTML = "";
+  for (const d of D.CATALOGO) {
+    const on = D.estaLigado(d.id);
+    const el = document.createElement("div");
+    el.className = "dlc" + (on ? " on" : "");
+    el.innerHTML = `<div><h2>${d.nome}</h2><p>${d.descricao}</p><div class="tem">${TEM[d.id] || ""}</div>
+      ${D.erros.get(d.id) ? `<div class="erro">não carregou: ${D.erros.get(d.id)}</div>` : ""}</div>
+      <button class="${on ? "on" : ""}">${on ? "ligado" : "desligado"}</button>`;
+    el.querySelector("button").onclick = () => { D.ligar(d.id, !on); render(); };
+    lista.appendChild(el);
+  }
+}
+await D.carregarDLC(true);     // só pra mostrar erro de carregamento, se houver
+render();
+</script>
+</body>
+</html>

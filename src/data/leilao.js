@@ -53,3 +53,32 @@ export const LEILOEIROS = {
   // fusão desenhada à mão vale mais que a montagem automática
   bonusFicha: 1.25,
 };
+
+// ---------------------------------------------------------------- VENDER ITEM
+// O balcão compra de volta. O preço é uma FRAÇÃO do que a loja cobra pelo
+// item (metade, como sempre foi), então só vende o que alguma loja vende — o
+// resto não tem preço, e coisa sem preço não se vende... menos o que está em
+// `especiais`, que tem preço próprio: o que não se compra em lugar nenhum mas
+// ainda vale alguma coisa (as peças da Silph, o doce), e O TROFÉU DE PALLET,
+// que vale OITO ZILHÕES DE POKÉDÓLARES. É de lata. Vale oito zilhões. Os dois
+// são verdade, e é o balconista quem paga.
+export const VENDA = {
+  fracao: 0.5,
+  minimo: 10,
+  especiais: {
+    "doce raro": 2400,
+    "up-grade": 1050,
+    "dubious disc": 1050,
+    "troféu de pallet": 8e21,     // 8 ZILHÕES (ver `moeda` em src/core/gfx.js)
+  },
+};
+
+export const VENDA_TEXTO = {
+  oferta: "COMPRAR OU VENDER?",
+  opcoes: ["COMPRAR", "VENDER", "NADA"],
+  ofertaComBarraca: "COMPRAR, VENDER OU LEILOAR ALGUÉM?",
+  opcoesComBarraca: ["COMPRAR", "VENDER", "LEILOAR", "NADA"],
+  nadaPraVender: "VOCÊ NÃO TEM NADA QUE EU COMPRE.",
+  vendeu: "VOCÊ VENDEU {N} {ITEM} POR {TOTAL}.",
+  trofeu: "...ISSO É O TROFÉU DE PALLET? OITO ZILHÕES. EU PAGO. NÃO PERGUNTE DE ONDE.",
+};

@@ -89,8 +89,9 @@ export function nascer(lista, jogador, sortear, livre) {
     const bicho = {
       mon: enc.mon, glitch: !!enc.glitch, x, y, vida: 0,
       t: Math.random() * (c.passo ?? 1.2),
-      genio: temperamento(enc.mon.species),
-      bravo: ehBravo(enc.mon.species),        // atalho: é o que o desenho pergunta
+      // o ALFA é bravo seja de que espécie for: alfa não foge de gente
+      genio: enc.mon.alfa ? "bravo" : temperamento(enc.mon.species),
+      bravo: enc.mon.alfa || ehBravo(enc.mon.species),   // atalho: é o que o desenho pergunta
     };
     lista.push(bicho);
     return bicho;

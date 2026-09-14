@@ -17,6 +17,7 @@ import { createMon, recalc } from "./systems/mon.js";
 import { reverterTudo } from "./systems/mega.js";
 import { registrarDoEstado } from "./systems/fusao.js";
 import { Online } from "./systems/online.js";
+import { carregarDLC, aplicarDLC, ligarDoLink } from "./systems/dlc.js";
 import { TitleScene } from "./scenes/title.js";
 import { AberturaScene } from "./scenes/abertura.js";
 import { OverworldScene } from "./scenes/overworld.js";
@@ -169,6 +170,7 @@ const game = {
   /** chamado pelo live update quando src/data/* muda */
   applyData(next) {
     Object.assign(DB, next);
+    aplicarDLC();                       // o DB novo veio sem os DLCs
     this.aplicarIdioma();               // o dicionário pode ter sido reescrito
     registrarDoEstado(this.state);      // o DB novo veio sem as fusões desta partida
     this.state.party.forEach(recalc);
@@ -235,6 +237,12 @@ if (!DB.KANTO?.[DB.START_MAP]) {
   resize();
   throw new Error("[dados] assets/maps/kanto.json não encontrado");
 }
+
+// OS DLCs entram aqui: depois do DB montado, antes de qualquer cena olhar pra
+// ele. `?dlc=<id>` liga antes de carregar (src/systems/dlc.js).
+ligarDoLink();
+await carregarDLC();
+aplicarDLC();
 
 // o save vem do arquivo do computador (save/save.json), não do navegador
 await Save.load();

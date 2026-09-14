@@ -40,7 +40,8 @@ export function rollDimEncounter(terrain, state) {
   for (const e of table) {
     r -= e.w;
     if (r <= 0) {
-      return { mon: createMon(e.id, randRange(e.min, e.max), { ...brilho, corrupt: chance(0.15) }), glitch: true };
+      const { lvl, opts } = talvezAlfa(randRange(e.min, e.max), { ...brilho, corrupt: chance(0.15) });
+      return { mon: createMon(e.id, lvl, opts), glitch: true };
     }
   }
   return null;
@@ -55,7 +56,17 @@ export function rollFlores(min = 5, max = 12) {
 }
 
 /** `sorte` vem do SANDUÍCHE AMARGO do acampamento: multiplica a chance de shiny. */
-export function rollEncounter(mapId, corruption = 0, glitchOn = false, sorte = 1) {
+/** UM EM `alfaOdds` NASCE ALFA: sobe de nível e ganha a marca. Vale pra Kanto
+ *  e pra fenda — a fusão selvagem e o MISSINGNO. ficam de fora, que já são a
+ *  raridade deles. Devolve as opções de createMon já com o nível ajustado. */
+function talvezAlfa(lvl, opts = {}) {
+  const C = DB.CONFIG || {};
+  if (!chance(C.alfaOdds ?? 0)) return { lvl, opts };
+  const [a, b] = C.alfaNiveis || [6, 12];
+  return { lvl: Math.min(100, lvl + randRange(a, b)), opts: { ...opts, alfa: true } };
+}
+
+export function rollEncounter(mapId, corruption = 0, glitchOn = false, sorte = 1, brilhoForcado = null) {
   const map = DB.MAPS[mapId];
   const table = map?.encounters || [];
   if (!table.length) return null;
@@ -63,7 +74,9 @@ export function rollEncounter(mapId, corruption = 0, glitchOn = false, sorte = 1
   // MISSINGNO. só existe com o modo glitch ligado (src/data/config.js)
   const on = glitchOn || DB.CONFIG?.glitchMode;
   const glitchChance = !on || corruption < 25 ? 0 : Math.min(0.35, (corruption - 25) / 200);
-  const brilho = sortearBrilho({ sorte });     // a cor do bicho: comum, shiny ou luminoso
+  // a cor do bicho: comum, shiny ou luminoso — ou o que um DLC já decidiu
+  // (a SHINY ZONE manda a cor pronta, pra mexer no shiny sem inflar o luminoso)
+  const brilho = brilhoForcado || sortearBrilho({ sorte });
   if (chance(glitchChance)) {
     const lvl = randRange(5, 12);
     return { mon: createMon("missingno", lvl, { corrupt: true, ...brilho }), glitch: true };
@@ -83,9 +96,11 @@ export function rollEncounter(mapId, corruption = 0, glitchOn = false, sorte = 1
   for (const e of table) {
     r -= e.w;
     if (r <= 0) {
-      const lvl = randRange(e.min, e.max);
-      const corrupt = !!on && corruption > 40 && chance(Math.min(0.15, corruption / 800));
-      return { mon: createMon(e.id, lvl, { corrupt, ...brilho }), glitch: false };
+      // `corrupt: true` na entrada da tabela: esse nasce corrompido sempre (é
+      // o que os DLCs usam pra pôr bicho bugado num lugar específico)
+      const corrupt = !!e.corrupt || (!!on && corruption > 40 && chance(Math.min(0.15, corruption / 800)));
+      const { lvl, opts } = talvezAlfa(randRange(e.min, e.max), { corrupt, ...brilho });
+      return { mon: createMon(e.id, lvl, opts), glitch: false };
     }
   }
   return null;

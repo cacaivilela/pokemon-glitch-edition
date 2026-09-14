@@ -132,6 +132,15 @@ export function pedirMon(id, dex) {
   });
 }
 
+/** Arte que chega pronta, sem passar por assets/sprites/pokemon — é como um
+ *  DLC entrega o sprite de uma espécie dele (src/systems/dlc.js). Marca o id
+ *  como pedido pra ninguém sair procurando arquivo por cima. */
+export function registrarSpriteMon(id, frente, costas = null) {
+  pedidos.add(id);
+  if (frente) { SpriteStore.pokemon[id] = frente; SpriteStore.loaded++; SpriteStore.missing?.delete?.(id); }
+  if (costas) SpriteStore.pokemonBack[id] = costas;
+}
+
 /** Adianta o que já se sabe que vai aparecer (a sua equipe, o que mora no mapa
  *  em que você está). O resto chega sozinho, na hora. */
 export function adiantarMons(lista) {

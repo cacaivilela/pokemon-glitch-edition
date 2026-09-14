@@ -122,7 +122,8 @@ export function montarZona(z) {
     // (ver musicaDaZona) — instalada em DB.MUSIC[ZONA] por garantirZona
     name: z.nome || nomeCorrompido(nome, z.seed), music: ZONA, interior: false, npcs: [],
     // os bichos são os da fonte: o lugar está fora de ordem, os moradores não
-    encounters: DB.MAPS?.[z.fonte]?.encounters || [],
+    // (mais o que um DLC puser em GLITCH_ZONES.encontrosExtra — só aqui dentro)
+    encounters: [...(DB.MAPS?.[z.fonte]?.encounters || []), ...(cfg().encontrosExtra || [])],
     lockedWarps: {}, signs: {}, spawn: { x: z.x, y: z.y, dir: "down" },
   };
   return { geo, mapa };

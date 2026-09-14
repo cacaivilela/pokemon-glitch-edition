@@ -9,6 +9,7 @@ import { Audio2 } from "../core/audio.js";
 import { panel, drawText, cursor, bar, hpColor, fade, PAL, LINE_H } from "../core/gfx.js";
 import { Dialogue } from "../systems/dialogue.js";
 import { Glitch } from "../systems/glitchfx.js";
+import { randRange } from "../core/rng.js";
 import { cenaDoGolpe } from "../systems/cutscenes.js";
 import { veu, temCeu } from "../systems/ciclo.js";
 import { fator } from "../systems/acampamento.js";
@@ -77,6 +78,9 @@ export class BattleScene {
     this.sp = { p: this.newSprite(-90), f: this.newSprite(90) };
     // o chefe entra do tamanho de um filhote; `crescer()` faz o resto
     if (this.raid) this.sp.f.escala = RAID.cresceDe;
+    // o ALFA entra grande e fica grande — do seu lado também, se for seu
+    if (!this.raid && this.foe?.alfa) this.sp.f.escala = 1.3;
+    if (this.mine?.alfa) this.sp.p.escala = 1.3;
     this.crescendo = null;
     st.seen[this.foe.species] = true;
 
@@ -197,7 +201,8 @@ export class BattleScene {
       else if (sp?.foreign) await this.say("ESTE POKÉMON NÃO É DE KANTO. NEM DESTE MUNDO.");
       else if (!this.foe.shiny && !this.foe.luminoso) await this.say("ESTE POKÉMON NÃO CONSTA NA POKÉDEX. NEM NO CARTUCHO.");
     } else {
-      await this.say(`UM ${this.foe.nickname} SELVAGEM APARECEU!`);
+      await this.say(`UM ${this.foe.nickname}${this.foe.alfa ? " ALFA" : ""} SELVAGEM APARECEU!`);
+      if (this.foe.alfa) { Glitch.hit(0.6); await this.say("ELE É MAIOR QUE O NORMAL. E NÃO VAI FUGIR."); }
       if (this.foe.luminoso) await this.say("ESSE NÃO TEM COR: TEM LUZ. UM EM 9999 NASCE ASSIM.");
       else if (this.foe.shiny) await this.say("A COR DELE NÃO É A DE SEMPRE. ESSE AÍ É RARO.");
     }
@@ -479,6 +484,7 @@ export class BattleScene {
     await this.say(`${this.trainer ? "O " + this.foe.nickname + " INIMIGO" : this.foe.nickname + " SELVAGEM"} DESMAIOU!`);
 
     await this.premiarExp();
+    await this.dropDoAlfa();
 
     if (this.trainer && this.foeIdx < this.foeParty.length - 1) {
       this.foeIdx++;
@@ -658,6 +664,22 @@ export class BattleScene {
     const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
     if (fMove) await this.useMove("f", fMove);
     await this.checkFaints();
+  }
+
+  /** O ALFA derruba um item quando cai (config.js, `alfaDrops`): é o que faz
+   *  valer a pena enfrentar um em vez de contornar. Só selvagem — o de
+   *  treinador é dele. */
+  async dropDoAlfa() {
+    if (!this.foe?.alfa || this.trainer) return;
+    const tabela = DB.CONFIG?.alfaDrops || [];
+    const total = tabela.reduce((a, d) => a + (d.w || 1), 0);
+    let r = Math.random() * total;
+    const d = tabela.find((x) => (r -= x.w || 1) <= 0) || tabela[0];
+    if (!d) return;
+    const qtd = randRange(d.qty?.[0] ?? 1, d.qty?.[1] ?? 1);
+    this.st.items[d.item] = Math.min(999, (this.st.items[d.item] || 0) + qtd);
+    Audio2.heal();
+    await this.say(`O ${this.foe.nickname} ALFA DEIXOU CAIR ${qtd} ${d.item.toUpperCase()}!`);
   }
 
   /** A EXPERIÊNCIA de derrubar aquele bicho. Virou método porque a GLITCH RAID
@@ -1128,6 +1150,7 @@ export class BattleScene {
     drawText(ctx, marca + mon.nickname.slice(0, 10), x + 6, y + 5,
       mon.luminoso ? "#fff3b0" : mon.shiny ? "#d8a828" : mon.corrupt ? PAL.glitch : PAL.ink);
     if (mon.megaDe) drawText(ctx, "M", x + w - 34, y + 5, PAL.glitch);
+    else if (mon.alfa) drawText(ctx, "A", x + w - 34, y + 5, "#e0242a");
     drawText(ctx, `N${mon.level}`, x + w - 24, y + 5, PAL.ink);
     drawText(ctx, "HP", x + 6, y + 16, PAL.ink2);
     const pct = Math.max(0, disp) / mon.maxHp;

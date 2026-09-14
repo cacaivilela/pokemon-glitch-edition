@@ -11,7 +11,7 @@ import { DB } from "../data/index.js";
 import { Assets } from "../core/assets.js";
 import { Input } from "../core/input.js";
 import { Audio2 } from "../core/audio.js";
-import { panel, drawText, cursor, fade, PAL, LINE_H } from "../core/gfx.js";
+import { panel, drawText, cursor, fade, PAL, LINE_H, moeda } from "../core/gfx.js";
 import { Dialogue } from "../systems/dialogue.js";
 import { todosGuardados } from "../systems/box.js";
 import { faixa, raridade, leiloar, vender, podeLeiloar } from "../systems/leilao.js";
@@ -164,7 +164,7 @@ export class LeilaoScene {
 
     panel(ctx, 158, 4, 78, 22);
     drawText(ctx, L.dinheiro, 164, 8, PAL.ink2);
-    drawText(ctx, `$${this.st.money}`, 164, 17, PAL.ink);
+    drawText(ctx, moeda(this.st.money), 164, 17, PAL.ink, { maxChars: 11 });
 
     this.dlg.render(ctx);
     if (this.fadeA > 0) fade(ctx, this.fadeA);

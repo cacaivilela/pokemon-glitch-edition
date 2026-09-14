@@ -906,6 +906,19 @@ virando atributo (e o HP ficando de fora), os `stats` gravados intactos, o byte
 dando a volta em 270 → 14, o bug sumindo no fim, e a casca da raid segurando o
 dano até quebrar e deixar o resto passar.
 
+## Os ALFA
+
+Um em 45 selvagens (`alfaOdds`, `src/data/config.js`) nasce **ALFA**, como nos
+LEGENDS: maior que o normal (o sprite cresce no mato e na batalha e ganha um
+**contorno vermelho**, `Assets.alfa`), 6 a 12 níveis acima da tabela do lugar,
+atributos 1,2× mais fortes (`recalc` multiplica), e **sempre bravo** — alfa não
+foge de gente, alfa vem, seja de que espécie for (`nascer` em
+`src/systems/selvagens.js`). Derrubar um paga 1,6× de experiência e **derruba
+um item** (`alfaDrops`: doce raro, bolas, poções). Capturado, ele continua
+alfa: `mon.alfa` vai no save, o tamanho e a força vão junto, a equipe mostra
+"ALFA" e a plaquinha da batalha um "A" vermelho. Vale em Kanto e na fenda
+(`talvezAlfa`, em `src/systems/encounters.js`).
+
 ## GLITCH ZONES: a GLITCH CITY
 
 No Pokémon Red de verdade, sair da ZONA SAFÁRI do jeito errado te largava numa
@@ -978,6 +991,95 @@ console. As trocas ficam em `st.zona.trocas` e são aplicadas por cima da
 permutação da semente, então continua sendo o mesmo conjunto de tiles da fonte
 em outra ordem. `dev/zonacheck.html` também testa o código (ida e volta, troca
 na mão, nome na faixa, link torto).
+
+## DLC: os pacotes extras
+
+Três pacotes vêm com o jogo, desligados. A página [`dlc/`](dlc/) liga e
+desliga cada um (a escolha fica no navegador, `localStorage` `pge.dlc`, não no
+save — a mesma partida roda com ou sem eles); `?dlc=torneio` liga por link
+(`?dlc=torneio,decamark` vários, `?dlc=nenhum` desliga todos).
+
+- **GLITCH CITY TOUR** (`dlc/glitchcitytour.js`): um vão de GLITCH ZONE em
+  cada cidade que ainda não tinha — Pallet, Pewter, Cerulean, Vermilion,
+  Celadon, Fuchsia, Saffron — sempre num beco ou canto; um guia em Pallet que
+  diz onde estão; e, só dentro das zonas, MISSINGNO., PORYGON e UNOWN
+  corrompidos (`GLITCH_ZONES.encontrosExtra`, lido por `montarZona`).
+- **TORNEIO DE PALLET** (`dlc/torneio.js`): oito treinadores na praia de
+  Pallet, cada um com uma equipe de fusões publicadas na oficina (22 fichas,
+  nível 28 a 50), sem linha de visão (`sight: 0` — você escolhe a ordem); o
+  juiz na frente da fila entrega o TROFÉU DE PALLET depois dos oito (`depoisDe`
+  no NPC: o presente só sai com aqueles ids derrotados).
+- **REVOLTA DE DECAMARK** (`dlc/decamark.js`): a espécie ?????????? (tipo
+  GLITCH, sprite feito em código em `dlc/decamark.png`), corrompida sempre, em
+  toda rota e caverna de Kanto e das ilhas, na fenda e nas zonas, e brava (vem
+  pra cima); uma pesquisadora em Cinnabar conta de onde ela veio e dá o
+  REGISTRO 0x3F.
+
+E quatro que trazem, cada um, **nove PRESENTES MISTERIOSOS** por código
+(título → PRESENTE MISTERIOSO → POR CÓDIGO; um por save, como os de
+`src/data/gifts.js`):
+
+- **LENDAS DE KANTO** (`dlc/lendas.js`): ARTICUNO, ZAPDOS, MOLTRES, MEWTWO e
+  MEW nascem raros nos lugares deles (Seafoam, Usina, Monte Ember, Caverna
+  Cerulean e — o MEW — a Rota 1); um velho em Pewter conta onde. Cartões
+  `LENDAS001`–`LENDAS009`: as três aves, os dois clones, DRAGONITE, LAPRAS
+  shiny, TAUROS e as duas MEWTWONITAS.
+- **ARQUIVO DA SILPH** (`dlc/silph.js`): Saffron ganha tabela de encontro
+  (PORYGON, MAGNEMITE, VOLTORB, MAGNETON, ELECTRODE, ROTOM), ROTOM e PORYGON
+  na Usina, um funcionário com o CRACHÁ DA SILPH. Cartões `SILPH001`–`SILPH009`:
+  PORYGON, UP-GRADE, DUBIOUS DISC, MAGNETON, ROTOM, 20 ULTRA BALL, 10 DOCES,
+  PIKACHU shiny e a GENGARITA.
+- **FESTIVAL SHINY** (`dlc/festival.js`): a **SHINY ZONE** — dentro da Zona
+  Safári nasce **todo Pokémon do jogo** (os 151, a fenda, iniciais e formas de
+  outras regiões, fósseis), cada um com a raridade dele (o peso é a taxa de
+  captura da espécie), e **a cada batalha com um selvagem lá dentro a chance de
+  cor comum cai de 1 a 10 pontos** (começa em 100; a conta mora em
+  `st.shinyZone.comum` e zera ao sair do Safári). Com o pacote ligado, shiny
+  em Kanto inteira é a **chance clássica de 1 em 4096** (`shinyOdds`), e é daí
+  que a zona parte. Um **medidor** no canto da tela (gancho `hud`) mostra a
+  chance de agora, quantos spawns faltam na média até um shiny (1/chance) e
+  quantos nasceram desde que você entrou. Uma feirante na entrada explica. Cartões `FESTIVAL001`–`FESTIVAL009`: oito shinies (PIKACHU, os três
+  iniciais, VULPIX, SNORLAX, MAGIKARP, EEVEE) e uma caixa de bolas.
+- **REGIÕES VIZINHAS** (`dlc/vizinhas.js`): os iniciais e as formas regionais
+  saem da fenda e nascem no mato de Kanto — Alola no Monte Moon, Galar na
+  floresta e nas Rotas 2 e 22, Hisui na Rota 10 e no Túnel de Pedra, Paldea nas
+  Rotas 12 e 21; uma viajante em Celadon. Cartões `VIZINHAS001`–`VIZINHAS009`:
+  um inicial de cada região (Johto a Paldea) e um MEOWTH-GALAR shiny.
+
+Cada DLC é um módulo ES em `dlc/` que exporta um objeto com seções — `especies`,
+`golpes`, `evolucoes`, `itens`, `npcs`, `placas`, `encontros`/`encontrosExtra`,
+`musica`/`musicaDoMapa`, `textos`, `zonas`, `loot`, `bravos`, `presentes`
+(cartões de PRESENTE MISTERIOSO por código), `config` e uma função
+`aplicar(DB, api)` pra o que não cabe em tabela — `api.gancho(quando, f)`
+registra funções que a cena chama ao trocar de mapa (`viajar`), quando um
+selvagem vira batalha (`encontrar`) e ao sortear a cor de um selvagem
+(`brilho`, que recebe a `sorte` e devolve outra, ou a cor pronta
+`{ shiny, luminoso }` — a SHINY ZONE manda a cor pronta, senão inflar a sorte
+inflava o luminoso junto e depois de um tempo todo spawn era luminoso); é assim
+que a SHINY ZONE existe sem o jogo saber dela. `src/systems/dlc.js`
+tem o catálogo, carrega os ligados **depois que o DB é montado e antes de
+qualquer cena** e aplica de novo **a cada hot-swap** (`applyData`), senão o
+live update apagaria o que o pacote pôs. Espécies de DLC passam pelo mesmo
+`buildSpecies` de Kanto; sprite próprio vai direto pro `SpriteStore`
+(`registrarSpriteMon`). Duas mãos no motor pra isso: `corrupt: true` numa
+entrada de tabela de encontro nasce corrompido sempre (`rollEncounter`), e
+`depoisDe` num NPC com `gift`.
+
+Desligar a REVOLTA com um ?????????? na equipe ou no PC deixa o save
+incompatível — solte ele antes.
+
+## Vender itens
+
+Todo balcão pergunta **COMPRAR OU VENDER?** (com a BARRACA DE LEILÃO na
+mochila, **COMPRAR, VENDER OU LEILOAR ALGUÉM?**). VENDER lista o que a mochila
+tem e a loja compra: **metade do preço de loja** do item (o menor que alguma
+loja de Kanto cobra, `precoDeLoja`), mínimo $10. O que nenhuma loja vende não
+tem preço e não se vende — menos os `especiais` de `VENDA` em
+`src/data/leilao.js`: doce raro ($2400), up-grade e dubious disc ($1050) e **o
+TROFÉU DE PALLET, que vale $8 ZILHÕES**. É de lata. Vale oito zilhões. O
+balconista paga e pede pra não perguntar de onde. O dinheiro na tela passa por
+`moeda()` (`src/core/gfx.js`), que escreve TRILHÕES e ZILHÕES quando o número
+não cabe — e a partir daí comprar não tira nada perceptível.
 
 ## Leilão: vender Pokémon
 
@@ -1548,6 +1650,7 @@ src/
     faxina.js          a revisão semanal do acervo de fusões
     aniversario.js     a data no save, o calendário e o que sai da bola
     glitchzones.js     o embaralhador de tiles, a arte fatiada e a parede que cede
+    dlc.js             os DLCs: o catálogo, carregar os ligados e aplicar no DB
     rival.js           monta o AZUL na hora certa, com o inicial que ele errou
     online.js          presença, convites, chat e o filtro do que vem de fora
   scenes/
@@ -1573,6 +1676,8 @@ dev/glitchcheck.html   glitchbooster (as trancas, o byte) e a casca das raids
 dev/eracheck.html      as três eras: espécies, mapas (dá pra chegar no guardião?) e a fila
 dev/anivercheck.html   o aniversário (calendário e presente) e os dois da criação
 giveglitch/            versão web do mesmo terminal (fora do jogo)
+glitchzone/            oficina de GLITCH ZONES: troca tiles de lugar e gera o link ?area=
+dlc/                   a página dos DLCs e os sete pacotes (glitchcitytour, torneio, decamark, lendas, silph, festival, vizinhas)
 faxinamissingno/       a FAXINA MISSINGNO.: o acervo medido, com a senha pra jogar fora
 save/save.json         o save (um por máquina; fora do git)
 online/cartoes.json    os cartões que este servidor oferece (fora do git)

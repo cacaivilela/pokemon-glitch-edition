@@ -31,6 +31,7 @@ export function createMon(speciesId, level, opts = {}) {
     corrupt: !!opts.corrupt,
     shiny: !!opts.shiny,
     luminoso: !!opts.luminoso,
+    alfa: !!opts.alfa,               // maior, mais forte, sempre bravo (ver config.js)
     seed: opts.seed ?? randInt(9999),
     hp: 0,
   };
@@ -76,13 +77,15 @@ export function recalc(mon) {
     mon.name = sp.name;
     return mon;
   }
-  mon.maxHp = hpValue(base.hp, mon.ivs.hp, mon.level);
+  // o ALFA é o mesmo bicho, só que mais: cada atributo vale `alfaForca` vezes
+  const f = mon.alfa ? (DB.CONFIG?.alfaForca ?? 1.2) : 1;
+  mon.maxHp = Math.floor(hpValue(base.hp, mon.ivs.hp, mon.level) * f);
   mon.stats = {
-    atk: statValue(base.atk, mon.ivs.atk, mon.level),
-    def: statValue(base.def, mon.ivs.def, mon.level),
-    spa: statValue(base.spa, mon.ivs.spa, mon.level),
-    spd: statValue(base.spd, mon.ivs.spd, mon.level),
-    spe: statValue(base.spe, mon.ivs.spe, mon.level),
+    atk: Math.floor(statValue(base.atk, mon.ivs.atk, mon.level) * f),
+    def: Math.floor(statValue(base.def, mon.ivs.def, mon.level) * f),
+    spa: Math.floor(statValue(base.spa, mon.ivs.spa, mon.level) * f),
+    spd: Math.floor(statValue(base.spd, mon.ivs.spd, mon.level) * f),
+    spe: Math.floor(statValue(base.spe, mon.ivs.spe, mon.level) * f),
   };
   mon.types = sp.types;
   mon.name = sp.name;
@@ -127,7 +130,8 @@ export function gainXp(mon, amount) {
 
 export function xpYieldFor(foe) {
   const sp = DB.SPECIES[foe.species];
-  return Math.floor((sp.xpYield * foe.level) / 7) + 1;
+  const alfa = foe.alfa ? (DB.CONFIG?.alfaXp ?? 1.6) : 1;
+  return Math.floor((sp.xpYield * foe.level * alfa) / 7) + 1;
 }
 
 /** Núcleo da evolução: troca a espécie e ajusta stats, apelido e golpes.

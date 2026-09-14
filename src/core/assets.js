@@ -759,9 +759,32 @@ export const Assets = {
    *  e a arte crua. Existe pra nao haver quatro telas decidindo isso cada uma
    *  do seu jeito — e pra que a proxima tela que desenhar bicho ja acerte. */
   comCor(img, mon) {
-    if (mon?.luminoso) return this.luminoso(img);
-    if (mon?.shiny) return this.shiny(img);
-    return img;
+    let out = img;
+    if (mon?.luminoso) out = this.luminoso(img);
+    else if (mon?.shiny) out = this.shiny(img);
+    return mon?.alfa ? this.alfa(out) : out;
+  },
+
+  /** A MARCA DO ALFA: um contorno vermelho de um pixel em volta do sprite e os
+   *  olhos... não dá pra achar olho em 151 sprites, então a marca é a borda —
+   *  é o que se vê de longe no mato, e é o que os LEGENDS mostram no mapa.
+   *  O tamanho maior é de quem desenha (drawSelvagem e a batalha). */
+  alfa(img) {
+    if (!img) return img;
+    if (!this._alfa) this._alfa = new Map();
+    const hit = this._alfa.get(img);
+    if (hit) return hit;
+    const { cv, ctx } = makeCanvas(img.width, img.height);
+    const sil = this.silhueta(img);
+    ctx.globalCompositeOperation = "source-over";
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) ctx.drawImage(sil, dx, dy);
+    ctx.globalCompositeOperation = "source-in";
+    ctx.fillStyle = "#e0242a";
+    ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.drawImage(img, 0, 0);
+    this._alfa.set(img, cv);
+    return cv;
   },
 
   /** silhueta chapada do sprite (a troca de formas da evolucao) */

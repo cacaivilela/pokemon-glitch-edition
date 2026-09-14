@@ -8,7 +8,7 @@ import { Input, Texto } from "../core/input.js";
 import { Audio2 } from "../core/audio.js";
 import { Save } from "../core/save.js";
 import { Opcoes } from "../core/opcoes.js";
-import { panel, drawText, cursor, bar, hpColor, fade, sinal, PAL, LINE_H } from "../core/gfx.js";
+import { panel, drawText, cursor, bar, hpColor, fade, sinal, PAL, LINE_H, moeda } from "../core/gfx.js";
 import { Dialogue } from "../systems/dialogue.js";
 import { Online } from "../systems/online.js";
 import { OnlineMenuScene } from "./online.js";
@@ -44,6 +44,8 @@ import { escuridaoDoLugar, ehCaverna, acesa, camadaDeLuz, brilho, RAIO } from ".
 import { AcampamentoScene } from "./acampamento.js";
 import { LeilaoScene } from "./leilao.js";
 import { temBarraca } from "../systems/leilao.js";
+import { vendaveis } from "../systems/venda.js";
+import { VENDA_TEXTO } from "../data/leilao.js";
 import { temVisor, explicado } from "../systems/glitchboost.js";
 import { podeAcampar, fator, buff, minutosDoBuff } from "../systems/acampamento.js";
 import { rivalNpc } from "../systems/rival.js";
@@ -1081,6 +1083,7 @@ export class OverworldScene {
    *  o bravo que te alcança bate (ver `levarBote`). */
   encontrarSelvagem(b) {
     this.selvagens = this.selvagens.filter((o) => o !== b);
+    for (const f of DB.GANCHOS?.encontrar || []) f(this.st, b);   // os DLCs
     if (b.bravo) { Audio2.bump(); this.rustle = { x: b.x, y: b.y, t: 0 }; }
     this.startBattle(encontroDe(b));
   }
@@ -1091,8 +1094,15 @@ export class OverworldScene {
   sortearSelvagem(x, y) {
     const st = this.st;
     if (st.player.map !== "glitchdim") {
-      return rollEncounter(st.player.map, st.corruption, !!st.flags.glitchWorld,
-                           fator(st, "sorte"));
+      // a cor do bicho pode ser reescrita por um DLC — a SHINY ZONE. O gancho
+      // devolve outra `sorte` (número) ou a cor pronta ({ shiny, luminoso })
+      let sorte = fator(st, "sorte"), brilho = null;
+      for (const f of DB.GANCHOS?.brilho || []) {
+        const r = f(st, sorte);
+        if (typeof r === "number") sorte = r;
+        else if (r && typeof r === "object") brilho = r;
+      }
+      return rollEncounter(st.player.map, st.corruption, !!st.flags.glitchWorld, sorte, brilho);
     }
     const solo = this.geo?.terrain?.[y * this.geo.w + x];
     return rollDimEncounter(solo === "a" ? "ar" : solo === "g" ? "agua" : "terra", st);
@@ -1458,6 +1468,7 @@ export class OverworldScene {
     // por conta própria; a CONEXÃO (borda de mapa) não — e é o jeito mais
     // comum de mudar de lugar. Aqui vale pra todo caminho.
     this.selvagens = [];
+    for (const f of DB.GANCHOS?.viajar || []) f(this.st);     // os DLCs (src/systems/dlc.js)
     if (DB.FLY_SPOTS?.[this.st.player.map]) {     // cidade nova: libera o VOAR
       this.st.visitado ||= {};
       this.st.visitado[this.st.player.map] = true;
@@ -1636,25 +1647,36 @@ export class OverworldScene {
     }
     if (npc.shop) {
       state.talked = true;
-      // Com a BARRACA DE LEILÃO na mochila, o balcão passa a servir pros dois
-      // lados: comprar coisa e vender bicho. Sem ela, nada muda — quem nunca
-      // comprou a barraca não vê uma pergunta a mais toda vez que fala com o
-      // balconista.
+      // O balcão serve pros dois lados: comprar coisa e VENDER coisa (metade
+      // do preço; o TROFÉU DE PALLET vale oito zilhões — src/data/leilao.js).
+      // Com a BARRACA DE LEILÃO na mochila entra a terceira opção: leiloar
+      // bicho.
       this.dlg.say(npc.lines, () => {
         const prateleira = this.prateleira(npc.shop);
+        const V = VENDA_TEXTO;
         if (!temBarraca(this.st)) {
-          this.menu = { type: "shop", index: 0, shop: prateleira };
+          this.dlg.ask(V.oferta, V.opcoes, (i) => {
+            if (i === 0) this.menu = { type: "shop", index: 0, shop: prateleira };
+            else if (i === 1) this.abrirVenda();
+          });
           return;
         }
-        const L = DB.STORY.leilao;
-        this.dlg.ask(L.oferta, L.opcoes, (i) => {
+        this.dlg.ask(V.ofertaComBarraca, V.opcoesComBarraca, (i) => {
           if (i === 0) this.menu = { type: "shop", index: 0, shop: prateleira };
-          else if (i === 1) this.game.scenes.push(new LeilaoScene());
+          else if (i === 1) this.abrirVenda();
+          else if (i === 2) this.game.scenes.push(new LeilaoScene());
         });
+        return;
       });
       return;
     }
     if (npc.gift && !state.gotGift) {
+      // `depoisDe`: o presente só sai depois que aqueles NPCs (ids deste mapa)
+      // foram derrotados — o juiz de um torneio, o prêmio de uma sequência.
+      // Antes disso ele diz `antes` (ou as falas de sempre).
+      if (npc.depoisDe?.some((id) => !this.st.npcState[`${this.st.player.map}.${id}`]?.defeated)) {
+        return void this.dlg.say(npc.antes || npc.lines);
+      }
       state.gotGift = true;
       this.dlg.say(npc.lines, () => {
         const { item, qty } = npc.gift;
@@ -3305,6 +3327,26 @@ export class OverworldScene {
       .filter((x) => !x.unico || !(this.st.items?.[x.item] > 0));
   }
 
+  /** VENDER: a lista do que a mochila tem e o balcão compra. */
+  abrirVenda() {
+    const lista = vendaveis(this.st);
+    if (!lista.length) return void this.dlg.say(VENDA_TEXTO.nadaPraVender);
+    this.menu = { type: "venda", index: 0, lista };
+  }
+
+  sell(item, price, n) {
+    const total = price * n;
+    this.st.money = Math.min(Number.MAX_SAFE_INTEGER * 1e6, (this.st.money || 0) + total);
+    this.st.items[item] = (this.st.items[item] || 0) - n;
+    if (this.st.items[item] <= 0) delete this.st.items[item];
+    Audio2.heal();
+    const lista = vendaveis(this.st);
+    this.menu = lista.length ? { type: "venda", index: 0, lista } : null;
+    const msg = VENDA_TEXTO.vendeu.replace("{N}", n).replace("{ITEM}", item.toUpperCase()).replace("{TOTAL}", moeda(total));
+    this.dlg.say(item === "troféu de pallet" ? [VENDA_TEXTO.trofeu, msg] : msg);
+    this.game.autosave?.(true);
+  }
+
   buy(item, price, n, shop) {
     const total = price * n;
     this.st.money -= total;
@@ -3596,11 +3638,29 @@ export class OverworldScene {
       if (Input.consume("right")) step(10);
       if (Input.consume("left")) step(-10);
       if (Input.held("run")) m.n = m.max;          // SHIFT = tudo
-      if (Input.consume("b")) { this.menu = m.next === "buy" ? { type: "shop", index: 0, shop: m.shop } : { type: "bag", index: 0 }; Audio2.cancel(); }
+      if (Input.consume("b")) {
+        this.menu = m.next === "buy" ? { type: "shop", index: 0, shop: m.shop }
+                  : m.next === "sell" ? { type: "venda", index: 0, lista: vendaveis(this.st) }
+                  : { type: "bag", index: 0 };
+        Audio2.cancel();
+      }
       if (Input.consume("a")) {
         Audio2.select();
         if (m.next === "buy") this.buy(m.item, m.price, m.n, m.shop);
+        else if (m.next === "sell") this.sell(m.item, m.price, m.n);
         else this.menu = { type: "useItem", index: 0, item: m.item, qty: m.n };
+      }
+      return;
+    }
+    if (m.type === "venda") {
+      const list = m.lista;
+      if (Input.consume("up")) { m.index = (m.index + list.length - 1) % list.length; Audio2.blip(); }
+      if (Input.consume("down")) { m.index = (m.index + 1) % list.length; Audio2.blip(); }
+      if (Input.consume("b")) { this.menu = null; Audio2.cancel(); this.dlg.say("VOLTE SEMPRE!"); }
+      if (Input.consume("a")) {
+        const { item, price, qtd } = list[m.index];
+        Audio2.select();
+        this.menu = { type: "qty", item, price, n: 1, max: qtd, next: "sell" };
       }
       return;
     }
@@ -3926,6 +3986,9 @@ export class OverworldScene {
     this.drawSinal(ctx);
 
     this.drawVida(ctx);
+    // o HUD dos DLCs (o medidor da SHINY ZONE): por cima do mapa, por baixo
+    // do menu e das falas
+    for (const f of DB.GANCHOS?.hud || []) f(ctx, this.st, { panel, drawText, bar, PAL, W, H });
     if (this.banner > 0) this.drawBanner(ctx);
     if (this.menu) this.drawMenu(ctx);
     this.dlg.render(ctx);
@@ -4030,12 +4093,14 @@ export class OverworldScene {
     // uma ameaça a caminho, é uma coisa saindo de perto.
     const vel = caca ? 150 : corre ? 200 : 380;
     const pulo = Math.abs(Math.sin(performance.now() / vel + b.x * 1.7 + b.y)) * (caca || corre ? 4 : 2);
-    const x = Math.round(b.x * TILE - cx - 6), y = Math.round(b.y * TILE - cy - 12 - pulo);
-    ctx.drawImage(img, x, y, 28, 28);
+    // o ALFA é maior — é a primeira coisa que se nota nele, antes da cor
+    const lado = b.mon.alfa ? 38 : 28;
+    const x = Math.round(b.x * TILE - cx - 6 - (lado - 28) / 2), y = Math.round(b.y * TILE - cy - 12 - pulo - (lado - 28));
+    ctx.drawImage(img, x, y, lado, lado);
     // e o AVISO em cima dele. Perseguidor sem aviso é armadilha: quem toma uma
     // batalha que não pediu tem que ter tido a chance de ver ela chegando.
     if (caca && Math.floor(performance.now() / 220) % 2 === 0) {
-      drawText(ctx, "!", x + 11, y - 8, "#ff5566", { shadow: "#2b0a12" });
+      drawText(ctx, "!", x + Math.round(lado / 2) - 3, y - 8, "#ff5566", { shadow: "#2b0a12" });
     }
   }
 
@@ -4214,12 +4279,13 @@ export class OverworldScene {
       this.st.party.forEach((mon, i) => {
         const y = 24 + i * 24;
         if (i === m.index) cursor(ctx, 8, y + 7);
-        ctx.drawImage(Assets.mon(mon.species, mon.seed), 16, y - 2, 24, 24);
+        ctx.drawImage(Assets.comCor(Assets.mon(mon.species, mon.seed), mon), 16, y - 2, 24, 24);
         drawText(ctx, mon.nickname, 46, y + 2, PAL.ink);
         drawText(ctx, `N${mon.level}`, 152, y + 2, PAL.ink);
         bar(ctx, 46, y + 14, 76, 4, hpPct(mon), hpColor(hpPct(mon)));
         drawText(ctx, `${mon.hp}/${mon.maxHp}`, 130, y + 11, PAL.ink2);
         if (mon.corrupt) drawText(ctx, "!", 200, y + 2, PAL.glitch);
+        if (mon.alfa) drawText(ctx, "ALFA", 182, y + 11, "#e0242a");
       });
       drawText(ctx, "X VOLTA", 180, H - 20, PAL.ink2);
       return;
@@ -4373,9 +4439,9 @@ export class OverworldScene {
     if (m.type === "qty") {
       panel(ctx, 30, 50, 180, 60);
       drawText(ctx, m.item.toUpperCase(), 40, 58, PAL.ink);
-      drawText(ctx, `QUANTOS?`, 40, 72, PAL.ink2);
-      drawText(ctx, `x${String(m.n).padStart(3, " ")}`, 120, 70, PAL.ink);
-      if (m.price) drawText(ctx, `$${m.price * m.n}`, 120, 84, PAL.ink2);
+      drawText(ctx, m.next === "sell" ? "VENDER QUANTOS?" : `QUANTOS?`, 40, 72, PAL.ink2);
+      drawText(ctx, `x${String(m.n).padStart(3, " ")}`, 140, 70, PAL.ink);
+      if (m.price) drawText(ctx, moeda(m.price * m.n), 120, 84, PAL.ink2);
       drawText(ctx, "CIMA/BAIXO 1  LADOS 10  SHIFT MAX", 38, 96, PAL.ink2);
       return;
     }
@@ -4419,8 +4485,30 @@ export class OverworldScene {
       });
       drawText(ctx, "Z USA   X VOLTA", 20, H - 42, PAL.ink2);
       if (!Object.keys(this.st.items).length) drawText(ctx, "MOCHILA VAZIA.", 24, 30, PAL.ink2);
-      drawText(ctx, `DINHEIRO: $${this.st.money}`, 20, H - 30, PAL.ink2);
+      drawText(ctx, `DINHEIRO: ${moeda(this.st.money)}`, 20, H - 30, PAL.ink2);
       drawText(ctx, "X VOLTA", 180, H - 20, PAL.ink2);
+      return;
+    }
+    if (m.type === "venda") {
+      const JANELA = 10;
+      m.top = Math.max(0, Math.min(m.top || 0, m.lista.length - JANELA));
+      if (m.index < m.top) m.top = m.index;
+      if (m.index >= m.top + JANELA) m.top = m.index - JANELA + 1;
+      const vistos = m.lista.slice(m.top, m.top + JANELA);
+      panel(ctx, 4, 4, 150, vistos.length * LINE_H + 16);
+      vistos.forEach((it, k) => {
+        const y = 10 + k * LINE_H;
+        drawText(ctx, `${it.item.toUpperCase()}`, 20, y, PAL.ink, { maxChars: 14 });
+        const p = moeda(it.price);
+        drawText(ctx, p, 148 - p.length * 6, y, PAL.ink);
+        if (m.top + k === m.index) cursor(ctx, 10, y);
+      });
+      if (m.top > 0) drawText(ctx, "\u2191", 140, 10, PAL.ink2);
+      if (m.top + JANELA < m.lista.length) drawText(ctx, "\u2193", 140, 10 + (vistos.length - 1) * LINE_H, PAL.ink2);
+      drawText(ctx, `Z VENDE  X SAI  X${m.lista[m.index]?.qtd || 0}`, 20, 10 + vistos.length * LINE_H, PAL.ink2);
+      panel(ctx, 158, 4, 78, 22);
+      drawText(ctx, "DINHEIRO", 164, 8, PAL.ink2);
+      drawText(ctx, moeda(this.st.money), 164, 17, PAL.ink, { maxChars: 11 });
       return;
     }
     if (m.type === "shop") {
@@ -4446,7 +4534,7 @@ export class OverworldScene {
       drawText(ctx, `Z COMPRA  X SAI  ${m.index + 1}/${m.shop.length}`, 20, 10 + vistos.length * LINE_H, PAL.ink2);
       panel(ctx, 158, 4, 78, 22);
       drawText(ctx, "DINHEIRO", 164, 8, PAL.ink2);
-      drawText(ctx, `$${this.st.money}`, 164, 17, PAL.ink);
+      drawText(ctx, moeda(this.st.money), 164, 17, PAL.ink, { maxChars: 11 });
       return;
     }
     if (m.type === "tutorMon") {
