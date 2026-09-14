@@ -76,6 +76,12 @@ export const CONFIG = {
   // (dentro da fenda a regra é outra: 1 a cada SHINY_EVERY vistos, em extra.js)
   shinyOdds: 1 / 1024,
 
+  // LUMINOSO: a cor mais rara do jogo, 1 em 9999. Ele é sorteado ANTES do
+  // shiny e ganha dele — um Pokémon é comum, shiny OU luminoso, nunca dois. Um
+  // shiny aparece de vez em quando; um luminoso é a história que o dono conta
+  // pros outros, então ele não pode ser "shiny com um extra": ele acende.
+  luminosoOdds: 1 / 9999,
+
   // Fragmentos de portal glitch espalhados pelo mundo
   fragmentChance: 0.3,     // chance de aparecer um ao entrar num mapa
   fragmentSeconds: 180,    // 3 minutos dentro da dimensão antes dela fechar

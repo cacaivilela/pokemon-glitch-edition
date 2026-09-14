@@ -1,6 +1,7 @@
 // Criacao de monstros, stats, XP e level up.
 import { DB } from "../data/index.js";
-import { randInt, clamp } from "../core/rng.js";
+import { randInt, clamp, chance } from "../core/rng.js";
+import { lugarBate } from "./regionais.js";
 
 export const xpForLevel = (lvl) => Math.floor(lvl ** 3);
 
@@ -29,12 +30,30 @@ export function createMon(speciesId, level, opts = {}) {
     status: null,
     corrupt: !!opts.corrupt,
     shiny: !!opts.shiny,
+    luminoso: !!opts.luminoso,
     seed: opts.seed ?? randInt(9999),
     hp: 0,
   };
   recalc(mon);
   mon.hp = mon.maxHp;
   return mon;
+}
+
+/** A COR DO BICHO QUE ACABOU DE APARECER. São três, e só uma por Pokémon:
+ *  comum, SHINY (1 em 1024) e LUMINOSO (1 em 9999).
+ *
+ *  O luminoso é sorteado PRIMEIRO e, se sair, apaga o shiny. Sorteando o shiny
+ *  antes, a cor mais rara do jogo só apareceria em cima de um shiny — ela
+ *  viraria um enfeite de outra raridade em vez de ser uma raridade. E os dois
+ *  sorteios são independentes: a chance de um luminoso é 1 em 9999 sempre, não
+ *  1 em 9999 dos que já não eram shiny.
+ *
+ *  `sorte` é o SANDUÍCHE AMARGO do acampamento, que multiplica as duas — quem
+ *  caça cor caça as duas cores. `shiny` já vem decidido de fora quando quem
+ *  chama tem regra própria (na fenda é 1 a cada N vistos, e não um sorteio). */
+export function sortearBrilho({ sorte = 1, shiny = false } = {}) {
+  if (chance((DB.CONFIG?.luminosoOdds ?? 0) * sorte)) return { luminoso: true, shiny: false };
+  return { luminoso: false, shiny: shiny || chance((DB.CONFIG?.shinyOdds ?? 0) * sorte) };
 }
 
 export function recalc(mon) {
@@ -131,9 +150,13 @@ export function evolveTo(mon, toId) {
 }
 
 /** Espécie pra onde ele evolui no nível atual, ou null. */
-export function evolutionFor(mon) {
+/** Pra que forma este bicho passa agora? `mapa` importa: tem linha que se
+ *  parte em duas, e o que escolhe o lado é o lugar (um CUBONE vira MAROWAK em
+ *  Kanto e MAROWAK-ALOLA do lado de lá — ver src/systems/regionais.js). */
+export function evolutionFor(mon, mapa = null) {
   for (const r of DB.EVOLUTIONS?.[mon.species] || []) {
-    if (r.lvl && mon.level >= r.lvl && DB.SPECIES[r.to]) return r.to;
+    if (!r.lvl || mon.level < r.lvl || !DB.SPECIES[r.to]) continue;
+    if (lugarBate(r, mapa)) return r.to;
   }
   return null;
 }

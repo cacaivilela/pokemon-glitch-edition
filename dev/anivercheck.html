@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem do aniversário (e dos dois da criação) — Pokémon Glitch Edition</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=25000">
+<script type="module">
+// As regras do ANIVERSÁRIO soltas, sem abrir o jogo: calendário na mão (o dia
+// 29 de fevereiro, a virada do ano) e o que sai da bola. E, de quebra, os dois
+// lendários novos — DIALGA e PALKIA — conferidos onde eles moram: espécie,
+// missão, mapa e o tile em que eles ficam parados.
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+const erros = [];
+const teste = (nome, ok, extra = "") => {
+  p(`${ok ? "ok  " : "NÃO "} ${nome}${extra ? "   " + extra : ""}`, ok ? "ok" : "erro");
+  if (!ok) erros.push(nome);
+};
+
+try {
+  const { DB } = await import("/src/data/index.js");
+  const A = await import("/src/systems/aniversario.js");
+  const { LENDARIOS } = await import("/src/data/leilao.js");
+  // só pra provar que a cena continua carregando com o que foi ligado nela
+  await import("/src/scenes/overworld.js");
+
+  const dia = (a, m, d) => new Date(a, m - 1, d);
+
+  h("A DATA");
+  teste('"03-14" vale', A.valida("03-14"));
+  teste('"13-01" não vale (mês 13)', !A.valida("13-01"));
+  teste('"02-30" não vale (fevereiro não tem 30)', !A.valida("02-30"));
+  teste('"02-29" VALE de digitar', A.valida("02-29"));
+  teste('"3-14" não vale (formato)', !A.valida("3-14"));
+  teste("guarda(3, 14) = 03-14", A.guarda(3, 14) === "03-14");
+  p(`formata("03-14") = ${A.formata("03-14")}`);
+
+  h("O CALENDÁRIO");
+  const v1 = A.ultimaVirada("03-14", dia(2026, 3, 14));
+  teste("no dia: dias 0, ano 2026", v1.dias === 0 && v1.ano === 2026, JSON.stringify(v1.dias));
+  const v2 = A.ultimaVirada("03-14", dia(2026, 3, 17));
+  teste("três dias depois: dias 3", v2.dias === 3 && v2.ano === 2026);
+  const v3 = A.ultimaVirada("03-14", dia(2026, 3, 13));
+  teste("véspera: a última passagem foi a de 2025", v3.ano === 2025 && v3.dias === 364);
+  const v4 = A.ultimaVirada("12-31", dia(2027, 1, 1));
+  teste("31/12 resgatado em 1º/1: o ano gravado é 2026", v4.ano === 2026 && v4.dias === 1);
+  const v5 = A.ultimaVirada("02-29", dia(2025, 3, 1));
+  teste("29/02 em ano sem 29: cai no dia 28", v5.data.getMonth() === 1 && v5.data.getDate() === 28
+        && v5.dias === 1);
+  const v6 = A.ultimaVirada("02-29", dia(2024, 2, 29));
+  teste("29/02 em ano bissexto: é o próprio dia", v6.dias === 0 && v6.data.getDate() === 29);
+  teste("faltam: 10/03 pra um aniversário em 14/03 = 4 dias",
+        A.faltam("03-14", dia(2026, 3, 10)) === 4);
+  teste("faltam: no dia = 0", A.faltam("03-14", dia(2026, 3, 14)) === 0);
+
+  h("O PACOTE ESPERANDO");
+  const janela = DB.ANIVERSARIO.janelaDias;
+  p(`janela configurada: ${janela} dia(s) depois da data`);
+  const novo = () => ({ player: { name: "TESTE", aniversario: "03-14" }, party: [], flags: {} });
+
+  let st = novo();
+  teste("no dia tem presente", !!A.pendente(st, dia(2026, 3, 14)));
+  teste(`${janela} dias depois ainda tem`, !!A.pendente(st, dia(2026, 3, 14 + janela)));
+  teste(`${janela + 1} dias depois não tem mais`, !A.pendente(st, dia(2026, 3, 15 + janela)));
+  teste("um dia ANTES não tem", !A.pendente(st, dia(2026, 3, 13)));
+
+  const pend = A.pendente(st, dia(2026, 3, 14));
+  A.marcarGanho(st, pend.ano);
+  teste("depois de ganhar, o mesmo dia não dá de novo", !A.pendente(st, dia(2026, 3, 14)));
+  teste("nem no dia seguinte, dentro da janela", !A.pendente(st, dia(2026, 3, 15)));
+  teste("mas no ano que vem dá", !!A.pendente(st, dia(2027, 3, 14)));
+  teste("sem data no save, nunca tem presente",
+        !A.pendente({ player: {}, flags: {} }, dia(2026, 3, 14)));
+
+  h("OS TIPOS QUE A BOLA OFERECE");
+  const tipos = A.tipos();
+  p(tipos.join("  "));
+  teste("GLITCH ficou de fora", !tipos.includes("GLITCH"));
+  teste("todo tipo oferecido tem espécie pra entregar",
+        tipos.every((t) => A.elegiveis(t).length > 0));
+  teste("são 18 tipos", tipos.length === 18, `${tipos.length}`);
+  const semLendario = tipos.every((t) => A.elegiveis(t).every((sp) => !LENDARIOS.has(sp.id)));
+  teste("nenhum lendário no sorteio", semLendario);
+  teste("nenhuma forma MEGA no sorteio",
+        tipos.every((t) => A.elegiveis(t).every((sp) => !sp.megaDe)));
+  teste("MISSINGNO. fora", !A.elegiveis("NORMAL").some((sp) => sp.id === "missingno"));
+  teste("FOGO tem CHARMANDER e não tem MOLTRES", (() => {
+    const ids = A.elegiveis("FOGO").map((sp) => sp.id);
+    return ids.includes("charmander") && !ids.includes("moltres");
+  })());
+
+  h("O GOLPE MAIS BOMBADO");
+  for (const id of ["pikachu", "charmander", "gastly", "magikarp", "decidueye", "dialga"]) {
+    const g = A.golpeBombado(id);
+    const mv = DB.MOVES[g];
+    const sp = DB.SPECIES[id];
+    const teto = Math.max(...sp.learnset.map(([, m]) => DB.MOVES[m]?.power || 0));
+    p(`${sp.name.padEnd(12)} ${sp.types.join("/").padEnd(16)} ${String(mv?.name).padEnd(24)} poder ${mv?.power}`);
+    if (!mv) erros.push(`golpeBombado(${id}) não achou golpe nenhum`);
+    else if (!(mv.power >= teto)) erros.push(`golpeBombado(${id}) é mais fraco que o learnset dele`);
+    else if (mv.z) erros.push(`golpeBombado(${id}) devolveu um golpe Z`);
+    else if (mv.type === "GLITCH") erros.push(`golpeBombado(${id}) devolveu golpe GLITCH`);
+  }
+  teste("todo mundo tem golpe bombado, nunca um Z e nunca um GLITCH",
+        !erros.some((e) => e.startsWith("golpeBombado")));
+  teste("o PIKACHU não leva o golpe Z do boné (10.000.000 DE VOLTS)",
+        A.golpeBombado("pikachu") !== "dezmilhoes");
+  teste("nenhum golpe Z entra na conta de tipo nenhum",
+        (DB.TYPES || []).every((t) => {
+          const sp = A.elegiveis(t)[0];
+          const g = sp && A.golpeBombado(sp.id);
+          return !g || !DB.MOVES[g]?.z;
+        }));
+  teste("o 10.000.000 DE VOLTS existe em MOVES mas ninguém o aprende",
+        !!DB.MOVES.dezmilhoes && !A.aprendiveis().has("dezmilhoes"));
+
+  h("O QUE SAI DA BOLA");
+  const comEquipe = (nv) => ({ player: { aniversario: "03-14" }, party: [{ level: nv }], flags: {} });
+  teste("nível segue o mais forte da equipe", A.nivelDoPresente(comEquipe(24)) === 24);
+  teste(`equipe vazia cai no piso (${DB.ANIVERSARIO.nivelMinimo})`,
+        A.nivelDoPresente(novo()) === DB.ANIVERSARIO.nivelMinimo);
+  teste(`equipe nível 100 bate no teto (${DB.ANIVERSARIO.nivelMaximo})`,
+        A.nivelDoPresente(comEquipe(100)) === DB.ANIVERSARIO.nivelMaximo);
+
+  const stp = comEquipe(30);
+  const shiny = A.montarPresente(stp, "ÁGUA", "shiny");
+  teste("SHINY: vem shiny, do tipo pedido, no nível certo",
+        shiny.mon.shiny && shiny.especie.types.includes("ÁGUA") && shiny.mon.level === 30,
+        `${shiny.especie.name}`);
+  teste("SHINY: não vem luminoso junto", !shiny.mon.luminoso);
+
+  const bomba = A.montarPresente(stp, "PLANTA", "golpe");
+  const sabe = bomba.mon.moves.some((m) => m.id === bomba.golpe);
+  teste("GOLPE: já sabe o golpe bombado", !!bomba.golpe && sabe,
+        `${bomba.especie.name} / ${DB.MOVES[bomba.golpe]?.name} (${DB.MOVES[bomba.golpe]?.power})`);
+  teste("GOLPE: não é de tipo GLITCH (aquilo corrompe o save)",
+        DB.MOVES[bomba.golpe]?.type !== "GLITCH");
+  // BOMBADO é bombado: o piso é o teto do tipo mais fraco do jogo (50)
+  teste("GOLPE: tem poder de golpe bombado (>= 50)",
+        (DB.MOVES[bomba.golpe]?.power || 0) >= 50, `poder ${DB.MOVES[bomba.golpe]?.power}`);
+
+  // vinte presentes de GOLPE seguidos: em todos o bicho tem que SABER o golpe
+  let semGolpe = 0, novidade = 0;
+  const { learnableMoves } = await import("/src/systems/mon.js");
+  for (let i = 0; i < 20; i++) {
+    const r = A.montarPresente(stp, "FOGO", "golpe");
+    if (!r.golpe || !r.mon.moves.some((m) => m.id === r.golpe)) semGolpe++;
+    // o que ele saberia sem o presente são os QUATRO últimos aprendíveis
+    const semPresente = learnableMoves(r.especie.id, r.mon.level).slice(-4);
+    if (!semPresente.includes(r.golpe)) novidade++;
+  }
+  teste("vinte presentes de GOLPE e todos sabem o golpe", semGolpe === 0, `${semGolpe} falhas`);
+  teste("e em TODOS o golpe é novidade pro bicho", novidade === 20, `${novidade}/20`);
+  // os tipos de teto baixo (VENENO para no ÁCIDO 40, INSETO na PICADA 35) são
+  // justamente os que o degrau 2 tem que cobrir
+  let fracos = 0, amostra = "";
+  for (const t of ["VENENO", "INSETO", "AÇO", "PEDRA", "NORMAL"]) {
+    for (let i = 0; i < 20; i++) {
+      const r = A.montarPresente(stp, t, "golpe");
+      const pw = DB.MOVES[r.golpe]?.power || 0;
+      if (pw < DB.ANIVERSARIO.poderMinimo) { fracos++; amostra = `${t}: ${DB.MOVES[r.golpe]?.name} (${pw})`; }
+    }
+  }
+  teste(`cem presentes nos tipos de teto baixo e nenhum abaixo de ${DB.ANIVERSARIO.poderMinimo}`,
+        fracos === 0, amostra || "");
+  teste("GOLPE: não vem shiny junto (é uma coisa OU a outra)", !bomba.mon.shiny);
+  teste("GOLPE: nunca passa de 4 golpes", bomba.mon.moves.length <= 4);
+
+  // dez sorteios seguidos: o tipo pedido tem que sair sempre
+  let fora = 0;
+  for (let i = 0; i < 10; i++) {
+    const r = A.montarPresente(stp, "ELÉTRICO", "shiny");
+    if (!r.especie.types.includes("ELÉTRICO")) fora++;
+  }
+  teste("dez sorteios de ELÉTRICO e nenhum de outro tipo", fora === 0);
+
+  h("ENSINAR POR CIMA DE QUATRO GOLPES");
+  const { createMon } = await import("/src/systems/mon.js");
+  const cobaia = createMon("pidgey", 40);
+  while (cobaia.moves.length < 4) cobaia.moves.push({ ...cobaia.moves[0] });
+  const antes = cobaia.moves.map((m) => DB.MOVES[m.id]?.power || 0);
+  const maisFraco = Math.min(...antes);
+  A.ensinar(cobaia, "lancachamas");
+  const depois = cobaia.moves.map((m) => DB.MOVES[m.id]?.power || 0);
+  teste("continua com 4 golpes", cobaia.moves.length === 4);
+  teste("o golpe novo entrou", cobaia.moves.some((m) => m.id === "lancachamas"));
+  teste("quem saiu foi o mais fraco",
+        depois.filter((x) => x === maisFraco).length === antes.filter((x) => x === maisFraco).length - 1);
+  teste("ensinar duas vezes não duplica", A.ensinar(cobaia, "lancachamas") === false);
+
+  // -------------------------------------------------------------------------
+  h("DIALGA E PALKIA: A ESPÉCIE");
+  for (const [id, tipos2, bst] of [["dialga", ["AÇO", "DRAGÃO"], 680],
+                                   ["palkia", ["ÁGUA", "DRAGÃO"], 680]]) {
+    const sp = DB.SPECIES[id];
+    teste(`${id} existe`, !!sp);
+    if (!sp) continue;
+    p(`   ${sp.name}  nº ${sp.dex}  ${sp.types.join("/")}  BST ${sp.bst}  captura ${sp.catchRate}`);
+    teste(`${id}: tipos ${tipos2.join("/")}`, String(sp.types) === String(tipos2));
+    teste(`${id}: BST ${bst}`, sp.bst === bst);
+    teste(`${id}: taxa de captura de lendário (3)`, sp.catchRate === 3);
+    teste(`${id}: tem texto de Pokédex próprio`, !!sp.lore && !!sp.dexText);
+    teste(`${id}: aprende alguma coisa`, (sp.learnset || []).length > 0);
+    teste(`${id}: está na lista de LENDÁRIOS`, LENDARIOS.has(id));
+    teste(`${id}: NÃO pode sair no presente de aniversário`, !A.elegivel(sp));
+    const r = await fetch(`/assets/sprites/pokemon/${sp.dex}.png`, { method: "GET" });
+    teste(`${id}: sprite ${sp.dex}.png baixado`, r.ok);
+  }
+
+  h("DIALGA E PALKIA: ONDE ELES ESTÃO");
+  for (const id of ["dialga", "palkia"]) {
+    const e = (DB.ESTATICOS || []).find((x) => x.id === id);
+    teste(`${id} está em ESTATICOS`, !!e);
+    if (!e) continue;
+    const mapa = DB.KANTO[e.mapa];
+    p(`   ${id}: ${e.mapa} (${e.x},${e.y}) nível ${e.nivel} — missão ${e.missao}`);
+    teste(`${id}: o mapa ${e.mapa} existe`, !!mapa && !!DB.MAPS[e.mapa]);
+    if (!mapa) continue;
+    teste(`${id}: dentro do mapa`, e.x >= 0 && e.x < mapa.w && e.y >= 0 && e.y < mapa.h);
+    const tag = mapa.tags[e.y * mapa.w + e.x];
+    teste(`${id}: o tile é andável (tag ${tag})`, tag === "0");
+    teste(`${id}: não está em cima de uma porta`,
+          !(mapa.warps || []).some((w) => w.x === e.x && w.y === e.y));
+    teste(`${id}: tem fala própria`, (e.lines || []).length >= 3);
+
+    const m = (DB.MISSOES || []).find((q) => q.id === e.missao);
+    teste(`${id}: a missão ${e.missao} existe`, !!m);
+    if (!m) continue;
+    teste(`${id}: a missão pede exatamente esta espécie`,
+          m.objetivo?.tipo === "capturou-especie" && m.objetivo?.especie === id);
+    const dono = DB.KANTO[m.mapa];
+    teste(`${id}: o NPC da missão está num mapa que existe`, !!dono && !!DB.MAPS[m.mapa]);
+    if (dono) {
+      teste(`${id}: o NPC está num tile andável`,
+            dono.tags[m.y * dono.w + m.x] === "0");
+    }
+    const posto = (DB.MAPS[m.mapa]?.npcs || []).some((n) => n.id === `missao_${m.id}`);
+    teste(`${id}: o NPC entrou no mapa ${m.mapa}`, posto);
+    teste(`${id}: a missão tem oferta, lembrete e entrega`,
+          m.oferta?.length && m.lembrete?.length && m.entrega?.length);
+  }
+
+  const pal = (DB.MISSOES || []).find((q) => q.id === "o-espaco-dobrado");
+  teste("o PALKIA só é pedido depois do DIALGA entregue",
+        pal?.requer?.missao === "o-tempo-parado" && !!pal?.travado?.length);
+
+  // -------------------------------------------------------------------------
+  // Até aqui foram as regras soltas. Daqui pra baixo é O JOGO: um iframe com uma
+  // partida de verdade, no perfil `aniv-teste` (NUNCA no save padrão), com o
+  // aniversário marcado pra hoje. O laço do jogo é requestAnimationFrame e ele
+  // não roda em headless, então a cena é empurrada na mão.
+  h("O PRESENTE DENTRO DO JOGO");
+  const fr = document.createElement("iframe");
+  fr.width = 240; fr.height = 160; fr.style.opacity = "0.01";
+  fr.src = "/index.html?map=pallet&perfil=aniv-teste";
+  document.body.appendChild(fr);
+
+  const espera = async (cond, ms = 8000) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) {
+      try { if (cond()) return true; } catch {}
+      await new Promise((r) => setTimeout(r, 40));
+    }
+    return false;
+  };
+  // o evento `load` do iframe já passou quando este código roda: o jeito é
+  // ficar olhando o `game` aparecer
+  const subiu = await espera(() => fr.contentWindow?.game?.scenes?.top?.dlg);
+  teste("a partida de teste abriu no mundo", subiu);
+
+  if (subiu) {
+    const g = fr.contentWindow.game;
+    const sc = g.scenes.top;
+    const st = g.state;
+    const limpaFala = () => { sc.dlg.queue.length = 0; sc.dlg.active = false; sc.dlg.choice = null; };
+    const passa = (n = 60) => {
+      for (let i = 0; i < n && sc.dlg.active && !sc.dlg.choice; i++) {
+        sc.dlg.chars = 1e9; sc.dlg.next();
+      }
+    };
+
+    // ---- a mãe perguntando a data
+    limpaFala(); sc.menu = null;
+    delete st.player.aniversario;
+    const npcMae = { id: "mae", sprite: "mae", heal: true, aniversario: true, lines: ["OI!"] };
+    sc.talkTo(npcMae);
+    passa();
+    teste("a mãe pergunta o aniversário", !!sc.dlg.choice, `${sc.dlg.choice?.options}`);
+    if (sc.dlg.choice) {
+      sc.dlg.choice.cb(0);                       // ANOTAR AGORA
+      teste("ela abre o seletor de data", sc.menu?.type === "aniversarioData");
+    }
+    // e o "deixa pra depois" não deixa ela repetindo a pergunta pra sempre
+    limpaFala(); sc.menu = null;
+    sc.talkTo({ ...npcMae });
+    passa();
+    if (sc.dlg.choice) sc.dlg.choice.cb(1);      // DEIXA PRA DEPOIS
+    passa();
+    teste("com a data anotada nas opções, ela para de perguntar",
+          (() => { st.player.aniversario = "03-14"; limpaFala(); sc.menu = null;
+                   sc.talkTo(npcMae); passa();
+                   const perguntou = sc.dlg.choice?.options?.[0] === DB.ANIVERSARIO_TEXTO.opcoesPergunta[0];
+                   limpaFala(); return !perguntou; })());
+
+    // ---- o dia chegando
+    limpaFala(); sc.menu = null;
+    const hj = new Date();
+    st.player.aniversario = A.guarda(hj.getMonth() + 1, hj.getDate());
+    delete st.flags.aniversario;
+    const antesDoPresente = st.party.length;
+    sc.checarAniversario();
+    passa();
+    teste("o pacote chega sozinho e abre a grade de tipos",
+          sc.menu?.type === "aniversarioTipo", `${sc.menu?.lista?.length} tipos`);
+
+    if (sc.menu?.type === "aniversarioTipo") {
+      sc.formaDoPresente("FOGO");
+      passa();
+      teste("depois do tipo, ele pergunta SHINY ou GOLPE", !!sc.dlg.choice,
+            `${sc.dlg.choice?.options}`);
+      sc.dlg.choice.cb(1);                       // GOLPE BOMBADO
+      passa();
+      const novo2 = st.party[st.party.length - 1];
+      teste("a equipe ganhou um Pokémon", st.party.length === antesDoPresente + 1);
+      teste("ele é do tipo escolhido", !!novo2 && DB.SPECIES[novo2.species].types.includes("FOGO"),
+            `${novo2?.nickname}`);
+      teste("ele NÃO veio shiny (foi escolhido o golpe)", !novo2?.shiny);
+      const maisForte = Math.max(...(novo2?.moves || []).map((m) => DB.MOVES[m.id]?.power || 0));
+      teste("ele veio com um golpe bombado", maisForte >= 50, `poder ${maisForte}`);
+      teste("o ano ficou marcado no save", st.flags.aniversario === new Date().getFullYear());
+      teste("e o presente não vem duas vezes", !A.pendente(st));
+
+      // ---- o mesmo dia, de novo: nada acontece
+      limpaFala(); sc.menu = null;
+      sc.checarAniversario();
+      passa();
+      teste("chegar noutro mapa no mesmo dia não dá outro presente",
+            sc.menu === null && st.party.length === antesDoPresente + 1);
+    }
+
+    // ---- e no BOOT: quem abre o jogo no dia do aniversário recebe na hora,
+    // sem precisar trocar de mapa (o `enter()` da cena também confere)
+    limpaFala(); sc.menu = null;
+    delete st.flags.aniversario;
+    const novaCena = new (sc.constructor)();
+    g.scenes.replace(novaCena);
+    const sc2 = g.scenes.top;
+    for (let i = 0; i < 60 && sc2.dlg.active && !sc2.dlg.choice; i++) {
+      sc2.dlg.chars = 1e9; sc2.dlg.next();
+    }
+    teste("abrir o jogo no dia já traz o pacote", sc2.menu?.type === "aniversarioTipo");
+    sc2.menu = null;
+    sc2.dlg.queue.length = 0; sc2.dlg.active = false; sc2.dlg.choice = null;
+    st.flags.aniversario = new Date().getFullYear();
+
+    // ---- DIALGA e PALKIA parados no lugar deles
+    const cena = () => g.scenes.top;
+    for (const [id, mapa] of [["dialga", "pokemon_tower_7f"],
+                              ["palkia", "five_island_lost_cave_room11"]]) {
+      const e = DB.ESTATICOS.find((x) => x.id === id);
+      cena().dlg.queue.length = 0; cena().dlg.active = false; cena().menu = null;
+      Object.assign(st.player, { map: mapa, x: e.x, y: e.y + 1, dir: "up" });
+      delete st.caught[id];
+      st.npcState = {};
+
+      st.missoes = {};                       // ninguém contou onde procurar
+      teste(`${id}: sem a missão aceita, ele não está lá`,
+            !cena().estaticosNpcs().some((n) => n.id === `estatico_${id}`));
+
+      st.missoes = { [e.missao]: { estado: "aceita" } };
+      const npc = cena().estaticosNpcs().find((n) => n.id === `estatico_${id}`);
+      teste(`${id}: com a missão aceita, ele está parado no lugar`, !!npc,
+            npc ? `${mapa} (${npc.x},${npc.y})` : "");
+      teste(`${id}: é uma batalha de lendário, no nível dele`,
+            npc?.boss?.id === id && npc?.boss?.lvl === e.nivel);
+      teste(`${id}: o sprite é o do próprio bicho`, npc?.sprite === `mon:${id}`);
+
+      st.caught[id] = true;                  // capturado: some pra sempre
+      teste(`${id}: depois de capturado ele não volta`,
+            !cena().estaticosNpcs().some((n) => n.id === `estatico_${id}`));
+      delete st.caught[id];
+    }
+
+    // ---- uma FOTO das telas novas. O laço do jogo é requestAnimationFrame e ele
+    // não roda em headless, então o canvas do jogo sai preto: a saída é pedir a
+    // cena pra se desenhar num canvas nosso, na mão.
+    const foto = async (nome, montar) => {
+      try {
+        montar();
+        const cv = document.createElement("canvas");
+        cv.width = 240; cv.height = 160;
+        const c = cv.getContext("2d");
+        c.imageSmoothingEnabled = false;
+        cena().render(c);
+        const big = document.createElement("canvas");
+        big.width = 720; big.height = 480;
+        const b = big.getContext("2d");
+        b.imageSmoothingEnabled = false;
+        b.drawImage(cv, 0, 0, 720, 480);
+        await fetch("/__capture", { method: "POST",
+          body: JSON.stringify({ name: nome, dataUrl: big.toDataURL(), log: nome }) });
+        teste(`foto de ${nome}`, true);
+      } catch (err) { teste(`foto de ${nome}`, false, String(err)); }
+    };
+    cena().dlg.queue.length = 0; cena().dlg.active = false;
+    Object.assign(st.player, { map: "pallet", x: 6, y: 8, dir: "down" });
+    await foto("aniv-tipos", () => {
+      cena().menu = { type: "aniversarioTipo", lista: A.tipos(), index: 9 };
+    });
+    await foto("aniv-data", () => {
+      cena().menu = { type: "aniversarioData", mes: 3, dia: 14, campo: 0, volta: "opts" };
+    });
+    // os dois sprites novos, lado a lado: arquivo que existe não é o mesmo que
+    // desenho que aparece
+    try {
+      const As = fr.contentWindow.Assets;
+      // a primeira chamada PEDE o arquivo e devolve a arte provisória (um canvas
+      // desenhado na hora); o PNG externo chega depois, como <img>. Sem esperar,
+      // a foto sairia do bonequinho de placeholder e não provaria nada.
+      As.mon("dialga", 1); As.mon("palkia", 1);
+      const veio = (id) => As.mon(id, 1) instanceof fr.contentWindow.HTMLImageElement;
+      await espera(() => veio("dialga") && veio("palkia"), 8000);
+      teste("o PNG externo do DIALGA carregou (não é a arte provisória)", veio("dialga"));
+      teste("o PNG externo do PALKIA carregou (não é a arte provisória)", veio("palkia"));
+      const cv = document.createElement("canvas");
+      cv.width = 240; cv.height = 160;
+      const c = cv.getContext("2d");
+      c.imageSmoothingEnabled = false;
+      c.fillStyle = "#f8f8f8"; c.fillRect(0, 0, 240, 160);
+      c.drawImage(As.mon("dialga", 1), 20, 30, 80, 80);
+      c.drawImage(As.mon("palkia", 1), 140, 30, 80, 80);
+      const big = document.createElement("canvas");
+      big.width = 720; big.height = 480;
+      const b = big.getContext("2d");
+      b.imageSmoothingEnabled = false;
+      b.drawImage(cv, 0, 0, 720, 480);
+      await fetch("/__capture", { method: "POST",
+        body: JSON.stringify({ name: "aniv-lendarios", dataUrl: big.toDataURL(), log: "dialga e palkia" }) });
+      teste("foto dos sprites do DIALGA e do PALKIA", true);
+    } catch (err) { teste("foto dos sprites do DIALGA e do PALKIA", false, String(err)); }
+
+    await foto("aniv-opcoes", () => {
+      st.player.aniversario = "03-14";
+      cena().menu = { type: "opts", index: 4 };
+    });
+    cena().menu = null;
+
+    // ---- a linha nas OPÇÕES
+    teste("a linha das OPÇÕES mostra a data", /\d/.test(cena().resumoAniversario()));
+    teste("a dica de baixo diz alguma coisa", (cena().dicaAniversario() || "").length > 0,
+          cena().dicaAniversario());
+    st.player.aniversario = "03-14";
+    teste("sem data anotada, a linha mostra ---",
+          (() => { delete st.player.aniversario; return cena().resumoAniversario() === DB.ANIVERSARIO_TEXTO.naoDefinido; })());
+  }
+
+  h("RESULTADO");
+  p(erros.length ? erros.join(" | ") : "aniversário e os dois da criação, todos de pé",
+    erros.length ? "erro" : "ok");
+  const texto = linhas.join("\n").replace(/<[^>]+>/g, "");
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "anivercheck", log: texto }) });
+} catch (e) {
+  p("QUEBROU: " + (e && e.stack || e), "erro");
+  await fetch("/__capture", { method: "POST",
+    body: JSON.stringify({ name: "anivercheck", log: "QUEBROU: " + (e && e.stack || e) }) }).catch(() => {});
+}
+out.innerHTML = linhas.join("");
+</script>
+</body>
+</html>

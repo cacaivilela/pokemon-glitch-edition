@@ -89,6 +89,8 @@ const TABLE = `
 606 BEHEEYEM PSÍQUICO 75 75 75 125 95 40
 649 GENESECT INSETO/AÇO 71 120 95 120 95 99
 235 SMEARGLE NORMAL 55 20 35 20 45 75
+483 DIALGA AÇO/DRAGÃO 100 120 120 150 100 90
+484 PALKIA ÁGUA/DRAGÃO 90 120 100 150 120 100
 493 ARCEUS NORMAL 120 120 120 120 120 120
 716 XERNEAS FADA 126 131 95 131 98 99
 717 YVELTAL SOMBRIO/VOADOR 126 131 95 131 98 99
@@ -140,6 +142,8 @@ export const LORE = {
   groudon: "O CONTINENTE VEIO JUNTO COM ELE. E NÃO CABE AQUI.",
   rayquaza: "VIVE NA CAMADA MAIS ALTA DO CÉU. AQUI NÃO EXISTE CÉU.",
   deoxys: "UM VÍRUS QUE VIROU BICHO. ELE MUDA DE FORMA CONFORME LÊ VOCÊ.",
+  dialga: "O TEMPO ANDA PORQUE ELE ANDA. QUANDO ELE PARA, NINGUÉM PERCEBE — INCLUSIVE VOCÊ.",
+  palkia: "O ESPAÇO É UM PANO ESTICADO, E ELE É QUEM SEGURA AS PONTAS. ELE JÁ SOLTOU UMA VEZ.",
 };
 
 export const EXTRA = {};
@@ -276,6 +280,12 @@ export const TEMPESTADE = ["tornadus", "thundurus", "landorus"];
  *  XERNEAS, YVELTAL e ZYGARDE não aparecem na grama nem vêm da fenda: eles
  *  estão PARADOS, cada um num lugar, esperando. Você anda até lá e encosta.
  *
+ *  O DIALGA e o PALKIA entraram na mesma regra. Se o ARCEUS está aqui, os dois
+ *  que ele fez pra segurar o TEMPO e o ESPAÇO têm que estar — e num jogo em que
+ *  o cartucho já está furado, eles são exatamente o que se procuraria: quem
+ *  cuida da hora e quem cuida do lugar, nos dois pontos de Kanto em que a hora e
+ *  o lugar pararam de bater (ver a missão de cada um em src/data/missoes.js).
+ *
  *  Só que o lugar não se acha sozinho: cada um tem uma missão que conta ONDE
  *  procurar (O X MARCA O LUGAR, O Y DA MORTE, O Z DO DNA — src/data/missoes.js),
  *  e enquanto o pedido não for aceito a clareira é só clareira, a usina é só
@@ -323,6 +333,33 @@ export const ESTATICOS = [
       "O TÚNEL SE ABRE NUMA SALA QUE NÃO ESTÁ EM MAPA NENHUM.",
       "O CHÃO ESTÁ COBERTO DE PONTINHOS VERDES QUE SE MEXEM JUNTOS.",
       "ELES SE JUNTAM QUANDO VOCÊ CHEGA PERTO. AGORA É UM SÓ, E ELE OLHA PRA VOCÊ.",
+    ],
+  },
+  {
+    // O TEMPO. No último andar da TORRE POKÉMON, que é o andar onde ninguém
+    // envelhece — é um cemitério: o que está lá em cima parou de contar os anos
+    // antes de você nascer. O nível é o do ARCEUS: os dois vieram da mesma mão.
+    id: "dialga", mapa: "pokemon_tower_7f", x: 11, y: 8, nivel: 70,
+    missao: "o-tempo-parado",
+    lines: [
+      "O ÚLTIMO ANDAR DA TORRE ESTÁ EM SILÊNCIO — E O SILÊNCIO TEM UM ZUMBIDO GRAVE.",
+      "AS VELAS DAQUI ESTÃO ACESAS HÁ ANOS E NÃO DERRETERAM UM DEDO.",
+      "ELE ESTÁ PARADO NO MEIO DA SALA COM A PLACA DO PEITO BATENDO DEVAGAR.",
+      "CADA BATIDA É UM SEGUNDO. É ELE QUE ESTÁ CONTANDO.",
+    ],
+  },
+  {
+    // O ESPAÇO. No fundo da CAVERNA PERDIDA, que são catorze salas de onze por
+    // onze que não fecham conta nenhuma: você sai por uma porta e chega numa
+    // sala que não fica do lado dela. A caverna já era assim antes de ele
+    // aparecer aqui — ou ela é assim POR ISSO.
+    id: "palkia", mapa: "five_island_lost_cave_room11", x: 5, y: 6, nivel: 70,
+    missao: "o-espaco-dobrado",
+    lines: [
+      "ESTA SALA É IGUAL ÀS OUTRAS TREZE. SÓ QUE ELA NÃO CABE ONDE ESTÁ.",
+      "A PORTA ATRÁS DE VOCÊ NÃO DEVOLVE PRA SALA DE ONDE VOCÊ VEIO.",
+      "AS PÉROLAS DOS OMBROS DELE ESTÃO ABERTAS, E ATRÁS DELAS NÃO TEM PAREDE.",
+      "TEM MAIS CAVERNA. MUITO MAIS CAVERNA DO QUE A ILHA INTEIRA COMPORTA.",
     ],
   },
 ];

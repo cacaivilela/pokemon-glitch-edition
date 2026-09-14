@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, aniv, reg, zonas, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -43,6 +43,9 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./lugares.js" + V),
   import("./eras.js" + V),
   import("./bolas.js" + V),
+  import("./aniversario.js" + V),
+  import("./regionais.js" + V),
+  import("./glitchzones.js" + V),
   fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
 
@@ -346,11 +349,16 @@ export function buildDB() {
     GEN1: gen1.GEN1,
     DEX_ORDER: gen1.DEX_ORDER,
     SPECIES: species.buildSpecies(
-      { ...gen1.GEN1, ...extra.EXTRA, ...eras.ERAS_ESPECIES, ...iniciais.INICIAIS_ESPECIES,
-        ...bones.BONES_ESPECIES, ...mega.MEGA_FORMS },
+      { ...gen1.GEN1, ...extra.EXTRA, ...reg.REGIONAIS, ...eras.ERAS_ESPECIES,
+        ...iniciais.INICIAIS_ESPECIES, ...bones.BONES_ESPECIES, ...mega.MEGA_FORMS },
       types.TYPE_COLOR),
     EXTRA: extra.EXTRA,
-    DIM_ENCOUNTERS: extra.DIM_ENCOUNTERS,
+    // as formas regionais entram na fenda junto com o resto que vaza pra lá
+    DIM_ENCOUNTERS: Object.fromEntries(Object.entries(extra.DIM_ENCOUNTERS).map(
+      ([terreno, lista]) => [terreno, [...lista, ...(reg.DIM_REGIONAIS[terreno] || [])]])),
+    REGIONAIS: reg.REGIONAIS,
+    REGIAO: reg.REGIAO,
+    PEDRA_GELO: reg.PEDRA_GELO,
     WEATHER_TRIO: extra.WEATHER_TRIO,
     RARE_LEGEND: extra.RARE_LEGEND,
     FUSAO_SELVAGEM: extra.FUSAO_SELVAGEM,
@@ -361,6 +369,8 @@ export function buildDB() {
     ZCRISTAIS: zc.ZCRISTAIS,
     DESCIDA: desc.DESCIDA,
     BOLAS: bolas.BOLAS,
+    ANIVERSARIO: aniv.ANIVERSARIO,
+    ANIVERSARIO_TEXTO: aniv.ANIVERSARIO_TEXTO,
     ERAS: eras.ERAS,
     CELEBI: eras.CELEBI,
     ERAS_TEXTO: eras.ERAS_TEXTO,
@@ -399,6 +409,8 @@ export function buildDB() {
     CONCURSO: concurso.CONCURSO,
     MISSOES: missoes.MISSOES,
     DISTORCOES: distorcoes.DISTORCOES,
+    GLITCH_ZONES: zonas.GLITCH_ZONES,
+    ZONA_TEXTO: zonas.ZONA_TEXTO,
     SEVII: sevii.SEVII,
     NOMES_SEVII: sevii.NOMES,
     PORTOS: sevii.PORTOS,

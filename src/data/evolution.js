@@ -7,6 +7,7 @@
 // do FireRed (ALAKAZAM, MACHAMP, GOLEM, GENGAR) viraram evolução por nível alto.
 import { EVO_INICIAIS } from "./iniciais.js";
 import { EVO_ERAS } from "./eras.js";
+import { EVO_REGIONAIS } from "./regionais.js";
 
 export const EVOLUTIONS = {
   // OS INICIAIS DAS OUTRAS REGIÕES. As regras saem de src/data/iniciais.js,
@@ -146,6 +147,17 @@ export const STONES = [
   // precisam dela (ver DIM_LOOT em src/data/loot.js)
   "pedra do crepúsculo",
 ];
+
+// AS FORMAS REGIONAIS entram por CONCATENAÇÃO, e não por cima. Espalhar
+// `...EVO_REGIONAIS` como os outros dois APAGARIA a regra que já existe: o
+// PIKACHU tem `pedra do trovão -> raichu` aqui em cima, e a entrada de lá é
+// `pedra do trovão -> raichualola NAS SEVII`. Espalhando, o RAICHU comum
+// deixava de existir; concatenando, os dois cabem — e a regra COM LUGAR entra
+// na frente, que é a ordem que `alvoDaPedra` (src/systems/regionais.js) precisa
+// pra bifurcação acontecer.
+for (const [id, regras] of Object.entries(EVO_REGIONAIS)) {
+  EVOLUTIONS[id] = [...regras, ...(EVOLUTIONS[id] || [])];
+}
 
 /** item -> { espécie atual: espécie nova } (é o formato que a mochila usa) */
 export const EVO_ITEMS = {};

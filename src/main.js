@@ -12,6 +12,7 @@ import { SceneStack } from "./core/scene.js";
 import { initHot } from "./core/hot.js";
 import { Glitch } from "./systems/glitchfx.js";
 import { abrirPortal } from "./systems/raid.js";
+import { ZONA, abrirZona, garantirZona, zonaDoCodigo, entrarNaZona } from "./systems/glitchzones.js";
 import { createMon, recalc } from "./systems/mon.js";
 import { reverterTudo } from "./systems/mega.js";
 import { registrarDoEstado } from "./systems/fusao.js";
@@ -114,6 +115,10 @@ const game = {
 
   /** save/estado de uma versão antiga dos dados não deve quebrar o jogo */
   isValid(st) {
+    // a GLITCH ZONE não está em arquivo nenhum: quem salvou dentro de uma
+    // precisa que ela seja remontada ANTES de o mapa ser procurado, senão o
+    // save inteiro passa por "incompatível" e vira jogo novo
+    if (st?.zona && st.player?.map === ZONA) garantirZona(st);
     if (!st?.player || !DB.MAPS[st.player.map] || !DB.KANTO[st.player.map]) return false;
     return (st.party || []).every((m) => DB.SPECIES[m.species]);
   },
@@ -257,10 +262,12 @@ if (stash?.state && !game.isValid(stash.state)) {
 } else {
   // Boot de verdade: a ABERTURA vem antes do título. Ela não entra quando o
   // live update restaura a partida (acima) nem quando alguém abriu com atalho
-  // de dev (?map=, ?battle=) — nesses dois casos ninguém quer ver fanfarra, e
-  // no primeiro ela apareceria a cada arquivo salvo.
+  // de dev (?map=, ?battle=) ou pelo link de uma GLITCH ZONE (?area=) — nesses
+  // casos ninguém quer ver fanfarra, e no primeiro ela apareceria a cada
+  // arquivo salvo.
   const busca = new URLSearchParams(location.search);   // o `q` do arquivo só nasce mais abaixo
-  const atalhoDeDev = busca.has("map") || busca.has("battle") || busca.has("starter") || busca.has("era");
+  const atalhoDeDev = busca.has("map") || busca.has("battle") || busca.has("starter") || busca.has("era")
+    || busca.has("area");
   game.scenes.push(atalhoDeDev ? new TitleScene() : new AberturaScene());
 }
 
@@ -340,6 +347,15 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
       console.warn("[rasgo] nenhum chão livre perto daqui; ande um pouco e tente de novo");
     }
   }
+  if (q.get("zona")) {   // ?map=pallet&zona=1 -> já dentro de uma GLITCH ZONE; ?zona=lavender_town escolhe a entrada
+    game.state.flags.dimUnlocked = true;
+    Glitch.forced = true;
+    const entradas = DB.GLITCH_ZONES?.entradas || [];
+    const entrada = entradas.find((e) => e.mapa === q.get("zona")) || entradas[0];
+    const z = entrada && abrirZona(game.state, entrada);
+    if (z) Object.assign(game.state.player, { map: ZONA, x: z.x, y: z.y, dir: "down" });
+    else console.warn("[zona] não deu pra abrir uma zona (sem entradas ou sem mapas de fonte)");
+  }
   if (q.get("mega")) {   // ?mega=1 -> anel + todas as megapedras na mochila
     game.state.items[DB.MEGA_ANEL] = 1;
     for (const pedra of Object.keys(DB.MEGA_PEDRAS || {})) game.state.items[pedra] = 1;
@@ -401,6 +417,36 @@ if (q.has("give")) {
   const newOrig = game.newGame.bind(game);
   game.newGame = () => { const st = newOrig(); entregar(st); return st; };
   if (game.scenes.top instanceof OverworldScene) entregar(game.state);
+}
+
+// ?area=<código> -> entra numa GLITCH ZONE que alguém montou na oficina
+// (glitchzone/). O código carrega a zona inteira (src/systems/glitchzones.js,
+// zonaDoCodigo), então quem abre o link cai NO MESMO LUGAR, tile por tile.
+// Funciona com CONTINUAR (a partida gravada vai pra lá e o vão devolve pra onde
+// ela estava) e com um jogo novo (o vão devolve pro começo).
+if (q.has("area")) {
+  const z = zonaDoCodigo(q.get("area"));
+  if (!z) console.warn("[area] código de zona inválido:", q.get("area"));
+  const entrar = (st) => {
+    if (!z || !st?.player) return;
+    const p = st.player;
+    // já estava numa zona? a volta continua sendo a de antes, não a zona velha
+    const volta = p.map === ZONA && st.zona?.volta ? st.zona.volta
+                : { map: p.map, x: p.x, y: p.y, dir: p.dir };
+    if (!entrarNaZona(st, z, volta)) return;
+    Object.assign(p, { map: ZONA, x: z.x, y: z.y, dir: "down" });
+    st.surfando = null;
+    st.flags.zonaVista = true;
+    try {                                    // recarregar não te joga lá de novo
+      const u = new URL(location.href);
+      u.searchParams.delete("area");
+      history.replaceState(null, "", u.pathname + (u.search || "") + u.hash);
+    } catch {}
+  };
+  const loadOrig = game.loadGame.bind(game);
+  game.loadGame = () => { const st = loadOrig(); entrar(st); return st; };
+  const newOrig = game.newGame.bind(game);
+  game.newGame = () => { const st = newOrig(); entrar(st); return st; };
 }
 
 SpriteStore.maps.glitchdim = Assets.glitchRoom(DB.KANTO.glitchdim);

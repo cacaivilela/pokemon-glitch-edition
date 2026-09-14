@@ -456,7 +456,8 @@ export class GiftScene {
     for (const m of cartao.mons || []) {
       if (!DB.SPECIES[m.id]) continue;
       const nv = Math.max(1, Math.min(100, m.nv | 0 || 5));
-      const mon = createMon(m.id, nv, { shiny: !!m.shiny, nickname: m.apelido || undefined });
+      const mon = createMon(m.id, nv,
+        { shiny: !!m.shiny, luminoso: !!m.luminoso, nickname: m.apelido || undefined });
       if (this.st.party.length < 6) {
         this.st.party.push(mon);
         falas.push(gtxt("recebeuMon", { MON: mon.nickname }));

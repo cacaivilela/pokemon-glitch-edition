@@ -129,7 +129,8 @@ export class LeilaoScene {
     this.lista = this.lista.filter((x) => x !== mon);
     Audio2.heal();
     const falas = [L.vendido.replace("{NOME}", mon.nickname).replace("{PRECO}", r.preco)];
-    if (r.shiny) falas.push(L.shiny);
+    if (r.luminoso) falas.push(L.luminoso);
+    else if (r.shiny) falas.push(L.shiny);
     falas.push(L.caixa.replace("{TOTAL}", dinheiro));
     this.dlg.say(falas);
   }
@@ -184,7 +185,8 @@ export class LeilaoScene {
       if (m.top + k === m.i) cursor(ctx, 9, y);
       const f = faixa(mon);
       drawText(ctx, `${mon.nickname} N${mon.level}`, 17, y, PAL.ink);
-      drawText(ctx, `$${f.min}+`, 108, y, mon.shiny ? "#ffd166" : PAL.ink2);
+      drawText(ctx, `$${f.min}+`, 108, y,
+        mon.luminoso ? "#fff3b0" : mon.shiny ? "#ffd166" : PAL.ink2);
     });
   }
 

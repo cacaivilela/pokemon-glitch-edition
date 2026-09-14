@@ -611,6 +611,7 @@ export const STORY = {
     tenteMenos: "PEÇA MENOS DA PRÓXIMA VEZ — OU ESPERE APARECER QUEM PAGUE.",
     vendido: "{NOME} FOI VENDIDO POR $ {PRECO}!",
     shiny: "PAGARAM O DOBRO SÓ PELA COR.",
+    luminoso: "PAGARAM CINCO VEZES. NINGUÉM ALI TINHA VISTO UM ACESO.",
     caixa: "AGORA VOCÊ TEM $ {TOTAL}.",
     naoPode: {
       semBarraca: "VOCÊ NÃO TEM UMA BARRACA DE LEILÃO.",

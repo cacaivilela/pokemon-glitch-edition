@@ -23,6 +23,8 @@ export const DISTORCOES = {
   nivel: [12, 20],
   saem: ["cranidos", "shieldon", "lileep", "anorith", "tirtouga", "archen"],
   /** Mapas onde ela NÃO abre. Dentro de casa não tem céu pra rasgar, e a fenda
-   *  já é um rasgo — abrir um rasgo dentro do rasgo não quer dizer nada. */
-  fora: ["glitchdim", "home"],
+   *  já é um rasgo — abrir um rasgo dentro do rasgo não quer dizer nada. A
+   *  GLITCH ZONE some quando você sai dela: avisar "abriu na zona" é avisar de
+   *  um lugar que não vai existir daqui a cinco minutos. */
+  fora: ["glitchdim", "home", "glitchzone"],
 };

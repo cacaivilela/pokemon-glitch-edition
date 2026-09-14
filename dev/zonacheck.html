@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>checagem das glitch zones</title>
+<style>body{background:#111;color:#9fd;font:13px/1.45 ui-monospace,monospace;margin:0;padding:8px}
+.erro{color:#f66}.ok{color:#7f7}h2{color:#b455ff;font-size:13px;margin:10px 0 2px}</style></head>
+<body>
+<div id="out">rodando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=9000">
+<script type="module">
+const out = document.getElementById("out");
+const linhas = [], errs = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+const teste = (nome, ok) => { p(`${ok ? "ok  " : "NÃO "} ${nome}`, ok ? "ok" : "erro"); if (!ok) errs.push(nome); };
+
+try {
+  const { DB } = await import("/src/data/index.js");
+  const Z = await import("/src/systems/glitchzones.js");
+  const { SpriteStore } = await import("/src/core/sprites.js");
+  const cfg = DB.GLITCH_ZONES;
+
+  h("AS ENTRADAS");
+  teste("existem entradas", cfg.entradas.length >= 3);
+  for (const e of cfg.entradas) {
+    const g = DB.KANTO[e.mapa];
+    const tag = g && g.tags.charCodeAt(e.y * g.w + e.x) - 48;
+    const npc = (DB.MAPS[e.mapa]?.npcs || []).find((n) => n.x === e.x && n.y === e.y);
+    const warp = (g?.warps || []).find((w) => w.x === e.x && w.y === e.y);
+    p(`${e.nome}: ${e.mapa} (${e.x},${e.y}) tag=${tag}`);
+    teste(`${e.mapa}: o vão está em chão livre, sem NPC nem porta`, tag === DB.TAG.FREE && !npc && !warp);
+  }
+  const fechado = { flags: {}, player: { map: "cinnabar_island", dir: "down" } };
+  teste("antes da fenda, não tem vão nenhum", Z.entradasDoMapa(fechado, "cinnabar_island").length === 0);
+  const st = { flags: { dimUnlocked: true }, player: { map: "cinnabar_island", x: 21, y: 10, dir: "right" } };
+  teste("com a fenda aberta, o vão de CINNABAR aparece", !!Z.entradaEm(st, "cinnabar_island", 22, 10));
+
+  h("AS FONTES");
+  const fontes = Z.mapasPossiveis();
+  p(`${fontes.length} mapas podem virar zona: ${fontes.slice(0, 8).join(", ")}...`);
+  teste("tem fonte de sobra", fontes.length >= 30);
+  teste("nenhuma é de dentro, nem a fenda, nem a própria zona",
+        fontes.every((id) => !DB.MAPS[id].interior && !cfg.fora.includes(id) && id !== Z.ZONA));
+
+  h("O EMBARALHADOR");
+  const perm = Z.permutar(24, 20, 123, 3, 0.12);
+  const vistos = new Set(perm);
+  teste("é uma permutação (cada tile vai pra um lugar só)", vistos.size === 24 * 20);
+  teste("e mexe de verdade", Array.from(perm).filter((v, i) => v !== i).length > 24 * 20 * 0.7);
+  const perm2 = Z.permutar(24, 20, 123, 3, 0.12);
+  teste("a mesma semente dá o mesmo embaralhado", perm.every((v, i) => v === perm2[i]));
+  const perm3 = Z.permutar(24, 20, 124, 3, 0.12);
+  teste("semente diferente, outro embaralhado", perm.some((v, i) => v !== perm3[i]));
+  p(`nome torto: ${Z.nomeCorrompido("CIDADE VIRIDIAN", 123)} / ${Z.nomeCorrompido("ROTA 1", 5)}`);
+  teste("o nome corrompido tem o mesmo tamanho", Z.nomeCorrompido("CIDADE VIRIDIAN", 123).length === 15);
+
+  h("ABRIR UMA ZONA");
+  const entrada = cfg.entradas[0];
+  const z = Z.abrirZona(st, entrada);
+  p(`fonte: ${z.fonte}  semente: ${z.seed}  cai em (${z.x},${z.y})  vão em (${z.vao.x},${z.vao.y})`);
+  teste("a zona foi pro save", st.zona === z && fontes.includes(z.fonte));
+  teste("e pro DB, com o id fixo", DB.KANTO[Z.ZONA]?.seed === z.seed && DB.MAPS[Z.ZONA]);
+  const geo = DB.KANTO[Z.ZONA], fonte = DB.KANTO[z.fonte];
+  teste("mesmo tamanho da fonte", geo.w === fonte.w && geo.h === fonte.h);
+  const conta = (s) => { const c = {}; for (const ch of s) c[ch] = (c[ch] || 0) + 1; return c; };
+  const ca = conta(geo.tags), cb = conta(fonte.tags);
+  teste("os MESMOS tiles, só em outra ordem", Object.keys(cb).every((k) => ca[k] === cb[k]));
+  teste("os tiles seguem a permutação", Array.from(geo.perm).every((s, i) => geo.tags[i] === fonte.tags[s]));
+  teste("sem portas nem conexões: daqui não se sai andando", !geo.warps.length && !geo.connections.length);
+  const tagEm = (x, y) => geo.tags.charCodeAt(y * geo.w + x) - 48;
+  teste("você cai num tile em que dá pra ficar de pé", [DB.TAG.FREE, DB.TAG.GRASS].includes(tagEm(z.x, z.y)));
+  teste("o vão de saída é o tile em que você caiu", z.vao.x === z.x && z.vao.y === z.y);
+  teste("a volta guarda a entrada", z.volta.map === entrada.mapa && z.volta.x === entrada.x && z.volta.y === entrada.y);
+  p(`nome da faixa: ${DB.MAPS[Z.ZONA].name} (de ${DB.MAPS[z.fonte].name})`);
+  teste("a música é a da fenda e o lugar é de fora (VOAR funciona)",
+        DB.MAPS[Z.ZONA].music === "glitchdim" && !DB.MAPS[Z.ZONA].interior);
+  p(`alcance a pé de onde você cai: ${Z.alcance(geo, z.x, z.y, 64)} tiles`);
+
+  h("PRESO ÀS VEZES, NÃO SEMPRE");
+  let presos = 0, N = 200;
+  for (let i = 0; i < N; i++) {
+    const s2 = { flags: { dimUnlocked: true }, player: { map: "cinnabar_island", x: 21, y: 10, dir: "right" } };
+    const zz = Z.abrirZona(s2, entrada);
+    if (Z.alcance(DB.KANTO[Z.ZONA], zz.x, zz.y, cfg.preso) < cfg.preso) presos++;
+  }
+  p(`em ${N} zonas, nasceu preso em ${presos} (${Math.round(presos / N * 100)}%)`);
+  teste("dá pra nascer preso", presos > 0);
+  teste("mas não é a regra", presos < N * 0.6);
+
+  h("A PAREDE QUE CEDE");
+  st.player.map = Z.ZONA;
+  Z.abrirZona(st, entrada);
+  const g2 = DB.KANTO[Z.ZONA];
+  let px = -1, py = -1;
+  for (let i = 0; i < g2.tags.length && px < 0; i++) if (g2.tags[i] === "1") { px = i % g2.w; py = Math.floor(i / g2.w); }
+  teste("nada cedeu ainda", !Z.cedeu(st, px, py));
+  let cedeuEm = 0;
+  for (let i = 1; i <= cfg.esbarroes; i++) if (Z.esbarrar(st, px, py)) cedeuEm = i;
+  teste(`cede no ${cfg.esbarroes}º esbarrão`, cedeuEm === cfg.esbarroes && Z.cedeu(st, px, py));
+  Z.esbarrar(st, px + 1, py); Z.esbarrar(st, px, py);
+  teste("trocar de parede zera a contagem", !Z.cedeu(st, px + 1, py) && st.zona.esbarro?.n === 1);
+
+  h("ZONAS PERSONALIZADAS: O CÓDIGO");
+  const cod = Z.codigoDaZona(st.zona);
+  p(`código da zona do save: ${cod}`);
+  const lida = Z.zonaDoCodigo(cod);
+  teste("o código volta pra mesma zona", !!lida && lida.fonte === st.zona.fonte && lida.seed === st.zona.seed
+        && lida.x === st.zona.x && lida.y === st.zona.y);
+  teste("e o código dela é o mesmo", Z.codigoDaZona(lida) === cod);
+  const pers = { fonte: "viridian", seed: 0, bloco: 0, soltos: 0, x: 26, y: 27, trocas: [], nome: "Os fundos, é claro!" };
+  const g0 = DB.KANTO.viridian;
+  const parede = Array.from(g0.tags).findIndex((c) => c === "1"), chao = 26 + 27 * g0.w;
+  pers.trocas.push([parede, chao]);        // a parede vem pra onde se cai
+  teste("com bloco 0 e sem trocas o mapa é o inteiro",
+        Z.montarZona({ ...pers, trocas: [] }).geo.tags === g0.tags);
+  const mont = Z.montarZona(pers).geo;
+  teste("a troca feita na mão troca os dois tiles", mont.tags[chao] === "1" && mont.tags[parede] === g0.tags[chao]);
+  teste("cair em cima de parede não passa", Z.zonaDoCodigo(Z.codigoDaZona(pers)) === null);
+  pers.trocas = [[parede, chao + 1]];
+  const lida2 = Z.zonaDoCodigo(Z.codigoDaZona(pers));
+  p(`código personalizado: ${Z.codigoDaZona(pers)}`);
+  teste("o código personalizado volta com as trocas e o nome",
+        !!lida2 && lida2.trocas.length === 1 && lida2.trocas[0][0] === parede && lida2.bloco === 0 && lida2.nome === "OS FUNDOS, É CLARO!");
+  teste("o nome vai pra faixa como está", Z.montarZona(lida2).mapa.name === "OS FUNDOS, É CLARO!");
+  teste("um link torto não passa", Z.zonaDoCodigo("nada.a.b.c") === null && Z.zonaDoCodigo("viridian.zz.3.12.1.1.x-") === null && Z.zonaDoCodigo("viridian.1.9.12.1.1.") === null
+        && Z.zonaDoCodigo("naoexiste.1.3.12.1.1.") === null && Z.zonaDoCodigo("") === null);
+  const stP = { flags: {}, player: { map: "pallet", x: 5, y: 5, dir: "down" } };
+  const zP = Z.entrarNaZona(stP, lida2, { map: "pallet", x: 5, y: 5, dir: "down" });
+  teste("entrar numa zona personalizada instala ela no save e no DB",
+        !!zP && stP.zona.trocas.length === 1 && DB.KANTO[Z.ZONA].codigo === Z.codigoDaZona(lida2) && DB.MAPS[Z.ZONA].name === "OS FUNDOS, É CLARO!");
+
+  h("SOBREVIVE AO HOT-SWAP");
+  delete DB.KANTO[Z.ZONA]; delete DB.MAPS[Z.ZONA];
+  const antes = st.zona.seed;
+  const g3 = Z.garantirZona(st);
+  teste("remontada da semente, igual", g3 && g3.seed === antes && g3.tags === g2.tags);
+  teste("a arte não sai procurando glitchzone.png", Z.ZONA in SpriteStore.maps);
+  await new Promise((r) => setTimeout(r, 2500));
+  const art = SpriteStore.maps[Z.ZONA];
+  p(`arte: ${art ? art.width + "x" + art.height : "ainda não"}; camada de cima: ${SpriteStore.maps[Z.ZONA + "_over"] ? "sim" : "não"}`);
+  teste("a arte foi fatiada do PNG da fonte", !!art && art.width === g2.w * 16 && art.height === g2.h * 16);
+
+  h("RESULTADO");
+  p(errs.length ? errs.join(" | ") : "glitch zones de pé", errs.length ? "erro" : "ok");
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({
+    name: "zonacheck", log: linhas.join("\n").replace(/<[^>]+>/g, "") }) });
+} catch (e) {
+  p("QUEBROU: " + (e && e.stack || e), "erro");
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({
+    name: "zonacheck", log: linhas.join("\n").replace(/<[^>]+>/g, "") + "\nQUEBROU: " + (e && e.stack || e) }) }).catch(()=>{});
+}
+out.innerHTML = linhas.join("");
+</script>
+</body></html>

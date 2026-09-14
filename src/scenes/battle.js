@@ -190,14 +190,16 @@ export class BattleScene {
       Glitch.hit(2);
       await this.say(`UM ${this.foe.nickname} SELVAGEM APARECEU!`);
       const sp = DB.SPECIES[this.foe.species];
-      if (this.foe.shiny) await this.say("A COR DELE ESTÁ ERRADA. OU CERTA DEMAIS. ELE BRILHA.");
+      if (this.foe.luminoso) await this.say("A LUZ DELE NÃO VEM DE LUGAR NENHUM. ELE É A LUZ.");
+      else if (this.foe.shiny) await this.say("A COR DELE ESTÁ ERRADA. OU CERTA DEMAIS. ELE BRILHA.");
       // cada espécie da fenda tem a frase dela (src/data/extra.js -> LORE)
       if (sp?.lore) await this.say(sp.dexText);
       else if (sp?.foreign) await this.say("ESTE POKÉMON NÃO É DE KANTO. NEM DESTE MUNDO.");
-      else if (!this.foe.shiny) await this.say("ESTE POKÉMON NÃO CONSTA NA POKÉDEX. NEM NO CARTUCHO.");
+      else if (!this.foe.shiny && !this.foe.luminoso) await this.say("ESTE POKÉMON NÃO CONSTA NA POKÉDEX. NEM NO CARTUCHO.");
     } else {
       await this.say(`UM ${this.foe.nickname} SELVAGEM APARECEU!`);
-      if (this.foe.shiny) await this.say("A COR DELE NÃO É A DE SEMPRE. ESSE AÍ É RARO.");
+      if (this.foe.luminoso) await this.say("ESSE NÃO TEM COR: TEM LUZ. UM EM 9999 NASCE ASSIM.");
+      else if (this.foe.shiny) await this.say("A COR DELE NÃO É A DE SEMPRE. ESSE AÍ É RARO.");
     }
     await this.say(`VAI, ${this.mine.nickname}!`);
     this.menu = { type: "main", index: 0 };
@@ -1021,13 +1023,13 @@ export class BattleScene {
       ctx.drawImage(tart, Math.round(146 + this.tOut * 110), Math.round(4 + bob), 64, 64);
     } else if (!this.showTrainer && (!isFainted(this.foe) || this.disp.f > 0 || this.sp.f.alpha > 0)) {
       const fimg = Assets.mon(this.foe.species, this.foe.seed);
-      drawMon(this.foe.shiny ? Assets.shiny(fimg) : fimg, 146,
+      drawMon(Assets.comCor(fimg, this.foe), 146,
               4 + bob + (this.raid ? RAID.desce : 0), this.sp.f, -1);
     }
     if (this.ballAnim) this.drawBall(ctx);
     if (this.sp.p.alpha > 0) {
       const pimg = Assets.monBack(this.mine.species, this.mine.seed);
-      drawMon(this.mine.shiny ? Assets.shiny(pimg) : pimg, 14, 46 - bob, this.sp.p, 1);
+      drawMon(Assets.comCor(pimg, this.mine), 14, 46 - bob, this.sp.p, 1);
     }
 
     if (this.fx.length) this.drawFx(ctx);
@@ -1122,8 +1124,9 @@ export class BattleScene {
     const w = showHp ? 112 : 100;
     const h = showHp ? 40 : 30;
     panel(ctx, x, y, w, h);
-    drawText(ctx, (mon.shiny ? "*" : "") + mon.nickname.slice(0, 10), x + 6, y + 5,
-      mon.shiny ? "#d8a828" : mon.corrupt ? PAL.glitch : PAL.ink);
+    const marca = mon.luminoso ? "☼" : mon.shiny ? "*" : "";
+    drawText(ctx, marca + mon.nickname.slice(0, 10), x + 6, y + 5,
+      mon.luminoso ? "#fff3b0" : mon.shiny ? "#d8a828" : mon.corrupt ? PAL.glitch : PAL.ink);
     if (mon.megaDe) drawText(ctx, "M", x + w - 34, y + 5, PAL.glitch);
     drawText(ctx, `N${mon.level}`, x + w - 24, y + 5, PAL.ink);
     drawText(ctx, "HP", x + 6, y + 16, PAL.ink2);

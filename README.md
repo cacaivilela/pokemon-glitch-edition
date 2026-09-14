@@ -105,6 +105,32 @@ deslizando, avanço no golpe, piscada ao levar dano, queda ao desmaiar, barra de
 HP animada, tufo de grama ao pisar na grama alta, caminhada de 4 quadros e Poké
 Bola chacoalhando na captura.
 
+## A cor: comum, shiny e LUMINOSO
+
+Todo Pokémon que aparece tem uma cor, e são três:
+
+| cor | quanto | como é |
+|---|---|---|
+| comum | o resto | a arte de sempre |
+| **shiny** | 1 em 1024 | a mesma arte com as cores giradas |
+| **LUMINOSO** | **1 em 9999** | a mesma arte **acesa**, com o brilho vazando pela borda |
+
+O luminoso é sorteado **antes** do shiny e ganha dele: um Pokémon é comum,
+shiny **ou** luminoso, nunca dois. Se fosse ao contrário, a cor mais rara do
+jogo só apareceria em cima de um shiny — ela viraria um enfeite de outra
+raridade em vez de ser uma raridade.
+
+E ele não é uma troca de matiz como o shiny, de propósito: as cores dele são as
+mesmas do bicho comum, só que **claras e com um halo**. Um em 9999 aparece uma
+vez na vida de quem joga, e tem que dar pra ver de longe, no mato, num sprite de
+32 pixels — senão passa despercebido, que é o mesmo que não existir. Na etiqueta
+da batalha ele leva um **☼** antes do nome (o shiny leva `*`).
+
+Onde a cor conta: no bicho andando na **grama**, na batalha (sua e a do link),
+na **fusão** — a luz pega igual ao brilho, e ganha dele — e no **leilão**, onde
+o shiny paga o dobro e o luminoso paga **cinco vezes**. O **sanduíche amargo**
+do acampamento multiplica as duas chances.
+
 ## Configurações
 
 No menu `X` → **OPÇÕES** (e o idioma também na tela de título, antes de começar
@@ -183,7 +209,10 @@ faz três coisas:
 - **O BRILHO PEGA** — fundir um **shiny** com um comum não deixa a cor rara pra
   trás: a fusão sai shiny e os **dois** que ficam guardados lá dentro saem shiny
   também, então separar depois devolve os dois brilhando. É a única coisa que a
-  máquina escreve por cima do que entrou — e não tem volta.
+  máquina escreve por cima do que entrou — e não tem volta. **A luz pega
+  igual**: fundir um **luminoso** com qualquer coisa devolve tudo luminoso, e a
+  luz ganha do shiny (um luminoso + um shiny sai luminoso, e os dois de dentro
+  saem luminosos também). Ninguém sai da máquina valendo menos do que entrou.
 - **SEPARAR** — desfaz. Os dois originais ficam **guardados inteiros** dentro da
   fusão (`mon.fusao`), então voltam com apelido, IVs e golpes que tinham — no
   nível que a fusão alcançou. Se a equipe estiver cheia, o segundo vai pro PC.
@@ -466,18 +495,28 @@ save como PNG.
 
 Atalho de dev: `?fusao=1` na URL põe a máquina na mochila.
 
-## Os três parados em Kanto
+## Os parados em Kanto
 
-**XERNEAS**, **YVELTAL** e **ZYGARDE** não aparecem na grama e não vêm da fenda:
-eles estão **parados**, cada um num lugar, esperando você chegar e encostar.
+Estes não aparecem na grama e não vêm da fenda: eles estão **parados**, cada um
+num lugar, esperando você chegar e encostar.
 
-| Quem | Onde | O que você vê antes |
-|---|---|---|
-| **XERNEAS** | fundo da **Floresta Viridian** (23,31) | uma clareira que ninguém abriu, com o mato mais verde em círculo |
-| **YVELTAL** | **Usina** (24,16) | as asas abertas em cima do gerador morto, as pontas vermelhas — a única coisa com energia ali |
-| **ZYGARDE** | **Túnel Rocha B1F** (24,20) | pontinhos verdes no chão que se juntam quando você chega perto |
+| Quem | Onde | Nível | O que você vê antes |
+|---|---|---|---|
+| **XERNEAS** | fundo da **Floresta Viridian** (23,31) | 60 | uma clareira que ninguém abriu, com o mato mais verde em círculo |
+| **YVELTAL** | **Usina** (24,16) | 60 | as asas abertas em cima do gerador morto, as pontas vermelhas — a única coisa com energia ali |
+| **ZYGARDE** | **Túnel Rocha B1F** (24,20) | 60 | pontinhos verdes no chão que se juntam quando você chega perto |
+| **ARCEUS** | meio da **011GLITCHDIMENSION110** (20,20) | 70 | o chão acaba e ele está parado em cima de nada, com as placas do anel girando |
+| **DIALGA** | último andar da **Torre Pokémon** (11,8) | 70 | velas acesas há anos que não derreteram um dedo, e um zumbido grave que é uma batida por segundo |
+| **PALKIA** | fundo da **Caverna Perdida**, sala 11 (5,6) | 70 | a porta por onde você entrou passou a dar pro mesmo lado, e atrás das pérolas dele tem mais caverna do que a ilha comporta |
 
-Nível 60, batalha de chefe: dá pra capturar e não dá pra fugir. Capturou, some
+**O TEMPO E O ESPAÇO.** O DIALGA e o PALKIA entraram porque o ARCEUS já estava
+aqui: se o que fez as coisas está no jogo, os dois que ele fez pra segurar a hora
+e o lugar têm que estar também. E os dois lugares não são enfeite — a Torre é um
+cemitério, que é onde ninguém envelhece, e a Caverna Perdida são catorze salas de
+onze por onze que não cabem na ilha que as guarda. Cada um está parado no ponto
+de Kanto em que a coisa que ele segura parou de bater.
+
+Batalha de chefe: dá pra capturar e não dá pra fugir. Capturou, some
 pra sempre; **derrubou sem capturar, ele volta** — saia do mapa e volte, e ele
 está de pé no mesmo lugar.
 
@@ -490,6 +529,13 @@ só usina e o túnel é só túnel:
 | **O X MARCA O LUGAR** | um cataloguista do museu de **Pewter**, com um mapa de 1802 que tem um X e nenhuma legenda | 4 | XERNEAS |
 | **O Y DA MORTE** | um ex-técnico da usina, em **Cerulean**: no dia em que ela morreu ficou uma marca queimada do tamanho da parede | 5 | YVELTAL |
 | **O Z DO DNA** | uma geneticista de **Cinnabar**: chegou uma amostra que não é fita dupla, é um Z — e ela se mexe sozinha no pote | 6 | ZYGARDE |
+| **O TEMPO PARADO** | a velha que acende as velas da Torre, em **Lavanda**: são as mesmas velas há trinta e dois anos, e elas não derretem | 7 | DIALGA |
+| **O ESPAÇO DOBRADO** | um cientista da **Ilha Cinco** que mediu a Caverna Perdida e mediu a ilha: as duas contas estão certas e não fecham juntas | 7 + O TEMPO PARADO | PALKIA |
+| **O POKÉMON DIVINO** | um assistente do laboratório, em **Vila Paleta**: toda visita à fenda grava a mesma leitura, parada, no mesmo ponto | 8 | ARCEUS |
+
+O **PALKIA vem depois do DIALGA entregue**, e não é fila por ser fila: ninguém
+procura por uma dobra no espaço antes de aceitar que o tempo de um lugar parou. É
+a notícia da Torre que faz a conta da caverna parar de fechar na cabeça dele.
 
 A ligação é o campo `missao` de cada entrada em `ESTATICOS`: é ela que decide se
 o bicho está lá.
@@ -535,7 +581,7 @@ o inicial vira a forma do meio com 3 insígnias e a final com 6.
 
 ## Side quests
 
-Catorze pedidos espalhados por Kanto, cada um com o NPC dele parado num mapa. Você
+Dezoito pedidos espalhados por Kanto, cada um com o NPC dele parado num mapa. Você
 aceita, cumpre quando quiser e volta pra receber — e o menu `X` ganha um
 **diário** assim que o primeiro pedido é aceito, com o estado de cada um
 (EM ANDAMENTO / PRONTA — VOLTE LÁ / ENTREGUE) e o contador de quem pede mais de
@@ -555,6 +601,9 @@ um.
 | O X MARCA O LUGAR | Pewter | seguir o X do mapa até a clareira (XERNEAS) |
 | O Y DA MORTE | Cerulean | entrar na usina e achar a marca em Y (YVELTAL) |
 | O Z DO DNA | Cinnabar | seguir as células até o fundo do Túnel Rocha (ZYGARDE) |
+| O TEMPO PARADO | Vila Lavanda | subir até o último andar da Torre Pokémon (DIALGA) |
+| O ESPAÇO DOBRADO | Ilha Cinco | medir a Caverna Perdida até a conta não fechar (PALKIA) |
+| O POKÉMON DIVINO | Vila Paleta | achar o que estava na fenda antes da fenda (ARCEUS) |
 
 ### A tempestade que não acaba (as três forças da natureza)
 
@@ -762,7 +811,7 @@ combina com todos:
 | salgado | presunto, queijo, bacon | cura a equipe inteira, na hora |
 | picante | pimenta, wasabi | +15% de dano seu, 15 min |
 | azedo | limão, picles | fugir fica bem mais fácil, 20 min |
-| amargo | café, jiló | 3x mais chance de shiny na grama, 15 min |
+| amargo | café, jiló | 3x mais chance de shiny **e de luminoso** na grama, 15 min |
 | umami | cogumelo, azeitona | -15% no dano que você toma (piso -40%), 15 min |
 | fresco | hortelã | metade dos encontros na grama (piso -65%), 15 min |
 
@@ -788,7 +837,8 @@ um bicho na grama não é mato calmo, é o mato desligado, e um item que desliga
 parte do jogo não é um prêmio.
 
 O efeito **vale de verdade**, não é texto: entra no cálculo de XP da batalha, no
-dano dos seus golpes, na conta de fuga e no sorteio de shiny do mato. Ele vence
+dano dos seus golpes, na conta de fuga e no sorteio de cor do mato (shiny e
+luminoso). Ele vence
 sozinho pelo relógio, aparece num selo no canto da tela enquanto dura, e comer
 de novo **troca** o de antes — não empilha.
 
@@ -855,6 +905,77 @@ dobrada**. As contas estão em `src/systems/raid.js`, os números em
 virando atributo (e o HP ficando de fora), os `stats` gravados intactos, o byte
 dando a volta em 270 → 14, o bug sumindo no fim, e a casca da raid segurando o
 dano até quebrar e deixar o resto passar.
+
+## GLITCH ZONES: a GLITCH CITY
+
+No Pokémon Red de verdade, sair da ZONA SAFÁRI do jeito errado te largava numa
+cidade que não existia: os tiles da última cidade em que você pisou,
+embaralhados, e você preso num quadrado de dois tiles esperando o VOAR te
+salvar. Aqui ela tem **entrada**. Depois que a fenda foi aberta (`dimUnlocked`
+ou `glitchWorld`), aparece em três cantos de Kanto um **vão** — dois batentes de
+tela rasgada com nada no meio:
+
+- **A COSTA DE CINNABAR** (`cinnabar_island` 22,10), o lugar mais quebrado da
+  história dos jogos;
+- **A CERCA DO SAFÁRI** (`safari_zone_center` 32,20), um dos dois buracos da
+  cerca — o outro continua aberto;
+- **O BECO DE LAVENDER** (`lavender_town` 1,5), um beco que não leva a nada;
+- **OS FUNDOS DE VIRIDIAN** (`viridian` 26,22), a rua de trás do CENTRO POKÉMON.
+
+Você **atravessa** (pisa; não conversa, não aperta nada) e cai **num lugar
+aleatório de Kanto fora de ordem**: um mapa de fora, sorteado, com os tiles
+**embaralhados em pedaços de 3x3** mais uma pitada de tiles soltos — colisão,
+grama, barranco e água vão junto com o desenho. Você nasce num tile qualquer em
+que dá pra ficar de pé, **sem olhar os vizinhos**: em uns 30% das vezes nasce
+preso entre quatro paredes, e o jogo avisa na hora ("VOCÊ ESTÁ PRESO ENTRE OS
+TILES. MAS ESSAS PAREDES NÃO NASCERAM AQUI. INSISTA NELAS."). A faixa mostra o
+nome da fonte corrompido (`R0T4 3`, `CID4DE VIR1D14N`) e os bichos do mato são
+os da fonte.
+
+**Ficar preso é parte da coisa, preso pra sempre não é.** Três saídas:
+esbarrar **6 vezes** na mesma parede faz ela ceder e virar chão (fica um
+quadrado que parou de ser desenhado); o **vão de saída** é o tile em que você
+caiu (um passo pra fora, um pra dentro) e te devolve pro tile da entrada; e
+**VOAR** funciona — a zona é lugar de fora, como na GLITCH CITY original. Sair por qualquer caminho (vão, VOAR,
+desmaiar) apaga a zona; a próxima entrada sorteia outra.
+
+A zona mora no save (`st.zona`: fonte, semente, onde você caiu, o vão de volta
+e as paredes que cederam) e é **remontada da semente** sempre que falta — ao
+abrir o jogo e depois de cada hot-swap, que reconstrói o DB sem ela. A arte é
+o PNG da fonte fatiado na mesma permutação (`assets/maps/glitchzone.png` não
+existe e nunca é procurado). As entradas, os números (`bloco`, `soltos`,
+`esbarroes`, `preso`) e os textos estão em `src/data/glitchzones.js`; o
+embaralhador, o sorteio e a arte em `src/systems/glitchzones.js`.
+
+`dev/zonacheck.html` testa sem abrir o jogo: os vãos em chão livre sem NPC nem
+porta, o embaralhador ser uma permutação e sair igual da mesma semente, a zona
+ter os mesmos tiles da fonte em outra ordem, nascer preso às vezes (e não
+sempre), a parede ceder no 6º esbarrão, e a remontagem depois do hot-swap.
+Pra ver no jogo: `?map=pallet&zona=1` (ou `?zona=lavender_town` pra escolher a
+entrada).
+
+### GLITCHZONE: montar uma zona e mandar o link
+
+A oficina [`glitchzone/`](glitchzone/) pega um mapa de Kanto e deixa **trocar
+os tiles de lugar na mão**: clique num tile, depois em outro, e os dois trocam
+— desenho e colisão juntos (pedaço de 1x1 a 4x4). Dá pra começar do mapa
+inteiro ou do embaralhado que o jogo faz sozinho (semente, bloco, soltos), ver
+a colisão por cima, escolher **onde se cai** (que é o vão de volta), dar nome e
+**copiar o link**. A zona inteira mora no link:
+
+```
+?area=fonte.semente.bloco.soltos.x.y.trocas[.nome]
+?area=viridian.0.0.0.26.27.0-10s.MINHA ZONA
+```
+
+Quem abre o link cai **nessa zona, tile por tile** — com a partida gravada
+(CONTINUAR; o vão devolve pra onde ela estava) ou num jogo novo. O código é
+conferido antes de entrar (`zonaDoCodigo`): fonte que existe, números na faixa,
+trocas dentro do mapa e chão onde se cai; link torto é ignorado com aviso no
+console. As trocas ficam em `st.zona.trocas` e são aplicadas por cima da
+permutação da semente, então continua sendo o mesmo conjunto de tiles da fonte
+em outra ordem. `dev/zonacheck.html` também testa o código (ida e volta, troca
+na mão, nome na faixa, link torto).
 
 ## Leilão: vender Pokémon
 
@@ -1232,6 +1353,50 @@ nos jogos de verdade:
 Cada cartão entra **uma vez por save** (`flags.presentes`). Pokémon que chega com
 o time cheio vai pro BOX.
 
+## Aniversário
+
+O jogo pergunta a data **uma vez**: a sua **mãe**, em casa, antes de você sair
+pela porta. Não existe tela de digitar o nome neste jogo, então é ela que faz o
+papel da ficha do começo — e é a pessoa certa pra perguntar isso. Se você mandar
+ela deixar pra depois, ela deixa pra sempre: a data continua editável em
+**OPÇÕES → ANIVERSÁRIO**, com um seletor de DIA e MÊS.
+
+**No dia, um pacote chega** onde quer que você esteja — sem selo, sem remetente,
+com uma Poké Bola vazia dentro e um bilhete da sua mãe. Aí vêm duas escolhas:
+
+1. **O TIPO**, numa grade com os 18 (GLITCH fica de fora: o único bicho desse
+   tipo é o MISSINGNO., e ele não é presente, é enredo).
+2. **A FORMA**: **SHINY** ou **GOLPE BOMBADO**. Uma ou outra — a escolha é o
+   presente. Quem quer as duas volta no ano que vem.
+
+O bicho sai sorteado entre os daquele tipo, no nível do seu Pokémon mais forte
+(mínimo 5, máximo 50 — o presente acompanha a sua equipe sem substituir ela).
+Lendário, forma MEGA, fusão de jogador e o PIKACHU DE BONÉ ficam fora do sorteio.
+
+**O GOLPE BOMBADO** é o golpe mais forte dos tipos dele que ele ainda não sabe —
+e, se ele já souber (o learnset automático deste jogo tem quatro golpes e fecha
+no nível 16, então quase todo mundo já sabe), o mais forte do jogo inteiro que
+ele ainda não sabe. Um TERREMOTO num CHARMANDER não é o golpe da casa dele: é
+exatamente por isso que é presente. Golpe Z fica de fora — aquilo sai do CRISTAL
+Z, não é coisa que um Pokémon sabe — e golpe de tipo GLITCH também, porque aquilo
+sobe a corrupção do save.
+
+**Uma vez por ano**, e o que segura é o ANO da última entrega (`flags.aniversario`),
+não uma marca de "já ganhou" — senão o ano seguinte nunca aconteceria. O pacote
+espera **até três dias** depois da data (`janelaDias`): o dia é um no ano inteiro,
+e quem passou o próprio aniversário fora de casa não devia perder o presente por
+doze meses. Sem vaga na equipe **nem** na BOX o presente não é entregue e o ano
+não é marcado — ele continua esperando você arrumar espaço.
+
+O relógio é o da máquina, como no dia e noite: quem mexer no relógio do
+computador faz aniversário quando quiser. Num jogo que se chama GLITCH EDITION
+isso não é bug, é atalho.
+
+As regras estão em `src/systems/aniversario.js` e os textos e números em
+`src/data/aniversario.js` (com hot-swap: dá pra mudar a janela, o nível e as
+falas com o jogo aberto). `dev/anivercheck.html` confere tudo isso sem abrir o
+jogo — inclusive o 29 de fevereiro e a virada do ano.
+
 ## Save
 
 **Um save por computador** (um por máquina — ver **Online**). Ele fica em `save/save.json`, gravado pelo próprio
@@ -1257,7 +1422,8 @@ No laboratório, o **computador do Prof. Carvalho** — o monitor e a torre bran
 ao lado dele, na parede do fundo (tiles `2,1` e `3,1`; encoste em `2,2` olhando
 pra cima) — roda um programa que não é dele: uma lista com **todos** os
 Pokémon do jogo e um botão de baixar. Cima/baixo escolhe, os lados mudam o nível
-(SHIFT anda de 10 em 10), C liga o shiny, Z baixa pro time — box, se estiver
+(SHIFT anda de 10 em 10), C gira a cor (COMUM → SHINY → LUMINOSA, e a prévia
+já sai na cor escolhida), Z baixa pro time — box, se estiver
 cheio — e X sai. As espécies da fenda aparecem em roxo.
 
 A mesma coisa existe fora do jogo em `giveglitch/` (`/giveglitch/` no dev server),
@@ -1365,6 +1531,8 @@ src/
     fusoes-feitas.js   as fichas que jogadores publicaram (escrito pelo jogo)
     online.js          sala, chat, emotes e as frases das funções online
     gifts.js           os códigos do PRESENTE MISTERIOSO
+    aniversario.js     o aniversário: a janela, o nível do presente e as falas
+    glitchzones.js     as GLITCH ZONES: os vãos, o tamanho do embaralhado e as falas
     index.js           monta o DB (inclui assets/maps/kanto.json)
   systems/
     mon.js  battle-engine.js  encounters.js  loot.js  dialogue.js  glitchfx.js
@@ -1374,6 +1542,8 @@ src/
     missoes.js         estado das missões e os checadores de objetivo
     eras.js            que era está aberta, e quem é o guardião de cada mapa
     faxina.js          a revisão semanal do acervo de fusões
+    aniversario.js     a data no save, o calendário e o que sai da bola
+    glitchzones.js     o embaralhador de tiles, a arte fatiada e a parede que cede
     rival.js           monta o AZUL na hora certa, com o inicial que ele errou
     online.js          presença, convites, chat e o filtro do que vem de fora
   scenes/
@@ -1397,6 +1567,7 @@ dev/acampacheck.html   as regras do acampamento soltas + a cena aberta no jogo
 dev/leilaocheck.html   as regras do leilão soltas + a cena aberta no jogo
 dev/glitchcheck.html   glitchbooster (as trancas, o byte) e a casca das raids
 dev/eracheck.html      as três eras: espécies, mapas (dá pra chegar no guardião?) e a fila
+dev/anivercheck.html   o aniversário (calendário e presente) e os dois da criação
 giveglitch/            versão web do mesmo terminal (fora do jogo)
 faxinamissingno/       a FAXINA MISSINGNO.: o acervo medido, com a senha pra jogar fora
 save/save.json         o save (um por máquina; fora do git)
@@ -1421,7 +1592,9 @@ viridian: {
 
 NPC com `trainer: {...}` vira batalha de treinador; `heal: true` cura a equipe (e
 vira seu ponto de retorno); `shop: [{item, price}]` abre a loja; `gift: {item, qty}`
-dá um item uma vez; `starter: "charmander"` vira uma Poké Bola na mesa. Quem está
+dá um item uma vez; `starter: "charmander"` vira uma Poké Bola na mesa;
+`aniversario: true` faz ele perguntar a data do seu aniversário (uma vez — é a
+sua mãe que tem essa marca, ver **Aniversário**). Quem está
 atrás de um balcão é alcançado por cima dele, como no original.
 
 **Um mapa novo de Kanto**: adicione o nome dele em `MAPS` e `DEST` no topo de
@@ -1449,7 +1622,7 @@ em `dev/captures/fusaocheck.log` — útil depois de mexer nas regras de
 `src/data/fusao.js`.
 
 Atalhos de dev na URL do jogo: `?map=route1&x=17&y=34&dir=up`,
-`?battle=pidgey&lvl=6`, `?starter=squirtle`, `?debug=1`.
+`?battle=pidgey&lvl=6`, `?starter=squirtle`, `?map=pallet&zona=1`, `?debug=1`.
 
 ## Jogar no navegador
 

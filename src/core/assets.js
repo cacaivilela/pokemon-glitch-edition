@@ -729,6 +729,41 @@ export const Assets = {
     return cv;
   },
 
+  /** versao LUMINOSA: a arte acesa, com o brilho vazando pela borda.
+   *
+   *  Nao e uma troca de cor como o shiny, de proposito. E 1 em 9999: quando um
+   *  aparece no mato, num sprite de 32 pixels, do outro lado da tela, tem que
+   *  dar pra ver de longe que aquele ali nao e igual aos outros — senao a cor
+   *  mais rara do jogo passa despercebida, que e o mesmo que nao existir.
+   *
+   *  O halo e a silhueta borrada POR BAIXO: ela so aparece onde o bicho nao
+   *  cobre, entao o desenho continua sendo o desenho, com luz em volta. */
+  luminoso(img) {
+    if (!img) return img;
+    if (!this._lum) this._lum = new Map();
+    const hit = this._lum.get(img);
+    if (hit) return hit;
+    const { cv, ctx } = makeCanvas(img.width, img.height);
+    ctx.globalAlpha = 0.85;
+    ctx.filter = "blur(2px)";
+    ctx.drawImage(this.silhueta(img), 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.filter = "brightness(1.45) saturate(0.55)";
+    ctx.drawImage(img, 0, 0);
+    ctx.filter = "none";
+    this._lum.set(img, cv);
+    return cv;
+  },
+
+  /** A arte com a cor QUE AQUELE BICHO TEM. Luminoso ganha do shiny, e o comum
+   *  e a arte crua. Existe pra nao haver quatro telas decidindo isso cada uma
+   *  do seu jeito — e pra que a proxima tela que desenhar bicho ja acerte. */
+  comCor(img, mon) {
+    if (mon?.luminoso) return this.luminoso(img);
+    if (mon?.shiny) return this.shiny(img);
+    return img;
+  },
+
   /** silhueta chapada do sprite (a troca de formas da evolucao) */
   silhueta(img) {
     if (!img) return img;

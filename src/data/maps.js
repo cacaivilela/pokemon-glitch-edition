@@ -37,7 +37,11 @@ export const MAPS = {
     lockedWarps: { "10,2": "A ESCADA SOBE PRO SEU QUARTO. VOCÊ ACABOU DE DESCER DE LÁ." },
     encounters: [],
     npcs: [{
-      id: "mae", x: 8, y: 4, dir: "down", sprite: "mae", heal: true,
+      // `aniversario`: ela pergunta a data uma vez, antes de você sair de casa,
+      // e nunca mais (ver src/systems/aniversario.js). Este jogo não tem tela de
+      // digitar o nome, então é ela que faz o papel da ficha do começo — e é a
+      // pessoa certa pra perguntar isso.
+      id: "mae", x: 8, y: 4, dir: "down", sprite: "mae", heal: true, aniversario: true,
       lines: ["OI, QUERIDO! O PROF. CARVALHO ESTAVA TE PROCURANDO.", "O LABORATÓRIO DELE FICA NO SUL DA VILA."],
       afterLines: ["TODO TREINADOR SAI DE CASA UM DIA. DESCANSE ANTES DE IR!"],
       // ela cura a equipe; sem equipe, ela não finge que curou alguma coisa

@@ -1,6 +1,6 @@
 // Encontros na grama alta + a chance corrompida da GLITCH EDITION.
 import { DB } from "../data/index.js";
-import { createMon } from "./mon.js";
+import { createMon, sortearBrilho } from "./mon.js";
 import { garantirEspecie } from "./fusao.js";
 import { randRange, chance } from "../core/rng.js";
 
@@ -20,17 +20,19 @@ export function rollDimEncounter(terrain, state) {
   // você vai e virou uma coisa que vaza pra cá.
 
   state.dimSeen = (state.dimSeen || 0) + 1;
-  const shiny = state.dimSeen % (DB.SHINY_EVERY || 2956) === 0;
+  // aqui o shiny é contado, não sorteado; o luminoso é sorteado como em todo
+  // lugar — e quando sai, é ele que aparece
+  const brilho = sortearBrilho({ shiny: state.dimSeen % (DB.SHINY_EVERY || 2956) === 0 });
 
   // o intruso não olha terreno nenhum
   const odd = DB.RARE_LEGEND;
   if (odd && DB.SPECIES[odd.id] && chance(odd.chance ?? 0)) {
-    return { mon: createMon(odd.id, randRange(odd.min, odd.max), { shiny }), glitch: true, legend: true };
+    return { mon: createMon(odd.id, randRange(odd.min, odd.max), brilho), glitch: true, legend: true };
   }
 
   const trio = DB.WEATHER_TRIO?.[terrain];
   if (trio && chance(DB.TRIO_CHANCE ?? 0.003)) {
-    return { mon: createMon(trio, randRange(45, 60), { shiny }), glitch: true, legend: true };
+    return { mon: createMon(trio, randRange(45, 60), brilho), glitch: true, legend: true };
   }
 
   const total = table.reduce((a, e) => a + e.w, 0);
@@ -38,7 +40,7 @@ export function rollDimEncounter(terrain, state) {
   for (const e of table) {
     r -= e.w;
     if (r <= 0) {
-      return { mon: createMon(e.id, randRange(e.min, e.max), { shiny, corrupt: chance(0.15) }), glitch: true };
+      return { mon: createMon(e.id, randRange(e.min, e.max), { ...brilho, corrupt: chance(0.15) }), glitch: true };
     }
   }
   return null;
@@ -61,10 +63,10 @@ export function rollEncounter(mapId, corruption = 0, glitchOn = false, sorte = 1
   // MISSINGNO. só existe com o modo glitch ligado (src/data/config.js)
   const on = glitchOn || DB.CONFIG?.glitchMode;
   const glitchChance = !on || corruption < 25 ? 0 : Math.min(0.35, (corruption - 25) / 200);
-  const shiny = chance((DB.CONFIG?.shinyOdds ?? 0) * sorte);   // shiny solto pela grama
+  const brilho = sortearBrilho({ sorte });     // a cor do bicho: comum, shiny ou luminoso
   if (chance(glitchChance)) {
     const lvl = randRange(5, 12);
-    return { mon: createMon("missingno", lvl, { corrupt: true, shiny }), glitch: true };
+    return { mon: createMon("missingno", lvl, { corrupt: true, ...brilho }), glitch: true };
   }
 
   // A FUSÃO SELVAGEM: raríssima, com ENDEREÇO (`mapas`, em extra.js), e antes da
@@ -73,7 +75,7 @@ export function rollEncounter(mapId, corruption = 0, glitchOn = false, sorte = 1
   const rara = DB.FUSAO_SELVAGEM;
   const noLugarDela = !rara?.mapas || rara.mapas.includes(mapId);
   if (rara && noLugarDela && chance(rara.chance ?? 0) && garantirEspecie(rara.id)) {
-    return { mon: createMon(rara.id, randRange(rara.min, rara.max), { shiny }), glitch: true };
+    return { mon: createMon(rara.id, randRange(rara.min, rara.max), brilho), glitch: true };
   }
 
   const total = table.reduce((s, e) => s + e.w, 0);
@@ -83,7 +85,7 @@ export function rollEncounter(mapId, corruption = 0, glitchOn = false, sorte = 1
     if (r <= 0) {
       const lvl = randRange(e.min, e.max);
       const corrupt = !!on && corruption > 40 && chance(Math.min(0.15, corruption / 800));
-      return { mon: createMon(e.id, lvl, { corrupt, shiny }), glitch: false };
+      return { mon: createMon(e.id, lvl, { corrupt, ...brilho }), glitch: false };
     }
   }
   return null;

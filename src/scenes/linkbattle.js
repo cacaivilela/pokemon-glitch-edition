@@ -261,7 +261,8 @@ export class LinkBattleScene {
       ativo: lado.ativo,
       time: lado.time.map((m) => ({
         species: m.species, nickname: m.nickname, level: m.level,
-        hp: m.hp, maxHp: m.maxHp, status: m.status, shiny: !!m.shiny, seed: m.seed,
+        hp: m.hp, maxHp: m.maxHp, status: m.status, shiny: !!m.shiny,
+        luminoso: !!m.luminoso, seed: m.seed,
         pps: (m.moves || []).map((g) => g.pp),
       })),
     });
@@ -417,7 +418,7 @@ export class LinkBattleScene {
   desenhaMon(ctx, foto, x, y, tam, meuLado) {
     if (!foto) return;
     const img = meuLado ? Assets.monBack(foto.species, foto.seed) : Assets.mon(foto.species, foto.seed);
-    const arte = foto.shiny ? Assets.shiny(img) : img;
+    const arte = Assets.comCor(img, foto);
     if (foto.hp <= 0) ctx.globalAlpha = 0.35;
     ctx.drawImage(arte, x, y, tam, tam);
     ctx.globalAlpha = 1;

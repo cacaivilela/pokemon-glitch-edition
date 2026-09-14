@@ -30,7 +30,7 @@ export const FAIXAS = {
 export const LENDARIOS = new Set([
   "articuno", "zapdos", "moltres", "mewtwo", "mew",
   "kyogre", "groudon", "rayquaza", "deoxys", "deoxysataque", "deoxysdefesa",
-  "deoxysvelocidade", "arceus", "xerneas", "yveltal", "zygarde",
+  "deoxysvelocidade", "arceus", "dialga", "palkia", "xerneas", "yveltal", "zygarde",
   "tornadus", "thundurus", "landorus", "genesect", "missingno",
 ]);
 
@@ -47,6 +47,9 @@ export const LEILOEIROS = {
   aumento: [0.04, 0.14],
   // shiny é shiny: paga o dobro
   bonusShiny: 2,
+  // luminoso é 1 em 9999: eles brigam pelo bicho. Nunca soma com o do shiny —
+  // um Pokémon tem uma cor só, e este bônus é o do lugar dele na raridade
+  bonusLuminoso: 5,
   // fusão desenhada à mão vale mais que a montagem automática
   bonusFicha: 1.25,
 };

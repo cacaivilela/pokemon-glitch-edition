@@ -4,6 +4,7 @@ assets/sprites/pokemon/. Só stdlib.
 
     python3 tools/fetch_sprites.py                 # 151 de Kanto, frente + costas
     python3 tools/fetch_sprites.py --mega          # as formas MEGA
+    python3 tools/fetch_sprites.py --regionais     # ALOLA, GALAR, HISUI, PALDEA
     python3 tools/fetch_sprites.py --to 151 --force
     python3 tools/fetch_sprites.py --base https://outro/espelho
 
@@ -33,7 +34,8 @@ EXTRA_DEX = [161, 165, 167, 177, 183, 187, 193, 200, 202, 206, 214, 231, 246,
              162, 166, 168, 178, 184, 188, 189, 232, 247, 248, 429, 469, 982,
              215, 461, 218, 219, 220, 221, 473,
              201, 233, 235, 292, 337, 338, 345, 347, 382, 383, 384, 386, 408, 409, 410, 411,
-             436, 474, 479, 493, 564, 566, 599, 605, 606, 607, 608, 609, 615, 622, 641,
+             436, 474, 479, 483, 484, 493, 564, 566, 599, 605, 606, 607, 608, 609, 615,
+             622, 641,
              642, 645, 649,
              716, 717, 718,
              880, 881, 882, 883,
@@ -62,6 +64,24 @@ MEGA_DEX = [10033, 10034, 10035, 10036, 10037, 10038, 10039, 10040,
             # os PIKACHU DE BONÉ das ilhas SEVII (src/data/bones.js). São FORMAS,
             # como as MEGA: o número é o da forma na PokeAPI, não o da Pokédex.
             10094, 10095, 10096, 10097, 10098, 10099, 10148, 10160]
+# AS FORMAS REGIONAIS (src/data/regionais.js): ALOLA, GALAR, HISUI e PALDEA.
+# Também são ids de FORMA da PokeAPI, lidos direto da tabela do jogo — mexeu
+# em regionais.js, este script já sabe.
+REGIONAIS_JS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "src", "data", "regionais.js")
+
+
+def regionais_dex():
+    """Os ids de sprite da tabela de regionais.js: a segunda coluna (id de
+    forma) ou, quando ela é 0, o número da Pokédex — as evoluções que só
+    existem na linha regional (OBSTAGOON, URSALUNA...) e as bases de fora de
+    Kanto (WOOPER, ZIGZAGOON...) desenham pelo número mesmo."""
+    import re
+    ids = set()
+    with open(REGIONAIS_JS, encoding="utf-8") as f:
+        for m in re.finditer(r"^\s*(\d+)\s*\|\s*(\d+)\s*\|", f.read(), re.M):
+            ids.add(int(m.group(2)) or int(m.group(1)))
+    return sorted(ids)
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "assets", "sprites", "pokemon")
 
@@ -105,15 +125,17 @@ def main():
     ap.add_argument("--no-back", action="store_true")
     ap.add_argument("--extra", action="store_true", help="só as espécies de fora de Kanto")
     ap.add_argument("--mega", action="store_true", help="só as formas MEGA")
+    ap.add_argument("--regionais", action="store_true", help="só as formas regionais (ALOLA, GALAR, HISUI, PALDEA)")
     a = ap.parse_args()
 
     jobs = []
-    dexes = MEGA_DEX if a.mega else EXTRA_DEX if a.extra else range(a.lo, a.hi + 1)
+    dexes = (MEGA_DEX if a.mega else regionais_dex() if a.regionais
+             else EXTRA_DEX if a.extra else range(a.lo, a.hi + 1))
     for dex in dexes:
         bases = [a.base]
-        if a.mega:
-            bases = [MODERN]
-        elif a.extra:
+        if a.mega or (a.regionais and dex >= 10000):
+            bases = [MODERN]              # forma: só existe com a arte moderna
+        elif a.extra or a.regionais:
             # da geração de estreia pra frente, até achar (as antigas não têm
             # sprite de costas em Esmeralda, por exemplo)
             bases = [b for b, hi in ((EMERALD, 386), (PLATINUM, 493), (BLACK_WHITE, 649))

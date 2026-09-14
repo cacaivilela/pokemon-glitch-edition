@@ -318,6 +318,69 @@ export const MISSOES = [
     premio: { dinheiro: 20000, item: "doce raro", qtd: 10 },
   },
 
+  // ------------------------------------------------- o tempo e o espaço
+  // Se o ARCEUS está no jogo (e está: no vazio da fenda, na missão de cima), os
+  // dois que ele fez pra segurar o TEMPO e o ESPAÇO têm que estar também. Eles
+  // não vieram pela fenda como o resto: eles já estavam segurando as duas
+  // coisas que este cartucho quebrou primeiro — a hora e o lugar.
+  //
+  // O PALKIA vem DEPOIS do DIALGA de propósito. Ninguém procura por uma dobra
+  // no espaço antes de aceitar que o tempo de um lugar parou: a segunda missão
+  // é a primeira lida de novo, por outra pessoa, de outro jeito.
+  {
+    id: "o-tempo-parado",
+    nome: "O TEMPO PARADO",
+    mapa: "lavender_town", x: 16, y: 8, sprite: "velha",
+    requer: { insignias: 7 },
+    objetivo: { tipo: "capturou-especie", especie: "dialga" },
+    libera: "dialga",
+    resumo: "SUBIR ATÉ O ÚLTIMO ANDAR DA TORRE POKÉMON.",
+    oferta: [
+      "EU ACENDO AS VELAS DESSA TORRE DESDE QUE O MEU MARIDO SUBIU PRA LÁ.",
+      "TRINTA E DOIS ANOS. EU SEI PORQUE EU CONTO — TODO DIA EU RISCO O CALENDÁRIO.",
+      "SÓ QUE AS VELAS DO ÚLTIMO ANDAR NÃO DERRETEM. AS MESMAS VELAS, MOÇO. AS MESMAS.",
+      "E TEM UM ZUMBIDO LÁ EM CIMA QUE NÃO É VENTO. É UMA BATIDA, DEVAGAR, SEMPRE IGUAL.",
+      "EU JÁ ESTOU VELHA DEMAIS PRA SUBIR SETE ANDARES. VÁ VOCÊ, E ME DIGA QUE HORAS SÃO LÁ.",
+    ],
+    lembrete: ["O ÚLTIMO ANDAR DA TORRE. ONDE AS VELAS NÃO DERRETEM."],
+    entrega: [
+      "ENTÃO ERA ELE QUE ESTAVA CONTANDO. O TEMPO TODO, LÁ EM CIMA, SOZINHO.",
+      "TRINTA E DOIS ANOS PRA MIM. E PRA ELE, QUANTO?",
+      "ACHO QUE EU VOU PARAR DE RISCAR O CALENDÁRIO. NÃO ERA EU QUEM SEGURAVA A CONTA.",
+    ],
+    premio: { dinheiro: 15000, item: "doce raro", qtd: 8 },
+  },
+  {
+    id: "o-espaco-dobrado",
+    nome: "O ESPAÇO DOBRADO",
+    mapa: "five_island", x: 13, y: 8, sprite: "cientista",
+    // ele só faz a pergunta depois que o DIALGA foi achado: é a notícia da
+    // torre que faz a conta da caverna parar de fechar na cabeça dele
+    requer: { insignias: 7, missao: "o-tempo-parado" },
+    travado: [
+      "EU MEDI A CAVERNA PERDIDA CATORZE VEZES E DEU CERTO CATORZE VEZES.",
+      "ENTÃO O PROBLEMA SOU EU, E EU NÃO TENHO O QUE TE PEDIR. AINDA.",
+    ],
+    objetivo: { tipo: "capturou-especie", especie: "palkia" },
+    libera: "palkia",
+    resumo: "MEDIR A CAVERNA PERDIDA ATÉ A CONTA NÃO FECHAR.",
+    oferta: [
+      "SOUBE DA TORRE DE LAVENDER. UM BICHO SEGURANDO A HORA DE UM LUGAR INTEIRO.",
+      "SE DÁ PRA FAZER ISSO COM A HORA, ENTÃO EU ESTAVA MEDINDO A COISA ERRADA AQUI.",
+      "A CAVERNA PERDIDA TEM CATORZE SALAS DE ONZE POR ONZE. EU MEDI TODAS. FECHA.",
+      "MAS A ILHA NÃO COMPORTA CATORZE SALAS. EU MEDI A ILHA TAMBÉM. NÃO FECHA.",
+      "AS DUAS CONTAS ESTÃO CERTAS, MOÇO. UMA DELAS ESTÁ CERTA NUM LUGAR QUE NÃO É ESTE.",
+      "VÁ ATÉ O FUNDO. NA SALA QUE NÃO TEM PRA ONDE IR.",
+    ],
+    lembrete: ["O FUNDO DA CAVERNA PERDIDA. A SALA SEM SAÍDA — SE ELA AINDA FOR SEM SAÍDA."],
+    entrega: [
+      "ATRÁS DAS PÉROLAS TINHA MAIS CAVERNA. FOI ISSO QUE VOCÊ DISSE.",
+      "ENTÃO AS DUAS CONTAS ESTAVAM CERTAS. A CAVERNA CABE — SÓ QUE NÃO É AQUI QUE ELA CABE.",
+      "EU VOU PRECISAR DE UMA TRENA MAIOR. E DE UM LUGAR MAIOR PRA ESTICAR ELA.",
+    ],
+    premio: { dinheiro: 15000, item: "doce raro", qtd: 8 },
+  },
+
   // ------------------------------------------------------- as três da tempestade
   // Um marinheiro em VERMILION leva você de barco até a tempestade que não
   // acaba, no mar perto de BIRTH ISLAND. Cada uma das três só aparece depois

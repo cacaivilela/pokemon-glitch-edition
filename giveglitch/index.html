@@ -96,6 +96,7 @@
       <select id="destino"><option value="party">equipe (sobra vai pro box)</option><option value="box">box</option></select>
     </div>
     <div class="linha"><label for="shiny">Shiny</label><input type="checkbox" id="shiny"></div>
+    <div class="linha"><label for="luminoso">Luminoso (1 em 9999)</label><input type="checkbox" id="luminoso"></div>
     <div class="linha"><label for="corrupt">Corrompido</label><input type="checkbox" id="corrupt"></div>
     <div style="display:flex; gap:8px; flex-wrap:wrap">
       <button class="primary" id="enviar" disabled>Colocar no save</button>
@@ -169,7 +170,7 @@ function desenhaEquipe() {
     li.append(arte(sp, 32));
     const txt = document.createElement("span");
     txt.style.flex = "1";
-    txt.textContent = `${mon.shiny ? "* " : ""}${mon.nickname} nv${mon.level}`;
+    txt.textContent = `${mon.luminoso ? "☼ " : mon.shiny ? "* " : ""}${mon.nickname} nv${mon.level}`;
     const bt = document.createElement("button");
     bt.textContent = "tirar";
     bt.onclick = async () => {
@@ -249,8 +250,11 @@ function selecionar(sp) {
 $("enviar").onclick = async () => {
   if (!escolhido || !save?.player) return;
   const nivel = Math.max(1, Math.min(100, +$("nivel").value || 5));
+  // um bicho tem uma cor só: marcando as duas, vale a mais rara
+  const luminoso = $("luminoso").checked;
   const mon = createMon(escolhido.id, nivel, {
-    shiny: $("shiny").checked,
+    luminoso,
+    shiny: !luminoso && $("shiny").checked,
     corrupt: $("corrupt").checked,
   });
   const apelido = $("apelido").value.trim().toUpperCase();

@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GLITCHZONE — monte uma glitch zone do Pokémon Glitch Edition</title>
+<meta name="description" content="Oficina de GLITCH ZONES do Pokémon Glitch Edition: pegue um mapa de Kanto, troque os tiles de lugar, escolha onde se cai e mande o link.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230e0b18'/><text y='.9em' font-size='78'>🌀</text></svg>">
+<style>
+  :root {
+    --bg: #14101f; --panel: #1e1830; --panel2: #272040; --line: #3d3160;
+    --ink: #f4f2ff; --ink2: #a99ec9; --glitch: #b455ff; --neon: #00ffcc; --ok: #59d99b; --warn: #ffd166; --bad: #e0524a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  header {
+    padding: 14px 18px; border-bottom: 2px solid var(--line);
+    background: linear-gradient(180deg, #241b3c, #14101f);
+    display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+  }
+  h1 { margin: 0; font-size: 18px; letter-spacing: 2px; text-transform: uppercase; }
+  h1 span { color: var(--glitch); }
+  .sub { color: var(--ink2); }
+  header a { color: var(--neon); margin-left: auto; font-size: 12px; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; padding: 16px; align-items: start; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 2px solid var(--line); border-radius: 8px; padding: 12px; }
+  .card h2 { margin: 0 0 10px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--ink2); }
+  .card h2 + .card h2 { margin-top: 16px; }
+  input, select, button, textarea {
+    font: inherit; background: var(--panel2); color: var(--ink);
+    border: 2px solid var(--line); border-radius: 6px; padding: 6px 9px;
+  }
+  input:focus, select:focus, button:focus, textarea:focus { outline: 2px solid var(--glitch); outline-offset: 1px; }
+  button { cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+  button:hover { border-color: var(--glitch); }
+  button.on { background: var(--glitch); border-color: var(--glitch); color: #120820; font-weight: bold; }
+  button.primary { background: var(--neon); border-color: var(--neon); color: #0b1a17; font-weight: bold; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .barra { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
+  .barra .sep { width: 2px; height: 22px; background: var(--line); margin: 0 4px; }
+  .barra label { color: var(--ink2); font-size: 11px; text-transform: uppercase; }
+  .barra select, .barra input[type=number] { width: auto; padding: 4px 6px; }
+  .mapaWrap { overflow: auto; max-height: 72vh; border: 2px solid var(--line); border-radius: 6px; background: #0a0810; }
+  #mapa { display: block; image-rendering: pixelated; cursor: crosshair; }
+  .linha { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .linha label { flex: 0 0 96px; color: var(--ink2); font-size: 11px; text-transform: uppercase; }
+  .linha input, .linha select { flex: 1; min-width: 0; }
+  .linha input[type=number] { flex: 0 0 72px; }
+  .botoes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  textarea { width: 100%; min-height: 64px; resize: vertical; font-size: 11px; word-break: break-all; }
+  .msg { margin-top: 10px; padding: 8px; border-radius: 6px; border: 2px solid var(--line); background: var(--panel2); }
+  .msg.ok { border-color: var(--ok); color: var(--ok); }
+  .msg.bad { border-color: var(--bad); color: var(--bad); }
+  .msg.warn { border-color: var(--warn); color: var(--warn); }
+  .dica { color: var(--ink2); font-size: 11px; margin: 6px 0 0; }
+  code { color: var(--glitch); }
+  .status { color: var(--neon); font-size: 11px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>glitch<span>zone</span></h1>
+  <div class="sub">pegue um mapa de Kanto, troque os tiles de lugar, escolha onde se cai — e mande o link</div>
+  <a href="../">← voltar pro jogo</a>
+</header>
+
+<main>
+  <section class="card">
+    <div class="barra">
+      <label>ferramenta</label>
+      <button id="modoTrocar" class="on" title="clique num tile, depois em outro: eles trocam de lugar">Trocar tiles</button>
+      <button id="modoCair" title="clique no tile em que se cai (é também o vão de volta)">Onde cair</button>
+      <span class="sep"></span>
+      <label for="pedaco">pedaço</label>
+      <select id="pedaco"><option value="1">1x1</option><option value="2">2x2</option><option value="3">3x3</option><option value="4">4x4</option></select>
+      <span class="sep"></span>
+      <button id="desfazer" title="Ctrl+Z">Desfazer</button>
+      <button id="limparTrocas">Limpar trocas</button>
+      <span class="sep"></span>
+      <label><input type="checkbox" id="colisao" checked> colisão</label>
+      <label for="zoom">zoom</label>
+      <select id="zoom"><option value="1">1x</option><option value="2" selected>2x</option><option value="3">3x</option></select>
+      <span class="status" id="status"></span>
+    </div>
+    <div class="mapaWrap"><canvas id="mapa" width="16" height="16"></canvas></div>
+    <p class="dica">
+      <b>Trocar tiles</b>: clique num tile e depois em outro — os dois trocam de lugar, desenho e colisão juntos
+      (pedaço maior troca um quadrado inteiro). <b>Onde cair</b>: o tile em que quem abre o link nasce; ele é
+      também o vão de volta (um passo pra fora, um pra dentro). A colisão mostra o que é
+      <span style="color:#ff5080">parede</span>, <span style="color:#40ff90">mato</span>,
+      <span style="color:#50a0ff">água</span> e <span style="color:#ffd166">barranco</span>.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>O mapa</h2>
+    <div class="linha"><label for="fonte">Fonte</label><select id="fonte"></select></div>
+    <div class="linha"><label for="nome">Nome na faixa</label><input type="text" id="nome" maxlength="20" placeholder="(o da fonte, corrompido)"></div>
+
+    <h2 style="margin-top:16px">Embaralhar antes</h2>
+    <p class="dica" style="margin:0 0 8px">Opcional: o sorteio que o jogo faz sozinho, como ponto de partida. Bloco 0 = mapa inteiro, só as suas trocas.</p>
+    <div class="linha"><label for="bloco">Bloco</label><input type="number" id="bloco" min="0" max="8" value="0">
+      <label for="soltos" style="flex:0 0 auto">Soltos %</label><input type="number" id="soltos" min="0" max="100" value="0"></div>
+    <div class="linha"><label for="seed">Semente</label><input type="text" id="seed" value="0"><button id="sortear">Sortear</button></div>
+
+    <h2 style="margin-top:16px">Onde se cai</h2>
+    <div class="linha"><label>Tile</label><span id="cai" class="sub">—</span></div>
+    <div class="linha"><label>A pé daqui</label><span id="alcance" class="sub">—</span></div>
+    <div class="linha"><label>Trocas</label><span id="nTrocas" class="sub">0</span></div>
+
+    <h2 style="margin-top:16px">O link</h2>
+    <textarea id="link" readonly></textarea>
+    <div class="botoes">
+      <button class="primary" id="copiar">Copiar link</button>
+      <button id="abrir">Abrir no jogo</button>
+    </div>
+    <div id="msg"></div>
+
+    <h2 style="margin-top:16px">Continuar uma zona</h2>
+    <div class="linha"><input type="text" id="colar" placeholder="cole um link ou um código"><button id="carregar">Carregar</button></div>
+    <p class="dica">A zona inteira mora no link: fonte, semente, trocas, onde se cai e o nome. Quem abre cai no mesmo lugar, tile por tile.</p>
+  </section>
+</main>
+
+<script type="module">
+import { DB } from "../src/data/index.js";
+import * as Z from "../src/systems/glitchzones.js";
+import { url } from "../src/core/base.js";
+import { loadImage } from "../src/core/sprites.js";
+
+const $ = (id) => document.getElementById(id);
+const TILE = 16;
+const cv = $("mapa"), ctx = cv.getContext("2d");
+
+// A ZONA sendo montada. É o mesmo objeto que o jogo guarda no save e que
+// vira código: a oficina não inventa formato nenhum, só mexe nos campos.
+const z = { fonte: null, seed: 0, bloco: 0, soltos: 0, x: 0, y: 0, trocas: [], nome: "" };
+let geo = null;              // a geometria embaralhada (tags + perm), sempre de Z.montarZona
+let arte = { chao: null, cima: null };
+let modo = "trocar";         // "trocar" | "cair"
+let primeiro = null;         // o tile A de uma troca, esperando o B
+let hover = null;
+let grupos = [];             // quantas trocas cada clique gerou (pra desfazer um clique inteiro)
+let zoom = 2;
+
+const FONTES = Z.mapasPossiveis().slice().sort((a, b) => (DB.MAPS[a]?.name || a).localeCompare(DB.MAPS[b]?.name || b));
+
+function msg(tipo, texto) { $("msg").innerHTML = `<div class="msg ${tipo}">${texto}</div>`; }
+const status = (t) => { $("status").textContent = t || ""; };
+
+// ------------------------------------------------------------ montar
+function montar() {
+  const feito = Z.montarZona(z);
+  geo = feito?.geo || null;
+  if (geo && !Z.dePe(geo, z.x, z.y)) {
+    // o tile onde se caía virou parede com a troca: acha outro
+    const s = DB.MAPS[z.fonte]?.spawn;
+    const i = (s && Z.dePe(geo, s.x, s.y)) ? s.y * geo.w + s.x
+            : Array.from(geo.tags).findIndex((c) => c === "0" || c === "2");
+    if (i >= 0) { z.x = i % geo.w; z.y = Math.floor(i / geo.w); }
+  }
+  desenhar();
+  painel();
+}
+
+async function trocarFonte(id) {
+  z.fonte = id;
+  z.trocas = []; grupos = []; primeiro = null;
+  const s = DB.MAPS[id]?.spawn || { x: 0, y: 0 };
+  z.x = s.x; z.y = s.y;
+  arte = { chao: null, cima: null };
+  const [chao, cima] = await Promise.all([loadImage(url(`assets/maps/${id}.png`)), loadImage(url(`assets/maps/${id}_over.png`))]);
+  if (z.fonte !== id) return;
+  arte = { chao, cima };
+  montar();
+}
+
+// ------------------------------------------------------------ desenhar
+const COR_TAG = { 1: "rgba(255,80,128,.38)", 2: "rgba(64,255,144,.28)", 3: "rgba(80,160,255,.38)",
+                  4: "rgba(255,209,102,.38)", 5: "rgba(255,209,102,.38)", 6: "rgba(255,209,102,.38)", 7: "rgba(255,209,102,.38)" };
+
+function desenhar() {
+  if (!geo) return;
+  const { w, h, perm } = geo;
+  if (cv.width !== w * TILE || cv.height !== h * TILE) { cv.width = w * TILE; cv.height = h * TILE; }
+  cv.style.width = (w * TILE * zoom) + "px";
+  cv.style.height = (h * TILE * zoom) + "px";
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = "#0a0810";
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  const fatia = (img) => {
+    for (let i = 0; i < perm.length; i++) {
+      const s = perm[i];
+      ctx.drawImage(img, (s % w) * TILE, Math.floor(s / w) * TILE, TILE, TILE,
+                    (i % w) * TILE, Math.floor(i / w) * TILE, TILE, TILE);
+    }
+  };
+  if (arte.chao) fatia(arte.chao);
+  else {
+    for (let i = 0; i < perm.length; i++) {
+      ctx.fillStyle = geo.tags[i] === "1" ? "#2a1040" : geo.tags[i] === "3" ? "#18507a" : geo.tags[i] === "2" ? "#0fa87c" : "#452a66";
+      ctx.fillRect((i % w) * TILE, Math.floor(i / w) * TILE, TILE, TILE);
+    }
+  }
+  if (arte.cima) fatia(arte.cima);
+  if ($("colisao").checked) {
+    for (let i = 0; i < geo.tags.length; i++) {
+      const cor = COR_TAG[geo.tags.charCodeAt(i) - 48];
+      if (!cor) continue;
+      ctx.fillStyle = cor;
+      ctx.fillRect((i % w) * TILE, Math.floor(i / w) * TILE, TILE, TILE);
+    }
+  }
+  // o vão, onde se cai
+  Z.desenharVao(ctx, z.x * TILE, z.y * TILE, 1.5);
+  const k = +$("pedaco").value;
+  const quadro = (x, y, cor, n = 1, grosso = 2) => {
+    ctx.strokeStyle = cor; ctx.lineWidth = grosso;
+    ctx.strokeRect(x * TILE + grosso / 2, y * TILE + grosso / 2, n * TILE - grosso, n * TILE - grosso);
+  };
+  if (modo === "trocar" && primeiro) quadro(primeiro.x, primeiro.y, "#00ffcc", k);
+  if (hover) quadro(hover.x, hover.y, "rgba(255,255,255,.8)", modo === "trocar" ? k : 1, 1);
+}
+
+// ------------------------------------------------------------ o painel
+function painel() {
+  if (!geo) return;
+  $("cai").textContent = `(${z.x}, ${z.y})`;
+  const preso = DB.GLITCH_ZONES?.preso ?? 2;
+  const a = Z.alcance(geo, z.x, z.y, 64);
+  $("alcance").textContent = a < preso ? `${a} tile — PRESO (a parede tem que ceder)` : `${a >= 64 ? "64+" : a} tiles`;
+  $("alcance").style.color = a < preso ? "var(--warn)" : "";
+  $("nTrocas").textContent = z.trocas.length;
+  $("link").value = linkDaZona();
+  $("desfazer").disabled = !grupos.length;
+  $("limparTrocas").disabled = !z.trocas.length;
+}
+
+const linkDaZona = () => `${location.origin}${url("")}?area=${encodeURIComponent(Z.codigoDaZona(z))}`;
+
+// ------------------------------------------------------------ o mouse
+function tileDoEvento(e) {
+  const r = cv.getBoundingClientRect();
+  const x = Math.floor((e.clientX - r.left) / r.width * geo.w);
+  const y = Math.floor((e.clientY - r.top) / r.height * geo.h);
+  if (x < 0 || y < 0 || x >= geo.w || y >= geo.h) return null;
+  return { x, y };
+}
+
+cv.addEventListener("mousemove", (e) => { if (!geo) return; hover = tileDoEvento(e); desenhar(); });
+cv.addEventListener("mouseleave", () => { hover = null; desenhar(); });
+cv.addEventListener("click", (e) => {
+  if (!geo) return;
+  const t = tileDoEvento(e);
+  if (!t) return;
+  if (modo === "cair") {
+    if (!Z.dePe(geo, t.x, t.y)) return void status("aí não dá pra ficar de pé");
+    z.x = t.x; z.y = t.y;
+    status(`cai em (${t.x}, ${t.y})`);
+    return montar();
+  }
+  if (!primeiro) { primeiro = t; status(`trocar (${t.x}, ${t.y}) com...`); return desenhar(); }
+  trocar(primeiro, t);
+  primeiro = null;
+});
+
+/** Troca o pedaço em A pelo pedaço em B: uma troca por tile, gravadas na
+ *  zona. Dois pedaços que se sobrepõem não trocam — a metade em comum
+ *  voltaria pro lugar. */
+function trocar(a, b) {
+  const k = +$("pedaco").value;
+  const { w, h } = geo;
+  if (Math.abs(a.x - b.x) < k && Math.abs(a.y - b.y) < k) return void status("os dois pedaços se sobrepõem");
+  const novas = [];
+  for (let dy = 0; dy < k; dy++) {
+    for (let dx = 0; dx < k; dx++) {
+      const ax = a.x + dx, ay = a.y + dy, bx = b.x + dx, by = b.y + dy;
+      if (ax >= w || ay >= h || bx >= w || by >= h) continue;
+      novas.push([ay * w + ax, by * w + bx]);
+    }
+  }
+  if (!novas.length) return;
+  if (z.trocas.length + novas.length > Z.TROCAS_MAX) return void status(`o link não cabe mais que ${Z.TROCAS_MAX} trocas`);
+  z.trocas.push(...novas);
+  grupos.push(novas.length);
+  status(`trocou (${a.x}, ${a.y}) com (${b.x}, ${b.y})`);
+  montar();
+}
+
+function desfazer() {
+  const n = grupos.pop();
+  if (!n) return;
+  z.trocas.splice(-n, n);
+  primeiro = null;
+  status("desfeito");
+  montar();
+}
+
+// ------------------------------------------------------------ os controles
+$("modoTrocar").onclick = () => { modo = "trocar"; $("modoTrocar").classList.add("on"); $("modoCair").classList.remove("on"); desenhar(); };
+$("modoCair").onclick = () => { modo = "cair"; primeiro = null; $("modoCair").classList.add("on"); $("modoTrocar").classList.remove("on"); desenhar(); };
+$("desfazer").onclick = desfazer;
+$("limparTrocas").onclick = () => { z.trocas = []; grupos = []; primeiro = null; montar(); };
+$("colisao").onchange = desenhar;
+$("pedaco").onchange = desenhar;
+$("zoom").onchange = () => { zoom = +$("zoom").value; desenhar(); };
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { primeiro = null; status(""); desenhar(); }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && document.activeElement?.tagName !== "INPUT") { e.preventDefault(); desfazer(); }
+});
+
+$("fonte").onchange = () => trocarFonte($("fonte").value);
+$("nome").oninput = () => { z.nome = Z.limparNome($("nome").value); montar(); };
+const lerEmbaralho = () => {
+  z.bloco = Math.max(0, Math.min(8, Math.round(+$("bloco").value || 0)));
+  z.soltos = Math.max(0, Math.min(100, Math.round(+$("soltos").value || 0))) / 100;
+  z.seed = parseInt($("seed").value, 36) >>> 0 || 0;
+  $("bloco").value = z.bloco; $("soltos").value = Math.round(z.soltos * 100); $("seed").value = z.seed.toString(36);
+  montar();
+};
+$("bloco").onchange = $("soltos").onchange = $("seed").onchange = lerEmbaralho;
+$("sortear").onclick = () => {
+  $("seed").value = ((Math.random() * 0x7fffffff) | 0).toString(36);
+  if (+$("bloco").value === 0 && +$("soltos").value === 0) { $("bloco").value = DB.GLITCH_ZONES?.bloco ?? 3; $("soltos").value = Math.round((DB.GLITCH_ZONES?.soltos ?? 0.12) * 100); }
+  lerEmbaralho();
+};
+
+$("copiar").onclick = async () => {
+  const link = linkDaZona();
+  try { await navigator.clipboard.writeText(link); msg("ok", "link copiado — quem abrir cai na sua zona"); }
+  catch { $("link").select(); msg("warn", "não deu pra copiar sozinho: o link está selecionado, copie com Ctrl+C"); }
+};
+$("abrir").onclick = () => window.open(linkDaZona(), "_blank");
+
+$("carregar").onclick = () => {
+  let texto = $("colar").value.trim();
+  try { const u = new URL(texto); if (u.searchParams.has("area")) texto = u.searchParams.get("area"); } catch {}
+  const lida = Z.zonaDoCodigo(texto);
+  if (!lida) return void msg("bad", "não entendi esse código");
+  aplicar(lida);
+  msg("ok", `carregada: ${DB.MAPS[lida.fonte]?.name || lida.fonte}, ${lida.trocas.length} trocas`);
+};
+
+async function aplicar(lida) {
+  $("fonte").value = lida.fonte;
+  await trocarFonte(lida.fonte);
+  Object.assign(z, { seed: lida.seed, bloco: lida.bloco, soltos: lida.soltos, x: lida.x, y: lida.y,
+                     trocas: lida.trocas.slice(), nome: lida.nome || "" });
+  grupos = lida.trocas.map(() => 1);
+  $("bloco").value = z.bloco; $("soltos").value = Math.round(z.soltos * 100); $("seed").value = z.seed.toString(36);
+  $("nome").value = z.nome;
+  montar();
+}
+
+// ------------------------------------------------------------ começa
+for (const id of FONTES) {
+  const o = document.createElement("option");
+  o.value = id; o.textContent = `${DB.MAPS[id]?.name || id.toUpperCase()} (${DB.KANTO[id].w}x${DB.KANTO[id].h})`;
+  $("fonte").appendChild(o);
+}
+{
+  const q = new URLSearchParams(location.search);
+  const lida = q.get("area") && Z.zonaDoCodigo(q.get("area"));
+  if (lida) aplicar(lida);
+  else { $("fonte").value = FONTES.includes("viridian") ? "viridian" : FONTES[0]; trocarFonte($("fonte").value); }
+}
+</script>
+</body>
+</html>

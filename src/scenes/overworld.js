@@ -23,6 +23,8 @@ import {
 import { scatterDimLoot } from "../systems/loot.js";
 import { nascer, andar, emCima, cacando, fugindo, encontroDe } from "../systems/selvagens.js";
 import { distorcaoDeAgora, distorcaoAqui, ondeEla } from "../systems/distorcoes.js";
+import { ZONA, naZona, entradasDoMapa, entradaEm, abrirZona, garantirZona, vaoDaZona,
+         cedeu, esbarrar, alcance, tileCedido, desenharVao } from "../systems/glitchzones.js";
 import { quemDesce, noTopo } from "../systems/descida.js";
 import { oMaisRapido, ganhaDaBike, aindaEstao, ehMotoqueiro }
   from "../systems/motoqueiros.js";
@@ -32,6 +34,11 @@ import { pedrasIniciaisDevidas } from "../systems/mega.js";
 import { estado as estadoMissao, progresso, aceitar, entregar, diario, feitas, missaoPorId, daVez }
   from "../systems/missoes.js";
 import { estaNaHora, marcarFeita, fracas, apagarDoCodigo } from "../systems/faxina.js";
+// O aniversário entra como namespace de propósito: ele exporta `partes` e
+// `formata`, que são nomes que a fusão e o leilão também usam aqui dentro.
+import * as Aniv from "../systems/aniversario.js";
+import { alvoDaPedra } from "../systems/regionais.js";
+import { guardar as guardarNoBox, cheio as boxCheio } from "../systems/box.js";
 import { veu, temCeu, agora as horaDoMundo } from "../systems/ciclo.js";
 import { escuridaoDoLugar, ehCaverna, acesa, camadaDeLuz, brilho, RAIO } from "../systems/lanterna.js";
 import { AcampamentoScene } from "./acampamento.js";
@@ -172,13 +179,23 @@ export class OverworldScene {
   }
 
   get st() { return this.game.state; }
-  get map() { return DB.MAPS[this.st.player.map]; }
-  get geo() { return DB.KANTO[this.st.player.map]; }
+  // A GLITCH ZONE não está em arquivo nenhum: ela é remontada da semente do
+  // save sempre que falta — na primeira vez, e depois de cada hot-swap, que
+  // reconstrói o DB sem ela (ver src/systems/glitchzones.js).
+  get map() {
+    if (this.st.player.map === ZONA) garantirZona(this.st);
+    return DB.MAPS[this.st.player.map];
+  }
+  get geo() {
+    if (this.st.player.map === ZONA) garantirZona(this.st);
+    return DB.KANTO[this.st.player.map];
+  }
 
   enter() {
     this.ligaOnline();
     this.ensureDimLoot();
     this.rollFragment();
+    this.checarAniversario();
     if (this.st.flags.escortPending) this.spawnEscort();
     this.mapaVisto = this.st.player.map;
     this.banner = 2.2;
@@ -275,6 +292,8 @@ export class OverworldScene {
     const g = this.geo;
     if (!g || x < 0 || y < 0 || x >= g.w || y >= g.h) return -1;
     const t = g.tags.charCodeAt(y * g.w + x) - 48;
+    // na GLITCH ZONE, parede em que você insistiu deixou de ser parede
+    if (t > 0 && this.st.player.map === ZONA && cedeu(this.st, x, y)) return DB.TAG.FREE;
     // mato que você já cortou com CORTE não volta a crescer
     if (t === DB.TAG.GRASS && this.cortados().includes(`${x},${y}`)) return DB.TAG.FREE;
     // o que abriu durante o jogo (barreira dos fios, porta do quiz) vira chão
@@ -404,7 +423,6 @@ export class OverworldScene {
           // no jogador e deixava o `map` como estava — descia sem sair do cume
           Object.assign(this.st.player,
             { map: D.para.mapa, x: D.para.x, y: D.para.y, dir: D.para.dir || "down" });
-          this.selvagens = [];
           this.compa = null;
           this.justWarped = true;
           this.afterTravel();
@@ -549,7 +567,6 @@ export class OverworldScene {
           dir: "down",
         });
         st.surfando = null;
-        this.selvagens = [];
         this.compa = null;
         this.justWarped = true;
         this.afterTravel();
@@ -895,6 +912,9 @@ export class OverworldScene {
       const alvo = this.npcAt(nx, ny);
       if (alvo?.distorcao) return this.investigarDistorcao();
       if (alvo?.raidPortal) return this.entrarNoRasgo();
+      // NA GLITCH ZONE a parede não é de verdade: insista e ela cede. A borda
+      // do mapa (tag -1) não — do outro lado dela não tem nada pra ceder.
+      if (naZona(this.st) && !alvo && this.tagAt(nx, ny) >= 0) return this.esbarrarNaZona(nx, ny);
       if (!this.bumpCd) { Audio2.bump(); this.bumpCd = 0.35; }
       return;
     }
@@ -913,6 +933,7 @@ export class OverworldScene {
     }
     if (this.tagAt(p.x, p.y) === DB.TAG.GRASS) this.rustle = { x: p.x, y: p.y, t: 0 };
 
+    if (this.pisouNoVao()) return;
     if (this.pisouNasFlores()) return;
     if (this.pisouNumSelvagem()) return;
 
@@ -1048,7 +1069,6 @@ export class OverworldScene {
     const back = st.respawn || { map: DB.START_MAP, ...DB.MAPS[DB.START_MAP].spawn };
     Object.assign(st.player, { map: back.map, x: back.x, y: back.y, dir: back.dir || "down" });
     st.corruption = Math.min(100, st.corruption + 3);
-    this.selvagens = [];
     this.compa = null;
     this.aviso = null;
     this.justWarped = true;
@@ -1183,6 +1203,79 @@ export class OverworldScene {
     this.dlg.say(DB.STORY.glitch.rasgoEntrou, () => {
       this.startBattle({ mon: chefe.mon, glitch: true, raid: chefe });
     });
+  }
+
+  // ------------------------------------------------------- GLITCH ZONES
+  /** Pisou num VÃO: o de entrada, em Kanto, te joga numa zona nova; o de
+   *  saída, dentro dela, te devolve pra onde você entrou. Devolve true quando
+   *  tomou conta do passo. (src/systems/glitchzones.js) */
+  pisouNoVao() {
+    const p = this.st.player;
+    if (naZona(this.st)) {
+      const vao = vaoDaZona(this.st);
+      if (!vao || vao.x !== p.x || vao.y !== p.y) return false;
+      this.voltarDoVao();
+      return true;
+    }
+    const entrada = entradaEm(this.st, p.map, p.x, p.y);
+    if (!entrada) return false;
+    return this.atravessarVao(entrada);
+  }
+
+  /** Atravessar: sorteia um mapa de Kanto, embaralha os tiles dele e te larga
+   *  num tile qualquer de lá. Se você caiu cercado, o jogo diz — na hora, e
+   *  não depois de dez esbarrões: "preso" só é susto se vier com a saída. */
+  atravessarVao(entrada) {
+    const z = abrirZona(this.st, entrada);
+    if (!z) return false;
+    if (DB.CONFIG?.sustos) { Glitch.hit(2.5); Audio2.glitch(); }
+    else { Audio2.tone(220, 0.12, "square", 0.4); Audio2.tone(330, 0.16, "square", 0.3); }
+    this.justWarped = true;
+    this.transition(() => {
+      const p = this.st.player;
+      this.st.surfando = null;
+      p.map = ZONA; p.x = z.x; p.y = z.y; p.dir = "down";
+      this.afterTravel();
+      const t = DB.ZONA_TEXTO || {};
+      const falas = [];
+      if (!this.st.flags.zonaVista) { this.st.flags.zonaVista = true; falas.push(...(t.primeira || [])); }
+      else falas.push(...(t.entrou || []));
+      const preso = DB.GLITCH_ZONES?.preso ?? 6;
+      if (alcance(this.geo, p.x, p.y, preso) < preso) falas.push(...(t.preso || []));
+      if (falas.length) this.dlg.say(falas);
+    });
+    return true;
+  }
+
+  /** O vão de saída te devolve pro tile da entrada, olhando pra onde olhava. */
+  voltarDoVao() {
+    const v = this.st.zona?.volta;
+    if (!v) return;
+    if (DB.CONFIG?.sustos) { Glitch.hit(1.5); Audio2.glitch(); }
+    else Audio2.tone(330, 0.08, "square", 0.3);
+    this.justWarped = true;
+    this.transition(() => {
+      const p = this.st.player;
+      this.st.surfando = null;
+      p.map = v.map; p.x = v.x; p.y = v.y; p.dir = v.dir || "down";
+      this.afterTravel();                 // é ele que apaga a zona do save
+      this.dlg.say(DB.ZONA_TEXTO?.saiu || []);
+    });
+  }
+
+  /** Esbarrou numa parede da zona. Na `esbarroes`-ésima vez ela cede e vira
+   *  chão — é a saída de quem nasceu preso e não sabe VOAR. */
+  esbarrarNaZona(x, y) {
+    if (this.bumpCd) return;
+    this.bumpCd = 0.35;
+    Glitch.hit(0.5);
+    if (!esbarrar(this.st, x, y)) return void Audio2.bump();
+    Audio2.glitch();
+    Glitch.hit(2);
+    if (!this.st.flags.paredeCedeu) {
+      this.st.flags.paredeCedeu = true;
+      this.dlg.say(DB.ZONA_TEXTO?.cedeu || []);
+    }
   }
 
   /** Canteiro de flores com o mundo bugado: a tela treme a cada passo e
@@ -1358,12 +1451,23 @@ export class OverworldScene {
   }
 
   afterTravel() {
+    // OS SELVAGENS À VISTA FICAM NO MAPA DE ONDE SÃO. A lista guarda posição
+    // no mapa de agora, então trocar de mapa com ela cheia trazia os bichos
+    // junto, nas mesmas coordenadas: atravessar a cerca de PALLET pra ROTA 21
+    // e voltar deixava três TANGELA na vila. As portas e o VOAR já zeravam
+    // por conta própria; a CONEXÃO (borda de mapa) não — e é o jeito mais
+    // comum de mudar de lugar. Aqui vale pra todo caminho.
+    this.selvagens = [];
     if (DB.FLY_SPOTS?.[this.st.player.map]) {     // cidade nova: libera o VOAR
       this.st.visitado ||= {};
       this.st.visitado[this.st.player.map] = true;
     }
+    // saiu da GLITCH ZONE por qualquer caminho (o vão, VOAR, desmaiar): ela
+    // acabou. A próxima entrada sorteia outra — é o ponto de ela ser aleatória.
+    if (this.st.zona && this.st.player.map !== ZONA) delete this.st.zona;
     this.ensureDimLoot();
     this.checkPokedexAlert();
+    this.checarAniversario();
     this.rollFragment();
     this.mapaVisto = this.st.player.map;
     this.banner = 2.2;
@@ -1560,6 +1664,13 @@ export class OverworldScene {
       });
       return;
     }
+    // A MÃE PERGUNTANDO O ANIVERSÁRIO. Vem antes do `heal` porque ela é a
+    // enfermeira da primeira casa do jogo: se ficasse depois, a cura respondia
+    // primeiro e a pergunta nunca chegava a acontecer. Uma vez só — o `perguntou`
+    // é o que impede a mãe de virar um formulário toda vez que você passa em casa.
+    if (npc.aniversario && !Aniv.definido(this.st) && !state.perguntou) {
+      return this.perguntarAniversario(npc, state);
+    }
     if (npc.heal) {
       const j = DB.STORY.joy;
       this.dlg.say(npc.lines, () => {
@@ -1690,7 +1801,7 @@ export class OverworldScene {
    *  próximo — inclusive quem evolui duas vezes seguidas com doce raro. */
   rodarEvolucao(estranho = false) {
     for (const mon of this.st.party) {
-      const to = evolutionFor(mon);
+      const to = evolutionFor(mon, this.st.player.map);
       if (!to) continue;
       this.menu = null;
       this.game.scenes.push(new EvolutionScene(), { mon, to, estranho });
@@ -1703,7 +1814,9 @@ export class OverworldScene {
   useEvoItem(item, mon) {
     this.menu = null;
     const estranho = !!DB.ITEM_LORE?.[item];       // item que veio da fenda
-    const to = DB.EVO_ITEMS?.[item]?.[mon.species];
+    // O LUGAR decide: a mesma pedra no mesmo bicho dá coisa diferente em Kanto e
+    // fora dela (o PIKACHU nas SEVII vira RAICHU-ALOLA).
+    const to = alvoDaPedra(item, mon.species, this.st.player.map);
     if (!to || !DB.SPECIES[to]) {
       Audio2.cancel();
       return void this.dlg.say(`NÃO ACONTECEU NADA COM ${mon.nickname}.`);
@@ -2072,14 +2185,15 @@ export class OverworldScene {
     // sem as formas MEGA: elas só existem dentro da batalha
     const lista = Object.values(DB.SPECIES).filter((sp) => !sp.mega && !sp.fusao)
       .sort((a, b) => (a.dex || 999) - (b.dex || 999));
-    this.menu = { type: "give", index: 0, top: 0, lvl: 5, shiny: false, lista };
+    // `cor`: 0 comum, 1 shiny, 2 luminoso — o C gira entre as três
+    this.menu = { type: "give", index: 0, top: 0, lvl: 5, cor: 0, lista };
     Audio2.select();
   }
 
   /** baixa o Pokémon escolhido pro time (ou pro box, se estiver cheio) */
   baixarMon(m) {
     const sp = m.lista[m.index];
-    const mon = createMon(sp.id, m.lvl, { shiny: m.shiny });
+    const mon = createMon(sp.id, m.lvl, { shiny: m.cor === 1, luminoso: m.cor === 2 });
     const box = this.st.party.length >= 6;
     (box ? this.st.box : this.st.party).push(mon);
     this.st.seen[sp.id] = true;
@@ -3030,6 +3144,108 @@ export class OverworldScene {
   }
 
   // ---------------------------------------------------------------- menu
+  // ------------------------------------------------------------ ANIVERSÁRIO
+  // A data é perguntada uma vez (pela mãe, em casa) e fica no save; no dia, um
+  // pacote chega onde você estiver e você escolhe o TIPO e a FORMA do presente.
+  // As regras estão em src/systems/aniversario.js — aqui só tem tela e fala.
+
+  /** A mãe perguntando. Se você mandar ela deixar pra depois, ela deixa pra
+   *  sempre: a data continua editável nas OPÇÕES, e mãe que repete a mesma
+   *  pergunta toda vez que você entra em casa vira um formulário. */
+  perguntarAniversario(npc, state) {
+    const A = DB.ANIVERSARIO_TEXTO;
+    this.dlg.say(A.pergunta, () => {
+      this.dlg.ask(A.seletor, A.opcoesPergunta, (i) => {
+        if (i === 0) return this.abrirDataAniversario("mae");
+        state.perguntou = true;
+        this.dlg.say(A.depois);
+      });
+    });
+  }
+
+  /** O seletor de data. `volta` diz pra onde ir quando ele fechar: a mãe está
+   *  esperando uma resposta, as OPÇÕES querem o cursor de volta na linha certa. */
+  abrirDataAniversario(volta = null) {
+    const hoje = new Date();
+    const p = Aniv.partes(Aniv.definido(this.st))
+      || { mes: hoje.getMonth() + 1, dia: hoje.getDate() };
+    this.menu = { type: "aniversarioData", mes: p.mes, dia: p.dia, campo: 0, volta };
+  }
+
+  /** Tem pacote esperando? É chamado ao entrar no mundo e a cada mapa novo —
+   *  quem virou o dia jogando não precisa fechar o jogo pra ganhar. */
+  checarAniversario() {
+    if (this.menu || this.dlg.active) return;
+    const p = Aniv.pendente(this.st);
+    if (!p || !Aniv.tipos().length) return;
+    const A = DB.ANIVERSARIO_TEXTO;
+    Audio2.heal();
+    this.dlg.say(p.dias > 0 ? A.atrasado : A.chegou, () => {
+      this.dlg.say(A.escolhaTipo, () => {
+        this.menu = { type: "aniversarioTipo", lista: Aniv.tipos(), index: 0 };
+      });
+    });
+  }
+
+  /** Escolhido o tipo, falta a forma: a COR ou o GOLPE. Uma ou outra. */
+  formaDoPresente(tipo) {
+    const A = DB.ANIVERSARIO_TEXTO;
+    this.menu = null;
+    this.dlg.ask(A.comoQuer, A.opcoesForma,
+                 (i) => this.entregarPresente(tipo, i === 0 ? "shiny" : "golpe"));
+  }
+
+  /** A bola abre. Sem vaga na equipe nem na BOX o presente NÃO é entregue e o
+   *  ano não é marcado: ele continua esperando você arrumar espaço, dentro da
+   *  janela. Um presente que evapora porque a BOX estava cheia é um presente
+   *  perdido por um ano. */
+  entregarPresente(tipo, forma) {
+    const A = DB.ANIVERSARIO_TEXTO;
+    const pend = Aniv.pendente(this.st);
+    if (!pend) return;
+    const feito = Aniv.montarPresente(this.st, tipo, forma);
+    if (!feito) return void this.dlg.say(A.semVaga);
+    const { mon, golpe } = feito;
+
+    const falas = [A.abriu, A.recebeu.replace("{MON}", mon.nickname).replace("{TIPO}", tipo)];
+    if (forma === "shiny") falas.push(A.veioShiny.replace("{MON}", mon.nickname));
+    else if (golpe) {
+      falas.push(A.veioGolpe.replace("{GOLPE}", DB.MOVES[golpe]?.name || golpe)
+                            .replace("{NIVEL}", mon.level));
+    }
+    if (this.st.party.length < 6) this.st.party.push(mon);
+    else if (!boxCheio(this.st)) {
+      guardarNoBox(this.st, mon);
+      falas.push(A.foiProBox.replace("{MON}", mon.nickname));
+    } else return void this.dlg.say(A.semVaga);
+
+    falas.push(A.proximo);
+    Aniv.marcarGanho(this.st, pend.ano);
+    Audio2.heal();
+    this.game.save?.();          // presente é gravado na hora, sem trava de tempo
+    this.dlg.say(falas);
+  }
+
+  /** O que a linha ANIVERSÁRIO mostra nas OPÇÕES. */
+  resumoAniversario() {
+    const A = DB.ANIVERSARIO_TEXTO;
+    const data = Aniv.definido(this.st);
+    return data ? Aniv.formata(data) : A.naoDefinido;
+  }
+
+  /** A linha de baixo das OPÇÕES, quando o cursor está no aniversário: quanto
+   *  falta, ou que o deste ano já foi entregue. */
+  dicaAniversario() {
+    const A = DB.ANIVERSARIO_TEXTO;
+    const data = Aniv.definido(this.st);
+    if (!data) return A.seletorAjuda;
+    if (Aniv.pendente(this.st)) return A.hoje;
+    const dias = Aniv.faltam(data);
+    if (dias === 0) return A.jaGanhou;
+    if (dias === 1) return A.amanha;
+    return A.faltam.replace("{DIAS}", dias);
+  }
+
   openMenu() { Audio2.select(); this.menu = { type: "main", index: 0 }; }
 
   /** VELOCIDADE: quantos passos por segundo o jogador dá. Ela é do aparelho,
@@ -3509,14 +3725,64 @@ export class OverworldScene {
       if (Input.consume("down")) { m.index = (m.index + 1) % n; Audio2.blip(); }
       if (Input.consume("left")) { m.lvl = Math.max(1, m.lvl - passo); Audio2.blip(); }
       if (Input.consume("right")) { m.lvl = Math.min(100, m.lvl + passo); Audio2.blip(); }
-      if (Input.consume("select")) { m.shiny = !m.shiny; Audio2.select(); }   // tecla C
+      if (Input.consume("select")) { m.cor = (m.cor + 1) % 3; Audio2.select(); }   // tecla C
       m.top = Math.min(Math.max(m.top, m.index - 5), m.index);                // rolagem
       if (Input.consume("b")) { this.menu = null; Audio2.cancel(); }
       if (Input.consume("a")) this.baixarMon(m);
       return;
     }
+    // O seletor de data do aniversário: DIA e MÊS, dois campos.
+    if (m.type === "aniversarioData") {
+      const A = DB.ANIVERSARIO_TEXTO;
+      const gira = (v, n) => ((v % n) + n) % n;
+      const salto = Input.held("run") ? 5 : 1;
+      if (Input.consume("left") || Input.consume("right")) { m.campo ^= 1; Audio2.blip(); }
+      const d = Input.consume("up") ? 1 : Input.consume("down") ? -1 : 0;
+      if (d) {
+        if (m.campo === 0) {
+          const max = Aniv.DIAS_NO_MES[m.mes - 1];
+          m.dia = gira(m.dia - 1 + d * salto, max) + 1;
+        } else {
+          m.mes = gira(m.mes - 1 + d, 12) + 1;
+          // 31 de janeiro virando fevereiro: o dia desce junto, senão sairia
+          // daqui uma data que não existe
+          m.dia = Math.min(m.dia, Aniv.DIAS_NO_MES[m.mes - 1]);
+        }
+        Audio2.blip();
+      }
+      if (Input.consume("b")) {
+        Audio2.cancel();
+        this.menu = m.volta === "opts" ? { type: "opts", index: 4 } : null;
+        return;
+      }
+      if (Input.consume("a")) {
+        Audio2.select();
+        const data = Aniv.guarda(m.mes, m.dia);
+        Aniv.definir(this.st, data);
+        this.game.autosave?.(true);
+        const volta = m.volta;
+        this.menu = volta === "opts" ? { type: "opts", index: 4 } : null;
+        if (volta === "mae") this.dlg.say(A.guardou.replace("{DATA}", Aniv.formata(data)));
+        // anotou hoje e hoje é o dia: o pacote chega agora, sem esperar o
+        // próximo mapa
+        else if (volta !== "opts") this.checarAniversario();
+      }
+      return;
+    }
+    // A grade dos tipos, no dia. Sair com X não perde o presente: ele volta na
+    // próxima vez, enquanto a janela não fechar.
+    if (m.type === "aniversarioTipo") {
+      const n = m.lista.length, COLS = 3;
+      if (Input.consume("left")) { m.index = (m.index + n - 1) % n; Audio2.blip(); }
+      if (Input.consume("right")) { m.index = (m.index + 1) % n; Audio2.blip(); }
+      if (Input.consume("up")) { m.index = (m.index + n - COLS) % n; Audio2.blip(); }
+      if (Input.consume("down")) { m.index = (m.index + COLS) % n; Audio2.blip(); }
+      if (Input.consume("b")) { this.menu = null; Audio2.cancel(); }
+      if (Input.consume("a")) { Audio2.select(); this.formaDoPresente(m.lista[m.index]); }
+      return;
+    }
     if (m.type === "opts") {
-      const n = 5;
+      const n = 6;
       if (Input.consume("up")) m.index = (m.index + n - 1) % n;
       if (Input.consume("down")) m.index = (m.index + 1) % n;
       if (Input.consume("b")) {
@@ -3533,6 +3799,7 @@ export class OverworldScene {
         else if (m.index === 1) Audio2.toggleMute();
         else if (m.index === 2) this.mudaVelocidade(1);
         else if (m.index === 3) this.mudaIdioma(1);
+        else if (m.index === 4) this.abrirDataAniversario("opts");
         else { Save.clear(); this.menu = null; this.dlg.say("SAVE APAGADO. RECARREGUE A PÁGINA."); }
       }
     }
@@ -3569,6 +3836,20 @@ export class OverworldScene {
                       tx * TILE - cx, ty * TILE - cy, TILE, TILE);
       }
     }
+
+    // as paredes da GLITCH ZONE que cederam: um quadrado que parou de ser desenhado
+    if (naZona(this.st)) {
+      for (const k of this.st.zona.cedidos || []) {
+        const [tx, ty] = k.split(",").map(Number);
+        ctx.drawImage(tileCedido(), tx * TILE - cx, ty * TILE - cy);
+      }
+    }
+    // OS VÃOS: as entradas das GLITCH ZONES em Kanto, e a saída dentro de uma.
+    // Ficam por baixo dos atores: é uma porta, e se passa por dentro dela.
+    const relogio = performance.now() / 1000;
+    const vaos = naZona(this.st) ? [vaoDaZona(this.st)].filter(Boolean)
+                                 : entradasDoMapa(this.st, this.st.player.map);
+    for (const v of vaos) desenharVao(ctx, v.x * TILE - cx, v.y * TILE - cy, relogio);
 
     const actors = [];
     for (const n of this.npcsHere()) {
@@ -3737,9 +4018,10 @@ export class OverworldScene {
   drawSelvagem(ctx, b, cx, cy) {
     const bruto = Assets.mon(b.mon.species, b.mon.seed);
     if (!bruto) return;
-    // shiny no mato aparece shiny: o brilho é a informação que faz alguém
-    // atravessar a rota correndo, e escondê-la até a batalha seria escondê-la
-    const img = b.mon.shiny ? Assets.shiny(bruto) : bruto;
+    // shiny no mato aparece shiny, e luminoso aparece luminoso: o brilho é a
+    // informação que faz alguém atravessar a rota correndo, e escondê-la até a
+    // batalha seria escondê-la
+    const img = Assets.comCor(bruto, b.mon);
     const caca = cacando(b, this.st.player);
     const corre = !caca && fugindo(b, this.st.player);
     // quem está caçando pula mais rápido e mais alto: o bicho parece afobado
@@ -4308,12 +4590,50 @@ export class OverworldScene {
       }
       // ficha do escolhido
       const img = Assets.mon(sp.id, 7);
-      ctx.drawImage(img, 158, 22, 48, 48);
+      // a prévia sai NA COR escolhida: o menu mostra o que vai baixar
+      const cor = { shiny: m.cor === 1, luminoso: m.cor === 2 };
+      ctx.drawImage(Assets.comCor(img, cor), 158, 22, 48, 48);
       drawText(ctx, sp.types.join("/").slice(0, 12), 150, 74, PAL.ink2);
       drawText(ctx, `NÍVEL ${String(m.lvl).padStart(3, " ")}`, 150, 86, PAL.ink);
-      drawText(ctx, m.shiny ? "SHINY: SIM" : "SHINY: NÃO", 150, 98, m.shiny ? "#d8a828" : PAL.ink2);
+      drawText(ctx, ["COR: COMUM", "COR: SHINY", "COR: LUMINOSA"][m.cor], 150, 98,
+        [PAL.ink2, "#d8a828", "#fff3b0"][m.cor]);
       drawText(ctx, DB.STORY.giveglitch.hint, 12, 132, PAL.ink2);
-      drawText(ctx, "C TROCA SHINY", 12, 142, PAL.ink2);
+      drawText(ctx, "C TROCA A COR", 12, 142, PAL.ink2);
+      return;
+    }
+    if (m.type === "aniversarioData") {
+      const A = DB.ANIVERSARIO_TEXTO;
+      panel(ctx, 20, 36, 200, 92);
+      drawText(ctx, A.seletor, 28, 42, PAL.ink);
+      const campo = (rot, val, x, ativo) => {
+        drawText(ctx, rot, x + 6, 62, PAL.ink2);
+        panel(ctx, x, 72, 62, 20);
+        drawText(ctx, val, x + 12, 78, ativo ? PAL.glitch : PAL.ink);
+        // as setinhas dizem em qual dos dois campos o cima/baixo está mexendo.
+        // São ▲▼ e não ↑↓ porque a fonte do jogo só desenha esses dois
+        // (src/core/font.js): a seta de linha fina sai como espaço em branco.
+        if (ativo) {
+          drawText(ctx, "▲", x + 46, 62, PAL.glitch);
+          drawText(ctx, "▼", x + 46, 95, PAL.glitch);
+        }
+      };
+      campo(A.dia, String(m.dia).padStart(2, "0"), 38, m.campo === 0);
+      campo(A.mes, (A.meses || [])[m.mes - 1] || String(m.mes), 128, m.campo === 1);
+      drawText(ctx, A.seletorAjuda, 28, 108, PAL.ink2);
+      drawText(ctx, A.seletorAjuda2, 28, 118, PAL.ink2);
+      return;
+    }
+    if (m.type === "aniversarioTipo") {
+      const A = DB.ANIVERSARIO_TEXTO;
+      const COLS = 3, PASSO = 17;
+      panel(ctx, 8, 12, 224, 136);
+      drawText(ctx, A.tituloTipo, 16, 18, PAL.ink);
+      m.lista.forEach((t, i) => {
+        const x = 22 + (i % COLS) * 70, y = 36 + Math.floor(i / COLS) * PASSO;
+        drawText(ctx, t, x, y, DB.TYPE_COLOR?.[t] || PAL.ink);
+        if (i === m.index) cursor(ctx, x - 9, y);
+      });
+      drawText(ctx, A.ajudaTipo, 16, 136, PAL.ink2);
       return;
     }
     if (m.type === "opts") {
@@ -4323,6 +4643,7 @@ export class OverworldScene {
         ["SOM", Audio2.muted ? "OFF" : "ON"],
         ["VELOCIDADE", this.nomeVelocidade()],
         ["IDIOMA", idioma.nome],
+        [DB.ANIVERSARIO_TEXTO.rotulo, this.resumoAniversario()],
         ["LIMPAR SAVE", ""],
       ];
       panel(ctx, 30, 32, 180, linhas.length * LINE_H + 32);
@@ -4333,8 +4654,11 @@ export class OverworldScene {
         drawText(ctx, val, 140, y, PAL.glitch);
         if (i === m.index) cursor(ctx, 40, y);
       });
+      // a linha de baixo é do idioma, menos quando o cursor está no
+      // aniversário: ali ela conta quanto falta pro dia
       const aviso = DB.AVISO_IDIOMA?.[Opcoes.get("idioma")];
-      if (aviso) drawText(ctx, aviso.slice(0, 38), 12, 150, PAL.ink2);
+      if (m.index === 4) drawText(ctx, this.dicaAniversario().slice(0, 38), 12, 150, PAL.glitch);
+      else if (aviso) drawText(ctx, aviso.slice(0, 38), 12, 150, PAL.ink2);
     }
   }
 }

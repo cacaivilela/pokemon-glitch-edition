@@ -226,6 +226,7 @@ export function fundir(cabeca, corpo, variante = "") {
   const mon = createMon(sp.id, level, {
     ivs,
     shiny: !!(cabeca.shiny || corpo.shiny),
+    luminoso: !!(cabeca.luminoso || corpo.luminoso),
     corrupt: !!(cabeca.corrupt || corpo.corrupt),
     seed: cabeca.seed,
   });
@@ -241,6 +242,15 @@ export function fundir(cabeca, corpo, variante = "") {
     mon.fusao.cabeca.shiny = true;
     mon.fusao.corpo.shiny = true;
     mon.brilhouNaFusao = !(cabeca.shiny && corpo.shiny);   // um só era: pegou no outro
+  }
+  // A LUZ PEGA IGUAL, e ganha do shiny: um luminoso fundido com um shiny devolve
+  // dois luminosos. Ela é a cor mais rara do jogo — sair de dentro da máquina
+  // valendo menos do que entrou seria a máquina cobrando pra fundir.
+  if (mon.luminoso) {
+    mon.shiny = false;
+    mon.fusao.cabeca.luminoso = mon.fusao.corpo.luminoso = true;
+    mon.fusao.cabeca.shiny = mon.fusao.corpo.shiny = false;
+    mon.brilhouNaFusao = !(cabeca.luminoso && corpo.luminoso);
   }
   return mon;
 }
@@ -287,6 +297,7 @@ export function separar(fus) {
     mon.hp = Math.max(fus.hp > 0 ? 1 : 0, Math.round(mon.maxHp * frac));
     mon.status = fus.status || null;
     if (fus.shiny) mon.shiny = true;
+    if (fus.luminoso) { mon.luminoso = true; mon.shiny = false; }
     return mon;
   };
   const cabeca = sair(guardados.cabeca, p.cabeca);

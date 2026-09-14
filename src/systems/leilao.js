@@ -79,9 +79,10 @@ export function leiloar(mon, pedido, sorteio = Math.random) {
   if (!lances.length) return { vendido: false, preco: 0, lances: [] };
 
   let preco = lances[lances.length - 1].valor;
-  if (mon.shiny) preco = Math.round(preco * LEILOEIROS.bonusShiny);
+  if (mon.luminoso) preco = Math.round(preco * LEILOEIROS.bonusLuminoso);
+  else if (mon.shiny) preco = Math.round(preco * LEILOEIROS.bonusShiny);
   if (especie(mon)?.ficha) preco = Math.round(preco * LEILOEIROS.bonusFicha);
-  return { vendido: true, preco, lances, shiny: !!mon.shiny };
+  return { vendido: true, preco, lances, shiny: !!mon.shiny, luminoso: !!mon.luminoso };
 }
 
 /** Tira o Pokémon de onde ele estiver — equipe ou PC. Devolve true se achou.

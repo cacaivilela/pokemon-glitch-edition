@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem do LUMINOSO</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=9000">
+<script type="module">
+// A cor mais rara: 1 em 9999, e nunca junto com o shiny. Sem jogo — só as
+// peças. As chances são forçadas na mão (DB.CONFIG) pra não depender de sorte.
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+let falhas = 0;
+const ok = (t, c) => { if (!c) falhas++; p(`${t}: ${c ? "OK" : "FALHOU"}`, c ? "ok" : "erro"); };
+
+try {
+  const { DB } = await import("/src/data/index.js");
+  const { createMon, sortearBrilho } = await import("/src/systems/mon.js");
+  const F = await import("/src/systems/fusao.js");
+  const { rollEncounter } = await import("/src/systems/encounters.js");
+  const { Assets } = await import("/src/core/assets.js");
+  const { LEILOEIROS } = await import("/src/data/leilao.js");
+
+  h("A CHANCE");
+  ok("CONFIG tem luminosoOdds", DB.CONFIG.luminosoOdds === 1 / 9999);
+  p(`luminoso 1 em ${Math.round(1 / DB.CONFIG.luminosoOdds)}, shiny 1 em ${Math.round(1 / DB.CONFIG.shinyOdds)}`);
+  ok("o luminoso é mais raro que o shiny", DB.CONFIG.luminosoOdds < DB.CONFIG.shinyOdds);
+
+  const lumOrig = DB.CONFIG.luminosoOdds, shiOrig = DB.CONFIG.shinyOdds;
+  const comAs = (lum, shi, f) => {
+    DB.CONFIG.luminosoOdds = lum; DB.CONFIG.shinyOdds = shi;
+    try { return f(); } finally { DB.CONFIG.luminosoOdds = lumOrig; DB.CONFIG.shinyOdds = shiOrig; }
+  };
+
+  h("SORTEIO");
+  ok("com chance 1, sai luminoso e NÃO sai shiny",
+    comAs(1, 1, () => { const b = sortearBrilho(); return b.luminoso === true && b.shiny === false; }));
+  ok("sem luminoso, o shiny continua saindo",
+    comAs(0, 1, () => { const b = sortearBrilho(); return b.luminoso === false && b.shiny === true; }));
+  ok("sem nenhum dos dois, sai comum",
+    comAs(0, 0, () => { const b = sortearBrilho(); return !b.luminoso && !b.shiny; }));
+  ok("shiny já decidido de fora (a fenda) vale",
+    comAs(0, 0, () => sortearBrilho({ shiny: true }).shiny === true));
+  ok("e o luminoso ganha do shiny decidido de fora",
+    comAs(1, 0, () => { const b = sortearBrilho({ shiny: true }); return b.luminoso && !b.shiny; }));
+  const dobro = comAs(0.5, 0.5, () => {
+    let ambos = 0, cont = { lum: 0, shi: 0, comum: 0 };
+    for (let i = 0; i < 4000; i++) {
+      const b = sortearBrilho();
+      if (b.luminoso && b.shiny) ambos++;
+      cont[b.luminoso ? "lum" : b.shiny ? "shi" : "comum"]++;
+    }
+    return { ambos, cont };
+  });
+  p(`4000 sorteios a 50%/50%: ${JSON.stringify(dobro.cont)}`);
+  ok("nunca sai luminoso E shiny no mesmo bicho", dobro.ambos === 0);
+  ok("a sorte do sanduíche multiplica as duas",
+    comAs(0.01, 0, () => {
+      let n = 0;
+      for (let i = 0; i < 2000; i++) if (sortearBrilho({ sorte: 3 }).luminoso) n++;
+      return n > 40;                       // ~60 esperados; 20 sem a sorte
+    }));
+
+  h("O BICHO");
+  const lum = createMon("pikachu", 5, { luminoso: true });
+  ok("createMon guarda o luminoso", lum.luminoso === true && lum.shiny === false);
+  ok("bicho comum nasce com luminoso false", createMon("pikachu", 5).luminoso === false);
+  const mapa = Object.keys(DB.MAPS).find((id) => DB.MAPS[id].encounters?.length);
+  const enc = comAs(1, 0, () => rollEncounter(mapa, 0, false, 1));
+  ok(`o mato entrega luminoso (${mapa})`, !!enc?.mon?.luminoso && !enc.mon.shiny);
+
+  h("O DESENHO");
+  Assets.init();
+  const arte = Assets.mon("pikachu", 7);
+  const comum = Assets.comCor(arte, { });
+  const shi = Assets.comCor(arte, { shiny: true });
+  const aceso = Assets.comCor(arte, { luminoso: true });
+  ok("comum devolve a arte crua", comum === arte);
+  ok("shiny e luminoso são artes diferentes", shi !== arte && aceso !== arte && aceso !== shi);
+  ok("luminoso ganha do shiny quando os dois estão marcados",
+    Assets.comCor(arte, { shiny: true, luminoso: true }) === aceso);
+  ok("o mesmo tamanho da arte original", aceso.width === arte.width && aceso.height === arte.height);
+  ok("guarda em cache (não redesenha por quadro)", Assets.comCor(arte, { luminoso: true }) === aceso);
+  const px = (cv) => { const c = cv.getContext("2d", { willReadFrequently: true }); return c.getImageData(0, 0, cv.width, cv.height).data; };
+  const brilho = (d) => { let s = 0, n = 0; for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 8) continue; s += d[i] + d[i + 1] + d[i + 2]; n++; } return n ? s / n : 0; };
+  const opacos = (d) => { let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 8) n++; return n; };
+  const dA = px(aceso), dC = px(arte.getContext ? arte : aceso);
+  p(`brilho médio: comum ${brilho(dC).toFixed(0)} -> luminoso ${brilho(dA).toFixed(0)}`);
+  ok("o luminoso é mais claro que a arte crua", brilho(dA) > brilho(dC));
+  ok("e ocupa mais pixels: o halo vaza pela borda", opacos(dA) > opacos(dC));
+
+  h("A FUSÃO");
+  const estado = { party: [], boxes: [], fusoes: {} };
+  F.ligarEstado(estado);
+  const a = createMon("bulbasaur", 10, { luminoso: true });
+  const b = createMon("charmander", 10);
+  const fus = F.fundir(a, b);
+  ok("luminoso + comum = fusão luminosa", fus.luminoso === true && fus.shiny === false);
+  ok("a luz pega nos dois que ficam guardados",
+    fus.fusao.cabeca.luminoso === true && fus.fusao.corpo.luminoso === true);
+  DB.SPECIES[fus.species] = F.montarEspecie("bulbasaur", "charmander");
+  const [c1, c2] = F.separar(fus);
+  ok("separar devolve os dois acesos", c1.luminoso === true && c2.luminoso === true);
+  const fus2 = F.fundir(createMon("squirtle", 9, { luminoso: true }), createMon("pidgey", 9, { shiny: true }));
+  ok("luminoso + shiny = luminoso (e o shiny some)", fus2.luminoso === true && fus2.shiny === false);
+  const fus3 = F.fundir(createMon("rattata", 8, { shiny: true }), createMon("caterpie", 8));
+  ok("shiny + comum continua shiny, sem virar luminoso", fus3.shiny === true && fus3.luminoso === false);
+
+  h("A REDE");
+  const O = (await import("/src/systems/online.js")).Online;
+  const pacote = O.empacota(lum);
+  ok("empacota manda o luminoso", pacote.luminoso === true);
+  ok("e volta luminoso do outro lado", O.sanea(pacote)?.luminoso === true);
+  ok("um pacote velho, sem o campo, vira bicho comum",
+    O.sanea({ ...pacote, luminoso: undefined })?.luminoso === false);
+
+  h("O LEILÃO");
+  ok("o luminoso paga mais que o shiny", LEILOEIROS.bonusLuminoso > LEILOEIROS.bonusShiny);
+  const L = await import("/src/systems/leilao.js");
+  p(`bônus: shiny x${LEILOEIROS.bonusShiny}, luminoso x${LEILOEIROS.bonusLuminoso}`);
+  ok("tem fala de venda pro luminoso", typeof DB.STORY.leilao.luminoso === "string");
+
+  h("A LETRA");
+  const fonte = await import("/src/core/font.js");
+  const cv = document.createElement("canvas");
+  cv.width = 40; cv.height = 12;
+  const c2d = cv.getContext("2d", { willReadFrequently: true });
+  fonte.drawText(c2d, "☼", 0, 0, "#ffffff");
+  let acesos = 0;
+  const d = c2d.getImageData(0, 0, cv.width, cv.height).data;
+  for (let i = 3; i < d.length; i += 4) if (d[i] > 8) acesos++;
+  ok(`a marca ☼ tem desenho na fonte (${acesos} pixels)`, acesos > 6);
+} catch (e) {
+  falhas++;
+  p("EXPLODIU: " + (e?.stack || e), "erro");
+}
+p(falhas ? `${falhas} FALHA(S)` : "TUDO OK", falhas ? "erro" : "ok");
+out.innerHTML = linhas.join("");
+const texto = linhas.join("\n").replace(/<h2>/g, "\n").replace(/<[^>]+>/g, "");
+try { await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "luminoso", log: texto }) }); } catch (e) {}
+document.title = "pronto";
+</script>
+</body>
+</html>
