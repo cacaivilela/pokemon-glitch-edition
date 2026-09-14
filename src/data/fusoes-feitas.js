@@ -1443,5 +1443,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/pinsir+persian~pirsian.png",
       "lore": "PINSIR NA CABEÇA, PERSIAN NO CORPO."
     }
+  ],
+  "slowbro+onix": [
+    {
+      "id": "slonix",
+      "nome": "SLONIX",
+      "autor": "",
+      "tipos": [
+        "ÁGUA",
+        "TERRA"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 2,
+        "atk": 2.3,
+        "def": 6.6,
+        "spa": 2.9,
+        "spd": 6.6,
+        "spe": 0.1
+      },
+      "sprite": "assets/fusoes/slowbro+onix~slonix.png",
+      "lore": "SLOWBRO NA CABEÇA, ONIX NO CORPO."
+    }
   ]
 };
