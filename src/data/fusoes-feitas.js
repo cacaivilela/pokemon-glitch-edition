@@ -1414,5 +1414,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/moltres+chandelure~more.png",
       "lore": "MOLTRES NA CABEÇA, CHANDELURE NO CORPO."
     }
+  ],
+  "pinsir+persian": [
+    {
+      "id": "pirsian",
+      "nome": "PIRSIAN",
+      "autor": "",
+      "tipos": [
+        "INSETO",
+        "NORMAL"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 2,
+        "atk": 5.1,
+        "def": 2.6,
+        "spa": 5.8,
+        "spd": 4.1,
+        "spe": 2.3
+      },
+      "sprite": "assets/fusoes/pinsir+persian~pirsian.png",
+      "lore": "PINSIR NA CABEÇA, PERSIAN NO CORPO."
+    }
   ]
 };
