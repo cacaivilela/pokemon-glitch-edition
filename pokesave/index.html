@@ -31,6 +31,7 @@
   .mon { background: var(--panel2); border: 2px solid var(--line); border-radius: 6px; padding: 6px; text-align: center; cursor: pointer; }
   .mon:hover { border-color: var(--glitch); }
   .mon[aria-selected="true"] { border-color: var(--neon); box-shadow: 0 0 0 2px rgba(0,255,204,.3); }
+  .mon:focus-visible { outline: 2px solid var(--glitch); outline-offset: 1px; }
   .mon img { width: 64px; height: 64px; image-rendering: pixelated; display: block; margin: 0 auto; }
   .mon .nome { font-size: 11px; word-break: break-word; }
   .mon .reg { font-size: 9px; color: var(--glitch); }
@@ -65,6 +66,7 @@
         <option value="regional">só formas regionais</option>
         <option value="fora">só os de fora</option>
       </select>
+      <button id="sortear" title="um Pokémon qualquer da lista de agora">🎲 Sortear</button>
     </div>
     <div class="grade" id="grade"></div>
   </section>
@@ -82,14 +84,15 @@
     <button id="copiar" disabled style="width:100%;margin-top:6px">Copiar link</button>
     <div id="msg"></div>
     <div class="aviso">COMEÇAR cria uma partida NOVA e apaga a atual deste navegador/servidor. Salve o que quiser guardar antes — ou copie o link e abra em outro perfil.</div>
-    <p class="dica">Você nasce onde escolher, no nível que escolher, sozinho na equipe. Luta como qualquer Pokémon, pega os outros, sobe de nível e evolui — e quando evolui, o mapa evolui junto. <b>Sendo Pokémon, você faz o que o seu tipo faz</b>: de VOADOR voa, de ÁGUA nada, de LUTADOR/PEDRA/TERRA empurra e quebra pedra, de PLANTA/INSETO corta — sem precisar do golpe. E <b>tem sempre um caçador atrás de você</b>: em todo mapa de fora um treinador aparece longe e vem andando; quando encosta, é batalha, sem pergunta. Vencer paga, e ele some por uns minutos.</p>
+    <p class="dica">Você nasce onde escolher, no nível que escolher, sozinho na equipe. Luta como qualquer Pokémon, pega os outros, sobe de nível e evolui — e quando evolui, o mapa evolui junto. <b>Sendo Pokémon, você faz o que o seu tipo faz</b>: de VOADOR/DRAGÃO voa de verdade (por cima de tudo), de ÁGUA nada, de LUTADOR/PEDRA/TERRA empurra e quebra pedra, de PLANTA/INSETO corta — sem precisar do golpe. <b>O tempo corre 60×</b>: um dia do jogo dura meio minuto.</p>
+    <p class="dica"><b>E tem sempre um caçador atrás de você.</b> Ele sai de Pallet e te segue de mapa em mapa, caçando o que vê pelo caminho e crescendo com isso — pega bicho, sobe de nível, ganha insígnia. Quando encosta, é batalha sem pergunta; antes dela <b>ele joga uma bola em você</b>, e você decide entrar ou resistir. Pego, você é dele: continua andando, mas na batalha <b>quem manda é ele</b> — obedeça ou desobedeça (e desobedecer deixa ele bravo). Dá pra ficar na bola e ver o mundo pelo vidro, dá pra fugir enquanto ele dorme no Centro Pokémon de noite — e aí ele acorda com a bola vazia e você vira o fugitivo dele. Vencer paga, e ele some por uns minutos.</p>
   </section>
 </main>
 
 <script type="module">
 import { DB } from "../src/data/index.js";
 import { Assets } from "../src/core/assets.js";
-import { pedirMon } from "../src/core/sprites.js";
+import { pedirMon, SpriteStore } from "../src/core/sprites.js";
 import { url } from "../src/core/base.js";
 import { codigo, mapasDeNascer } from "../src/systems/pokesave.js";
 
@@ -98,15 +101,19 @@ const pad3 = (n) => String(n).padStart(3, "0");
 const semAcento = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 Assets.init?.();
 
+// Quem entra: tudo que lerCodigo() aceita (src/systems/pokesave.js) menos o
+// MISSINGNO., que não tem sprite de mapa. O ?????????? tem dex 0 e entra —
+// ele mora no jogo base agora, não só no DLC. Sem número vai pro fim.
 const ESPECIES = Object.values(DB.SPECIES)
-  .filter((sp) => !sp.mega && !sp.fusao && sp.id !== "missingno" && (sp.dex > 0 || sp.dlc))
+  .filter((sp) => !sp.mega && !sp.fusao && sp.id !== "missingno")
   .sort((a, b) => (a.dex || 9999) - (b.dex || 9999) || a.name.localeCompare(b.name));
 let escolhido = null;
 
 function arte(sp) {
   const img = new Image();
   img.width = img.height = 64; img.alt = sp.name; img.loading = "lazy";
-  img.src = url(`assets/sprites/pokemon/${pad3(sp.spriteDex || sp.dex)}.png`);
+  const n = sp.spriteDex || sp.dex;                 // dex 0 (??????????) é achado pelo id, como no jogo
+  img.src = url(`assets/sprites/pokemon/${n ? pad3(n) : sp.id}.png`);
   img.onerror = () => { img.style.visibility = "hidden"; };
   return img;
 }
@@ -127,24 +134,34 @@ function render() {
   for (const sp of lista) {
     const el = document.createElement("div");
     el.className = "mon"; el.setAttribute("aria-selected", escolhido === sp);
+    el.tabIndex = 0; el.setAttribute("role", "option");
+    el.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); el.click(); } };
     el.appendChild(arte(sp));
     const n = document.createElement("div"); n.className = "nome"; n.textContent = sp.name; el.appendChild(n);
     if (sp.regiao) { const r = document.createElement("div"); r.className = "reg"; r.textContent = sp.regiao; el.appendChild(r); }
-    el.onclick = () => { escolhido = sp; render(); previa(); };
+    el.onclick = () => { escolhido = sp; render(); previa(); grade.querySelector('[aria-selected="true"]')?.focus(); };
+    el._sp = sp;
     grade.appendChild(el);
   }
 }
 
+let previaN = 0;
 async function previa() {
   const cv = $("previa"), c = cv.getContext("2d");
   c.imageSmoothingEnabled = false; c.fillStyle = "#7ec850"; c.fillRect(0, 0, 96, 96);
   $("comecar").disabled = $("copiar").disabled = !escolhido;
   if (!escolhido) return;
-  $("quem").textContent = escolhido.name; $("tipos").textContent = (escolhido.types || []).join("/") + (escolhido.regiao ? " · " + escolhido.regiao : "");
-  pedirMon(escolhido.id, escolhido.spriteDex || escolhido.dex);
-  await new Promise((r) => setTimeout(r, 250));
+  const sp = escolhido, minha = ++previaN;
+  $("quem").textContent = sp.name; $("tipos").textContent = (sp.types || []).join("/") + (sp.regiao ? " · " + sp.regiao : "");
+  pedirMon(sp.id, sp.spriteDex || sp.dex);
+  // espera o sprite chegar (ou o jogo desistir dele) em vez de contar um
+  // tempo fixo; se a escolha mudou no meio, quem desenha é a chamada nova
+  for (let i = 0; i < 60 && !SpriteStore.pokemon[sp.id] && !SpriteStore.missing.has(sp.id); i++) {
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  if (minha !== previaN) return;
   const cor = $("cor").value;
-  const img = Assets.comCor(Assets.mon(escolhido.id, 7), { shiny: cor === "shiny", luminoso: cor === "luminoso" });
+  const img = Assets.comCor(Assets.mon(sp.id, 7), { shiny: cor === "shiny", luminoso: cor === "luminoso" });
   c.fillRect(0, 0, 96, 96); c.drawImage(img, 16, 16, 64, 64);
 }
 
@@ -153,6 +170,13 @@ $("mapa").value = "route1";
 const nivel = () => Math.max(1, Math.min(100, Math.round(+$("nivel").value || 5)));
 const link = () => `${location.origin}${url("")}?pokesave=${encodeURIComponent(codigo(escolhido.id, $("cor").value, nivel(), $("mapa").value, ($("nome").value || "").trim()))}`;
 $("busca").oninput = $("grupo").onchange = render;
+$("sortear").onclick = () => {
+  const lista = [...$("grade").children].map((el) => el._sp).filter(Boolean);
+  if (!lista.length) return;
+  escolhido = lista[Math.floor(Math.random() * lista.length)];
+  render(); previa();
+  $("grade").querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
+};
 $("cor").onchange = previa;
 $("comecar").onclick = () => { if (confirm("Começar uma partida nova? A atual será apagada.")) location.href = link(); };
 $("copiar").onclick = async () => {

@@ -39,6 +39,7 @@
   }
   #oficina a { color:#8f6bd8; text-decoration:none; }
   #oficina a:hover { color:#b455ff; text-decoration:underline; }
+  #locais:not([hidden]) { display:block; }   /* as locais numa linha só delas */
   /* o aviso de que isto não é oficial: fica embaixo da tela, sempre visível */
   #aviso {
     position:absolute; left:0; right:0; bottom:-80px;
@@ -82,6 +83,10 @@
       &middot; 🌀 <a href="glitchzone/">GLITCHZONE — montar glitch zones</a>
       &middot; 🎁 <a href="dlc/">DLC — pacotes extras</a>
       &middot; 🐾 <a href="pokesave/">POKÉSAVE — jogar como um Pokémon</a>
+      <span id="locais" hidden>
+        &middot; 💾 <a href="giveglitch/">GIVEGLITCH — o terminal do professor</a>
+        &middot; 🧹 <a href="faxinamissingno/">FAXINA MISSINGNO. — o acervo de fusões</a>
+      </span>
     </p>
     <p id="aviso">
       <strong>Fangame não oficial.</strong> Feito por fã, sem fins lucrativos e
@@ -104,6 +109,14 @@
         show("ERRO: " + (e.message || e.error) + "\n  " + (e.filename || "") + ":" + (e.lineno || "")));
       window.addEventListener("unhandledrejection", (e) => show("PROMISE: " + (e.reason?.stack || e.reason)));
     })();
+  </script>
+  <script>
+    // As oficinas que só fazem sentido com o dev_server do lado (o giveglitch
+    // escreve no save.json, a faxina fala com /__faxina) aparecem só quando o
+    // jogo está sendo servido dele — no site publicado o link levaria a uma
+    // página que não tem com quem falar.
+    if (!/\.github\.io$/.test(location.hostname) && location.protocol !== "file:")
+      document.getElementById("locais").hidden = false;
   </script>
   <script type="module" src="src/main.js"></script>
 </body>

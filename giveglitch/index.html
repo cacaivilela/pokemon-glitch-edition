@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>giveglitch — Pokémon Glitch Edition</title>
+<meta name="description" content="O terminal do professor, fora do jogo: qualquer Pokémon do Pokémon Glitch Edition direto no seu save, no nível e na cor que você quiser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230e0b18'/><text y='.9em' font-size='78'>💾</text></svg>">
 <style>
   :root {
     --bg: #14101f; --panel: #1e1830; --panel2: #272040; --line: #3d3160;
@@ -19,6 +21,7 @@
     background: linear-gradient(180deg, #241b3c, #14101f);
     display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
   }
+  header a { color: #00ffcc; font-size: 12px; }
   h1 { margin: 0; font-size: 18px; letter-spacing: 2px; text-transform: uppercase; }
   h1 span { color: var(--glitch); }
   .sub { color: var(--ink2); }
@@ -68,8 +71,9 @@
 <header>
   <h1>give<span>glitch</span></h1>
   <div class="sub" id="status">lendo o save...</div>
-  <div style="margin-left:auto; display:flex; gap:8px">
+  <div style="margin-left:auto; display:flex; gap:8px; align-items:center">
     <button id="recarregar">Reler save</button>
+    <a href="../">← voltar pro jogo</a>
   </div>
 </header>
 
@@ -82,6 +86,7 @@
         <option value="todos">todos</option>
         <option value="kanto">só Kanto</option>
         <option value="fenda">só os da fenda</option>
+        <option value="regional">só formas regionais</option>
       </select>
     </div>
     <div class="grade" id="grade"></div>
@@ -111,20 +116,23 @@
 </main>
 
 <script type="module">
-import { DB } from "/src/data/index.js";
-import { createMon } from "/src/systems/mon.js";
-import { Save } from "/src/core/save.js";
+import { DB } from "../src/data/index.js";
+import { createMon } from "../src/systems/mon.js";
+import { Save } from "../src/core/save.js";
+import { url } from "../src/core/base.js";
 
 const $ = (id) => document.getElementById(id);
 const pad3 = (n) => String(n).padStart(3, "0");
 const semAcento = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 // as formas MEGA ficam de fora: elas só existem dentro da batalha (baixar uma
-// deixaria um Pokémon megado pra sempre, que é justo o que o jogo não permite)
-const ESPECIES = Object.values(DB.SPECIES).filter((sp) => !sp.mega)
-  .sort((a, b) => (a.dex || 999) - (b.dex || 999));
+// deixaria um Pokémon megado pra sempre, que é justo o que o jogo não permite).
+// As fusões também: fusão sai do DECODIFICADOR, com dois Pokémon seus dentro.
+const ESPECIES = Object.values(DB.SPECIES).filter((sp) => !sp.mega && !sp.fusao)
+  .sort((a, b) => (a.dex || 9999) - (b.dex || 9999) || a.name.localeCompare(b.name));
 let escolhido = null;
 let save = null;
+let onde = "save/save.json";      // onde o save mora: o arquivo do dev_server, ou o navegador (site publicado)
 
 /** o sprite pode não ter sido baixado: cai num quadrado da cor do tipo */
 function arte(sp, tam = 64) {
@@ -132,7 +140,9 @@ function arte(sp, tam = 64) {
   img.width = img.height = tam;
   img.alt = sp.name;
   img.loading = "lazy";
-  img.src = `/assets/sprites/pokemon/${pad3(sp.dex)}.png`;
+  // o mesmo caminho do jogo (findMon): a forma (spriteDex) ou o nº da Pokédex; dex 0 é pelo id
+  const n = sp.spriteDex || sp.dex;
+  img.src = url(`assets/sprites/pokemon/${n ? pad3(n) : sp.id}.png`);
   img.onerror = () => {
     const ph = document.createElement("div");
     ph.className = "ph";
@@ -149,6 +159,7 @@ async function lerSave() {
   if (!save?.player) {
     st.innerHTML = '<span style="color:var(--bad)">nenhum save encontrado</span> — abra o jogo, comece uma partida e volte aqui';
   } else {
+    onde = Save.offline() ? "neste navegador" : "save/save.json";
     save.party ||= []; save.box ||= []; save.seen ||= {}; save.caught ||= {};
     st.textContent = `${save.player.name} · $${save.money ?? 0} · ${(save.badges || []).length} insígnia(s) · `
       + `equipe ${save.party.length}/6 · box ${save.box.length} · ${save.player.map}`;
@@ -175,8 +186,7 @@ function desenhaEquipe() {
     bt.textContent = "tirar";
     bt.onclick = async () => {
       save.party.splice(i, 1);
-      await Save.write(save);
-      msg("ok", `${mon.nickname} saiu da equipe.`);
+      if (await gravar()) msg("ok", `${mon.nickname} saiu da equipe.`);
       lerSave();   // relê do arquivo
     };
     li.append(txt, bt);
@@ -189,11 +199,23 @@ function msg(tipo, texto) {
   $("msg").textContent = texto;
 }
 
+/** Grava e diz se gravou. Save.write devolve "ok", "conflito" ou "erro" — três
+ *  strings, todas verdadeiras, e um `if (!await Save.write())` deixava passar
+ *  as três como sucesso. O conflito é o jogo aberto em outra aba tendo gravado
+ *  algo mais novo: não se escreve por cima, relê e tenta de novo. */
+async function gravar() {
+  const r = await Save.write(save);
+  if (r === "ok") return true;
+  if (r === "conflito") msg("warn", "o jogo gravou algo mais novo enquanto isso — reli o save, tente de novo");
+  else msg("bad", Save.offline() ? "não deu pra gravar no navegador" : "não deu pra gravar — o dev_server.py está rodando?");
+  return false;
+}
+
 function atualizaBotoes() {
   $("enviar").disabled = !escolhido || !save?.player;
   $("link").disabled = !escolhido;
   $("aviso").textContent = save?.player
-    ? "O save é um arquivo só (save/save.json). Com o jogo aberto, recarregue a aba dele depois de enviar — senão o autosave grava por cima."
+    ? `O save é um só (${onde}). Com o jogo aberto, recarregue a aba dele depois de enviar — senão o autosave grava por cima.`
     : "";
 }
 
@@ -206,8 +228,9 @@ function desenhaGrade() {
   for (const sp of ESPECIES) {
     if (grupo === "kanto" && sp.foreign) continue;
     if (grupo === "fenda" && !sp.foreign) continue;
+    if (grupo === "regional" && !sp.regiao) continue;
     if (termo) {
-      const alvo = semAcento(`${sp.name} ${sp.id} ${sp.dex} ${sp.types.join(" ")}`);
+      const alvo = semAcento(`${sp.name} ${sp.id} ${sp.dex} ${sp.types.join(" ")} ${sp.regiao || ""}`);
       if (!alvo.includes(termo)) continue;
     }
     n++;
@@ -227,7 +250,7 @@ function desenhaGrade() {
     if (sp.foreign) {
       const t = document.createElement("span");
       t.className = "tag";
-      t.textContent = "FENDA";
+      t.textContent = sp.regiao || "FENDA";
       div.append(t);
     }
     const escolher = () => selecionar(sp);
@@ -240,7 +263,7 @@ function desenhaGrade() {
 
 function selecionar(sp) {
   escolhido = sp;
-  $("escolhido").innerHTML = `<b>${sp.name}</b> — ${sp.types.join("/")} · BST ${sp.bst ?? "?"}`
+  $("escolhido").innerHTML = `<b>${sp.name}</b> — ${sp.types.join("/")}${sp.regiao ? " · " + sp.regiao : ""} · BST ${sp.bst ?? "?"}`
     + `<br><span class="sub">${sp.dexText || ""}</span>`;
   $("apelido").placeholder = sp.name;
   desenhaGrade();
@@ -263,19 +286,19 @@ $("enviar").onclick = async () => {
   (paraBox ? save.box : save.party).push(mon);
   save.seen[escolhido.id] = true;
   save.caught[escolhido.id] = true;
-  if (!(await Save.write(save))) return msg("bad", "não deu pra gravar — o dev_server.py está rodando?");
+  if (!(await gravar())) return lerSave();
   msg("ok", `${mon.nickname} nv${mon.level} foi pro ${paraBox ? "box" : "equipe"}. Recarregue a aba do jogo.`);
   lerSave();
 };
 
 $("link").onclick = async () => {
   const nivel = Math.max(1, Math.min(100, +$("nivel").value || 5));
-  const url = `${location.origin}/?give=${escolhido.id}:${nivel}`;
+  const link = `${location.origin}${url("")}?give=${escolhido.id}:${nivel}`;
   try {
-    await navigator.clipboard.writeText(url);
-    msg("ok", "link copiado: " + url);
+    await navigator.clipboard.writeText(link);
+    msg("ok", "link copiado: " + link);
   } catch {
-    msg("warn", "copie na mão: " + url);
+    msg("warn", "copie na mão: " + link);
   }
 };
 

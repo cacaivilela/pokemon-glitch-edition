@@ -171,10 +171,12 @@
   <strong>Como levar pro jogo:</strong> clique em <strong>BAIXAR A FICHA</strong> e guarde o arquivo.
   No jogo, abra o <code>DECODIFICADOR DE GENOMA</code> → <code>OFICINA</code> → <code>IMPORTAR FICHA</code> e escolha o arquivo.
   A fusão passa a existir na sua partida, com o desenho, o nome, os tipos e o crescimento que você deu.
-  O botão <strong>Publicar no meu jogo</strong> faz tudo de uma vez: grava no jogo que está rodando na sua
+  O botão <strong>PUBLICAR (jogo + código)</strong> faz tudo de uma vez: grava no jogo que está rodando na sua
   máquina <em>e</em> manda a ficha pro código, no repositório. Um clique, e quem baixar o jogo já vem com ela.
-  (Ele funciona sempre que a página é aberta <strong>pelo próprio jogo</strong>, em
-  <code>localhost:5173/fusionglitch/</code>.)
+  (Ele funciona sempre que a página é aberta <strong>pelo próprio jogo</strong> — <code>localhost:5173/fusionglitch/</code>
+  ou a porta que o <code>run.sh</code> subiu — e, aberta de fora, ele ainda procura o jogo nas portas de sempre.)
+  A lista tem tudo que o DECODIFICADOR aceita: os 151 de Kanto, o que vaza da fenda, as formas regionais
+  (<code>VULPIX-ALOLA</code>), os PIKACHU de boné e o <code>??????????</code>.
   <br><br>
   Fangame não oficial, sem fins lucrativos e sem nenhuma ligação com a Nintendo, a Creatures ou a Game Freak.
   Os sprites vêm do <a href="https://cacaivilela.github.io/pokemon-glitch-edition/" style="color:var(--neon)">Pokémon Glitch Edition</a>.
@@ -190,10 +192,14 @@ import { ESPECIES } from "./especies.js";
 // sprites são do mesmo endereço e a rota /__ficha também. É isso que faz o
 // PUBLICAR funcionar sem pedir licença a ninguém.
 //
-// Aberta de outro lugar (o atalho cacaivilela.github.io/fusionglitch), ela
-// aponta pro jogo publicado, que manda `access-control-allow-origin: *` — dá
-// pra ler os pixels dos sprites e exportar o desenho mesmo assim.
-const DENTRO_DO_JOGO = /\/fusionglitch\/?$/.test(location.pathname) && location.pathname !== "/fusionglitch/";
+// Aberta de outro lugar — o atalho cacaivilela.github.io/fusionglitch (que hoje
+// só redireciona pra cá, mas uma cópia velha pode ter ficado em cache) ou o
+// arquivo solto no disco —, ela aponta pro jogo publicado, que manda
+// `access-control-allow-origin: *`: dá pra ler os pixels dos sprites e exportar
+// o desenho mesmo assim. Em localhost:5173/fusionglitch/ o caminho também é
+// "/fusionglitch/", e isso NÃO é estar fora: o vizinho de cima é o dev_server.
+const DENTRO_DO_JOGO = location.protocol !== "file:"
+  && !(location.hostname.endsWith("github.io") && /^\/fusionglitch\/?$/.test(location.pathname));
 const JOGO = DENTRO_DO_JOGO ? ".." : "https://cacaivilela.github.io/pokemon-glitch-edition";
 const LADO = 64;
 
@@ -233,19 +239,32 @@ const estado = {
 };
 
 // ------------------------------------------------------------- as espécies
-const porId = new Map(ESPECIES.map((sp) => [sp.id, sp]));
+/** Como a espécie aparece na lista: `025 PIKACHU`, `037 VULPIX-ALOLA`, e só o
+ *  nome pra quem não tem número (MISSINGNO., ??????????). */
+const rotulo = (sp) => (sp.dex ? `${String(sp.dex).padStart(3, "0")} ${sp.nome}` : sp.nome);
 $("lista").innerHTML = ESPECIES
-  .map((sp) => `<option value="${String(sp.dex).padStart(3, "0")} ${sp.nome}">`).join("");
+  .map((sp) => `<option value="${rotulo(sp)}"${sp.regiao ? ` label="${sp.regiao}"` : ""}>`).join("");
 
 const limpaTexto = (t) => String(t).toLowerCase().replace(/[^a-z0-9]+/g, "");
 
+/** Acha pelo que foi digitado: o rótulo inteiro da lista, o nome, o id, ou o
+ *  número — e o número sozinho é a forma de Kanto (037 é o VULPIX; o de Alola
+ *  se escolhe pelo nome ou pela lista). Aceita "MR. MIME", "mr mime", "vulpix
+ *  alola", "decamark". Um nome que só existe como pedaço (PIKA) acha o
+ *  primeiro que começa com ele. */
 function acharEspecie(texto) {
   const cru = String(texto || "").trim();
   if (!cru) return null;
+  const maiusculo = cru.toUpperCase();
+  const exato = ESPECIES.find((sp) => rotulo(sp) === maiusculo || sp.nome === maiusculo);
+  if (exato) return exato;
   const so = cru.split(" ")[0];
-  if (/^\d+$/.test(so)) return ESPECIES.find((sp) => sp.dex === parseInt(so, 10)) || null;
-  if (limpaTexto(cru) === "missingno") return ESPECIES.find((sp) => sp.id === "missingno") || null;
+  if (/^\d+$/.test(so)) {
+    const iguais = ESPECIES.filter((sp) => sp.dex === parseInt(so, 10));
+    return iguais.find((sp) => !sp.regiao && !sp.sprite) || iguais[0] || null;
+  }
   const alvo = limpaTexto(cru);
+  if (!alvo) return null;
   return ESPECIES.find((sp) => sp.id === alvo || limpaTexto(sp.nome) === alvo)
       || ESPECIES.find((sp) => sp.id.startsWith(alvo)) || null;
 }
@@ -276,15 +295,18 @@ function nullmon(lado = 64) {
   return cv;
 }
 
+// O arquivo do sprite: o nº da Pokédex com três dígitos, ou o que a lista
+// mandar (`sprite`: a forma na PokeAPI pra VULPIX-ALOLA e os bonés, "decamark"
+// pro ??????????). Quem não tem nenhum dos dois é o MISSINGNO., feito em código.
+const arquivoSprite = (sp) => sp.sprite || (sp.dex ? String(sp.dex).padStart(3, "0") : null);
 const spriteUrl = (sp) =>
-  sp.dex ? `${JOGO}/assets/sprites/pokemon/${String(sp.dex).padStart(3, "0")}.png`
-         : nullmon().toDataURL();
+  arquivoSprite(sp) ? `${JOGO}/assets/sprites/pokemon/${arquivoSprite(sp)}.png` : nullmon().toDataURL();
 
 const cacheImg = new Map();
 function carregar(sp) {
   if (cacheImg.has(sp.id)) return cacheImg.get(sp.id);
   const p = new Promise((resolve) => {
-    if (!sp.dex) return resolve(nullmon());     // o que não tem arquivo, desenha
+    if (!arquivoSprite(sp)) return resolve(nullmon());   // o que não tem arquivo, desenha
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
@@ -299,7 +321,8 @@ async function escolher(lado, texto) {
   const sp = acharEspecie(texto);
   estado[lado] = sp;
   $(lado === "cabeca" ? "nomeCabeca" : "nomeCorpo").textContent = sp ? sp.nome : "—";
-  $(lado === "cabeca" ? "tipoCabeca" : "tipoCorpo").textContent = sp ? sp.tipos.join("/") : "";
+  $(lado === "cabeca" ? "tipoCabeca" : "tipoCorpo").textContent =
+    sp ? sp.tipos.join("/") + (sp.regiao ? ` · ${sp.regiao}` : "") : "";
   const img = $(lado === "cabeca" ? "imgCabeca" : "imgCorpo");
   img.src = sp ? spriteUrl(sp) : "";
   if (estado.cabeca && estado.corpo) {
@@ -326,10 +349,18 @@ function nomeFusao(a, b) {
   return (A.slice(0, corte) + B.slice(ini)).slice(0, 11);
 }
 
+/** O nome que entra na conta do nome da fusão: sem a região (VULPIX-ALOLA é
+ *  VULPIX — "VULPIXALOMANDER" não é nome de ninguém) e, nos bonés, o bicho
+ *  inteiro (PIKA KANTO é PIKACHU). */
+function nomeBase(sp) {
+  if (sp.regiao === "BONÉ") return sp.nome.split(" ")[0].replace(/^PIKA$/, "PIKACHU").replace(/^RAI$/, "RAICHU");
+  return sp.regiao ? sp.nome.replace(/-[A-ZÁ-Ú]+$/, "") : sp.nome;
+}
+
 function sugerirFicha() {
   const { cabeca, corpo } = estado;
   if (!cabeca || !corpo) return;
-  if (!$("nome").dataset.mexido) $("nome").value = nomeFusao(cabeca.nome, corpo.nome);
+  if (!$("nome").dataset.mexido) $("nome").value = nomeFusao(nomeBase(cabeca), nomeBase(corpo));
   if (!$("tipo1").dataset.mexido) $("tipo1").value = cabeca.tipos[0];
   if (!$("tipo2").dataset.mexido) $("tipo2").value = corpo.tipos[1] || corpo.tipos[0];
   atualizarPrevia();
@@ -700,7 +731,7 @@ function montarFicha() {
   fixarPeca();                     // o que está solto entra na ficha
   const { cabeca, corpo } = estado;
   if (!cabeca || !corpo) { recado("Escolha a cabeça e o corpo.", "erro"); return null; }
-  const nome = ($("nome").value || nomeFusao(cabeca.nome, corpo.nome)).toUpperCase().slice(0, 11);
+  const nome = ($("nome").value || nomeFusao(nomeBase(cabeca), nomeBase(corpo))).toUpperCase().slice(0, 11);
   const t1 = $("tipo1").value, t2 = $("tipo2").value;
   const tipos = t2 && t2 !== "—" && t2 !== t1 ? [t1, t2] : [t1];
   return {
@@ -773,8 +804,8 @@ $("sortear").onclick = () => {
   const a = ESPECIES[Math.floor(Math.random() * ESPECIES.length)];
   let b = ESPECIES[Math.floor(Math.random() * ESPECIES.length)];
   while (b.id === a.id) b = ESPECIES[Math.floor(Math.random() * ESPECIES.length)];
-  $("cabeca").value = `${String(a.dex).padStart(3, "0")} ${a.nome}`;
-  $("corpo").value = `${String(b.dex).padStart(3, "0")} ${b.nome}`;
+  $("cabeca").value = rotulo(a);
+  $("corpo").value = rotulo(b);
   delete $("nome").dataset.mexido;
   delete $("tipo1").dataset.mexido;
   delete $("tipo2").dataset.mexido;

@@ -131,6 +131,96 @@ na **fusão** — a luz pega igual ao brilho, e ganha dele — e no **leilão**,
 o shiny paga o dobro e o luminoso paga **cinco vezes**. O **sanduíche amargo**
 do acampamento multiplica as duas chances.
 
+## Os MYSTERY EGGS
+
+Em **todo Centro Pokémon** de Kanto (e das Sevii) tem um cientista atrás do
+balcão, do lado da SRTA. JOY, vendendo dois ovos:
+
+| ovo | preço | o que sai |
+|---|---|---|
+| **MYSTERY EGG** | $500 | qualquer Pokémon do jogo, no nível 5 |
+| **SUPER MYSTERY EGG** | $3000 | o mesmo ovo, com o sorteio da forma puxado pra cima |
+
+O ovo racha **pela mochila** (`Z` em cima dele): a espécie é sorteada na hora
+entre **tudo que é jogável** — os 151, as formas regionais e o que vaza de
+outras regiões pela fenda; ficam de fora as MEGA, as fusões e os de tipo
+GLITCH (MISSINGNO., ??????????), e os **lendários entram pesando menos**
+(1/20 de um bicho comum no ovo de $500, 1/5 no SUPER; a lista é a
+`LENDARIOS` de `src/data/leilao.js`). `pool: "kanto"` em `src/data/ovos.js`
+limita aos 151. A **forma** sai de uma tabela por peso. Além das três cores de sempre, ele é o único lugar
+do jogo onde as cruzas com o ALFA saem de propósito:
+
+| forma | MYSTERY EGG | SUPER |
+|---|---|---|
+| comum | 90% | 50% |
+| shiny | 5% | 20% |
+| ALFA | 4% | 18% |
+| **SHINY ALFA** | 0,6% | 7% |
+| LUMINOSO | 0,3% | 3,5% |
+| **LUMINALFA** (luminoso + alfa) | 0,1% | 1,5% |
+
+O alfa nasce nos mesmos `alfaNiveis` acima do nível do ovo que o alfa
+selvagem (ver `src/data/config.js`), e vem com tudo que um alfa tem: tamanho,
+força, a marca. O que nasce vai pra equipe ou, se ela estiver cheia, pro BOX;
+**sem vaga em lugar nenhum o ovo não é gasto** — ele espera você arrumar espaço.
+
+Os dois ovos também **caem na fenda**, raramente, dentro das bolas largadas no
+chão da 011GLITCHDIMENSION110 (`src/data/loot.js`): cerca de uma bola em trinta
+traz o comum, uma em noventa o super. As tabelas, o vendedor e os textos estão
+em `src/data/ovos.js`; o sorteio em `src/systems/ovos.js`. Atalho de dev:
+`?ovos=3` na URL põe três de cada na mochila.
+
+## As HABILIDADES e o clima
+
+Toda espécie tem uma habilidade — escrita à mão em `src/data/habilidades.js`
+(`HABILIDADE_DE`) ou a padrão do tipo primário (`HABILIDADE_POR_TIPO`). Ela é da
+espécie, não do bicho: nada vai pro save, fusão usa a da CABEÇA, mega usa a da
+espécie de origem. Aparece na ficha da equipe, embaixo do nome.
+
+O **clima** existe só dentro da batalha: **chuva** (ÁGUA 1,5x, FOGO 0,5x) e
+**sol** (FOGO 1,5x, ÁGUA 0,5x), por cinco turnos, e vem de três lugares — a
+TEMPESTADE (chove sempre, e não obedece a ninguém), uma habilidade de entrada
+(GAROA, SECA) e os golpes **DANÇA DA CHUVA** / **DIA DE SOL** (zero de dano, o
+clima muda; são o golpe de status automático de todo ÁGUA e todo FOGO). A tela
+risca com a chuva e amarela no sol.
+
+A que começou tudo é a do LAMPENT: **CHUVA DE LAVA** — na chuva, os golpes de
+FOGO dele batem **3x** (no lugar do 0,5x, não em cima dele). A linha das velas
+aprende DANÇA DA CHUVA sozinha, porque a única habilidade que depende do clima
+não podia depender de outro Pokémon pra ligar; e a IA de quem gosta de um clima
+(`gosta`) abre a luta com o golpe dele. As outras:
+
+| habilidade | o que faz | quem |
+|---|---|---|
+| SUPERAÇÃO / CHAMA / TORRENTE / ENXAME | com pouco HP, golpes do tipo 1,5x | padrão de PLANTA / FOGO / ÁGUA / INSETO |
+| ESTÁTICA / PONTO VENENOSO / CORPO EM BRASA | quem encosta com golpe físico pode ganhar status | ELÉTRICO / VENENO / PONYTA, MAGMAR, MOLTRES |
+| COURO GROSSO | metade do dano de FOGO e GELO | PEDRA, TERRA, AÇO, SNORLAX, DEWGONG |
+| LEVITAR | TERRA não encosta | FANTASMA, KOFFING, WEEZING |
+| PARA-RAIOS / ESPONJA / CHAMA VIVA | absorve ELÉTRICO / ÁGUA / FOGO e cura 1/4 | JOLTEON, ZAPDOS / VAPOREON, LAPRAS / FLAREON, ARCANINE |
+| GAROA / SECA | ao entrar, chove / faz sol | KYOGRE, POLIWRATH / GROUDON, NINETALES, CHARIZARD |
+| NADO RÁPIDO / CLOROFILA | velocidade dobra na chuva / no sol | KINGLER, GOLDUCK / VENUSAUR, EXEGGUTOR |
+| MARÉ ALTA | ÁGUA na chuva 2x em vez de 1,5x | BLASTOISE, KINGDRA |
+| INTIMIDAR | ao entrar, ATAQUE do outro cai | GYARADOS, ARCANINE, TAUROS, DRAGÃO |
+| MENTE LIMPA | o inimigo não derruba os atributos dele | PSÍQUICO, MEWTWO |
+| REGENERAÇÃO / CORPO GELADO | cura 1/16 por turno / 1/8 na chuva | NORMAL, FADA, SLOWBRO / GELO, ARTICUNO |
+| PUNHO DE FERRO | golpes físicos 1,2x | LUTADOR |
+| CORRENTE DE AR | com clima, golpes de VOADOR 1,5x | VOADOR |
+| SEM ESCRÚPULOS | 1,3x em quem já tem status | SOMBRIO |
+| COURAÇA | nunca leva crítico | SHELLDER, CLOYSTER, KABUTO, OMANYTE |
+| PAPA-MOSCA | golpes em INSETO dão +5 de dano a cada meio quilo do alvo | VICTREEBEL |
+| SEM REGISTRO | não tem status nem leva crítico | GLITCH: MISSINGNO., ?????????? |
+
+O PAPA-MOSCA foi a primeira a precisar de **peso**: `tools/fetch_pesos.py` puxa
+a tabela da PokeAPI pra `src/data/pesos.js` (id do sprite → kg), e `pesoDe`
+resolve qualquer espécie — forma regional pelo `spriteDex`, fusão pela média
+dos dois, MISSINGNO. com os 3507,2 de sempre, ?????????? sem peso nenhum. Um
+CATERPIE (2,9 kg) rende +25; um PINSIR (55 kg) rende +550.
+
+O motor está em `src/systems/habilidades.js` e entra em `calcDamage`,
+`effectiveStat` e `applyMoveEffects` (`src/systems/battle-engine.js`); a
+batalha anuncia cada ativação. `dev/habcheck.html` confere as tabelas, os
+números e uma batalha contra o LAMPENT na chuva.
+
 ## Configurações
 
 No menu `X` → **OPÇÕES** (e o idioma também na tela de título, antes de começar
@@ -306,9 +396,17 @@ A lista de espécies dela (`fusionglitch/especies.js`) é uma **cópia**: a pág
 precisa funcionar aberta pelo endereço público, sem servidor, então ela não
 importa `src/data/`. Cópia feita à mão envelhece — foi o que aconteceu quando
 RAMPARDOS e BASTIODON entraram no jogo e a oficina não soube. Agora ela é
-gerada: `python3 tools/gera_especies.py` reescreve o arquivo a partir de
-`gen1.js` e `extra.js`, e `--ver` só diz se está desatualizada. Mexeu numa
-espécie, rode.
+gerada: `python3 tools/gera_especies.py` reescreve o arquivo a partir das
+mesmas tabelas que montam `DB.SPECIES` — `gen1.js`, `extra.js`, `iniciais.js`,
+`eras.js`, `regionais.js`, `bones.js` e `decamark.js` —, e `--ver` só diz se
+está desatualizada (e sai com erro se estiver). Mexeu numa espécie, rode. A
+lista tem **tudo que o DECODIFICADOR aceita** (`especiePorTexto`: qualquer
+espécie que não seja MEGA nem fusão): as formas regionais e os bonés vão com o
+arquivo do sprite deles (`sprite`, o `spriteDex` do jogo) e a região, e o
+`??????????` vai com `sprite: "decamark"`. Na página, o número sozinho (`037`)
+é a forma de Kanto; a de Alola se escolhe pelo nome ou pela lista
+(`037 VULPIX-ALOLA`). `dev/fusionglitchcheck.html` confere a cópia contra o
+`DB` de verdade e a página achando cada uma pelo que se digita.
 
 No jogo: `DECODIFICADOR` → `OFICINA` → **IMPORTAR FICHA**, e escolha o arquivo.
 Ela é conferida antes de entrar (a dupla existe, o nome cabe, os tipos existem,
@@ -547,6 +645,115 @@ SOMBRIO: esses dois tipos só encostam no jogo pelo que vem de fora.
 
 Os três estão em `ESTATICOS`, no fim de `src/data/extra.js` — lugar, nível e as
 falas, com hot-swap. Mover um deles é mudar dois números.
+
+### Os PIKACHU DE BONÉ — e os RAICHU
+
+Um em cada ilha SEVII (mais o de GALAR em BIRTH ISLAND), parados, com o boné da
+geração de número igual ao da ilha — `src/data/bones.js` explica os dois furos
+da conta. São a chave da balsa pra ROCHA NAVEL e do **PIKASHUNIUM Z**.
+
+No jogo de origem eles não evoluem. **Aqui evoluem**: PEDRA DO TROVÃO em
+qualquer lugar (nas SEVII também — o de boné não vira RAICHU-ALOLA) dá o
+**RAICHU DE BONÉ** da mesma região (RAI KANTO, RAI JOHTO, RAI HOENN...), com os
+stats do RAICHU, e o boné continua valendo como boné: o cristal Z responde a
+ele também. **O PIKA ALOLA é a exceção que faz sentido**: um Pikachu criado em
+Alola vira RAICHU-ALOLA, então o RAI ALOLA é o RAICHU-ALOLA (ELÉTRICO/PSÍQUICO,
+os stats dele) com o boné em cima. Ninguém desenhou um Raichu de boné, então o
+sprite é **montado**: `tools/bones_raichu.py` recorta o boné do sprite do Pikachu
+e cola na cabeça do Raichu — espelhado de frente, porque o Raichu olha pro
+outro lado. Nos sete do Raichu de Kanto o boné vai **sem a aba**: com ela, no
+mapa (onde o sprite é desenhado em 28x28) virava uma mancha preta do lado da
+cabeça. No RAICHU-ALOLA, que é 96x96 e olha de frente, a aba cabe e vai
+inteira, com uma linha de sombra embaixo. Os arquivos ficam em
+`assets/sprites/pokemon/` com o número do boné do Pikachu + 10000
+(`20094.png`...), e `--folha` gera uma folha de contato em `dev/captures/` pra
+conferir o encaixe.
+
+## O REGISTRO 0x3F: a história do ??????????
+
+?????????? é o que o cartucho mostra quando a espécie não existe: dez
+interrogações no lugar de um nome. **Só existe um**, e ele é o fim de uma
+história em quatro capítulos — não nasce na grama, não vem da fenda, não sai
+de MYSTERY EGG. As duas exceções são escolha de quem joga: o terminal
+011GIVEGLITCH110 e o DLC REVOLTA DE DECAMARK.
+
+Quem conta é a **pesquisadora do laboratório de Cinnabar**, na praça (17,5),
+com os quatro pedidos em cadeia (`src/data/decamark.js`; as missões entram na
+lista de `src/data/missoes.js` como qualquer outra):
+
+1. **O REGISTRO VAZIO** (6 insígnias) — o laboratório guardava um registro
+   vazio, número 0x3F, e o espaço começou a aparecer nas leituras. Ler o
+   **diário do porão da MANSÃO POKÉMON**, o da mesa do fundo, que tem a página
+   arrancada dobrada dentro da capa. Os outros diários da mansão (os tiles de
+   placa que o FireRed já tinha) contam o resto: o MEW, o MEWTWO, **o DITTO**
+   — as primeiras cópias do MEW, que não seguraram a forma e foram soltas no
+   porão (é onde o DITTO nasce no FireRed, e a tabela importada trouxe isso) —,
+   a gaveta 0x3F vazia, o quadro de avisos. O ?????????? é a tentativa
+   seguinte, sem MEW nenhum: o DITTO é uma cópia sem forma; ele é uma cópia
+   sem original. O diário do porão é uma **placa-objeto**
+   (`{ texto, bandeira }`): ler marca a bandeira que o pedido confere.
+2. **QUEM APAGOU** (o 1 entregue + 7 insígnias) — a página está assinada "B.".
+   O **BLAINE** era da equipe da mansão e só fala com quem venceu ele: com a
+   missão aberta e a INSÍGNIA VULCÃO na mão, ele conta da tentativa antes do
+   MEWTWO, do número que nasceu no lugar de um Pokémon, e de que **neste
+   cartucho nada se apaga — vai pra onde não tem nada**. É o campo `conta` do
+   NPC (`{ missao, flag, lines }`), lido em `talkTo`.
+3. **O QUE SE APAGA NÃO SOME** — buscar o **REGISTRO 0x3F** na fenda: uma bola
+   que não abre sozinha, no canto oposto à entrada (38,4), que só está lá com
+   o capítulo aberto (a cena monta ela junto com o portal e as outras bolas).
+   Objetivo `tem-item`, novo em `src/systems/missoes.js`.
+4. **DEZ INTERROGAÇÕES** — o registro tem coordenadas: **a costa leste de
+   Cinnabar, onde o mapa acaba** — que é onde as coisas que não existem sempre
+   apareceram em Kanto. Ele está parado em cima da água em (23,6), nível 55,
+   corrompido, chefe (dá pra capturar, não dá pra fugir), como os outros
+   parados de `ESTATICOS`; capturado, some do mundo.
+
+`dev/decamarkcheck.html` roda a história inteira com o jogo aberto, do aceite
+do primeiro pedido ao agradecimento final.
+
+## A creche da ROTA 5: crescer andando, ovos e amizade
+
+A casa da creche não veio com os mapas importados (a porta está trancada),
+então o **senhor da creche fica na frente dela** e cuida de tudo por ali.
+Até **dois** Pokémon ficam com ele e ganham **1 de experiência por passo
+seu**; lá dentro ninguém evolui, e golpe novo entra sozinho no lugar do
+primeiro. Pegar de volta custa **$100 + $100 por nível ganho**.
+
+**Ovos.** Dois da **mesma espécie**, ou qualquer um com um **DITTO**, botam
+ovo de vez em quando (a cada 256 passos, 50%; um por vez, ele segura até você
+buscar). O ovo choca a **forma mínima da linha** de quem não é o Ditto —
+`PRE_EVOLUCAO` em `src/data/evolution.js` desce a linha até o começo: RAI
+KANTO + DITTO → **PICHU KANTO**; RAICHU-ALOLA + DITTO → PICHU (a forma de
+Alola se perde, como no jogo de origem); SNORLAX → MUNCHLAX; CHARIZARD →
+CHARMANDER. **Lendário não cria**, tipo GLITCH não cria, fusão não cria, DITTO
+com DITTO não cria. O ovo vai pra mochila como item (`ovo de pichu kanto`) e
+racha pela mochila, como o MYSTERY EGG — nível 5, cor sorteada como na grama,
+amizade zero.
+
+**Os bebês** entraram por isso: PICHU, CLEFFA, IGGLYBUFF, SMOOCHUM, ELEKID,
+MAGBY, AZURILL, WYNAUT, MIME-JR., HAPPINY e MUNCHLAX (`src/data/extra.js`), e
+os **oito PICHU de boné** (`src/data/bones.js`, sprite montado por
+`tools/bones_raichu.py` — o boné fica grande demais, que é a graça). Não nascem
+na grama nem na fenda: só de ovo.
+
+**Amizade** (`mon.amizade`, 0–255): +1 a cada 64 passos com você na equipe,
++2 por batalha vencida, +3 por nível. É o que faz PICHU, CLEFFA, IGGLYBUFF,
+AZURILL, MUNCHLAX, HAPPINY e MIME-JR. evoluírem (**65**); ELEKID, MAGBY e
+SMOOCHUM vão no nível 30, WYNAUT no 15. Quando um cruza o 65 andando, o jogo
+avisa e abre a evolução na hora. Tudo em `src/systems/creche.js`;
+`dev/crechecheck.html` cobre o ciclo inteiro, do casal ao PICHU KANTO virando
+PIKA KANTO.
+
+## O montanhista do MONTE LUA
+
+As duas metades da ROTA 4 só se ligam por dentro da montanha. Em cada boca da
+caverna tem um **montanhista** que conhece o caminho por fora e cobra
+**$2500 e um item** — qualquer um, você escolhe na própria mochila (ela abre
+como escolha: `Z ENTREGA, X DESISTE`) — pra te deixar na boca do outro lado.
+Sem o dinheiro ou com a mochila vazia, não tem corda. É o campo `travessia`
+do NPC (`src/data/maps.js`, `route4`), lido em `talkTo`; os textos estão em
+`STORY.travessia`. `dev/travessiacheck.html` faz a viagem de ida e tenta a
+volta sem dinheiro.
 
 ## AZUL, o rival
 
@@ -1138,11 +1345,11 @@ save — a mesma partida roda com ou sem eles); `?dlc=torneio` liga por link
   nível 28 a 50), sem linha de visão (`sight: 0` — você escolhe a ordem); o
   juiz na frente da fila entrega o TROFÉU DE PALLET depois dos oito (`depoisDe`
   no NPC: o presente só sai com aqueles ids derrotados).
-- **REVOLTA DE DECAMARK** (`dlc/decamark.js`): a espécie ?????????? (tipo
-  GLITCH, sprite feito em código em `dlc/decamark.png`), corrompida sempre, em
-  toda rota e caverna de Kanto e das ilhas, na fenda e nas zonas, e brava (vem
-  pra cima); uma pesquisadora em Cinnabar conta de onde ela veio e dá o
-  REGISTRO 0x3F.
+- **REVOLTA DE DECAMARK** (`dlc/decamark.js`): o ?????????? sai do lugar
+  dele — corrompido sempre, em toda rota e caverna de Kanto e das ilhas, na
+  fenda e nas zonas, e bravo (vem pra cima). A espécie e a história dele estão
+  no jogo base (ver **O REGISTRO 0x3F**); ligar este pacote é escolher quebrar
+  a regra do "só existe um", como o terminal 011GIVEGLITCH110.
 
 E quatro que trazem, cada um, **nove PRESENTES MISTERIOSOS** por código
 (título → PRESENTE MISTERIOSO → POR CÓDIGO; um por save, como os de
@@ -1661,8 +1868,13 @@ Pokémon do jogo e um botão de baixar. Cima/baixo escolhe, os lados mudam o ní
 já sai na cor escolhida), Z baixa pro time — box, se estiver
 cheio — e X sai. As espécies da fenda aparecem em roxo.
 
-A mesma coisa existe fora do jogo em `giveglitch/` (`/giveglitch/` no dev server),
-útil quando o jogo nem está aberto: os dois escrevem no mesmo `save/save.json`.
+A mesma coisa existe fora do jogo em `giveglitch/` (`/giveglitch/` no dev server;
+o link aparece embaixo do jogo só quando ele está sendo servido pelo
+`dev_server.py`, junto com o da FAXINA MISSINGNO.), útil quando o jogo nem está
+aberto: os dois escrevem no mesmo `save/save.json`. No site publicado ela
+também funciona — lá o save mora no navegador, e é nele que ela escreve. Ela
+confere o que `Save.write` devolve: `"conflito"` (o jogo aberto em outra aba
+gravou algo mais novo) não passa por sucesso, relê e pede pra tentar de novo.
 
 ## O tamanho dos arquivos
 
@@ -1793,7 +2005,7 @@ src/
 assets/
   sprites/             PNGs externos (vazio por padrão): pokemon/, overworld/, trainers/, tiles/
   maps/                mapas renderizados + kanto.json (geometria e colisão)
-tools/                 fetch_sprites / fetch_overworld / fetch_trainers / fetch_maps / slice_sheet / png_io
+tools/                 fetch_sprites / fetch_overworld / fetch_trainers / fetch_maps / fetch_pesos / slice_sheet / png_io
                        gera_especies.py — reescreve a lista da oficina de fora a partir das tabelas
                        compacta.py — reescreve os PNGs em paleta, sem perder pixel
 dev/smoke.html         teste headless com roteiro de teclas
@@ -1804,6 +2016,12 @@ dev/leilaocheck.html   as regras do leilão soltas + a cena aberta no jogo
 dev/glitchcheck.html   glitchbooster (as trancas, o byte) e a casca das raids
 dev/eracheck.html      as três eras: espécies, mapas (dá pra chegar no guardião?) e a fila
 dev/anivercheck.html   o aniversário (calendário e presente) e os dois da criação
+dev/ovocheck.html      os MYSTERY EGGS: as tabelas, o vendedor em todo centro e o ovo rachando no jogo
+dev/bonecheck.html     os RAICHU DE BONÉ: espécie, sprite montado, a pedra e a evolução no jogo
+dev/decamarkcheck.html o REGISTRO 0x3F: os quatro capítulos do ?????????? de ponta a ponta, no jogo
+dev/habcheck.html      as habilidades e o clima: tabelas, peso, dano e o LAMPENT na chuva
+dev/travessiacheck.html o montanhista do MONTE LUA: $2500 e um item, ida e volta
+dev/crechecheck.html   a creche: crescer andando, o casal, o ovo, o PICHU e a amizade
 giveglitch/            versão web do mesmo terminal (fora do jogo)
 glitchzone/            oficina de GLITCH ZONES: troca tiles de lugar e gera o link ?area=
 dlc/                   a página dos DLCs e os sete pacotes (glitchcitytour, torneio, decamark, lendas, silph, festival, vizinhas)

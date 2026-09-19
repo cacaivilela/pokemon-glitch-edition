@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem da lista da oficina</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  h2 { color:#b455ff; font:bold 13px ui-monospace,monospace; margin:10px 0 2px; }
+  iframe { width:1100px; height:1000px; border:0; position:absolute; left:-3000px; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=20000">
+<iframe id="fr" src="/fusionglitch/"></iframe>
+<script type="module">
+// A oficina de fora tem uma lista de espécies que é CÓPIA das tabelas do jogo
+// (fusionglitch/especies.js, gerada por tools/gera_especies.py). Isto confere
+// que a cópia bate com o DB de verdade — mesmo id, mesmo nome, mesmos tipos,
+// tudo que o DECODIFICADOR aceita está lá — e que a página acha cada uma pelo
+// que se digita (número, nome, rótulo da lista) e carrega o sprite certo, do
+// vizinho de cima, e não do GitHub.
+import { DB } from "../src/data/index.js";
+import { ESPECIES } from "../fusionglitch/especies.js";
+import { especiePorTexto } from "../src/systems/fusao.js";
+
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+let falhas = 0;
+const ok = (t, c) => { if (!c) falhas++; p(`${t}: ${c ? "OK" : "FALHOU"}`, c ? "ok" : "erro"); };
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+
+try {
+  h("A CÓPIA BATE COM O JOGO");
+  const fundiveis = Object.values(DB.SPECIES).filter((sp) => !sp.mega && !sp.fusao && !sp.id.startsWith("fus-"));
+  const copia = new Map(ESPECIES.map((sp) => [sp.id, sp]));
+  const faltam = fundiveis.filter((sp) => !copia.has(sp.id)).map((sp) => sp.id);
+  ok(`toda espécie fundível do jogo está na lista (${fundiveis.length})`, !faltam.length);
+  if (faltam.length) p("faltam: " + faltam.join(", "), "erro");
+  const sobram = ESPECIES.filter((sp) => sp.id !== "missingno" && !DB.SPECIES[sp.id]).map((sp) => sp.id);
+  ok("nada na lista que o jogo não conheça", !sobram.length);
+  if (sobram.length) p("sobram: " + sobram.join(", "), "erro");
+  const errados = ESPECIES.filter((sp) => {
+    const jogo = DB.SPECIES[sp.id];
+    if (!jogo) return false;
+    const arquivo = sp.sprite || String(sp.dex).padStart(3, "0");
+    const doJogo = jogo.spriteDex ? String(jogo.spriteDex) : (jogo.dex ? String(jogo.dex).padStart(3, "0") : jogo.id);
+    return jogo.name !== sp.nome || jogo.types.join("/") !== sp.tipos.join("/") || arquivo !== doJogo;
+  }).map((sp) => sp.id);
+  ok("nome, tipos e arquivo do sprite iguais aos do jogo", !errados.length);
+  if (errados.length) p("diferentes: " + errados.join(", "), "erro");
+  ok("os bebês estão (PICHU, MUNCHLAX)", copia.has("pichu") && copia.has("munchlax"));
+  ok("as regionais estão, com sprite e região", copia.get("vulpixalola")?.sprite === "10103" && copia.get("vulpixalola")?.regiao === "ALOLA");
+  ok("o ?????????? está, com sprite pelo id", copia.get("decamark")?.sprite === "decamark");
+
+  h("A PÁGINA ACHA O QUE SE DIGITA");
+  const fr = document.getElementById("fr");
+  const W = fr.contentWindow;
+  for (let i = 0; i < 200 && !W.document.getElementById("nomeCabeca")?.textContent.match(/\w/); i++) await espera(50);
+  const D = W.document;
+  ok("a oficina abriu com uma dupla sorteada", D.getElementById("nomeCabeca").textContent !== "—");
+  ok("o sprite vem do vizinho de cima, não do GitHub", /^\.\.\/assets\//.test(D.getElementById("imgCabeca").getAttribute("src")));
+
+  const digitar = async (lado, texto) => {
+    const el = D.getElementById(lado);
+    el.value = texto;
+    el.dispatchEvent(new W.Event("change", { bubbles: true }));
+    await espera(120);
+    return D.getElementById(lado === "cabeca" ? "nomeCabeca" : "nomeCorpo").textContent;
+  };
+  ok("pelo número: 037 é o VULPIX de Kanto", await digitar("cabeca", "037") === "VULPIX");
+  ok("pelo rótulo da lista: 037 VULPIX-ALOLA", await digitar("cabeca", "037 VULPIX-ALOLA") === "VULPIX-ALOLA");
+  ok("pelo nome com espaço: vulpix alola", await digitar("cabeca", "vulpix alola") === "VULPIX-ALOLA");
+  ok("a região aparece do lado dos tipos", /ALOLA/.test(D.getElementById("tipoCabeca").textContent));
+  ok("MR. MIME acha o MR-MIME", await digitar("corpo", "MR. MIME") === "MR-MIME");
+  ok("?????????? pelo nome", await digitar("corpo", "??????????") === "??????????");
+  ok("?????????? pelo id", await digitar("corpo", "decamark") === "??????????");
+  ok("MISSINGNO. continua", await digitar("corpo", "missingno") === "MISSINGNO.");
+  ok("o boné pelo rótulo", await digitar("corpo", "025 PIKA HOENN") === "PIKA HOENN");
+  ok("o boné pelo nome", await digitar("corpo", "pika hoenn") === "PIKA HOENN");
+  ok("lixo dá —", await digitar("corpo", "xyzzy") === "—");
+
+  h("O SPRITE DA FORMA CARREGA E A MONTAGEM DESENHA");
+  await digitar("cabeca", "037 VULPIX-ALOLA");
+  await digitar("corpo", "004 CHARMANDER");
+  const img = D.getElementById("imgCabeca");
+  for (let i = 0; i < 60 && !(img.complete && img.naturalWidth); i++) await espera(50);
+  ok("o sprite 10103.png carregou", img.complete && img.naturalWidth > 0 && /10103\.png$/.test(img.src));
+  await espera(400);
+  const tela = D.getElementById("tela");
+  const d = tela.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, 64, 64).data;
+  let pintados = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 40) pintados++;
+  ok("a montagem automática pintou a tela", pintados > 200);
+  const nome = D.getElementById("nome").value;
+  ok(`o nome sugerido usa VULPIX sem a região (${nome})`, /^VUL/.test(nome) && !/ALOLA/.test(nome));
+  ok("o 1º tipo veio da cabeça de Alola (GELO)", D.getElementById("tipo1").value === "GELO");
+
+  h("A CHAVE DA FICHA É A QUE O JOGO ACEITA");
+  // o mesmo que o jogo faz no IMPORTAR: a dupla existe em DB.SPECIES
+  const chave = "vulpixalola+charmander";
+  const [c, b] = chave.split("+");
+  ok("a dupla existe no jogo", !!DB.SPECIES[c] && !!DB.SPECIES[b]);
+  ok("o jogo acha VULPIX-ALOLA pelo mesmo texto", especiePorTexto("VULPIX-ALOLA")?.id === "vulpixalola");
+} catch (e) {
+  falhas++;
+  p("EXPLODIU: " + (e?.stack || e), "erro");
+}
+p(falhas ? `${falhas} FALHA(S)` : "TUDO OK", falhas ? "erro" : "ok");
+out.innerHTML = linhas.join("");
+const texto = linhas.join("\n").replace(/<h2>/g, "\n").replace(/<[^>]+>/g, "");
+try { await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "fusionglitchcheck", log: texto }) }); } catch (e) {}
+document.title = "pronto";
+</script>
+</body>
+</html>
