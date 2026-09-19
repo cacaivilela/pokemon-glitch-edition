@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, aniv, reg, zonas, ovos, decamark, hab, pesos, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, aniv, reg, zonas, ovos, decamark, hab, pesos, mina, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -50,6 +50,7 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./decamark.js" + V),
   import("./habilidades.js" + V),
   import("./pesos.js" + V),
+  import("./mineracao.js" + V),
   fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
 
@@ -456,6 +457,7 @@ export function buildDB() {
     DISTORCOES: distorcoes.DISTORCOES,
     GLITCH_ZONES: zonas.GLITCH_ZONES,
     OVOS: ovos.OVOS,
+    MINERACAO: mina,
     OVO_TEXTO: ovos.OVO_TEXTO,
     ZONA_TEXTO: zonas.ZONA_TEXTO,
     SEVII: sevii.SEVII,

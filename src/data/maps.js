@@ -7,6 +7,7 @@
 // As coordenadas dos NPCs são as mesmas do jogo original (x,y em tiles).
 import { CONCURSO } from "./concurso.js";
 import { MISSOES } from "./missoes.js";
+import { MINEIRO, PALEONTOLOGA } from "./mineracao.js";
 import { BLAINE_CONTA } from "./decamark.js";
 
 /** O palco do CONCURSO DE FUSÃO, na praça do sul de Cinnabar: a anfitriã na
@@ -429,7 +430,7 @@ export const MAPS = {
     encounters: [],
     npcs: [
       {
-        id: "balconista", x: 2, y: 3, dir: "down", sprite: "balconista",
+        id: "balconista", x: 2, y: 3, dir: "down", sprite: "balconista", picareta: true,
         lines: ["OI! BEM-VINDO À LOJA POKÉMON.", "CHEGARAM PEDRAS DE EVOLUÇÃO. CARAS, MAS VALEM CADA MOEDA.", "E TEM BARRACA! DÁ PRA ACAMPAR E FAZER UM SANDUÍCHE NO CAMINHO."],
         shop: [
           { item: "poké bola", price: 200 },
@@ -530,7 +531,8 @@ export const MAPS = {
     // A ilha do laboratório de fósseis. Quem ressuscita bicho de pedra desde
     // sempre foi ver o que o DECODIFICADOR DE GENOMA faz com dois vivos — e
     // montou um concurso na praça do sul pra julgar o resultado.
-    addNpcs: PALCO_CINNABAR,
+    // a PALEONTÓLOGA na porta do laboratório ressuscita os fósseis da mina
+    addNpcs: [...PALCO_CINNABAR, PALEONTOLOGA],
     signs: {
       // cartaz na parede do Centro Pokémon, ao lado da porta
       "12,11": "CONCURSO DE FUSÃO DE CINNABAR. TRAGA UMA DUPLA. TRÊS JURADOS, TRINTA PONTOS.",
@@ -611,7 +613,11 @@ export const MAPS = {
     addNpcs: [{ id: "pedra_gyaradosita", x: 42, y: 9, sprite: "ball", gift: { item: "gyaradosita", qty: 1 } }],
   },
   mt_moon_b2f: {
-    addNpcs: [{ id: "pedra_aerodactylita", x: 15, y: 27, sprite: "ball", gift: { item: "aerodactylita", qty: 1 } }],
+    // o MINEIRO empresta a picareta: a parede de fósseis (src/data/mineracao.js)
+    addNpcs: [
+      { id: "pedra_aerodactylita", x: 15, y: 27, sprite: "ball", gift: { item: "aerodactylita", qty: 1 } },
+      MINEIRO,
+    ],
   },
   victory_road_2f: {
     addNpcs: [{ id: "pedra_mewtwonita_x", x: 14, y: 13, sprite: "ball", gift: { item: "mewtwonita x", qty: 1 } }],

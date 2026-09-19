@@ -45,6 +45,7 @@ import { guardar as guardarNoBox, cheio as boxCheio } from "../systems/box.js";
 import { veu, temCeu, agora as horaDoMundo, ajustarRelogio } from "../systems/ciclo.js";
 import { escuridaoDoLugar, ehCaverna, acesa, camadaDeLuz, brilho, RAIO } from "../systems/lanterna.js";
 import { AcampamentoScene } from "./acampamento.js";
+import { MineracaoScene } from "./mineracao.js";
 import { LeilaoScene } from "./leilao.js";
 import { temBarraca } from "../systems/leilao.js";
 import { vendaveis } from "../systems/venda.js";
@@ -1848,6 +1849,8 @@ export class OverworldScene {
     if (npc.missao) return this.talkMissao(npc);
     if (npc.travessia) return this.oferecerTravessia(npc);
     if (npc.creche) return this.talkCreche();
+    if (npc.mineracao) return this.talkMineiro(state);
+    if (npc.fossil) return this.talkPaleontologa();
 
     // `conta`: o que este NPC sabe de uma missão. Com ela aberta (e, se ele
     // for treinador, depois de vencido) ele conta e marca a bandeira que o
@@ -1871,6 +1874,18 @@ export class OverworldScene {
     }
     if (npc.shop) {
       state.talked = true;
+      // o balconista de VIRIDIAN entrega a PICARETA uma vez: com ela na
+      // mochila dá pra cavar em qualquer lugar (src/scenes/mineracao.js)
+      if (npc.picareta && !state.deuPicareta) {
+        state.deuPicareta = true;
+        const T = DB.MINERACAO.MINA_TEXTO;
+        return void this.dlg.say(T.lojista, () => {
+          this.st.items.picareta = 1;
+          Audio2.heal();
+          this.game.autosave?.(true);
+          this.dlg.say(T.ganhouPicareta);
+        });
+      }
       // O balcão serve pros dois lados: comprar coisa e VENDER coisa (metade
       // do preço; o TROFÉU DE PALLET vale oito zilhões — src/data/leilao.js).
       // Com a BARRACA DE LEILÃO na mochila entra a terceira opção: leiloar
@@ -2803,6 +2818,52 @@ export class OverworldScene {
 
   /** O SENHOR DA CRECHE (src/systems/creche.js): deixa até dois, pega de
    *  volta, e entrega o ovo quando o casal botou um. */
+  /** O MINEIRO do MONTE LUA: empresta as ferramentas (a primeira vez de
+   *  graça, depois cobra o aluguel) e abre a parede — src/scenes/mineracao.js. */
+  talkMineiro(state) {
+    const T = DB.MINERACAO.MINA_TEXTO, preco = DB.MINERACAO.PAREDE.aluguel;
+    const gratis = !state.cavou;
+    const pergunta = () => this.dlg.ask(gratis ? T.primeira : T.cobra.replace("{PRECO}", preco), T.opcoes, (i) => {
+      if (i !== 0) return void this.dlg.say(T.depois);
+      if (!gratis && this.st.money < preco) return void this.dlg.say(T.semGrana.replace("{PRECO}", preco));
+      if (!gratis) this.st.money -= preco;
+      state.cavou = true;
+      this.game.scenes.push(new MineracaoScene());
+    });
+    if (gratis) this.dlg.say(T.oferta, pergunta); else pergunta();
+  }
+
+  /** A PICARETA da mochila: cava onde o jogador estiver, de graça. Não dentro
+   *  de casa — parede de gente não é parede de mina. */
+  cavarAqui() {
+    const T = DB.MINERACAO.MINA_TEXTO;
+    if (this.map.interior) return void this.dlg.say(T.dentroDeCasa);
+    this.dlg.say(T.cavaAqui, () => this.game.scenes.push(new MineracaoScene()));
+  }
+
+  /** A PALEONTÓLOGA de CINNABAR: troca um fóssil da mochila pelo bicho vivo. */
+  talkPaleontologa() {
+    const T = DB.MINERACAO.MINA_TEXTO, F = DB.MINERACAO.FOSSEIS, O = DB.OVO_TEXTO;
+    const tem = Object.keys(F).filter((f) => (this.st.items[f] || 0) > 0);
+    if (!tem.length) return void this.dlg.say(T.labOferta);
+    if (this.st.party.length >= 6 && boxCheio(this.st)) return void this.dlg.say(T.labSemVaga);
+    this.dlg.ask(T.labTem, tem.map((f) => f.toUpperCase()), (i) => {
+      const item = tem[i], { especie, nivel } = F[item];
+      this.spend(item, 1);
+      const mon = createMon(especie, nivel);
+      const msgs = T.labFeito.map((l) => l.replace("{MON}", mon.nickname).replace("{NIVEL}", nivel));
+      if (mon.luminoso) msgs.push(O.formas.luminoso);
+      else if (mon.shiny) msgs.push(O.formas.shiny);
+      if (this.st.party.length < 6) { this.st.party.push(mon); msgs.push(T.labEquipe.replace("{MON}", mon.nickname)); }
+      else { guardarNoBox(this.st, mon); msgs.push(T.labBox.replace("{MON}", mon.nickname)); }
+      this.st.seen[mon.species] = true;
+      this.st.caught[mon.species] = true;
+      Audio2.heal();
+      this.game.autosave?.(true);
+      this.dlg.say(msgs);
+    });
+  }
+
   talkCreche() {
     const C = DB.STORY.creche;
     const st = this.st;
@@ -4009,6 +4070,15 @@ export class OverworldScene {
           const forma = DB.SPECIES[DB.MEGA_PEDRAS[item]];
           const base = DB.SPECIES[forma?.megaDe];
           return void this.dlg.say(DB.STORY.mega.olhaPedra.replace("{ESPECIE}", base?.name || "?"));
+        }
+        if (item === "picareta" && owned > 0) {
+          Audio2.select();                       // item-chave: cava onde estiver
+          this.menu = null;
+          return void this.cavarAqui();
+        }
+        if (DB.MINERACAO?.MINA_LORE?.[item] && owned > 0) {
+          Audio2.select();                       // achado da mina: só se olha
+          return void this.dlg.say(DB.MINERACAO.MINA_LORE[item]);
         }
         if (DB.OVOS?.tipos?.[item] && owned > 0) {
           Audio2.select();                       // MYSTERY EGG: racha na hora

@@ -70,6 +70,8 @@ export const VENDA = {
     "doce raro": 2400,
     "up-grade": 1050,
     "dubious disc": 1050,
+    "pepita": 5000,               // os achados da mina (src/data/mineracao.js)
+    "estrela": 1500,
     "troféu de pallet": 8e21,     // 8 ZILHÕES (ver `moeda` em src/core/gfx.js)
   },
 };

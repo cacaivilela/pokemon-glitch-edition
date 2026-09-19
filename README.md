@@ -131,6 +131,24 @@ na **fusão** — a luz pega igual ao brilho, e ganha dele — e no **leilão**,
 o shiny paga o dobro e o luminoso paga **cinco vezes**. O **sanduíche amargo**
 do acampamento multiplica as duas chances.
 
+## A mineração
+
+O balconista da **Loja de Viridian** entrega a **PICARETA** na primeira conversa.
+Escolha ela na mochila e o chão vira uma parede de pedra numa grade 12x8:
+setas movem, **A** bate, **C** troca entre a **picareta** (tira pouco, racha
+pouco) e o **martelo** (tira muito, racha muito), **B** desiste. A parede tem
+uma barra de rachadura; quando enche, desaba, e você leva só o que já tinha
+destampado por inteiro — cavar é escolher onde gastar a parede. Não dá pra
+cavar dentro de casa.
+
+Embaixo da terra: **fóssil hélix**, **fóssil domo**, **âmbar velho** (raro),
+pepita, estrela, doce raro e as cinco pedras de evolução. No **Monte Lua B2F**
+tem um mineiro que empresta as ferramentas (a primeira vez de graça, depois
+$300) pra quem ainda não tem a picareta. A **paleontóloga** na porta do
+laboratório de **Cinnabar** ressuscita os fósseis: OMANYTE, KABUTO e
+AERODACTYL no nível 20. As tabelas estão em `src/data/mineracao.js`, a tela em
+`src/scenes/mineracao.js`.
+
 ## Os MYSTERY EGGS
 
 Em **todo Centro Pokémon** de Kanto (e das Sevii) tem um cientista atrás do
