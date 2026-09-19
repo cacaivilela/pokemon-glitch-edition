@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem do REGISTRO 0x3F</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=9000">
+<script type="module">
+// A história do ??????????, do começo ao fim, com o jogo aberto num iframe e
+// a cena empurrada na mão (src/data/decamark.js).
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+let falhas = 0;
+const ok = (t, c) => { if (!c) falhas++; p(`${t}: ${c ? "OK" : "FALHOU"}`, c ? "ok" : "erro"); };
+
+try {
+  const { DB } = await import("/src/data/index.js");
+  const M = await import("/src/systems/missoes.js");
+  const { LENDARIOS } = await import("/src/data/leilao.js");
+  const { poolDoOvo } = await import("/src/systems/ovos.js");
+  const caps = ["decamark-diario", "decamark-blaine", "decamark-registro", "decamark-costa"];
+
+  h("A ESPÉCIE");
+  ok("?????????? existe no jogo base", DB.SPECIES.decamark?.types[0] === "GLITCH");
+  ok("é lendário", LENDARIOS.has("decamark"));
+  ok("não sai de ovo", !poolDoOvo().some((sp) => sp.id === "decamark"));
+  ok("não nasce em mapa nenhum (sem DLC)", !Object.values(DB.MAPS).some((m) => (m.encounters || []).some((e) => e.id === "decamark")));
+  ok("nem na fenda", !Object.values(DB.DIM_ENCOUNTERS).some((l) => l.some((e) => e.id === "decamark")));
+  const carrega = (src) => new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
+  ok("sprite no lugar do jogo base (frente e costas)",
+    !!(await carrega("/assets/sprites/pokemon/decamark.png")) && !!(await carrega("/assets/sprites/pokemon/back/decamark.png")));
+
+  h("A HISTÓRIA");
+  ok("quatro capítulos na lista de missões", caps.every((id) => M.missaoPorId(id)));
+  ok("todos no mesmo NPC (uma cadeia)", M.cadeia(M.missaoPorId(caps[0])).map((m) => m.id).join() === caps.join());
+  ok("a pesquisadora está em Cinnabar", DB.MAPS.cinnabar_island.npcs.some((n) => n.id === "missao_decamark-diario" && n.x === 17 && n.y === 5));
+  ok("o parado está na costa leste, na água, com missão", (() => {
+    const e = DB.ESTATICOS.find((e) => e.id === "decamark");
+    const geo = DB.KANTO.cinnabar_island;
+    return e && e.mapa === "cinnabar_island" && e.missao === "decamark-costa" && e.corrupt
+      && geo.tags.charCodeAt(e.y * geo.w + e.x) - 48 === DB.TAG.WATER
+      && geo.tags.charCodeAt(e.y * geo.w + e.x - 1) - 48 === DB.TAG.FREE;
+  })());
+  ok("o diário do porão é placa-objeto com bandeira", DB.MAPS.pokemon_mansion_b1f.signs["21,27"]?.bandeira === "decamark_diario");
+  ok("o aviso está em Cinnabar", String(DB.MAPS.cinnabar_island.signs["12,3"]).includes("NÃO SALVE"));
+  ok("o BLAINE tem o que contar", DB.MAPS.cinnabar_island_gym.npcs.find((n) => n.id === "lider")?.conta?.flag === "decamark_blaine");
+  ok("o registro na fenda cai em tile livre", (() => {
+    const R = DB.DECAMARK.naFenda, geo = DB.KANTO.glitchdim;
+    return geo.tags.charCodeAt(R.y * geo.w + R.x) - 48 === DB.TAG.FREE;
+  })());
+  ok("o item tem lore", !!DB.ITEM_LORE["registro 0x3f"]);
+
+  h("AS TRAVAS");
+  const st0 = { badges: [], missoes: {}, flags: {}, items: {}, caught: {}, party: [] };
+  ok("capítulo 1 pede 6 insígnias", !M.liberada(st0, M.missaoPorId(caps[0])) && M.liberada({ ...st0, badges: [1, 2, 3, 4, 5, 6] }, M.missaoPorId(caps[0])));
+  ok("capítulo 2 pede o 1 entregue E a insígnia do BLAINE",
+    !M.liberada({ ...st0, badges: [1, 2, 3, 4, 5, 6, 7] }, M.missaoPorId(caps[1]))
+    && !M.liberada({ ...st0, badges: [1, 2, 3, 4, 5, 6], missoes: { "decamark-diario": { estado: "feita" } } }, M.missaoPorId(caps[1]))
+    && M.liberada({ ...st0, badges: [1, 2, 3, 4, 5, 6, 7], missoes: { "decamark-diario": { estado: "feita" } } }, M.missaoPorId(caps[1])));
+  ok("tem-item confere a mochila", M.progresso({ ...st0, missoes: { "decamark-registro": {} }, items: { "registro 0x3f": 1 } }, "decamark-registro").feito
+    && !M.progresso({ ...st0, missoes: { "decamark-registro": {} } }, "decamark-registro").feito);
+
+  // -------------------------------------------------------------------------
+  h("DENTRO DO JOGO");
+  const fr = document.createElement("iframe");
+  fr.width = 240; fr.height = 160; fr.style.opacity = "0.01";
+  fr.src = "/index.html?map=cinnabar_island&badges=7&perfil=decamark-teste";
+  document.body.appendChild(fr);
+  const espera = async (cond, ms = 8000) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) {
+      try { if (cond()) return true; } catch {}
+      await new Promise((r) => setTimeout(r, 40));
+    }
+    return false;
+  };
+  const subiu = await espera(() => fr.contentWindow?.game?.scenes?.top?.dlg);
+  ok("a partida de teste abriu em Cinnabar", subiu);
+  if (subiu) {
+    // `st()` e não `st`: um save em conflito troca o objeto de estado inteiro (adoptSave)
+    const g = fr.contentWindow.game, sc = () => g.scenes.top, st = () => g.state;
+    // sem gravar: cada passo daqui dispara um autosave, e um save em conflito
+    // adota o arquivo por cima do estado que o teste está mexendo
+    g.autosave = () => {}; g.save = async () => "ok";
+    const limpaFala = () => { const s = sc(); s.dlg.queue.length = 0; s.dlg.active = false; s.dlg.choice = null; };
+    const passa = (n = 80) => { const s = sc(); for (let i = 0; i < n && s.dlg.active && !s.dlg.choice; i++) { s.dlg.chars = 1e9; s.dlg.next(); } };
+    const npc = (id) => sc().npcsHere().find((n) => n.id === id);
+    const pesq = npc("missao_decamark-diario");
+    ok("a pesquisadora está na praça", !!pesq);
+
+    // capítulo 1: aceitar, ler o diário, entregar
+    limpaFala(); sc().talkTo(pesq); passa();
+    ok("ela oferece o capítulo 1", !!sc().dlg.choice);
+    sc().dlg.choice?.cb(0); passa();
+    ok("aceito: está no diário", st().missoes["decamark-diario"]?.estado === "ativa");
+    ok("sem o diário lido, o parado NÃO está na costa", !npc("estatico_decamark"));
+    limpaFala();
+    Object.assign(st().player, { map: "pokemon_mansion_b1f", x: 21, y: 28, dir: "up" });
+    sc().enterMap?.("pokemon_mansion_b1f") ?? sc().loadMap?.();
+    await new Promise((r) => setTimeout(r, 100));
+    sc().interact(); passa();
+    ok("ler o diário marca a bandeira", st().flags.decamark_diario === true);
+    ok("e o capítulo 1 fica pronto", M.estado(st(), "decamark-diario") === "pronta");
+    limpaFala();
+    Object.assign(st().player, { map: "cinnabar_island", x: 17, y: 6, dir: "up" });
+    sc().enterMap?.("cinnabar_island") ?? sc().loadMap?.();
+    await new Promise((r) => setTimeout(r, 100));
+    sc().talkTo(npc("missao_decamark-diario")); passa();
+    ok("entregue o 1", st().missoes["decamark-diario"]?.estado === "feita");
+
+    // capítulo 2: o Blaine
+    limpaFala(); sc().talkTo(npc("missao_decamark-diario")); passa(); sc().dlg.choice?.cb(0); passa();
+    ok("capítulo 2 aceito", st().missoes["decamark-blaine"]?.estado === "ativa");
+    limpaFala();
+    Object.assign(st().player, { map: "cinnabar_island_gym", x: 5, y: 5, dir: "up" });
+    sc().enterMap?.("cinnabar_island_gym") ?? sc().loadMap?.();
+    await new Promise((r) => setTimeout(r, 100));
+    const blaine = npc("lider");
+    st().npcState["cinnabar_island_gym.lider"] = { defeated: true };
+    sc().talkTo(blaine); passa();
+    ok("o BLAINE vencido conta e marca a bandeira", st().flags.decamark_blaine === true);
+    limpaFala();
+    Object.assign(st().player, { map: "cinnabar_island", x: 17, y: 6, dir: "up" });
+    sc().enterMap?.("cinnabar_island") ?? sc().loadMap?.();
+    await new Promise((r) => setTimeout(r, 100));
+    sc().talkTo(npc("missao_decamark-diario")); passa();
+    ok("entregue o 2", st().missoes["decamark-blaine"]?.estado === "feita");
+
+    // capítulo 3: o registro na fenda
+    limpaFala(); sc().talkTo(npc("missao_decamark-diario")); passa(); sc().dlg.choice?.cb(0); passa();
+    ok("capítulo 3 aceito", st().missoes["decamark-registro"]?.estado === "ativa");
+    limpaFala();
+    st().mission = true;
+    Object.assign(st().player, { map: "glitchdim", x: 38, y: 5, dir: "up" });
+    sc().enterMap?.("glitchdim") ?? sc().loadMap?.();
+    await new Promise((r) => setTimeout(r, 100));
+    ok("a bola do registro está no canto da fenda", !!npc("registro"));
+    sc().interact(); passa();
+    ok("pegou o REGISTRO 0x3F", st().items["registro 0x3f"] === 1);
+    ok("e a bola sumiu", !npc("registro"));
+    limpaFala();
+    Object.assign(st().player, { map: "cinnabar_island", x: 17, y: 6, dir: "up" });
+    sc().enterMap?.("cinnabar_island") ?? sc().loadMap?.();
+    await new Promise((r) => setTimeout(r, 100));
+    sc().talkTo(npc("missao_decamark-diario")); passa();
+    ok("entregue o 3", st().missoes["decamark-registro"]?.estado === "feita");
+
+    // capítulo 4: a costa
+    limpaFala(); sc().talkTo(npc("missao_decamark-diario")); passa(); sc().dlg.choice?.cb(0); passa();
+    ok("capítulo 4 aceito", st().missoes["decamark-costa"]?.estado === "ativa");
+    sc().enterMap?.("cinnabar_island") ?? sc().loadMap?.();
+    await new Promise((r) => setTimeout(r, 100));
+    const dez = npc("estatico_decamark");
+    ok("AGORA o parado está na costa", !!dez && dez.x === 23 && dez.y === 6);
+    ok("é chefe, corrompido, nível 55", dez?.boss?.id === "decamark" && dez.boss.corrupt === true && dez.boss.lvl === 55);
+    st().caught.decamark = true;
+    sc().enterMap?.("cinnabar_island") ?? sc().loadMap?.();
+    await new Promise((r) => setTimeout(r, 100));
+    ok("capturado, ele some pra sempre: só existe um", !npc("estatico_decamark"));
+    limpaFala(); sc().talkTo(npc("missao_decamark-diario")); passa();
+    ok("entregue o 4: a história fechou", st().missoes["decamark-costa"]?.estado === "feita");
+    limpaFala(); sc().talkTo(npc("missao_decamark-diario")); passa();
+    ok("depois disso ela só agradece", M.daVez(st(), "decamark-diario").missao === null);
+  }
+} catch (e) {
+  falhas++;
+  p("EXPLODIU: " + (e?.stack || e), "erro");
+}
+p(falhas ? `${falhas} FALHA(S)` : "TUDO OK", falhas ? "erro" : "ok");
+out.innerHTML = linhas.join("");
+const texto = linhas.join("\n").replace(/<h2>/g, "\n").replace(/<[^>]+>/g, "");
+try { await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "decamark", log: texto }) }); } catch (e) {}
+document.title = "pronto";
+</script>
+</body>
+</html>

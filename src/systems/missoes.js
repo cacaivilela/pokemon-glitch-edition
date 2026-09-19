@@ -11,7 +11,7 @@ import { todosGuardados } from "./box.js";
 import { partes } from "./fusao.js";
 
 /** Todo mundo que está com você: equipe + PC. */
-const todos = (st) => [...(st?.party || []), ...todosGuardados(st)];
+const todos = (st) => [...(st?.party || []), ...todosGuardados(st), ...(st?.creche?.mon ? [st.creche.mon] : [])];
 
 /** { feito, atual, alvo } de cada tipo de objetivo. `alvo` maior que 1 vira
  *  contador no diário ("3/5"). */
@@ -73,6 +73,12 @@ const OBJETIVOS = {
   "bandeira": (st, o) => {
     const tem = !!st?.flags?.[o.flag];
     return { feito: tem, atual: tem ? 1 : 0, alvo: 1 };
+  },
+
+  /** um item na mochila (o REGISTRO 0x3F que a pesquisadora pede) */
+  "tem-item": (st, o) => {
+    const n = st?.items?.[o.item] || 0;
+    return { feito: n >= (o.qtd || 1), atual: Math.min(n, o.qtd || 1), alvo: o.qtd || 1 };
   },
 
   /** espécies capturadas que não são das 151 (as da fenda) */

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem da CRECHE</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=9000">
+<script type="module">
+// A CRECHE DA ROTA 5: deixar dois, andar, ovo, chocar, amizade, pegar de volta
+// (src/systems/creche.js).
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+let falhas = 0;
+const ok = (t, c) => { if (!c) falhas++; p(`${t}: ${c ? "OK" : "FALHOU"}`, c ? "ok" : "erro"); };
+try {
+  const { DB } = await import("/src/data/index.js");
+  const C = await import("/src/systems/creche.js");
+  const { createMon, xpForLevel, evolutionFor } = await import("/src/systems/mon.js");
+
+  h("OS BEBÊS");
+  ok("os onze existem", ["pichu", "cleffa", "igglybuff", "smoochum", "elekid", "magby", "azurill", "wynaut", "mimejr", "happiny", "munchlax"].every((id) => DB.SPECIES[id]));
+  ok("PICHU evolui por amizade 65", DB.EVOLUTIONS.pichu[0].amizade === 65 && DB.EVOLUTIONS.pichu[0].to === "pikachu");
+  ok("os oito PICHU de boné existem e viram o PIKA deles", ["kanto", "johto", "hoenn", "sinnoh", "unova", "kalos", "alola", "galar"].every((r) => DB.SPECIES["pichu" + r] && DB.EVOLUTIONS["pichu" + r]?.[0]?.to === "pika" + r && DB.EVOLUTIONS["pichu" + r][0].amizade === 65));
+  const carrega = (src) => new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
+  ok("sprite do PICHU KANTO montado (frente e costas)", !!(await carrega("/assets/sprites/pokemon/30094.png")) && !!(await carrega("/assets/sprites/pokemon/back/30094.png")));
+  ok("sprite do PICHU comum baixado", !!(await carrega("/assets/sprites/pokemon/172.png")));
+  ok("não nascem na grama nem na fenda", !Object.values(DB.MAPS).some((m) => (m.encounters || []).some((e) => e.id === "pichu")) && !Object.values(DB.DIM_ENCOUNTERS).some((l) => l.some((e) => e.id === "pichu")));
+
+  h("A FORMA MÍNIMA");
+  ok("RAI KANTO -> PIKA KANTO -> PICHU KANTO", C.formaMinima("raikanto") === "pichukanto");
+  ok("RAICHU -> PICHU", C.formaMinima("raichu") === "pichu");
+  ok("RAICHU-ALOLA -> PICHU (a forma de Alola se perde)", C.formaMinima("raichualola") === "pichu");
+  ok("VULPIX-ALOLA é a própria base", C.formaMinima("vulpixalola") === "vulpixalola");
+  ok("CHARIZARD -> CHARMANDER", C.formaMinima("charizard") === "charmander");
+  ok("SNORLAX -> MUNCHLAX", C.formaMinima("snorlax") === "munchlax");
+
+  h("O CASAL");
+  const m = (id) => createMon(id, 30);
+  ok("PIKA KANTO + DITTO = PICHU KANTO", C.filhoteDe(m("pikakanto"), m("ditto")) === "pichukanto");
+  ok("DITTO + RAI ALOLA = PICHU ALOLA", C.filhoteDe(m("ditto"), m("raialola")) === "pichualola");
+  ok("dois RATTATA = RATTATA", C.filhoteDe(m("rattata"), m("rattata")) === "rattata");
+  ok("RATTATA + PIDGEY = nada", C.filhoteDe(m("rattata"), m("pidgey")) === null);
+  ok("DITTO + DITTO = nada", C.filhoteDe(m("ditto"), m("ditto")) === null);
+  ok("lendário não cria (MEW + DITTO)", C.filhoteDe(m("mew"), m("ditto")) === null && C.filhoteDe(m("mewtwo"), m("mewtwo")) === null);
+  ok("GLITCH não cria", C.filhoteDe(m("missingno"), m("ditto")) === null);
+  ok("o item do ovo e a volta", C.itemDoOvo("pichukanto") === "ovo de pichu kanto" && C.especieDoOvo("ovo de pichu kanto") === "pichukanto" && C.especieDoOvo("poção") === null);
+
+  h("AS REGRAS");
+  const st = { party: [m("rattata"), m("pikakanto"), m("ditto")], money: 1000, items: {} };
+  ok("não deixa o único", (() => { const s = { party: [m("rattata")], money: 0 }; return C.deixar(s, 0) === null; })());
+  const a = C.deixar(st, 1), b = C.deixar(st, 1);
+  ok("deixou os dois (PIKA KANTO e DITTO)", a?.species === "pikakanto" && b?.species === "ditto" && st.party.length === 1 && C.naCreche(st).length === 2);
+  ok("não cabe um terceiro", !C.temVaga(st));
+  ok("o casal dá PICHU KANTO", C.casal(st) === "pichukanto");
+  ok("custa $100 sem subir", C.precoDeVolta(st, a) === 100);
+  let ovo = null;
+  for (let i = 0; i < 4000; i++) ovo = C.andou(st).ovo || ovo;    // ~15 chances de ovo
+  ok("andando, um ovo apareceu (e ficou com o senhor)", ovo === "pichukanto" && st.creche.ovo === "pichukanto");
+  ok("e só um: o segundo espera o primeiro sair", st.creche.ovo === "pichukanto" && st.creche.ovoPassos === 0);
+  ok("os dois cresceram andando", a.level > 30 && b.level > 30);
+  ok("custa mais agora", C.precoDeVolta(st, a) > 100);
+  const e = C.entregarOvo(st);
+  ok("o ovo virou item na mochila", e.item === "ovo de pichu kanto" && st.items["ovo de pichu kanto"] === 1 && !st.creche.ovo);
+  const bebe = C.chocar("ovo de pichu kanto");
+  ok("chocou um PICHU KANTO nível 5, amizade 0", bebe.species === "pichukanto" && bebe.level === 5 && bebe.amizade === 0);
+  ok("ainda não evolui", evolutionFor(bebe) === null);
+  bebe.amizade = 65;
+  ok("com amizade 65, vira PIKA KANTO", evolutionFor(bebe) === "pikakanto");
+  const st2 = { party: [bebe], amizadePassos: 0 };
+  let amigos = [];
+  for (let i = 0; i < 64 * 66; i++) { bebe.amizade = i === 0 ? 0 : bebe.amizade; const r = C.andou(st2); if (r.amigos.length) amigos = r.amigos; }
+  ok("andando 64 passos = +1 de amizade; em 65 avisa", bebe.amizade === 66 && amigos[0] === bebe);
+  st.money = 10;
+  ok("sem dinheiro não pega", C.pegar(st, a) === null);
+  st.money = 5000;
+  const r = C.pegar(st, a);
+  ok("pegou o PIKA: pagou e voltou", r && st.party.includes(a) && C.naCreche(st).length === 1);
+  ok("a casa está trancada e o senhor na frente", !!DB.MAPS.route5.lockedWarps["23,25"] && DB.MAPS.route5.npcs.some((n) => n.creche));
+
+  h("DENTRO DO JOGO");
+  const fr = document.createElement("iframe");
+  fr.width = 240; fr.height = 160; fr.style.opacity = "0.01";
+  fr.src = "/index.html?map=route5&x=23&y=26&perfil=creche-teste";
+  document.body.appendChild(fr);
+  const espera = async (cond, ms = 8000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (cond()) return true; } catch {} await new Promise((r) => setTimeout(r, 40)); } return false; };
+  const subiu = await espera(() => fr.contentWindow?.game?.scenes?.top?.dlg);
+  ok("a partida abriu na ROTA 5", subiu);
+  if (subiu) {
+    const g = fr.contentWindow.game, sc = () => g.scenes.top, s = () => g.state;
+    g.autosave = () => {}; g.save = async () => "ok";
+    const passa = () => { const c = sc(); for (let i = 0; i < 80 && c.dlg.active && !c.dlg.choice; i++) { c.dlg.chars = 1e9; c.dlg.next(); } };
+    const responde = (i) => { const d = sc().dlg, c = d.choice; d.choice = null; d.active = false; d.lines = []; c.cb(i); };
+    const limpa = () => { const d = sc().dlg; d.queue.length = 0; d.active = false; d.choice = null; sc().menu = null; };
+    s().party.push(createMon("pidgey", 5));
+    const velho = () => sc().npcsHere().find((n) => n.creche);
+    sc().talkTo(velho()); passa();
+    ok("ele oferece o menu", sc().dlg.choice?.options?.length === 3);
+    responde(0);
+    ok("DEIXAR abre a equipe como escolha", sc().menu?.type === "party" && typeof sc().menu.escolher === "function");
+    sc().menu.escolher(1); passa();
+    ok("o PIDGEY ficou", s().creche?.mons?.[0]?.species === "pidgey" && s().party.length === 1);
+    const antes = s().creche.mons[0].xp;
+    sc().move = { n: 15, total: 16, dx: 1, dy: 0 };
+    sc().update(1 / 60);
+    ok("um passo seu = 1 xp dele", s().creche.mons[0].xp === antes + 1);
+    limpa();
+    s().creche.ovo = "pichu";
+    sc().talkTo(velho()); passa();
+    ok("com ovo, ele oferece o ovo primeiro", sc().dlg.choice?.options?.[0] === "QUERO");
+    responde(0); passa();
+    ok("o OVO DE PICHU está na mochila", s().items["ovo de pichu"] === 1);
+    limpa();
+    sc().menu = { type: "bag", index: 0 };
+    sc().racharOvoDaCreche("ovo de pichu"); passa();
+    ok("rachou pela mochila: PICHU nível 5 na equipe", s().party.some((x) => x.species === "pichu" && x.level === 5) && !s().items["ovo de pichu"]);
+    limpa();
+    sc().talkTo(velho()); passa(); responde(1); passa();
+    ok("PEGAR DE VOLTA pergunta o preço", sc().dlg.choice?.options?.[0] === "PEGAR");
+    s().money = 1000; responde(0); passa();
+    ok("pegou o PIDGEY por $100", s().party.some((x) => x.species === "pidgey") && s().money === 900 && !s().creche.mons.length);
+  }
+} catch (e) { falhas++; p("EXPLODIU: " + (e?.stack || e), "erro"); }
+p(falhas ? `${falhas} FALHA(S)` : "TUDO OK", falhas ? "erro" : "ok");
+out.innerHTML = linhas.join("");
+const texto = linhas.join("\n").replace(/<h2>/g, "\n").replace(/<[^>]+>/g, "");
+try { await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "creche", log: texto }) }); } catch (e) {}
+document.title = "pronto";
+</script>
+</body>
+</html>

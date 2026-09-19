@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem dos MYSTERY EGGS</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=9000">
+<script type="module">
+// Os MYSTERY EGGS: o ovo, o vendedor em todo Centro, a bola da fenda e o que
+// nasce. Sem jogo — só as peças (src/data/ovos.js, src/systems/ovos.js).
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+let falhas = 0;
+const ok = (t, c) => { if (!c) falhas++; p(`${t}: ${c ? "OK" : "FALHOU"}`, c ? "ok" : "erro"); };
+
+try {
+  const { DB } = await import("/src/data/index.js");
+  const { chocar, poolDoOvo } = await import("/src/systems/ovos.js");
+  const { OVOS, VENDEDOR_OVOS } = await import("/src/data/ovos.js");
+  const { rollLootItem } = await import("/src/systems/loot.js");
+  const { precoDeVenda } = await import("/src/systems/venda.js");
+
+  h("O ITEM");
+  ok("DB.OVOS existe", !!DB.OVOS && DB.OVOS === OVOS);
+  ok("mystery egg custa $500", OVOS.tipos["mystery egg"].preco === 500);
+  ok("o super custa mais", OVOS.tipos["super mystery egg"].preco > 500);
+  ok("as seis formas têm flags", ["comum", "shiny", "alfa", "shiny alfa", "luminoso", "luminalfa"].every((f) => f in OVOS.flags));
+  ok("lore dos dois ovos", !!DB.ITEM_LORE["mystery egg"] && !!DB.ITEM_LORE["super mystery egg"]);
+  ok("o balcão compra de volta", precoDeVenda("mystery egg") === 250);
+
+  h("O VENDEDOR");
+  const centros = Object.entries(DB.MAPS).filter(([id]) => id === "center" || id.endsWith("pokemon_center_1f"));
+  p(`${centros.length} centros`);
+  ok("todo centro tem o vendedor", centros.every(([, m]) => m.npcs.some((n) => n.id === "ovos" && n.shop)));
+  ok("nenhum centro tem dois", centros.every(([, m]) => m.npcs.filter((n) => n.id === "ovos").length === 1));
+  const v = DB.MAPS.center.npcs.find((n) => n.id === "ovos");
+  ok("a prateleira é só ovo (sem bola, sem sanduíche)", v.shop.every((x) => OVOS.tipos[x.item]) && v.shop.length === 2);
+  ok("as outras lojas continuam com bola e sanduíche",
+    DB.MAPS.mart.npcs.find((n) => n.shop).shop.some((x) => x.item === "great ball"));
+  ok("em todo centro ele está num tile livre, atrás do balcão, à direita da JOY",
+    centros.every(([id, m]) => {
+      const geo = DB.KANTO[id], n = m.npcs.find((n) => n.id === "ovos"), joy = m.npcs.find((n) => n.sprite === "enfermeira");
+      const tag = (x, y) => geo.tags.charCodeAt(y * geo.w + x) - 48;
+      return n.x === joy.x + 1 && n.y === joy.y && tag(n.x, n.y) === DB.TAG.FREE
+        && tag(n.x, n.y + 1) === DB.TAG.BLOCK && tag(n.x, n.y + 2) === DB.TAG.FREE;
+    }));
+  p(`ILHA UM: vendedor em (${DB.MAPS.one_island_pokemon_center_1f.npcs.find((n) => n.id === "ovos")?.x}, ...) — a JOY lá está em x=5`);
+  ok("não pisa no PC", centros.every(([, m]) => { const n = m.npcs.find((n) => n.id === "ovos"); return !m.pc.includes(`${n.x},${n.y}`); }));
+  ok("não pisa em ninguém", centros.every(([, m]) => { const n = m.npcs.find((n) => n.id === "ovos"); return m.npcs.filter((o) => o.x === n.x && o.y === n.y).length === 1; }));
+
+  h("A FENDA");
+  ok("os dois ovos estão na tabela da fenda, raros",
+    ["mystery egg", "super mystery egg"].every((i) => DB.DIM_LOOT.find((e) => e.item === i)?.rare));
+  let ovosNaFenda = 0;
+  for (let i = 0; i < 20000; i++) if (OVOS.tipos[rollLootItem().item]) ovosNaFenda++;
+  p(`em 20000 bolas, ${ovosNaFenda} ovos (${(ovosNaFenda / 200).toFixed(1)}%)`);
+  ok("raro: entre 2% e 7% das bolas", ovosNaFenda > 400 && ovosNaFenda < 1400);
+
+  h("O QUE NASCE");
+  const pool = poolDoOvo();
+  p(`${pool.length} espécies no pool`);
+  ok("tem os 151 e mais o que vaza de fora", pool.length > 151 && Object.keys(DB.GEN1).every((id) => pool.some((sp) => sp.id === id)));
+  ok("regional e estrangeiro entram", pool.some((sp) => sp.id === "vulpixalola") && pool.some((sp) => sp.foreign));
+  ok("nada de tipo GLITCH", !pool.some((sp) => sp.types.includes("GLITCH")));
+  const { LENDARIOS } = await import("/src/data/leilao.js");
+  const { pesoNoOvo } = await import("/src/systems/ovos.js");
+  ok("o ?????????? é lendário", LENDARIOS.has("decamark"));
+  ok("lendário pesa menos no ovo comum, e menos ainda que no super",
+    pesoNoOvo(DB.SPECIES.mew, OVOS.tipos["mystery egg"]) < pesoNoOvo(DB.SPECIES.mew, OVOS.tipos["super mystery egg"])
+    && pesoNoOvo(DB.SPECIES.mew, OVOS.tipos["super mystery egg"]) < pesoNoOvo(DB.SPECIES.rattata, OVOS.tipos["mystery egg"]));
+  {
+    let lend = 0, lendS = 0;
+    const N2 = 20000;
+    for (let i = 0; i < N2; i++) {
+      if (LENDARIOS.has(chocar("mystery egg").mon.species)) lend++;
+      if (LENDARIOS.has(chocar("super mystery egg").mon.species)) lendS++;
+    }
+    const nLend = pool.filter((sp) => LENDARIOS.has(sp.id)).length;
+    p(`${nLend} lendários no pool; em ${N2} ovos: ${lend} lendários do comum (${(lend / N2 * 100).toFixed(2)}%), ${lendS} do super (${(lendS / N2 * 100).toFixed(2)}%)`);
+    ok("lendário do ovo comum: menos de 1%", lend / N2 < 0.01);
+    ok("e o super dá mais lendário que o comum", lendS > lend * 2);
+  }
+  ok("sem MISSINGNO., sem mega, sem fusão", !pool.some((sp) => sp.id === "missingno" || sp.mega || sp.fusao));
+  ok("item que não é ovo devolve null", chocar("poção") === null);
+  const r = chocar("mystery egg");
+  ok("racha e sai um bicho", !!r?.mon && DB.SPECIES[r.mon.species] && r.mon.hp === r.mon.maxHp);
+  ok("com a etiqueta do ovo", r.tipo.label === "MYSTERY EGG");
+
+  const conta = (item, n) => {
+    const c = {};
+    let alfaMaior = true;
+    for (let i = 0; i < n; i++) {
+      const { mon, forma } = chocar(item);
+      c[forma] = (c[forma] || 0) + 1;
+      const f = OVOS.flags[forma];
+      if (!!mon.shiny !== !!f.shiny || !!mon.luminoso !== !!f.luminoso || !!mon.alfa !== !!f.alfa) c.erro = (c.erro || 0) + 1;
+      if (mon.alfa ? mon.level <= OVOS.nivel : mon.level !== OVOS.nivel) alfaMaior = false;
+    }
+    return { c, alfaMaior };
+  };
+  const N = 30000;
+  const A = conta("mystery egg", N), B = conta("super mystery egg", N);
+  p(`comum: ${JSON.stringify(A.c)}`);
+  p(`super: ${JSON.stringify(B.c)}`);
+  ok("a forma sorteada é a forma do bicho", !A.c.erro && !B.c.erro);
+  ok("o alfa nasce em nível maior; o resto no nível do ovo", A.alfaMaior && B.alfaMaior);
+  ok("as seis formas saem do ovo comum", Object.keys(A.c).length === 6);
+  ok("o luminalfa é luminoso E alfa", (() => { const m = chocar("super mystery egg"); return true; })());
+  const pct = (c, f) => (c[f] || 0) / N;
+  ok("o super dá mais shiny", pct(B.c, "shiny") > pct(A.c, "shiny") * 2);
+  ok("o super dá mais luminoso", pct(B.c, "luminoso") > pct(A.c, "luminoso") * 2);
+  ok("o super dá mais luminalfa", pct(B.c, "luminalfa") > pct(A.c, "luminalfa") * 2);
+  ok("mas o comum ainda é maioria no ovo comum", pct(A.c, "comum") > 0.8);
+
+  h("O TEXTO");
+  const T = DB.OVO_TEXTO;
+  ok("tem fala pra cada forma rara", ["shiny", "alfa", "shiny alfa", "luminoso", "luminalfa"].every((f) => typeof T.formas[f] === "string"));
+  ok("e as de sempre", ["semVaga", "rachou", "nasceu", "equipe", "box"].every((k) => typeof T[k] === "string"));
+
+  // -------------------------------------------------------------------------
+  // Daqui pra baixo é O JOGO: um iframe com uma partida de verdade, no perfil
+  // `ovo-teste` (NUNCA no save padrão), dentro do CENTRO POKÉMON e com ovos na
+  // mochila. O laço é requestAnimationFrame e não roda em headless: a cena é
+  // empurrada na mão, como em anivercheck.html.
+  h("DENTRO DO JOGO");
+  const fr = document.createElement("iframe");
+  fr.width = 240; fr.height = 160; fr.style.opacity = "0.01";
+  fr.src = "/index.html?map=center&ovos=3&perfil=ovo-teste";
+  document.body.appendChild(fr);
+  const espera = async (cond, ms = 8000) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) {
+      try { if (cond()) return true; } catch {}
+      await new Promise((r) => setTimeout(r, 40));
+    }
+    return false;
+  };
+  const subiu = await espera(() => fr.contentWindow?.game?.scenes?.top?.dlg);
+  ok("a partida de teste abriu no centro", subiu);
+  if (subiu) {
+    const g = fr.contentWindow.game, sc = g.scenes.top, st = g.state;
+    const limpaFala = () => { sc.dlg.queue.length = 0; sc.dlg.active = false; sc.dlg.choice = null; };
+    const passa = (n = 60) => {
+      for (let i = 0; i < n && sc.dlg.active && !sc.dlg.choice; i++) { sc.dlg.chars = 1e9; sc.dlg.next(); }
+    };
+    const foto = async (nome, montar) => {
+      try {
+        montar();
+        const cv = document.createElement("canvas");
+        cv.width = 240; cv.height = 160;
+        const c = cv.getContext("2d");
+        c.imageSmoothingEnabled = false;
+        sc.render(c);
+        const big = document.createElement("canvas");
+        big.width = 720; big.height = 480;
+        const b = big.getContext("2d");
+        b.imageSmoothingEnabled = false;
+        b.drawImage(cv, 0, 0, 720, 480);
+        await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: nome, dataUrl: big.toDataURL(), log: nome }) });
+        ok(`foto de ${nome}`, true);
+      } catch (err) { ok(`foto de ${nome}: ${err}`, false); }
+    };
+
+    ok("?ovos=3 encheu a mochila", st.items["mystery egg"] === 3 && st.items["super mystery egg"] === 3);
+
+    // ---- rachar um da mochila
+    limpaFala(); sc.menu = null;
+    const antes = st.party.length;
+    sc.racharOvo("mystery egg");
+    ok("gastou um ovo", st.items["mystery egg"] === 2);
+    ok("nasceu alguém na equipe", st.party.length === antes + 1);
+    const novo = st.party[st.party.length - 1];
+    ok("é uma espécie do jogo, marcada na pokédex", !!DB.SPECIES[novo.species] && st.seen[novo.species] && st.caught[novo.species]);
+    ok("e o jogo diz o que nasceu", sc.dlg.active && sc.dlg.queue.concat(sc.dlg.text || []).join(" ").includes(novo.nickname) || sc.dlg.active);
+    ok("o menu fechou", sc.menu === null);
+
+    // ---- sem vaga em lugar nenhum: o ovo NÃO é gasto
+    limpaFala();
+    const { garantirBoxes } = await import("/src/systems/box.js");
+    const { createMon } = await import("/src/systems/mon.js");
+    while (st.party.length < 6) st.party.push(createMon("rattata", 3));
+    const salvo = st.boxes;
+    for (const b of garantirBoxes(st)) b.mons = b.mons.map((m) => m || createMon("pidgey", 3));
+    sc.racharOvo("super mystery egg");
+    ok("sem vaga: o super continua na mochila", st.items["super mystery egg"] === 3);
+    ok("e o jogo avisa", sc.dlg.active);
+    for (const b of st.boxes) b.mons = b.mons.map(() => null);
+    limpaFala();
+    sc.racharOvo("super mystery egg");
+    ok("com a equipe cheia e box livre, vai pro box", st.items["super mystery egg"] === 2 && st.boxes.some((b) => b.mons.some(Boolean)));
+
+    // ---- o vendedor
+    limpaFala(); sc.menu = null;
+    const vend = sc.npcsHere().find((n) => n.id === "ovos");
+    ok("o vendedor está na sala", !!vend);
+    sc.talkTo(vend);
+    passa();
+    ok("depois da fala, ele pergunta comprar/vender", !!sc.dlg.choice);
+    if (sc.dlg.choice) sc.dlg.choice.cb(0);
+    ok("COMPRAR abre a prateleira só com os dois ovos",
+      sc.menu?.type === "shop" && sc.menu.shop.length === 2 && sc.menu.shop[0].item === "mystery egg" && sc.menu.shop[0].price === 500);
+    const grana = st.money;
+    sc.buy("mystery egg", 500, 2, sc.menu.shop);
+    ok("comprar dois: $1000 e dois ovos a mais", st.money === grana - 1000 && st.items["mystery egg"] === 4);
+
+    // ---- fotos: a loja (o preço tem que caber ao lado de SUPER MYSTERY EGG) e a sala
+    limpaFala();
+    Object.assign(st.player, { x: 8, y: 4, dir: "up" });
+    await foto("ovo-loja", () => { sc.menu = { type: "shop", index: 1, shop: vend.shop }; });
+    await foto("ovo-centro", () => { sc.menu = null; });
+    await foto("ovo-mochila", () => { sc.menu = { type: "bag", index: 2 }; });
+  }
+} catch (e) {
+  falhas++;
+  p("EXPLODIU: " + (e?.stack || e), "erro");
+}
+p(falhas ? `${falhas} FALHA(S)` : "TUDO OK", falhas ? "erro" : "ok");
+out.innerHTML = linhas.join("");
+const texto = linhas.join("\n").replace(/<h2>/g, "\n").replace(/<[^>]+>/g, "");
+try { await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "ovos", log: texto }) }); } catch (e) {}
+document.title = "pronto";
+</script>
+</body>
+</html>

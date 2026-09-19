@@ -21,6 +21,9 @@ import {
   heal, hpPct, gainXp, xpForLevel, createMon, evolutionFor, learnableMoves,
 } from "../systems/mon.js";
 import { scatterDimLoot } from "../systems/loot.js";
+import { chocar as chocarOvo } from "../systems/ovos.js";
+import { habilidadeDoMon } from "../systems/habilidades.js";
+import * as Creche from "../systems/creche.js";
 import { nascer, andar, emCima, cacando, fugindo, encontroDe } from "../systems/selvagens.js";
 import { distorcaoDeAgora, distorcaoAqui, ondeEla } from "../systems/distorcoes.js";
 import { ZONA, naZona, entradasDoMapa, entradaEm, abrirZona, garantirZona, vaoDaZona,
@@ -428,6 +431,14 @@ export class OverworldScene {
       (this.st.dimLoot || []).forEach((b, i) => {
         extra.push({ id: `bola${i}`, x: b.x, y: b.y, sprite: "ball", loot: b, dir: "down" });
       });
+      // O REGISTRO 0x3F: uma bola que não abre sozinha, no canto oposto à
+      // entrada, só enquanto o capítulo 3 da história do ?????????? estiver
+      // aberto e ela ainda não tiver sido pega (src/data/decamark.js)
+      const R = DB.DECAMARK?.naFenda;
+      if (R && estadoMissao(this.st, R.missao) === "ativa" && !this.st.npcState["glitchdim.registro"]?.gotGift) {
+        extra.push({ id: "registro", x: R.x, y: R.y, sprite: "ball", dir: "down", glitch: true,
+                     gift: { item: DB.DECAMARK.registro, qty: 1 }, achado: R.achado });
+      }
     }
     const dist = this.distorcaoNpc();
     if (dist) extra.push(dist);
@@ -888,7 +899,13 @@ export class OverworldScene {
         p.x += this.move.dx; p.y += this.move.dy;
         this.move = null;
         this.stepParity ^= 1;
+        // quem ficou na creche cresce a cada passo seu; quem anda com você
+        // gosta mais de você — e os bebês evoluem por isso
+        const r = Creche.andou(this.st);
         this.onArrive();
+        if (r.amigos.length && !this.menu && !this.dlg.active) {
+          this.dlg.say(DB.STORY.creche.amigo.replace("{MON}", r.amigos[0].nickname), () => this.rodarEvolucao());
+        }
       }
       this.snapCamera();
       return;
@@ -1767,6 +1784,17 @@ export class OverworldScene {
     if (sign) {
       const ido = this.st.player.map === "birth_island"
         && this.st.npcState["birth_island.deoxys"]?.defeated;
+      // placa-objeto ({ texto, bandeira }): o diário da mansão que a missão
+      // manda ler — ler é o que cumpre o pedido, então ler marca a bandeira
+      if (typeof sign === "object") {
+        return void this.dlg.say(sign.texto, () => {
+          if (sign.bandeira && !this.st.flags[sign.bandeira]) {
+            this.st.flags[sign.bandeira] = true;
+            Audio2.heal();
+            this.game.autosave?.(true);
+          }
+        });
+      }
       return void this.dlg.say(ido ? DB.STORY.deoxys.ido : sign);
     }
 
@@ -1818,6 +1846,22 @@ export class OverworldScene {
     if (npc.voltaTempo) return this.voltarDoTempo();
     if (npc.voltaBarco) return this.voltarDeBarco(npc);
     if (npc.missao) return this.talkMissao(npc);
+    if (npc.travessia) return this.oferecerTravessia(npc);
+    if (npc.creche) return this.talkCreche();
+
+    // `conta`: o que este NPC sabe de uma missão. Com ela aberta (e, se ele
+    // for treinador, depois de vencido) ele conta e marca a bandeira que o
+    // pedido confere — é o BLAINE falando da página que arrancou.
+    const c = npc.conta;
+    if (c && (!npc.trainer || state.defeated) && !this.st.flags[c.flag]
+        && estadoMissao(this.st, c.missao) === "ativa") {
+      state.talked = true;
+      return void this.dlg.say(c.lines, () => {
+        this.st.flags[c.flag] = true;
+        Audio2.heal();
+        this.game.autosave?.(true);
+      });
+    }
 
     if (npc.trainer && !state.defeated) {
       if (!this.st.party.length) {
@@ -2757,6 +2801,131 @@ export class OverworldScene {
     });
   }
 
+  /** O SENHOR DA CRECHE (src/systems/creche.js): deixa até dois, pega de
+   *  volta, e entrega o ovo quando o casal botou um. */
+  talkCreche() {
+    const C = DB.STORY.creche;
+    const st = this.st;
+    // o ovo vem antes de qualquer conversa
+    if (st.creche?.ovo) {
+      return void this.dlg.say(C.temOvo, () => {
+        this.dlg.ask(C.opcoesOvo[0] + "?", C.opcoesOvo, (i) => {
+          if (i !== 0) return void this.dlg.say(C.ovoFicou);
+          const r = Creche.entregarOvo(st);
+          Audio2.heal();
+          this.game.autosave?.(true);
+          this.dlg.say(C.ovoPegou.replace("{ITEM}", r.item.toUpperCase()), () => this.talkCreche());
+        });
+      });
+    }
+    this.dlg.say(C.oi, () => {
+      this.dlg.ask(C.menu, C.opcoes, (i) => {
+        if (i === 0) return this.crecheDeixar();
+        if (i === 1) return this.crechePegar();
+        this.dlg.say(C.recusa);
+      });
+    });
+  }
+
+  crecheDeixar() {
+    const C = DB.STORY.creche, st = this.st;
+    if (!Creche.temVaga(st)) return void this.dlg.say(C.cheia);
+    if (st.party.length <= 1) return void this.dlg.say(C.ultimo);
+    // a equipe como ESCOLHA: Z deixa aquele, X desiste
+    this.menu = {
+      type: "party", index: 0, titulo: C.escolher,
+      escolher: (idx) => {
+        this.menu = null;
+        const m = Creche.deixar(st, idx);
+        if (!m) return void this.dlg.say(C.ultimo);
+        Audio2.heal();
+        this.game.autosave?.(true);
+        const falas = [C.deixou.replace("{MON}", m.nickname)];
+        if (Creche.naCreche(st).length === 2) falas.push(Creche.casal(st) ? C.casal : C.semCasal);
+        this.dlg.say(falas);
+      },
+    };
+  }
+
+  crechePegar() {
+    const C = DB.STORY.creche, st = this.st;
+    const la = Creche.naCreche(st);
+    if (!la.length) return void this.dlg.say(C.vazia);
+    const escolhido = (mon) => {
+      const niveis = Creche.niveisGanhos(st, mon), preco = Creche.precoDeVolta(st, mon);
+      const como = (niveis > 0 ? C.comEle : C.semSubir)
+        .replace("{MON}", mon.nickname).replace("{PASSOS}", st.creche.passos || 0).replace("{NIVEIS}", niveis);
+      this.dlg.say(como, () => {
+        this.dlg.ask(C.cobrar.replace("{PRECO}", preco), C.opcoesVolta, (i) => {
+          if (i !== 0) return void this.dlg.say(C.recusa);
+          if (st.money < preco) return void this.dlg.say(C.semGrana.replace("{PRECO}", preco));
+          if (st.party.length >= 6) return void this.dlg.say(C.equipeCheia);
+          const r = Creche.pegar(st, mon);
+          Audio2.heal();
+          this.game.autosave?.(true);
+          this.dlg.say(C.pegou.replace("{MON}", r.mon.nickname).replace("{NIVEL}", r.mon.level));
+        });
+      });
+    };
+    if (la.length === 1) return escolhido(la[0]);
+    this.dlg.ask(C.quem, la.map((m) => `${m.nickname} N${m.level}`), (i) => escolhido(la[i]));
+  }
+
+  /** um OVO DA CRECHE racha pela mochila: sempre a espécie dele, nível 5. */
+  racharOvoDaCreche(item) {
+    const C = DB.STORY.creche, T = DB.OVO_TEXTO;
+    this.menu = null;
+    if (this.st.party.length >= 6 && boxCheio(this.st)) { Audio2.cancel(); return void this.dlg.say(T.semVaga); }
+    const mon = Creche.chocar(item);
+    if (!mon) { Audio2.cancel(); return; }
+    this.spend(item, 1);
+    const msgs = [C.rachou.replace("{OVO}", item.toUpperCase()), C.nasceu.replace("{MON}", mon.nickname).replace("{NIVEL}", mon.level)];
+    if (mon.luminoso) msgs.push(T.formas.luminoso);
+    else if (mon.shiny) msgs.push(T.formas.shiny);
+    if (this.st.party.length < 6) { this.st.party.push(mon); msgs.push(T.equipe.replace("{MON}", mon.nickname)); }
+    else { guardarNoBox(this.st, mon); msgs.push(T.box.replace("{MON}", mon.nickname)); }
+    this.st.seen[mon.species] = true;
+    this.st.caught[mon.species] = true;
+    if (mon.luminoso || mon.shiny) { Glitch.hit(1.6); Audio2.glitch(); }
+    Audio2.heal();
+    this.game.autosave?.(true);
+    this.dlg.say(msgs);
+  }
+
+  /** O MONTANHISTA: $X e um item da mochila, e ele te põe do outro lado.
+   *  O item é escolhido na própria mochila (`escolher` no menu dela). */
+  oferecerTravessia(npc) {
+    const t = npc.travessia;
+    const T = DB.STORY.travessia;
+    this.dlg.say(npc.lines, () => {
+      this.dlg.ask(t.pergunta || T.pergunta, T.opcoes, (i) => {
+        if (i !== 0) return void this.dlg.say(t.recusa || T.recusa);
+        if (this.st.money < t.preco) return void this.dlg.say(T.semGrana);
+        if (!Object.keys(this.st.items).length) return void this.dlg.say(T.semItem);
+        this.menu = {
+          type: "bag", index: 0, titulo: T.escolher,
+          escolher: (item) => {
+            this.menu = null;
+            this.spend(item, 1);
+            this.st.money -= t.preco;
+            Audio2.heal();
+            this.dlg.say([T.pegou.replace("{ITEM}", item.toUpperCase()), ...[].concat(t.indo || T.indo)], () => {
+              Audio2.tone(220, 0.12, "sawtooth", 0.5);
+              this.transition(() => {
+                const p = this.st.player;
+                this.st.surfando = null;
+                Object.assign(p, { map: t.para.map, x: t.para.x, y: t.para.y, dir: t.para.dir || "down" });
+                this.justWarped = true;
+                this.afterTravel();
+                this.game.autosave?.(true);
+              });
+            });
+          },
+        };
+      });
+    });
+  }
+
   /** O marinheiro esperando no recife, pra voltar. */
   voltarDeBarco(npc) {
     const barco = this.st.barco;
@@ -2788,7 +2957,7 @@ export class OverworldScene {
       .filter((e) => !this.st.npcState[`${aqui}.estatico_${e.id}`]?.defeated)
       .map((e) => ({
         id: `estatico_${e.id}`, x: e.x, y: e.y, dir: "down", sprite: `mon:${e.id}`,
-        boss: { id: e.id, lvl: e.nivel || 60 },
+        boss: { id: e.id, lvl: e.nivel || 60, corrupt: !!e.corrupt },
         lines: e.lines || [],
       }));
   }
@@ -3689,6 +3858,40 @@ export class OverworldScene {
     if (this.st.items[item] <= 0) delete this.st.items[item];
   }
 
+  /** MYSTERY EGG: um da mochila racha e sai um dos 151, com a forma sorteada
+   *  (src/data/ovos.js). Sem vaga na equipe nem no BOX o ovo NÃO é gasto — um
+   *  bicho que evapora por falta de espaço é um ovo de $500 jogado fora. */
+  racharOvo(item) {
+    const T = DB.OVO_TEXTO;
+    this.menu = null;
+    if (this.st.party.length >= 6 && boxCheio(this.st)) {
+      Audio2.cancel();
+      return void this.dlg.say(T.semVaga);
+    }
+    const r = chocarOvo(item);
+    if (!r) { Audio2.cancel(); return; }
+    const { mon, forma, tipo } = r;
+    this.spend(item, 1);
+    const msgs = [T.rachou.replace("{OVO}", tipo.label),
+                  T.nasceu.replace("{MON}", mon.nickname).replace("{NIVEL}", mon.level)];
+    if (T.formas[forma]) msgs.push(T.formas[forma]);
+    if (this.st.party.length < 6) {
+      this.st.party.push(mon);
+      msgs.push(T.equipe.replace("{MON}", mon.nickname));
+    } else {
+      guardarNoBox(this.st, mon);
+      msgs.push(T.box.replace("{MON}", mon.nickname));
+    }
+    this.st.seen[mon.species] = true;
+    this.st.caught[mon.species] = true;
+    // forma rara: a tela treme na medida do que nasceu
+    if (mon.luminoso) { Glitch.hit(2.4); Audio2.glitch(); }
+    else if (mon.shiny || mon.alfa) { Glitch.hit(1.6); Audio2.glitch(); }
+    Audio2.heal();
+    this.game.autosave?.(true);
+    this.dlg.say(msgs);
+  }
+
   /** doce raro: +1 nível por doce, até 999 de uma vez */
   useCandy(mon, qty = 1) {
     if (mon.level >= 100) { Audio2.cancel(); return void this.dlg.say(`${mon.nickname} JÁ ESTÁ NO NÍVEL MÁXIMO!`); }
@@ -3752,6 +3955,12 @@ export class OverworldScene {
     if (m.type === "party") {
       if (Input.consume("up")) m.index = Math.max(0, m.index - 1);
       if (Input.consume("down")) m.index = Math.min(this.st.party.length - 1, m.index + 1);
+      // a equipe como ESCOLHA (a creche): Z escolhe, X desiste
+      if (m.escolher) {
+        if (Input.consume("b")) { this.menu = null; Audio2.cancel(); this.dlg.say(DB.STORY.creche.desistiu); }
+        else if (Input.consume("a")) { Audio2.select(); m.escolher(m.index); }
+        return;
+      }
       if (Input.consume("b") || Input.consume("a")) { this.menu = { type: "main", index: 0 }; Audio2.cancel(); }
       return;
     }
@@ -3769,6 +3978,12 @@ export class OverworldScene {
       m.index = Math.min(m.index, keys.length - 1);
       if (Input.consume("up")) { m.index = (m.index + keys.length - 1) % keys.length; Audio2.blip(); }
       if (Input.consume("down")) { m.index = (m.index + 1) % keys.length; Audio2.blip(); }
+      // a mochila como ESCOLHA: alguém pediu um item (o montanhista); Z entrega, X desiste
+      if (m.escolher) {
+        if (Input.consume("b")) { this.menu = null; Audio2.cancel(); this.dlg.say(DB.STORY.travessia.desistiu); }
+        else if (Input.consume("a")) { Audio2.select(); m.escolher(keys[m.index]); }
+        return;
+      }
       if (Input.consume("b")) { this.menu = { type: "main", index: this.itensMenu().indexOf("MOCHILA") }; Audio2.cancel(); }
       if (Input.consume("a")) {
         const item = keys[m.index];
@@ -3794,6 +4009,14 @@ export class OverworldScene {
           const forma = DB.SPECIES[DB.MEGA_PEDRAS[item]];
           const base = DB.SPECIES[forma?.megaDe];
           return void this.dlg.say(DB.STORY.mega.olhaPedra.replace("{ESPECIE}", base?.name || "?"));
+        }
+        if (DB.OVOS?.tipos?.[item] && owned > 0) {
+          Audio2.select();                       // MYSTERY EGG: racha na hora
+          return void this.racharOvo(item);
+        }
+        if (Creche.ehOvo(item) && owned > 0) {
+          Audio2.select();                       // OVO DA CRECHE: idem, espécie certa
+          return void this.racharOvoDaCreche(item);
         }
         if (DB.EVO_ITEMS?.[item] && owned > 0 && this.st.party.length) {
           Audio2.select();                       // item de evolução: um por vez
@@ -4614,7 +4837,7 @@ export class OverworldScene {
     }
     if (m.type === "party") {
       panel(ctx, 4, 4, W - 8, H - 8);
-      drawText(ctx, "EQUIPE", 12, 10, PAL.ink);
+      drawText(ctx, m.titulo || "EQUIPE", 12, 10, PAL.ink);
       this.st.party.forEach((mon, i) => {
         const y = 24 + i * 24;
         if (i === m.index) cursor(ctx, 8, y + 7);
@@ -4623,6 +4846,9 @@ export class OverworldScene {
         drawText(ctx, `N${mon.level}`, 152, y + 2, PAL.ink);
         bar(ctx, 46, y + 14, 76, 4, hpPct(mon), hpColor(hpPct(mon)));
         drawText(ctx, `${mon.hp}/${mon.maxHp}`, 130, y + 11, PAL.ink2);
+        // a habilidade (src/data/habilidades.js), no lugar que sobra na linha de baixo
+        const hab = habilidadeDoMon(mon);
+        if (hab) drawText(ctx, hab.nome, 46, y + 11, PAL.ink2, { maxChars: 13 });
         if (mon.corrupt) drawText(ctx, "!", 200, y + 2, PAL.glitch);
         if (mon.alfa) drawText(ctx, "ALFA", 182, y + 11, "#e0242a");
       });
@@ -4815,14 +5041,14 @@ export class OverworldScene {
     }
     if (m.type === "bag") {
       panel(ctx, 4, 4, W - 8, H - 8);
-      drawText(ctx, "MOCHILA", 12, 10, PAL.ink);
+      drawText(ctx, m.titulo || "MOCHILA", 12, 10, PAL.ink);
       Object.entries(this.st.items).forEach(([k, v], i) => {
         const y = 30 + i * LINE_H;
         drawText(ctx, k.toUpperCase(), 24, y, PAL.ink);
         drawText(ctx, `x${v}`, 180, y, PAL.ink);
         if (i === m.index) cursor(ctx, 12, y);
       });
-      drawText(ctx, "Z USA   X VOLTA", 20, H - 42, PAL.ink2);
+      drawText(ctx, m.escolher ? "Z ENTREGA   X DESISTE" : "Z USA   X VOLTA", 20, H - 42, PAL.ink2);
       if (!Object.keys(this.st.items).length) drawText(ctx, "MOCHILA VAZIA.", 24, 30, PAL.ink2);
       drawText(ctx, `DINHEIRO: ${moeda(this.st.money)}`, 20, H - 30, PAL.ink2);
       drawText(ctx, "X VOLTA", 180, H - 20, PAL.ink2);
@@ -4859,12 +5085,17 @@ export class OverworldScene {
       if (m.index < m.top) m.top = m.index;
       if (m.index >= m.top + JANELA) m.top = m.index - JANELA + 1;
       const vistos = m.shop.slice(m.top, m.top + JANELA);
-      panel(ctx, 4, 4, 150, vistos.length * LINE_H + 16);
+      // o painel vai até encostar no do DINHEIRO e o preço encosta na direita:
+      // com ele fixo em x=110 sobravam 15 letras pro nome, e SUPER MYSTERY EGG
+      // tem 17 (o "$" não tem desenho na fonte, então ele mesmo é o espaço
+      // entre o nome e o número)
+      panel(ctx, 4, 4, 152, vistos.length * LINE_H + 16);
       vistos.forEach((it, k) => {
         const i = m.top + k;
         const y = 10 + k * LINE_H;
-        drawText(ctx, it.item.toUpperCase(), 20, y, PAL.ink);
-        drawText(ctx, `$${it.price}`, 110, y, PAL.ink);
+        const p = `$${it.price}`;
+        drawText(ctx, it.item.toUpperCase(), 20, y, PAL.ink, { maxChars: 22 - p.length });
+        drawText(ctx, p, 152 - p.length * 6, y, PAL.ink);
         if (i === m.index) cursor(ctx, 10, y);
       });
       // as setinhas dizem que tem mais coisa pra cima ou pra baixo

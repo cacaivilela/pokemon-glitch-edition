@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, aniv, reg, zonas, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, aniv, reg, zonas, ovos, decamark, hab, pesos, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -46,6 +46,10 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./aniversario.js" + V),
   import("./regionais.js" + V),
   import("./glitchzones.js" + V),
+  import("./ovos.js" + V),
+  import("./decamark.js" + V),
+  import("./habilidades.js" + V),
+  import("./pesos.js" + V),
   fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
 
@@ -122,11 +126,41 @@ function mergeMaps(kanto, authored) {
       npcs: m.npcPatch ? npcs.map((n) => (m.npcPatch[n.id] ? { ...n, ...m.npcPatch[n.id] } : n)) : npcs,
     };
   }
+  // AS PLACAS DA HISTÓRIA DO ??????????: o aviso em Cinnabar e os diários da
+  // mansão (src/data/decamark.js). Entram por cima do nome de mapa que os tiles
+  // de placa importados mostram por padrão.
+  for (const [id, placas] of Object.entries(decamark.DECAMARK_PLACAS)) {
+    if (out[id]) out[id].signs = { ...(out[id].signs || {}), ...placas };
+  }
+
   // O PC dos Centros Pokémon: mesma planta, mesma coordenada em Kanto inteira
   // (ver PC_CENTRO em src/data/maps.js). Um mapa que já traga `pc` escrito à
   // mão fica com o dele.
   for (const [id, m] of Object.entries(out)) {
     if (!m.pc && (id === "center" || id.endsWith("pokemon_center_1f"))) m.pc = [...maps.PC_CENTRO];
+  }
+
+  // O VENDEDOR DE MYSTERY EGGS: mesma história do PC, todo Centro Pokémon
+  // ganha o mesmo vendedor (src/data/ovos.js). Ele fica atrás do balcão, NO
+  // TILE À DIREITA DA SRTA. JOY — não numa coordenada fixa, porque o centro da
+  // ILHA UM tem outra planta e a enfermeira lá está em (5,2), não em (7,2). O
+  // tile precisa ser chão, com balcão embaixo e chão do outro lado (é de lá
+  // que o jogador fala com ele); se não for, aquele centro fica sem vendedor.
+  // Um centro que já tenha um NPC com esse id fica com o dele.
+  for (const [id, m] of Object.entries(out)) {
+    if (id !== "center" && !id.endsWith("pokemon_center_1f")) continue;
+    if ((m.npcs || []).some((n) => n.id === ovos.VENDEDOR_OVOS.id)) continue;
+    const geo = kanto?.[id];
+    const joy = (m.npcs || []).find((n) => n.sprite === "enfermeira");
+    if (!geo || !joy) continue;
+    const tag = (x, y) => (x < 0 || y < 0 || x >= geo.w || y >= geo.h) ? maps.TAG.BLOCK
+      : geo.tags.charCodeAt(y * geo.w + x) - 48;
+    const x = joy.x + 1, y = joy.y;
+    const cabe = tag(x, y) === maps.TAG.FREE && tag(x, y + 1) === maps.TAG.BLOCK
+      && tag(x, y + 2) === maps.TAG.FREE && !(m.pc || []).includes(`${x},${y}`)
+      && !(m.npcs || []).some((n) => n.x === x && n.y === y);
+    if (!cabe) continue;
+    m.npcs = [...(m.npcs || []), { ...ovos.VENDEDOR_OVOS, x, y }];
   }
 
   // ACAMPAR E LEILÃO: cada cidade tem a sua loja, e todas vendiam só bola e poção. Em vez
@@ -137,6 +171,9 @@ function mergeMaps(kanto, authored) {
   for (const mapa of Object.values(out)) {
     for (const npc of mapa.npcs || []) {
       if (!npc.shop) continue;
+      // `estoqueFechado`: o vendedor de ovos vende ovo, e só — bola e sanduíche
+      // do lado de um MYSTERY EGG viravam uma loja de conveniência
+      if (npc.estoqueFechado) continue;
       const tem = new Set(npc.shop.map((x) => x.item));
       // AS BOLAS entram GRUDADAS NA POKÉ BOLA, e não no fim da lista: bola se
       // compra ao lado de bola. Jogadas no fim, a GREAT BALL aparecia depois
@@ -345,12 +382,18 @@ export function buildDB() {
     effectiveness: types.effectiveness,
     // os GOLPES Z de tipo entram junto: eles não se aprendem, mas o motor de
     // batalha procura todo golpe por id nesta mesma tabela
-    MOVES: { ...moves.MOVES, ...zc.Z_GOLPES },
+    MOVES: { ...moves.MOVES, ...zc.Z_GOLPES, ...hab.GOLPES_DE_CLIMA },
+    HABILIDADES: hab.HABILIDADES,
+    HABILIDADE_DE: hab.HABILIDADE_DE,
+    HABILIDADE_POR_TIPO: hab.HABILIDADE_POR_TIPO,
+    CLIMA_TEXTO: hab.CLIMA_TEXTO,
+    PESOS: pesos.PESOS,
     GEN1: gen1.GEN1,
     DEX_ORDER: gen1.DEX_ORDER,
     SPECIES: species.buildSpecies(
       { ...gen1.GEN1, ...extra.EXTRA, ...reg.REGIONAIS, ...eras.ERAS_ESPECIES,
-        ...iniciais.INICIAIS_ESPECIES, ...bones.BONES_ESPECIES, ...mega.MEGA_FORMS },
+        ...iniciais.INICIAIS_ESPECIES, ...bones.BONES_ESPECIES, ...decamark.DECAMARK_ESPECIE,
+        ...mega.MEGA_FORMS },
       types.TYPE_COLOR),
     EXTRA: extra.EXTRA,
     // as formas regionais entram na fenda junto com o resto que vaza pra lá
@@ -364,7 +407,8 @@ export function buildDB() {
     FUSAO_SELVAGEM: extra.FUSAO_SELVAGEM,
     DEOXYS_FORMS: extra.DEOXYS_FORMS,
     TEMPESTADE: extra.TEMPESTADE,
-    ESTATICOS: [...extra.ESTATICOS, ...bones.BONES_ESTATICOS],
+    ESTATICOS: [...extra.ESTATICOS, ...bones.BONES_ESTATICOS, decamark.DECAMARK_ESTATICO],
+    DECAMARK: { registro: decamark.REGISTRO, naFenda: decamark.REGISTRO_NA_FENDA },
     CRISTAL: bones.CRISTAL,
     ZCRISTAIS: zc.ZCRISTAIS,
     DESCIDA: desc.DESCIDA,
@@ -389,13 +433,14 @@ export function buildDB() {
     DIM_LOOT_SPREAD: loot.DIM_LOOT_SPREAD,
     EVOLUTIONS: evo.EVOLUTIONS,
     EVO_ITEMS: evo.EVO_ITEMS,
+    PRE_EVOLUCAO: evo.PRE_EVOLUCAO,
     STONES: evo.STONES,
     FIELD_MOVES: field.FIELD_MOVES,
     FIELD_LEARNERS: field.FIELD_LEARNERS,
     FLY_SPOTS: field.FLY_SPOTS,
     MUSIC: music.MUSIC,
     MUSIC_ALIAS: music.MUSIC_ALIAS,
-    ITEM_LORE: { ...loot.ITEM_LORE, ...mega.PEDRA_LORE, ...bolas.BOLA_LORE },
+    ITEM_LORE: { ...loot.ITEM_LORE, ...mega.PEDRA_LORE, ...bolas.BOLA_LORE, ...ovos.OVO_LORE, ...decamark.DECAMARK_LORE },
     STARTERS: species.STARTERS,
     BOX: box.BOX,
     BOX_PAPEIS: box.BOX_PAPEIS,
@@ -410,6 +455,8 @@ export function buildDB() {
     MISSOES: missoes.MISSOES,
     DISTORCOES: distorcoes.DISTORCOES,
     GLITCH_ZONES: zonas.GLITCH_ZONES,
+    OVOS: ovos.OVOS,
+    OVO_TEXTO: ovos.OVO_TEXTO,
     ZONA_TEXTO: zonas.ZONA_TEXTO,
     SEVII: sevii.SEVII,
     NOMES_SEVII: sevii.NOMES,

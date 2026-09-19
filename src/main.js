@@ -371,6 +371,9 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
     for (const pedra of Object.keys(DB.MEGA_PEDRAS || {})) game.state.items[pedra] = 1;
     game.state.flags.anelMega = true;
   }
+  if (q.get("ovos")) {   // ?ovos=N -> N MYSTERY EGGS de cada tipo na mochila
+    for (const ovo of Object.keys(DB.OVOS?.tipos || {})) game.state.items[ovo] = +q.get("ovos") || 1;
+  }
   if (q.get("fusao")) {   // ?fusao=1 -> a máquina do professor já na mochila
     game.state.items[DB.FUSAO.item] = 1;
     game.state.flags.decodificador = true;

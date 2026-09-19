@@ -25,7 +25,7 @@ export const CATALOGO = [
   { id: "torneio", nome: "TORNEIO DE PALLET", arquivo: "dlc/torneio.js",
     descricao: "Oito treinadores na praia de Pallet, cada um com uma equipe de FUSÕES publicadas na oficina. Vença os oito e o juiz entrega o prêmio." },
   { id: "decamark", nome: "REVOLTA DE DECAMARK", arquivo: "dlc/decamark.js",
-    descricao: "?????????? saiu do cartucho. Nasce corrompido em toda rota de Kanto, vem pra cima de você, e alguém em Cinnabar sabe por quê." },
+    descricao: "?????????? saiu do lugar dele. Nasce corrompido em toda rota de Kanto e vem pra cima de você — quebra de propósito a regra do \"só um\" da história do REGISTRO 0x3F." },
   // os quatro de baixo trazem, cada um, NOVE PRESENTES MISTERIOSOS por código
   { id: "lendas", nome: "LENDAS DE KANTO", arquivo: "dlc/lendas.js",
     descricao: "As aves, o MEWTWO e o MEW voltam a andar por Kanto: nascem raros nos lugares deles, e nove cartões entregam o resto da lenda." },

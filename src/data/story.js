@@ -3,6 +3,49 @@
 // um pedaço. Com as 8, MISSINGNO. atravessa e o mundo buga — aí o objetivo vira
 // capturá-lo. Tudo aqui tem hot-swap: dá pra reescrever com o jogo aberto.
 export const STORY = {
+  // A CRECHE DA ROTA 5 (src/systems/creche.js): o senhor na frente da casa
+  creche: {
+    oi: ["OLÁ! EU SOU O SENHOR DA CRECHE.", "CUIDO DE ATÉ DOIS POKÉMON SEUS. ELES CRESCEM ENQUANTO VOCÊ ANDA POR AÍ — E, SE SE DEREM BEM, PODE APARECER UM OVO."],
+    menu: "O QUE VOCÊ QUER?",
+    opcoes: ["DEIXAR UM", "PEGAR DE VOLTA", "NADA"],
+    recusa: "VOLTE QUANDO QUISER. A PORTA ESTÁ SEMPRE TRANCADA, MAS EU ESTOU SEMPRE AQUI.",
+    escolher: "QUAL POKÉMON FICA?",
+    ultimo: "ESSE É O SEU ÚNICO POKÉMON! EU CUIDO DELE, MAS QUEM CUIDA DE VOCÊ?",
+    cheia: "JÁ TENHO DOIS AQUI. MAIS QUE ISSO EU NÃO DOU CONTA.",
+    vazia: "NÃO TEM NINGUÉM SEU COMIGO.",
+    deixou: "{MON} FICOU COMIGO. VAI ANDAR BASTANTE, QUE É ASSIM QUE ELE CRESCE.",
+    casal: "OS DOIS PARECEM SE DAR MUITO BEM. QUEM SABE...",
+    semCasal: "ESSES DOIS NEM SE OLHAM.",
+    quem: "QUAL DELES?",
+    comEle: "SEU {MON} ANDOU {PASSOS} PASSOS COMIGO E SUBIU {NIVEIS} NÍVEL(IS).",
+    semSubir: "SEU {MON} AINDA NÃO SUBIU DE NÍVEL — ANDE MAIS.",
+    cobrar: "PRA PEGAR DE VOLTA SÃO ${PRECO}. QUER ELE DE VOLTA?",
+    opcoesVolta: ["PEGAR", "DEIXAR MAIS"],
+    semGrana: "NÃO DÁ. VOLTE COM ${PRECO} — ELE NÃO SAI DAQUI DE GRAÇA.",
+    equipeCheia: "SUA EQUIPE ESTÁ CHEIA. ABRA UMA VAGA E VOLTE.",
+    pegou: "AQUI ESTÁ O SEU {MON}! ELE ESTÁ NO NÍVEL {NIVEL}. VOLTE SEMPRE.",
+    temOvo: ["AH, ANTES DE MAIS NADA: OS SEUS DOIS ESTAVAM COM UM OVO!", "EU NÃO SEI DE ONDE VEIO. VOCÊ QUER?"],
+    opcoesOvo: ["QUERO", "FICA AÍ"],
+    ovoFicou: "ENTÃO EU GUARDO. ELE NÃO VAI A LUGAR NENHUM.",
+    ovoPegou: "VOCÊ RECEBEU O {ITEM}! ELE RACHA PELA MOCHILA.",
+    desistiu: "MUDOU DE IDEIA? TUDO BEM.",
+    // o ovo rachando, pela mochila
+    rachou: "VOCÊ SEGURA O {OVO}. ELE ESQUENTA, TREME E... RACHA!",
+    nasceu: "NASCEU {MON}, NÍVEL {NIVEL}!",
+    amigo: "{MON} GOSTA DE VOCÊ O BASTANTE PRA MUDAR.",
+  },
+  // O MONTANHISTA DO MONTE LUA (src/data/maps.js, route4): a travessia paga
+  travessia: {
+    pergunta: "PAGAR PELA TRAVESSIA?",
+    opcoes: ["PAGAR", "AGORA NÃO"],
+    recusa: "A CAVERNA ESTÁ ALI. BOA SORTE COM OS ZUBAT.",
+    semGrana: "NÃO É ESSE O VALOR. VOLTA COM O DINHEIRO.",
+    semItem: "SUA MOCHILA ESTÁ VAZIA. O TRATO É DINHEIRO E UM ITEM — SEM ITEM NÃO TEM CORDA.",
+    escolher: "QUAL ITEM VOCÊ DÁ?",
+    desistiu: "MUDOU DE IDEIA? A MONTANHA NÃO SAI DO LUGAR.",
+    pegou: "ELE GUARDOU {ITEM} NO BOLSO SEM OLHAR.",
+    indo: ["SEGURA NA CORDA.", "...", "PRONTO."],
+  },
   /** Ao pisar em Viridian pela primeira vez: a Pokédex apita sozinha.
    *  É daqui em diante que os fragmentos de portal começam a aparecer. */
   pokedexAlert: {

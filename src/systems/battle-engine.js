@@ -3,13 +3,16 @@ import { DB } from "../data/index.js";
 import { bonusDoAtributo } from "./glitchboost.js";
 import { pick, chance, clamp, randRange } from "../core/rng.js";
 import { isFainted } from "./mon.js";
+import { efeitoNoGolpe, semCrit, semStatus, semQueda, fatorVelocidade, habilidadeDoMon } from "./habilidades.js";
 
 const STAGE_MULT = [0.25, 0.28, 0.33, 0.4, 0.5, 0.66, 1, 1.5, 2, 2.5, 3, 3.5, 4];
 export const newStages = () => ({ atk: 0, def: 0, spa: 0, spd: 0, spe: 0, acc: 0, eva: 0 });
 const withStage = (v, s) => Math.max(1, Math.floor(v * STAGE_MULT[clamp(s + 6, 0, 12)]));
 
-export function effectiveStat(mon, key, stages) {
+export function effectiveStat(mon, key, stages, clima = null) {
   let v = withStage(mon.stats[key], stages[key] || 0);
+  // NADO RÁPIDO, CLOROFILA: a velocidade muda com o clima (src/data/habilidades.js)
+  if (key === "spe") v = Math.floor(v * fatorVelocidade(mon, clima));
   // O GLITCHBOOSTER entra AQUI, e não nos `stats`: o dano acumulado é um bônus
   // que vive só nesta batalha, então ele não pode encostar no Pokémon gravado.
   v += bonusDoAtributo(mon, key);
@@ -18,21 +21,25 @@ export function effectiveStat(mon, key, stages) {
   return Math.max(1, v);
 }
 
-export function calcDamage(atk, def, moveId, aStages, dStages) {
+export function calcDamage(atk, def, moveId, aStages, dStages, clima = null) {
   const mv = DB.MOVES[moveId];
   const eff = DB.effectiveness(mv.type, def.types);
   if (mv.category === "status" || mv.power === 0) return { dmg: 0, eff: 1, crit: false, mv };
   if (eff === 0) return { dmg: 0, eff: 0, crit: false, mv };
+  // AS HABILIDADES E O CLIMA (src/systems/habilidades.js): imunidade (LEVITAR,
+  // PARA-RAIOS...), o multiplicador dos dois lados e a fala de quem anuncia
+  const hab = efeitoNoGolpe(mv, atk, def, clima);
+  if (hab.imune) return { dmg: 0, eff: 0, crit: false, mv, imune: hab.hab, cura: hab.cura };
 
   const physical = mv.category === "fisico";
   const A = effectiveStat(atk, physical ? "atk" : "spa", aStages);
   const D = Math.max(1, effectiveStat(def, physical ? "def" : "spd", dStages));
-  const crit = chance((mv.crit || 1) / 16);
+  const crit = !semCrit(def) && chance((mv.crit || 1) / 16);
   const stab = atk.types.includes(mv.type) ? 1.5 : 1;
   const rand = randRange(85, 100) / 100;
 
   let dmg = Math.floor(Math.floor((Math.floor((2 * atk.level) / 5 + 2) * mv.power * A) / D) / 50) + 2;
-  dmg = Math.floor(dmg * stab * eff * rand * (crit ? 2 : 1));
+  dmg = Math.floor(dmg * stab * eff * rand * (crit ? 2 : 1) * hab.mult) + (hab.extra || 0);
   if (atk.corrupt) dmg = Math.floor(dmg * 1.2);
 
   // Espelho: bater num Pokémon corrompido usando a MESMA espécie faz o dado
@@ -40,7 +47,7 @@ export function calcDamage(atk, def, moveId, aStages, dStages) {
   const mirror = !!def.corrupt && atk.species === def.species;
   if (mirror) dmg *= 8;
 
-  return { dmg: Math.max(1, dmg), eff, crit, mv, mirror };
+  return { dmg: Math.max(1, dmg), eff, crit, mv, mirror, anuncia: hab.anuncia, hab: hab.hab };
 }
 
 export function accuracyCheck(moveId, aStages, dStages) {
@@ -52,7 +59,10 @@ export function accuracyCheck(moveId, aStages, dStages) {
 
 export function applyMoveEffects(mv, user, target, uStages, tStages) {
   const msgs = [];
-  if (mv.stat) {
+  // MENTE LIMPA: o inimigo não derruba os atributos dele
+  if (mv.stat && mv.stat.target === "foe" && mv.stat.delta < 0 && semQueda(target)) {
+    msgs.push(`${target.nickname} NÃO SE ABALA!`);
+  } else if (mv.stat) {
     const s = mv.stat.target === "self" ? uStages : tStages;
     const who = mv.stat.target === "self" ? user : target;
     const before = s[mv.stat.key] || 0;
@@ -62,6 +72,7 @@ export function applyMoveEffects(mv, user, target, uStages, tStages) {
       ? `${who.nickname} NÃO PODE ${mv.stat.delta > 0 ? "SUBIR" : "CAIR"} MAIS!`
       : `${label} DE ${who.nickname} ${mv.stat.delta > 0 ? "SUBIU" : "CAIU"}!`);
   }
+  if (semStatus(target)) return msgs;          // SEM REGISTRO: status não pega
   if (mv.burn && !target.status && chance(mv.burn)) { target.status = "queimadura"; msgs.push(`${target.nickname} SE QUEIMOU!`); }
   if (mv.para && !target.status && chance(mv.para)) { target.status = "paralisia"; msgs.push(`${target.nickname} FICOU PARALISADO!`); }
   if (mv.poison && !target.status && !target.types.includes("VENENO") && chance(mv.poison)) {
@@ -80,7 +91,7 @@ export const effText = (eff) =>
   eff === 0 ? "NÃO AFETA O ALVO..." : eff > 1.9 ? "É SUPER EFETIVO!" : eff > 1 ? "É EFETIVO." : eff < 0.6 ? "NÃO É MUITO EFETIVO..." : null;
 
 /** IA simples: prioriza o golpe com maior dano esperado. */
-export function chooseAiMove(foe, player, fStages, pStages) {
+export function chooseAiMove(foe, player, fStages, pStages, clima = null) {
   const usable = foe.moves.filter((m) => m.pp > 0);
   if (!usable.length) return null;
   let best = usable[0], bestScore = -1;
@@ -89,6 +100,12 @@ export function chooseAiMove(foe, player, fStages, pStages) {
     const eff = DB.effectiveness(mv.type, player.types);
     let score = (mv.power || 25) * eff * (foe.types.includes(mv.type) ? 1.5 : 1);
     if (mv.category === "status") score = 30 + Math.random() * 20;
+    // golpe de clima: vale muito quando o clima ainda não é esse (a CHUVA DE
+    // LAVA do LAMPENT começa por aqui), e nada quando já é
+    if (mv.clima) {
+      const gosta = habilidadeDoMon(foe)?.gosta === mv.clima;
+      score = clima === mv.clima ? 0 : gosta ? 999 : 60 + Math.random() * 20;
+    }
     score *= 0.8 + Math.random() * 0.4;
     if (score > bestScore) { bestScore = score; best = m; }
   }

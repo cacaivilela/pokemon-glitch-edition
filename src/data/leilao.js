@@ -32,6 +32,7 @@ export const LENDARIOS = new Set([
   "kyogre", "groudon", "rayquaza", "deoxys", "deoxysataque", "deoxysdefesa",
   "deoxysvelocidade", "arceus", "dialga", "palkia", "xerneas", "yveltal", "zygarde",
   "tornadus", "thundurus", "landorus", "genesect", "missingno",
+  "decamark",     // o ?????????? do DLC: dez interrogações valem o que um lendário vale
 ]);
 
 /** Daqui pra cima é pseudo-lendário; daqui pra cima é raro. O resto é comum. */

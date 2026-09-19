@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem dos RAICHU DE BONÉ</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=9000">
+<script type="module">
+// Os RAICHU DE BONÉ: a espécie, o sprite montado, a pedra do trovão e a
+// evolução dentro do jogo (src/data/bones.js, tools/bones_raichu.py).
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+let falhas = 0;
+const ok = (t, c) => { if (!c) falhas++; p(`${t}: ${c ? "OK" : "FALHOU"}`, c ? "ok" : "erro"); };
+
+try {
+  const { DB } = await import("/src/data/index.js");
+  const { alvoDaPedra } = await import("/src/systems/regionais.js");
+  const bones = [...DB.EH_BONE].filter((id) => id.startsWith("pika"));
+  const rais = bones.map((id) => id.replace(/^pika/, "rai"));
+
+  h("A ESPÉCIE");
+  p(`${bones.length} Pikachu de boné: ${bones.join(", ")}`);
+  ok("cada Pikachu de boné tem o seu Raichu", rais.every((id) => DB.SPECIES[id]));
+  ok("são oito", rais.length === 8);
+  ok("Raichu de boné é boné também (o cristal Z responde)", rais.every((id) => DB.EH_BONE.has(id)));
+  ok("nº 26, ELÉTRICO, stats do RAICHU (menos o de Alola)", rais.filter((id) => id !== "raialola").every((id) => {
+    const sp = DB.SPECIES[id], r = DB.SPECIES.raichu;
+    return sp.dex === 26 && sp.types.length === 1 && sp.types[0] === "ELÉTRICO" && sp.base.spe === r.base.spe && sp.base.atk === r.base.atk;
+  }));
+  ok("o RAI ALOLA é o RAICHU-ALOLA: ELÉTRICO/PSÍQUICO, stats dele", (() => {
+    const sp = DB.SPECIES.raialola, r = DB.SPECIES.raichualola;
+    return sp.types.join("/") === "ELÉTRICO/PSÍQUICO" && r && sp.base.spa === r.base.spa && sp.base.def === r.base.def;
+  })());
+  ok("nome RAI + região", DB.SPECIES.raikanto.name === "RAI KANTO" && DB.SPECIES.raijohto.name === "RAI JOHTO");
+  ok("sprite próprio (número do Pikachu + 10000)", DB.SPECIES.raikanto.spriteDex === 20094 && DB.SPECIES.raigalar.spriteDex === 20160);
+
+  h("O SPRITE");
+  const carrega = (src) => new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
+  let frente = 0, costas = 0;
+  for (const id of rais) {
+    const n = DB.SPECIES[id].spriteDex;
+    if (await carrega(`/assets/sprites/pokemon/${n}.png`)) frente++;
+    if (await carrega(`/assets/sprites/pokemon/back/${n}.png`)) costas++;
+  }
+  ok(`os oito de frente existem (${frente})`, frente === 8);
+  ok(`e os oito de costas (${costas})`, costas === 8);
+  const a = await carrega("/assets/sprites/pokemon/20094.png"), b = await carrega("/assets/sprites/pokemon/026.png");
+  ok("é do tamanho do Raichu", a && b && a.width === b.width && a.height === b.height);
+  const al = await carrega("/assets/sprites/pokemon/20099.png"), alb = await carrega("/assets/sprites/pokemon/10100.png");
+  ok("o de Alola é do tamanho do RAICHU-ALOLA (96)", al && alb && al.width === alb.width && al.width === 96);
+  if (a && b) {
+    const px = (img) => { const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const x = c.getContext("2d", { willReadFrequently: true }); x.drawImage(img, 0, 0); return x.getImageData(0, 0, c.width, c.height).data; };
+    const da = px(a), db = px(b);
+    let dif = 0;
+    for (let i = 0; i < da.length; i += 4) if (da[i] !== db[i] || da[i + 1] !== db[i + 1] || da[i + 2] !== db[i + 2] || da[i + 3] !== db[i + 3]) dif++;
+    p(`${dif} pixels diferentes do Raichu comum`);
+    ok("e não é o Raichu comum: tem boné em cima", dif > 100 && dif < 800);
+  }
+
+  h("A PEDRA");
+  ok("pedra do trovão em PIKA KANTO dá RAI KANTO", alvoDaPedra("pedra do trovão", "pikakanto", "pallet") === "raikanto");
+  ok("e nas SEVII também é o de boné, não o de Alola", alvoDaPedra("pedra do trovão", "pikakanto", "one_island") === "raikanto");
+  ok("o PIKACHU comum continua virando RAICHU", alvoDaPedra("pedra do trovão", "pikachu", "pallet") === "raichu");
+  ok("todos os oito evoluem", bones.every((id) => alvoDaPedra("pedra do trovão", id, "pallet") === id.replace(/^pika/, "rai")));
+  ok("o Raichu de boné não evolui mais", rais.every((id) => !DB.EVOLUTIONS[id]));
+  ok("a mochila sabe (EVO_ITEMS)", DB.EVO_ITEMS["pedra do trovão"].pikaalola === "raialola");
+
+  // -------------------------------------------------------------------------
+  h("DENTRO DO JOGO");
+  const fr = document.createElement("iframe");
+  fr.width = 240; fr.height = 160; fr.style.opacity = "0.01";
+  fr.src = "/index.html?map=center&perfil=bone-teste";
+  document.body.appendChild(fr);
+  const espera = async (cond, ms = 8000) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) {
+      try { if (cond()) return true; } catch {}
+      await new Promise((r) => setTimeout(r, 40));
+    }
+    return false;
+  };
+  const subiu = await espera(() => fr.contentWindow?.game?.scenes?.top?.dlg);
+  ok("a partida de teste abriu", subiu);
+  if (subiu) {
+    const g = fr.contentWindow.game, sc = g.scenes.top, st = g.state;
+    const { createMon } = await import("/src/systems/mon.js");
+    const pika = createMon("pikakanto", 25, { shiny: true });
+    st.party.push(pika);
+    st.items["pedra do trovão"] = 1;
+    sc.useEvoItem("pedra do trovão", pika);
+    ok("a pedra abre a tela de evolução", g.scenes.top?.constructor?.name === "EvolutionScene");
+    ok("gastou a pedra", !st.items["pedra do trovão"]);
+    const ev = g.scenes.top;
+    p(`alvo da cena: ${ev?.to || ev?.args?.to || "?"}`);
+    ok("o alvo é RAI KANTO", (ev?.to || ev?.args?.to) === "raikanto");
+  }
+} catch (e) {
+  falhas++;
+  p("EXPLODIU: " + (e?.stack || e), "erro");
+}
+p(falhas ? `${falhas} FALHA(S)` : "TUDO OK", falhas ? "erro" : "ok");
+out.innerHTML = linhas.join("");
+const texto = linhas.join("\n").replace(/<h2>/g, "\n").replace(/<[^>]+>/g, "");
+try { await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "bones", log: texto }) }); } catch (e) {}
+document.title = "pronto";
+</script>
+</body>
+</html>

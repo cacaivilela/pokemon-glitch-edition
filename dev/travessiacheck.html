@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem do MONTANHISTA</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=9000">
+<script type="module">
+// O montanhista do MONTE LUA: $2500 e um item, e ele te põe do outro lado.
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+let falhas = 0;
+const ok = (t, c) => { if (!c) falhas++; p(`${t}: ${c ? "OK" : "FALHOU"}`, c ? "ok" : "erro"); };
+try {
+  const { DB } = await import("/src/data/index.js");
+  h("OS DOIS");
+  const geo = DB.KANTO.route4, tag = (x, y) => geo.tags.charCodeAt(y * geo.w + x) - 48;
+  const ms = DB.MAPS.route4.npcs.filter((n) => n.travessia);
+  ok("dois montanhistas na ROTA 4", ms.length === 2);
+  ok("os dois em chão livre, e o destino de cada um também", ms.every((n) => tag(n.x, n.y) === DB.TAG.FREE && tag(n.travessia.para.x, n.travessia.para.y) === DB.TAG.FREE));
+  ok("um leva pro lado do outro", ms[0].travessia.para.x === ms[1].x && ms[1].travessia.para.x === ms[0].x);
+  ok("$2500", ms.every((n) => n.travessia.preco === 2500));
+  ok("ninguém em cima deles", ms.every((n) => DB.MAPS.route4.npcs.filter((o) => o.x === n.x && o.y === n.y).length === 1));
+
+  h("DENTRO DO JOGO");
+  const fr = document.createElement("iframe");
+  fr.width = 240; fr.height = 160; fr.style.opacity = "0.01";
+  fr.src = "/index.html?map=route4&x=17&y=8&perfil=travessia-teste";
+  document.body.appendChild(fr);
+  const espera = async (cond, ms = 8000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (cond()) return true; } catch {} await new Promise((r) => setTimeout(r, 40)); } return false; };
+  const subiu = await espera(() => fr.contentWindow?.game?.scenes?.top?.dlg);
+  ok("a partida abriu na ROTA 4", subiu);
+  if (subiu) {
+    const g = fr.contentWindow.game, sc = () => g.scenes.top, st = () => g.state;
+    g.autosave = () => {}; g.save = async () => "ok";
+    sc().transition = (cb) => cb();
+    const passa = () => { const s = sc(); for (let i = 0; i < 80 && s.dlg.active && !s.dlg.choice; i++) { s.dlg.chars = 1e9; s.dlg.next(); } };
+    // escolher como o jogo escolhe: a pergunta fecha antes de a resposta rodar
+    const responde = (i) => { const d = sc().dlg, c = d.choice; d.choice = null; d.active = false; d.lines = []; c.cb(i); };
+    st().money = 3000; st().items = { "poção": 2, "poké bola": 5 };
+    const m = sc().npcsHere().find((n) => n.id === "montanhista_oeste");
+    ok("o do oeste está lá", !!m);
+    sc().talkTo(m); passa();
+    ok("ele pergunta", !!sc().dlg.choice);
+    responde(0);
+    ok("abre a mochila pra escolher", sc().menu?.type === "bag" && typeof sc().menu.escolher === "function");
+    sc().menu.escolher("poção"); passa();
+    ok("cobrou $2500 e a poção", st().money === 500 && st().items["poção"] === 1);
+    ok("e você está do outro lado", st().player.map === "route4" && st().player.x === 35 && st().player.y === 7);
+    // sem dinheiro
+    sc().dlg.queue.length = 0; sc().dlg.active = false; sc().dlg.choice = null;
+    const l = sc().npcsHere().find((n) => n.id === "montanhista_leste");
+    sc().talkTo(l); passa(); responde(0); passa();
+    ok("sem $2500 ele não leva", sc().menu === null && st().player.x === 35);
+  }
+} catch (e) { falhas++; p("EXPLODIU: " + (e?.stack || e), "erro"); }
+p(falhas ? `${falhas} FALHA(S)` : "TUDO OK", falhas ? "erro" : "ok");
+out.innerHTML = linhas.join("");
+const texto = linhas.join("\n").replace(/<h2>/g, "\n").replace(/<[^>]+>/g, "");
+try { await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "travessia", log: texto }) }); } catch (e) {}
+document.title = "pronto";
+</script>
+</body>
+</html>

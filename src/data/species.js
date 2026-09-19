@@ -6,8 +6,10 @@
 // Golpes por tipo: [básico, status, intermediário (nv 7), forte (nv 16)]
 const POOLS = {
   NORMAL:     ["investida", "grito", "ataquerapido", "cabecada"],
-  FOGO:       ["arranhao", "grito", "brasa", "lancachamas"],
-  "ÁGUA":     ["investida", "rabodeabano", "bolhas", "pistoladagua"],
+  // o status de FOGO e de ÁGUA é o golpe de clima: é assim que a CHUVA DE LAVA,
+  // a GAROA e o NADO RÁPIDO (src/data/habilidades.js) têm com que trabalhar
+  FOGO:       ["arranhao", "diadesol", "brasa", "lancachamas"],
+  "ÁGUA":     ["investida", "dancadachuva", "bolhas", "pistoladagua"],
   PLANTA:     ["investida", "grito", "chicotedevinha", "folhanavalha"],
   "ELÉTRICO": ["investida", "rabodeabano", "choquedotrovao", "ondadechoque"],
   INSETO:     ["investida", "fiodeseda", "picada", "picadadeveneno"],
@@ -36,6 +38,22 @@ const SHAPE_BY_TYPE = {
 
 /** Espécies do início do jogo, escritas à mão. */
 const FEATURED = {
+  // AS VELAS: FANTASMA/FOGO, e a lista automática só olhava o FANTASMA — um
+  // LAMPENT sem golpe de fogo é um LAMPENT sem a CHUVA DE LAVA. Eles trazem a
+  // própria chuva: é a única habilidade do jogo que depende do clima e a
+  // espécie não podia depender de outra pra ligar.
+  litwick: {
+    learnset: [[1, "brasa"], [1, "lambida"], [9, "dancadachuva"], [15, "confusao"], [24, "lancachamas"], [33, "bolasombria"]],
+    dexText: "UMA VELA QUE QUEIMA O QUE VOCÊ TEM DE VIDA. A CHAMA DELA NÃO ESQUENTA: ESFRIA.",
+  },
+  lampent: {
+    learnset: [[1, "brasa"], [1, "lambida"], [1, "dancadachuva"], [15, "confusao"], [24, "lancachamas"], [33, "bolasombria"]],
+    dexText: "APARECE ONDE ALGUÉM VAI MORRER, E ESPERA. NA CHUVA A CHAMA DELE NÃO APAGA: CRESCE.",
+  },
+  chandelure: {
+    learnset: [[1, "brasa"], [1, "lambida"], [1, "dancadachuva"], [1, "confusao"], [1, "lancachamas"], [1, "bolasombria"]],
+    dexText: "UM LUSTRE ACESO COM O QUE NÃO ERA DELE. CHOVA O QUE CHOVER, ELE SÓ FICA MAIS CLARO.",
+  },
   bulbasaur: {
     learnset: [[1, "investida"], [3, "grito"], [7, "chicotedevinha"], [13, "folhanavalha"], [20, "poderdeacido"]],
     dexText: "A SEMENTE NAS COSTAS CRESCE ABSORVENDO LUZ DO SOL.",

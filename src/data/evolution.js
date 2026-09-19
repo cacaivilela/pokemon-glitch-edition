@@ -2,12 +2,14 @@
 //
 //   { lvl: 16, to: "ivysaur" }              sobe de nível e evolui
 //   { item: "pedra do fogo", to: "arcanine" }   usar o item na mochila
+//   { amizade: 65, to: "pikachu" }           gostar de você o bastante (mon.amizade)
 //
 // Este jogo não tem troca entre jogadores, então as quatro evoluções por troca
 // do FireRed (ALAKAZAM, MACHAMP, GOLEM, GENGAR) viraram evolução por nível alto.
 import { EVO_INICIAIS } from "./iniciais.js";
 import { EVO_ERAS } from "./eras.js";
 import { EVO_REGIONAIS } from "./regionais.js";
+import { EVO_BONES } from "./bones.js";
 
 export const EVOLUTIONS = {
   // OS INICIAIS DAS OUTRAS REGIÕES. As regras saem de src/data/iniciais.js,
@@ -22,6 +24,10 @@ export const EVOLUTIONS = {
   // iniciais: a mesma informação em dois arquivos é um dos dois ficando pra
   // trás.
   ...EVO_ERAS,
+
+  // OS PIKACHU DE BONÉ viram RAICHU DE BONÉ com a pedra do trovão. As regras
+  // saem de src/data/bones.js, montadas da mesma tabela dos bonés.
+  ...EVO_BONES,
 
   // iniciais
   bulbasaur: [{ lvl: 16, to: "ivysaur" }],
@@ -138,6 +144,21 @@ export const EVOLUTIONS = {
   shieldon: [{ lvl: 30, to: "bastiodon" }],
   porygon: [{ item: "up-grade", to: "porygon2" }],
   porygon2: [{ item: "dubious disc", to: "porygonz" }],
+
+  // OS BEBÊS (src/data/extra.js): só nascem de ovo, na creche. Os que crescem
+  // por AMIZADE precisam gostar de você (mon.amizade, que sobe andando junto,
+  // vencendo e subindo de nível — src/systems/creche.js); os outros, por nível.
+  pichu: [{ amizade: 65, to: "pikachu" }],
+  cleffa: [{ amizade: 65, to: "clefairy" }],
+  igglybuff: [{ amizade: 65, to: "jigglypuff" }],
+  azurill: [{ amizade: 65, to: "marill" }],
+  munchlax: [{ amizade: 65, to: "snorlax" }],
+  happiny: [{ amizade: 65, to: "chansey" }],
+  mimejr: [{ amizade: 65, to: "mrmime" }],
+  elekid: [{ lvl: 30, to: "electabuzz" }],
+  magby: [{ lvl: 30, to: "magmar" }],
+  smoochum: [{ lvl: 30, to: "jynx" }],
+  wynaut: [{ lvl: 15, to: "wobbuffet" }],
 };
 
 /** as cinco pedras: o preço fica na loja, em src/data/maps.js */
@@ -157,6 +178,14 @@ export const STONES = [
 // pra bifurcação acontecer.
 for (const [id, regras] of Object.entries(EVO_REGIONAIS)) {
   EVOLUTIONS[id] = [...regras, ...(EVOLUTIONS[id] || [])];
+}
+
+/** espécie -> a que vem ANTES dela na linha (o contrário da tabela). É por
+ *  aqui que a creche acha a forma mínima de um ovo: RAI KANTO -> PIKA KANTO ->
+ *  PICHU KANTO. A primeira regra escrita vence quando duas chegam no mesmo. */
+export const PRE_EVOLUCAO = {};
+for (const [de, regras] of Object.entries(EVOLUTIONS)) {
+  for (const r of regras) if (r.to && !PRE_EVOLUCAO[r.to]) PRE_EVOLUCAO[r.to] = de;
 }
 
 /** item -> { espécie atual: espécie nova } (é o formato que a mochila usa) */

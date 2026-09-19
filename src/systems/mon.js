@@ -113,6 +113,7 @@ export function gainXp(mon, amount) {
     // quem está desmaiado continua desmaiado: subir de nível não é reviver
     if (mon.hp > 0) mon.hp += mon.maxHp - before;
     events.push({ type: "level", level: mon.level });
+    mon.amizade = Math.min(255, (mon.amizade || 0) + 3);   // subir de nível aproxima
     const sp = DB.SPECIES[mon.species];
     for (const [lvl, id] of sp.learnset) {
       if (lvl === mon.level && !mon.moves.some((m) => m.id === id)) {
@@ -159,8 +160,20 @@ export function evolveTo(mon, toId) {
  *  Kanto e MAROWAK-ALOLA do lado de lá — ver src/systems/regionais.js). */
 export function evolutionFor(mon, mapa = null) {
   for (const r of DB.EVOLUTIONS?.[mon.species] || []) {
-    if (!r.lvl || mon.level < r.lvl || !DB.SPECIES[r.to]) continue;
+    if (!DB.SPECIES[r.to]) continue;
+    // por AMIZADE (os bebês): gostar de você o bastante, em qualquer nível
+    if (r.amizade) { if ((mon.amizade || 0) < r.amizade) continue; }
+    else if (!r.lvl || mon.level < r.lvl) continue;
     if (lugarBate(r, mapa)) return r.to;
   }
   return null;
+}
+
+/** AMIZADE: sobe andando com você, vencendo e subindo de nível (as contas
+ *  estão em src/systems/creche.js, que é quem mais se importa com isso).
+ *  Fica em 0..255, e quem nunca ganhou nada está em 0. */
+export function amizade(mon, quanto) {
+  if (!mon) return 0;
+  mon.amizade = Math.max(0, Math.min(255, (mon.amizade || 0) + quanto));
+  return mon.amizade;
 }

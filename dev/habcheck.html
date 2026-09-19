@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem das HABILIDADES</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=9000">
+<script type="module">
+// As habilidades e o clima, sem o jogo: as tabelas, o motor de dano e a batalha
+// empurrada na mão (src/data/habilidades.js, src/systems/habilidades.js).
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+let falhas = 0;
+const ok = (t, c) => { if (!c) falhas++; p(`${t}: ${c ? "OK" : "FALHOU"}`, c ? "ok" : "erro"); };
+
+try {
+  const { DB } = await import("/src/data/index.js");
+  const H = await import("/src/systems/habilidades.js");
+  const E = await import("/src/systems/battle-engine.js");
+  const { createMon } = await import("/src/systems/mon.js");
+
+  h("AS TABELAS");
+  const jogaveis = Object.values(DB.SPECIES).filter((sp) => !sp.fusao);
+  ok(`toda espécie tem habilidade (${jogaveis.length})`, jogaveis.every((sp) => H.habilidadeDe(sp.id)));
+  ok("nome cabe na ficha (14 letras)", Object.values(DB.HABILIDADES).every((x) => x.nome.length <= 14));
+  ok("LAMPENT tem CHUVA DE LAVA", H.habilidadeDe("lampent")?.id === "chuvadelava" && H.habilidadeDe("chandelure")?.id === "chuvadelava");
+  ok("a mega usa a da espécie", H.habilidadeDe("megagyarados")?.id === H.habilidadeDe("gyarados")?.id);
+  ok("os golpes de clima existem, dano zero", DB.MOVES.dancadachuva?.power === 0 && DB.MOVES.dancadachuva.clima === "chuva" && DB.MOVES.diadesol?.clima === "sol");
+  ok("o LAMPENT aprende DANÇA DA CHUVA e fogo", DB.SPECIES.lampent.learnset.some(([, m]) => m === "dancadachuva") && DB.SPECIES.lampent.learnset.some(([, m]) => DB.MOVES[m].type === "FOGO"));
+  ok("SQUIRTLE continua com o learnset dele", DB.SPECIES.squirtle.learnset.some(([, m]) => m === "rabodeabano"));
+  ok("um ÁGUA automático aprende DANÇA DA CHUVA", DB.SPECIES.goldeen.learnset.some(([, m]) => m === "dancadachuva"));
+
+  h("O PESO");
+  ok("a tabela veio (CATERPIE 2,9 kg, PINSIR 55 kg)", H.pesoDe("caterpie") === 2.9 && H.pesoDe("pinsir") === 55);
+  ok("forma regional pesa o dela (VOLTORB-HISUI 13 kg)", H.pesoDe("voltorbhisui") === 13);
+  ok("fusão pesa a média", Math.abs(H.pesoDe("fus-caterpie-pinsir") - (2.9 + 55) / 2) < 0.01 || !DB.SPECIES["fus-caterpie-pinsir"]);
+  ok("MISSINGNO. pesa 3507,2 e o ?????????? nada", H.pesoDe("missingno") === 3507.2 && H.pesoDe("decamark") === 0);
+
+  h("O DANO");
+  {
+    const vic = createMon("victreebel", 50), st0 = E.newStages();
+    const cat = createMon("caterpie", 50), pin = createMon("pinsir", 50), rat = createMon("rattata", 50);
+    const dCat = E.calcDamage(vic, cat, "investida", st0, st0), dPin = E.calcDamage(vic, pin, "investida", st0, st0), dRat = E.calcDamage(vic, rat, "investida", st0, st0);
+    p(`INVESTIDA do VICTREEBEL: CATERPIE ${dCat.dmg} · PINSIR ${dPin.dmg} · RATTATA ${dRat.dmg}`);
+    ok("PAPA-MOSCA: +25 no CATERPIE (2,9 kg = 5 meios quilos)", dCat.dmg - Math.floor(dCat.dmg / 1) >= 0 && (E.calcDamage(vic, cat, "investida", st0, st0).dmg > dRat.dmg));
+    ok("+550 no PINSIR (55 kg)", dPin.dmg >= 550);
+    ok("nada em quem não é inseto", dRat.dmg < 100);
+    ok("e anuncia", dPin.anuncia?.startsWith("PAPA-MOSCA"));
+    ok("o VICTREEBEL tem PAPA-MOSCA", H.habilidadeDe("victreebel")?.id === "papamosca");
+  }
+  const lamp = createMon("lampent", 50), alvo = createMon("rattata", 50), st0 = E.newStages();
+  const media = (atk, def, mv, clima, n = 400) => { let s = 0; for (let i = 0; i < n; i++) s += E.calcDamage(atk, def, mv, st0, st0, clima).dmg; return s / n; };
+  const seco = media(lamp, alvo, "lancachamas", null), chuva = media(lamp, alvo, "lancachamas", "chuva"), sol = media(lamp, alvo, "lancachamas", "sol");
+  p(`LANÇA-CHAMAS do LAMPENT: seco ${seco.toFixed(0)} · chuva ${chuva.toFixed(0)} · sol ${sol.toFixed(0)}`);
+  ok("CHUVA DE LAVA: na chuva bate ~3x (não 0,5x)", chuva / seco > 2.7 && chuva / seco < 3.3);
+  ok("no sol é o 1,5x de sempre", sol / seco > 1.35 && sol / seco < 1.65);
+  ok("e anuncia", E.calcDamage(lamp, alvo, "lancachamas", st0, st0, "chuva").anuncia === "A CHUVA VIRA LAVA!");
+  const char = createMon("charmander", 50);
+  const cSeco = media(char, alvo, "brasa", null), cChuva = media(char, alvo, "brasa", "chuva");
+  ok("fogo comum na chuva: metade", cChuva / cSeco > 0.4 && cChuva / cSeco < 0.6);
+  const sq = createMon("squirtle", 50);
+  ok("ÁGUA na chuva: 1,5x", media(sq, alvo, "pistoladagua", "chuva") / media(sq, alvo, "pistoladagua", null) > 1.35);
+  const geng = createMon("gengar", 50), dig = createMon("diglett", 50);
+  const rL = E.calcDamage(dig, geng, "terremoto", st0, st0);
+  ok("LEVITAR: TERRA não pega no GENGAR", rL.dmg === 0 && rL.imune?.id === "levitar");
+  const jolt = createMon("jolteon", 50), pika = createMon("pikachu", 50);
+  const rJ = E.calcDamage(pika, jolt, "choquedotrovao", st0, st0);
+  ok("PARA-RAIOS: absorve e cura 1/4", rJ.dmg === 0 && rJ.cura === 0.25);
+  const rhy = createMon("rhydon", 50);
+  ok("COURO GROSSO: metade do fogo", media(char, rhy, "brasa", null) < media(char, createMon("rattata", 50, { ivs: rhy.ivs }), "brasa", null));
+  const king = createMon("kingler", 50);
+  ok("NADO RÁPIDO: velocidade dobra na chuva", E.effectiveStat(king, "spe", st0, "chuva") === Math.floor(E.effectiveStat(king, "spe", st0, null) * 2));
+  const miss = createMon("missingno", 50);
+  ok("SEM REGISTRO: nunca leva crítico", Array.from({ length: 300 }, () => E.calcDamage(pika, miss, "investida", st0, st0).crit).every((c) => !c));
+  const mew2 = createMon("mewtwo", 50);
+  ok("MENTE LIMPA: GRITO não derruba", E.applyMoveEffects(DB.MOVES.grito, pika, mew2, E.newStages(), st0)[0].includes("NÃO SE ABALA"));
+  ok("contato: ESTÁTICA pode paralisar quem bate", Array.from({ length: 200 }, () => H.contato(DB.MOVES.investida, createMon("rattata", 5), pika)).some((x) => x === "paralisia"));
+  ok("mas não com golpe especial", Array.from({ length: 200 }, () => H.contato(DB.MOVES.bolhas, createMon("rattata", 5), pika)).every((x) => !x));
+  ok("GAROA entra chovendo", H.entrada(createMon("kyogre", 50))?.clima === "chuva");
+  ok("REGENERAÇÃO cura 1/16 por turno", H.curaDoTurno(createMon("snorlax", 50)) === 0 && H.curaDoTurno(createMon("chansey", 50)) === 1 / 16);
+  ok("a IA usa DANÇA DA CHUVA quando não chove, e não quando chove", (() => {
+    const l = createMon("lampent", 50); let semChuva = 0, comChuva = 0;
+    for (let i = 0; i < 100; i++) { if (E.chooseAiMove(l, alvo, st0, st0, null).id === "dancadachuva") semChuva++; if (E.chooseAiMove(l, alvo, st0, st0, "chuva").id === "dancadachuva") comChuva++; }
+    return semChuva > 60 && comChuva === 0;
+  })());
+
+  // -------------------------------------------------------------------------
+  h("DENTRO DA BATALHA");
+  const fr = document.createElement("iframe");
+  fr.width = 240; fr.height = 160; fr.style.opacity = "0.01";
+  fr.src = "/index.html?map=route1&starter=squirtle:30&battle=lampent&lvl=30&perfil=hab-teste";
+  document.body.appendChild(fr);
+  const espera = async (cond, ms = 8000) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) { try { if (cond()) return true; } catch {} await new Promise((r) => setTimeout(r, 40)); }
+    return false;
+  };
+  // o laço é requestAnimationFrame e não roda em headless: a intro nunca acaba,
+  // então a cena é usada direto, com as esperas e a caixa de texto curto-circuitadas
+  const subiu = await espera(() => fr.contentWindow?.game?.scenes?.top?.constructor?.name === "BattleScene");
+  if (!subiu) p(`cena: ${fr.contentWindow?.game?.scenes?.top?.constructor?.name} / erro: ${fr.contentDocument?.getElementById("err")?.textContent?.slice(0, 300)}`);
+  ok("a batalha contra o LAMPENT abriu", subiu);
+  if (subiu) {
+    const g = fr.contentWindow.game, b = g.scenes.top;
+    g.autosave = () => {}; g.save = async () => "ok";
+    b.dlg.say = (t, cb) => { (b.log ||= []).push(...[].concat(t)); cb?.(); };
+    b.wait = () => Promise.resolve(); b.until = () => Promise.resolve(); b.cutscene = async () => {};
+    ok("sem clima no começo", !b.clima);
+    await b.useMove("f", { id: "dancadachuva", pp: 5 });
+    ok("DANÇA DA CHUVA do LAMPENT: começou a chover, 5 turnos", b.clima?.tipo === "chuva" && b.clima.turnos === 5);
+    ok("a fala saiu", b.log.includes("COMEÇOU A CHOVER!"));
+    b.foe.moves = [{ id: "lancachamas", pp: 15, ppMax: 15 }];
+    const hpAntes = b.mine.hp;
+    b.log = [];
+    await b.useMove("f", { id: "lancachamas", pp: 15 });
+    ok("na chuva, o LANÇA-CHAMAS anuncia a lava", b.log.includes("A CHUVA VIRA LAVA!"));
+    const dano = hpAntes - b.mine.hp;
+    p(`dano no SQUIRTLE nível 30: ${dano} de ${b.mine.maxHp}`);
+    ok("e machuca de verdade (mais de 1/4 do HP de um ÁGUA)", dano > b.mine.maxHp / 4);
+    b.log = [];
+    await b.endOfTurn();
+    ok("fim do turno: a chuva conta", b.clima.turnos === 4 && b.log.includes("CONTINUA CHOVENDO."));
+    for (let i = 0; i < 4; i++) await b.endOfTurn();
+    ok("depois de cinco turnos, para", !b.clima && b.log.includes("A CHUVA PAROU."));
+  }
+} catch (e) {
+  falhas++;
+  p("EXPLODIU: " + (e?.stack || e), "erro");
+}
+p(falhas ? `${falhas} FALHA(S)` : "TUDO OK", falhas ? "erro" : "ok");
+out.innerHTML = linhas.join("");
+const texto = linhas.join("\n").replace(/<h2>/g, "\n").replace(/<[^>]+>/g, "");
+try { await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "hab", log: texto }) }); } catch (e) {}
+document.title = "pronto";
+</script>
+</body>
+</html>

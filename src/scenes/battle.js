@@ -23,7 +23,9 @@ import {
   calcDamage, accuracyCheck, applyMoveEffects, statusTickDamage, effText,
   chooseAiMove, catchAttempt, catchGlitchball, canFlee, newStages, effectiveStat,
 } from "../systems/battle-engine.js";
+import { habilidadeDoMon, entrada as entradaDaHabilidade, contato as contatoDaHabilidade, curaDoTurno } from "../systems/habilidades.js";
 import { opcoesMega, megaEvoluir, reverterMega, reverterTudo } from "../systems/mega.js";
+import { venceu as venceuAmizade } from "../systems/creche.js";
 
 const W = 240, H = 160;
 
@@ -75,6 +77,10 @@ export class BattleScene {
     this.raid = args.raid || null;   // GLITCH RAID: a casca do chefe
     this.cristalUsado = false;       // o GOLPE Z é uma vez por batalha
     this.zArmado = false;
+    // O CLIMA (src/data/habilidades.js): a TEMPESTADE chove sempre; o resto
+    // vem de habilidade de entrada ou de golpe, por cinco turnos.
+    this.clima = st.player?.map === "tempestade" ? { tipo: "chuva", turnos: Infinity } : null;
+    this.chuvaT = 0;
     this.disp = { p: this.mine.hp, f: this.foe.hp };
     this.sp = { p: this.newSprite(-90), f: this.newSprite(90) };
     // o chefe entra do tamanho de um filhote; `crescer()` faz o resto
@@ -208,7 +214,42 @@ export class BattleScene {
       else if (this.foe.shiny) await this.say("A COR DELE NÃO É A DE SEMPRE. ESSE AÍ É RARO.");
     }
     await this.say(`VAI, ${this.mine.nickname}!`);
+    if (this.clima) await this.say(DB.CLIMA_TEXTO[this.clima.tipo].continua);
+    await this.entrou("f");
+    await this.entrou("p");
     this.menu = { type: "main", index: 0 };
+  }
+
+  /** O QUE A HABILIDADE FAZ AO ENTRAR EM CAMPO: GAROA/SECA mudam o clima,
+   *  INTIMIDAR derruba o ATAQUE do outro (src/data/habilidades.js). */
+  async entrou(who) {
+    const mon = who === "p" ? this.mine : this.foe;
+    const outro = who === "p" ? this.foe : this.mine;
+    const oStages = who === "p" ? this.fStages : this.pStages;
+    const e = entradaDaHabilidade(mon);
+    if (!e) return;
+    const h = habilidadeDoMon(mon);
+    const T = DB.CLIMA_TEXTO;
+    if (e.clima && this.clima?.tipo !== e.clima) {
+      await this.say(`${h.nome} DE ${mon.nickname}!`);
+      await this.mudarClima(e.clima);
+    }
+    if (e.intimidar && !habilidadeDoMon(outro)?.semQueda) {
+      oStages.atk = Math.max(-6, (oStages.atk || 0) - 1);
+      await this.say(T.intimidar.replace("{HAB}", h.nome).replace("{MON}", mon.nickname).replace("{ALVO}", outro.nickname));
+    }
+  }
+
+  async mudarClima(tipo) {
+    const T = DB.CLIMA_TEXTO;
+    if (this.clima?.turnos === Infinity && this.clima.tipo !== tipo) {
+      // a TEMPESTADE não obedece a ninguém
+      return void this.say("A TEMPESTADE NÃO DEIXA.");
+    }
+    this.clima = { tipo, turnos: T.turnos };
+    this.flash = tipo === "sol" ? 0.5 : 0.25;
+    Audio2.tone(tipo === "sol" ? 880 : 330, 0.12, tipo === "sol" ? "triangle" : "sine", 0.5);
+    await this.say(T[tipo].comeca);
   }
 
   /** o retrato sai deslizando pra direita e o primeiro Pokémon entra no lugar */
@@ -276,7 +317,7 @@ export class BattleScene {
     }
     this.ballAnim = null;
     await this.say("O POKÉMON ESCAPOU DA BOLA DELE!");
-    const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
+    const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages, this.clima?.tipo);
     if (fMove) await this.useMove("f", fMove);
     await this.checkFaints();
   }
@@ -308,13 +349,13 @@ export class BattleScene {
     if (d.id === "escapa" && Math.random() >= chanceDeEscapar(vezes)) {
       Audio2.bump();
       await this.say(fill(d.falhou));
-      const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
+      const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages, this.clima?.tipo);
       if (fMove && !isFainted(this.foe)) await this.useMove("f", fMove);
       return this.checkFaints();
     }
     const texto = fill(d.texto);
     const inimigoBate = async () => {
-      const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
+      const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages, this.clima?.tipo);
       if (fMove && !isFainted(this.foe)) await this.useMove("f", fMove);
       await this.checkFaints();
     };
@@ -375,10 +416,10 @@ export class BattleScene {
         .replace("{MON}", this.mine.nickname).replace("{TIPO}", cristal.tipo));
       pMove = { id: cristal.golpe, pp: 1 };
     }
-    const fMoveRef = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
+    const fMoveRef = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages, this.clima?.tipo);
 
-    const pSpe = effectiveStat(this.mine, "spe", this.pStages);
-    const fSpe = effectiveStat(this.foe, "spe", this.fStages);
+    const pSpe = effectiveStat(this.mine, "spe", this.pStages, this.clima?.tipo);
+    const fSpe = effectiveStat(this.foe, "spe", this.fStages, this.clima?.tipo);
     const playerFirst = pSpe === fSpe ? Math.random() < 0.5 : pSpe > fSpe;
 
     const order = playerFirst
@@ -488,7 +529,11 @@ export class BattleScene {
       this.st.corruption = Math.min(100, this.st.corruption + mv.corrupt * 0.25);
     }
 
-    const res = calcDamage(user, target, moveRef.id, uStages, tStages);
+    // DANÇA DA CHUVA / DIA DE SOL: zero de dano, o clima muda
+    if (mv.clima) return this.mudarClima(mv.clima);
+
+    const res = calcDamage(user, target, moveRef.id, uStages, tStages, this.clima?.tipo);
+    if (res.anuncia) { this.flash = 0.35; Audio2.tone(196, 0.16, "sawtooth", 0.4); await this.say(res.anuncia); }
     if (res.dmg > 0) {
       // o baque (avanço, tremida, piscada) já veio da cutscene; sem ela, aqui
       if (!(DB.CONFIG?.battleAnim ?? 1)) {
@@ -556,12 +601,32 @@ export class BattleScene {
         await this.syncHp();
         await this.say(`${user.nickname} SOFREU O RECUO!`);
       }
+    } else if (res.imune) {
+      // LEVITAR, PARA-RAIOS, ESPONJA, CHAMA VIVA: a habilidade segurou o golpe
+      const T = DB.CLIMA_TEXTO;
+      if (res.cura && target.hp < target.maxHp) {
+        target.hp = Math.min(target.maxHp, target.hp + Math.ceil(target.maxHp * res.cura));
+        await this.syncHp();
+        await this.say(T.absorve.replace("{HAB}", res.imune.nome).replace("{MON}", target.nickname));
+      } else await this.say(T.imune.replace("{HAB}", res.imune.nome).replace("{MON}", target.nickname));
+      return;
     } else if (res.eff === 0) {
       await this.say(`NÃO AFETA ${target.nickname}...`);
       return;
     }
 
     for (const m of applyMoveEffects(mv, user, target, uStages, tStages)) await this.say(m);
+
+    // ESTÁTICA, PONTO VENENOSO, CORPO EM CHAMAS: quem encostou pode pagar
+    if (res.dmg > 0 && !isFainted(target)) {
+      const status = contatoDaHabilidade(mv, user, target);
+      if (status) {
+        const T = DB.CLIMA_TEXTO;
+        user.status = status;
+        await this.say(T.contato.replace("{HAB}", habilidadeDoMon(target).nome).replace("{MON}", target.nickname)
+          .replace("{ALVO}", user.nickname).replace("{STATUS}", T.statusNomes[status]));
+      }
+    }
   }
 
   async endOfTurn() {
@@ -572,6 +637,20 @@ export class BattleScene {
         await this.syncHp();
         await this.say(`${mon.nickname} SOFRE COM ${mon.status === "envenenado" ? "O VENENO" : "A QUEIMADURA"}!`);
       }
+      // REGENERAÇÃO, CORPO GELADO: cura no fim do turno
+      const f = curaDoTurno(mon, this.clima?.tipo);
+      if (f > 0 && mon.hp > 0 && mon.hp < mon.maxHp) {
+        mon.hp = Math.min(mon.maxHp, mon.hp + Math.max(1, Math.floor(mon.maxHp * f)));
+        await this.syncHp();
+        await this.say(DB.CLIMA_TEXTO.cura.replace("{HAB}", habilidadeDoMon(mon).nome).replace("{MON}", mon.nickname));
+      }
+    }
+    // o clima conta os turnos dele (a TEMPESTADE tem Infinity: não acaba)
+    if (this.clima && this.clima.turnos !== Infinity) {
+      this.clima.turnos--;
+      const T = DB.CLIMA_TEXTO[this.clima.tipo];
+      if (this.clima.turnos <= 0) { await this.say(T.para); this.clima = null; }
+      else await this.say(T.continua);
     }
     // Caçada final: na metade da vida o MISSINGNO. acha uma pedra que não está
     // na tabela. Ninguém entregou nada a ele.
@@ -612,6 +691,7 @@ export class BattleScene {
     await this.say(`${this.trainer ? "O " + this.foe.nickname + " INIMIGO" : this.foe.nickname + " SELVAGEM"} DESMAIOU!`);
 
     await this.premiarExp();
+    venceuAmizade(this.mine);          // vencer aproxima (src/systems/creche.js)
     await this.dropDoAlfa();
 
     if (this.trainer && this.foeIdx < this.foeParty.length - 1) {
@@ -620,6 +700,7 @@ export class BattleScene {
       this.disp.f = this.foe.hp;
       this.sp.f = this.newSprite(90);
       await this.say(`${this.trainer.name} ENVIOU ${this.foe.nickname}!`);
+      await this.entrou("f");
       this.menu = { type: "main", index: 0 };
       return;
     }
@@ -659,6 +740,7 @@ export class BattleScene {
       this.disp.p = this.mine.hp;
       this.sp.p = this.newSprite(-90);
       await this.say(`VAI, ${this.mine.nickname}!`);
+      await this.entrou("p");
       this.menu = { type: "main", index: 0 };
       return;
     }
@@ -720,7 +802,7 @@ export class BattleScene {
     await this.useMove("p", { id: C.golpe, pp: 1 });
     await this.checkFaints();
     if (this.foe.hp > 0 && !isFainted(this.mine)) {
-      const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
+      const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages, this.clima?.tipo);
       if (fMove) await this.useMove("f", fMove);
       await this.checkFaints();
     }
@@ -735,7 +817,7 @@ export class BattleScene {
     this.flash = 0.5;
     this.sp.p.blink = 0.5;
     await this.say(G.usou.replace("{NOME}", this.mine.nickname));
-    const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
+    const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages, this.clima?.tipo);
     if (fMove) await this.useMove("f", fMove);
     await this.checkFaints();
   }
@@ -789,7 +871,7 @@ export class BattleScene {
     this.ballAnim = null;
     const msgs = ["OH, NÃO! O POKÉMON ESCAPOU!", "DROGA! QUASE!", "ARGH! QUASE PEGUEI!"];
     await this.say(msgs[Math.min(shakes, 2)]);
-    const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
+    const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages, this.clima?.tipo);
     if (fMove) await this.useMove("f", fMove);
     await this.checkFaints();
   }
@@ -921,7 +1003,7 @@ export class BattleScene {
     if (this.isGlitch && Math.random() < 0.5) {
       Glitch.hit(1.5);
       await this.say("VOCÊ TENTA FUGIR... MAS A SAÍDA NÃO ESTÁ CARREGADA.");
-      const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
+      const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages, this.clima?.tipo);
       if (fMove) await this.useMove("f", fMove);
       await this.checkFaints();
       return;
@@ -932,7 +1014,7 @@ export class BattleScene {
       await this.finish();
     } else {
       await this.say("NÃO CONSEGUIU FUGIR!");
-      const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
+      const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages, this.clima?.tipo);
       if (fMove) await this.useMove("f", fMove);
       await this.checkFaints();
     }
@@ -955,7 +1037,7 @@ export class BattleScene {
     Audio2.heal();
     await this.syncHp();
     await this.say(`${this.mine.nickname} RECUPEROU 20 DE HP!`);
-    const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
+    const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages, this.clima?.tipo);
     if (fMove) await this.useMove("f", fMove);
     await this.checkFaints();
   }
@@ -1163,7 +1245,8 @@ export class BattleScene {
     this.disp.p = this.mine.hp;
     this.sp.p = this.newSprite(-90);
     await this.say(`VAI, ${this.mine.nickname}!`);
-    const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages);
+    await this.entrou("p");
+    const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages, this.clima?.tipo);
     if (fMove) await this.useMove("f", fMove);
     await this.checkFaints();
   }
@@ -1180,6 +1263,21 @@ export class BattleScene {
     g.addColorStop(1, this.isGlitch ? "#120820" : "#dff0f8");
     ctx.fillStyle = g;
     ctx.fillRect(-8, 0, W + 16, 110);
+    // O CLIMA por cima do céu: a chuva risca a tela, o sol amarela ela
+    if (this.clima?.tipo === "chuva") {
+      ctx.fillStyle = "rgba(40,60,110,0.28)";
+      ctx.fillRect(-8, 0, W + 16, 110);
+      ctx.strokeStyle = "rgba(200,225,255,0.55)";
+      ctx.lineWidth = 1;
+      const t = this.t * 160;
+      for (let i = 0; i < 26; i++) {
+        const x = ((i * 37 + t * 0.6) % (W + 40)) - 20, y = ((i * 53 + t) % 130) - 20;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 3, y + 9); ctx.stroke();
+      }
+    } else if (this.clima?.tipo === "sol") {
+      ctx.fillStyle = "rgba(255,210,80,0.22)";
+      ctx.fillRect(-8, 0, W + 16, 110);
+    }
     ctx.fillStyle = this.isGlitch ? "#3a1d5c" : "#8fd06a";
     ctx.beginPath(); ctx.ellipse(178, 66, 46, 12, 0, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(48, 106, 54, 14, 0, 0, Math.PI * 2); ctx.fill();

@@ -22,6 +22,8 @@
 //   travado   o que ele fala enquanto `requer` não bate (opcional)
 //   premio    { dinheiro, item, qtd }
 
+import { MISSOES_DECAMARK } from "./decamark.js";
+
 export const MISSOES = [
   {
     id: "isca",
@@ -471,6 +473,11 @@ export const MISSOES = [
     ],
     premio: { dinheiro: 12000, item: "doce raro", qtd: 8 },
   },
+
+  // ------------------------------------------------- o registro 0x3F
+  // A história principal do ??????????: quatro capítulos com a pesquisadora
+  // de Cinnabar, escritos em src/data/decamark.js junto com o resto dele.
+  ...MISSOES_DECAMARK,
 ];
 
 /** O que o diário e os NPCs falam. */

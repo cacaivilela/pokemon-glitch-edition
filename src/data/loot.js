@@ -24,6 +24,11 @@ export const DIM_LOOT = [
   // graça e pra sempre, saía da fenda cedo demais. Ele existe num lugar só —
   // escondido no chão do laboratório (src/data/maps.js), uma vez.
   { item: "pedra do crepúsculo", qty: [1, 1], w: 5, rare: true },  // o que a LAMPENT espera
+  // os MYSTERY EGGS (src/data/ovos.js): o mesmo ovo que o Centro Pokémon vende,
+  // só que de graça e raro — uma bola em trinta traz o comum, uma em noventa o
+  // super. Se o ovo não é de Kanto, é daqui.
+  { item: "mystery egg",       qty: [1, 1], w: 3, rare: true },
+  { item: "super mystery egg", qty: [1, 1], w: 1, rare: true },
 ];
 
 /** texto que aparece ao achar um item estrangeiro pela primeira vez */

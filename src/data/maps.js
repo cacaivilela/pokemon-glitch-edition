@@ -7,6 +7,7 @@
 // As coordenadas dos NPCs são as mesmas do jogo original (x,y em tiles).
 import { CONCURSO } from "./concurso.js";
 import { MISSOES } from "./missoes.js";
+import { BLAINE_CONTA } from "./decamark.js";
 
 /** O palco do CONCURSO DE FUSÃO, na praça do sul de Cinnabar: a anfitriã na
  *  beira e os três jurados de frente pra plateia. Os nomes e as falas de
@@ -339,6 +340,40 @@ export const MAPS = {
     },
   },
 
+  // A CRECHE DA ROTA 5: a casa não veio nos mapas importados (a porta está
+  // trancada), então o senhor fica na frente dela e cuida de tudo por ali
+  // (`creche`, lido em talkTo; a conta está em src/systems/creche.js).
+  route5: {
+    lockedWarps: { "23,25": "A CRECHE. A PORTA ESTÁ TRANCADA — O SENHOR ESTÁ AQUI NA FRENTE." },
+    addNpcs: [{ id: "creche", x: 22, y: 26, dir: "right", sprite: "velho", creche: true, lines: [] }],
+  },
+
+  // O MONTANHISTA DO MONTE LUA. As duas metades da ROTA 4 só se ligam por
+  // dentro da montanha, e a travessia é longa. Ele conhece o atalho por fora e
+  // cobra: $2500 e UM ITEM da sua mochila, o que você escolher. Fica um em
+  // cada boca da caverna e cada um leva pra boca do outro (`travessia`, lido
+  // em talkTo, src/scenes/overworld.js).
+  route4: {
+    addNpcs: [
+      {
+        id: "montanhista_oeste", x: 17, y: 6, dir: "down", sprite: "montanhista",
+        lines: ["SUBI ESSA MONTANHA TRINTA E DUAS VEZES. TEM UM CAMINHO POR FORA QUE NÃO ESTÁ EM MAPA NENHUM.",
+                "TE LEVO PRO OUTRO LADO. $2500 E UM ITEM — QUALQUER UM, EU ESCOLHO O QUE FAÇO COM ELE."],
+        travessia: { preco: 2500, para: { map: "route4", x: 35, y: 7, dir: "down" },
+                     pergunta: "PAGAR $2500 E UM ITEM PELA TRAVESSIA?",
+                     indo: ["SEGURA NA CORDA. NÃO OLHA PRA BAIXO.", "...", "PRONTO. ESSE É O LADO DE CERULEAN."] },
+      },
+      {
+        id: "montanhista_leste", x: 35, y: 6, dir: "down", sprite: "montanhista",
+        lines: ["VOLTANDO PRA PEWTER? A CAVERNA É LONGA E CHEIA DE ZUBAT.",
+                "POR FORA É UMA HORA. $2500 E UM ITEM DA SUA MOCHILA."],
+        travessia: { preco: 2500, para: { map: "route4", x: 17, y: 7, dir: "down" },
+                     pergunta: "PAGAR $2500 E UM ITEM PELA TRAVESSIA?",
+                     indo: ["SEGURA NA CORDA. A DESCIDA É PIOR QUE A SUBIDA.", "...", "PRONTO. ESSE É O LADO DE PEWTER."] },
+      },
+    ],
+  },
+
   // Mapas sem conteúdo escrito à mão, só com os obstáculos de FORÇA e
   // QUEBRA-ROCHA por cima da geometria importada do FireRed.
   route2: { pedras: ["11,15"] },
@@ -534,6 +569,9 @@ export const MAPS = {
       id: "lider", x: 5, y: 4, dir: "down", sprite: "blaine",
       lines: ["HAH! EU SOU BLAINE, O MESTRE DO FOGO!", "MINHAS CHAMAS VÃO REDUZIR VOCÊ A CINZAS!"],
       afterLines: ["VOCÊ APAGOU MINHAS CHAMAS. LEVE A INSÍGNIA."],
+      // o capítulo 2 do ??????????: vencido, e com a missão aberta, ele conta
+      // da página que arrancou (src/data/decamark.js)
+      conta: BLAINE_CONTA,
       trainer: { name: "LÍDER BLAINE", prize: 4700, badge: "vulcao",
                 party: [{ id: "growlithe", lvl: 42 }, { id: "ponyta", lvl: 40 }, { id: "rapidash", lvl: 42 }, { id: "arcanine", lvl: 47 }] },
     }],

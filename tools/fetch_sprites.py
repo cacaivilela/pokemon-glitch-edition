@@ -55,7 +55,10 @@ EXTRA_DEX = [161, 165, 167, 177, 183, 187, 193, 200, 202, 206, 214, 231, 246,
              251,
              346, 348, 565, 567, 696, 697, 698, 699, 369,
              984, 985, 986, 987, 988, 989, 1005, 1009, 1020, 1021, 1007,
-             990, 991, 992, 993, 994, 995, 1006, 1010, 1022, 1023, 1008]
+             990, 991, 992, 993, 994, 995, 1006, 1010, 1022, 1023, 1008,
+             # OS BEBÊS (src/data/extra.js): a forma mínima das linhas de Kanto
+             # que só nasce de ovo, na creche (src/systems/creche.js)
+             172, 173, 174, 238, 239, 240, 298, 360, 439, 440, 446]
 # formas MEGA (ids de FORMA da PokeAPI, não da Pokédex). Nenhuma delas existia
 # na geração III, então elas vêm com a arte moderna mesmo — os arquivos saem
 # como 10033.png e são achados pelo campo `spriteDex` de src/data/mega.js.
