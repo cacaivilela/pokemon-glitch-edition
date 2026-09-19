@@ -1472,5 +1472,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/slowbro+onix~slonix.png",
       "lore": "SLOWBRO NA CABEÇA, ONIX NO CORPO."
     }
+  ],
+  "rotom+porygon": [
+    {
+      "id": "rotorygon",
+      "nome": "ROTORYGON",
+      "autor": "",
+      "tipos": [
+        "ELÉTRICO",
+        "NORMAL"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 4,
+        "atk": 2.6,
+        "def": 2,
+        "spa": 1.8,
+        "spd": 2.7,
+        "spe": 5.4
+      },
+      "sprite": "assets/fusoes/rotom+porygon~rotorygon.png",
+      "lore": "ROTOM NA CABEÇA, PORYGON NO CORPO."
+    }
   ]
 };
