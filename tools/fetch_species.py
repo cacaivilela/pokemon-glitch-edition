@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Monta src/data/mais.js — as espécies que faltavam — a partir da PokeAPI.
 
-    python3 tools/fetch_species.py --n 523    # as 523 primeiras que o jogo não tem
+    python3 tools/fetch_species.py            # todas as que o jogo não tem (até a 1025)
     python3 tools/fetch_species.py --n 200    # menos
     python3 tools/fetch_species.py --dex 152,153,154
 
@@ -169,7 +169,7 @@ EEVEE = [
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--n", type=int, default=523)
+    ap.add_argument("--n", type=int, default=2000)
     ap.add_argument("--dex", default="")
     ap.add_argument("--max", type=int, default=1025)
     a = ap.parse_args()

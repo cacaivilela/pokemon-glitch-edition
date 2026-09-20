@@ -1,4 +1,4 @@
-// AS QUE FALTAVAM: 523 espécies de Johto pra frente, montadas por
+// AS QUE FALTAVAM: 645 espécies de Johto pra frente, montadas por
 // tools/fetch_species.py a partir da PokeAPI (nome, tipos, atributos-base e
 // evolução). Não são de Kanto: as de Johto moram no mato das ilhas SEVII —
 // como no FireRed — e as outras vazam pela 011GLITCHDIMENSION110, por terreno
@@ -529,6 +529,128 @@ const TABLE = `
 854 SINISTEA FANTASMA 40 45 45 74 54 50
 855 POLTEAGEIST FANTASMA 60 65 65 134 114 70
 856 HATENNA PSÍQUICO 42 30 45 56 53 39
+857 HATTREM PSÍQUICO 57 40 65 86 73 49
+858 HATTERENE PSÍQUICO/FADA 57 90 95 136 103 29
+859 IMPIDIMP SOMBRIO/FADA 45 45 30 55 40 50
+860 MORGREM SOMBRIO/FADA 65 60 45 75 55 70
+861 GRIMMSNARL SOMBRIO/FADA 95 120 65 95 75 60
+868 MILCERY FADA 45 40 40 50 61 34
+869 ALCREMIE FADA 65 60 75 110 121 64
+870 FALINKS LUTADOR 65 100 100 70 60 75
+871 PINCURCHIN ELÉTRICO 48 101 95 91 85 15
+872 SNOM GELO/INSETO 30 25 35 45 30 20
+873 FROSMOTH GELO/INSETO 70 65 60 125 90 65
+874 STONJOURNER PEDRA 100 125 135 20 20 70
+875 EISCUE GELO 75 80 110 65 90 50
+876 INDEEDEE PSÍQUICO/NORMAL 60 65 55 105 95 95
+877 MORPEKO ELÉTRICO/SOMBRIO 58 95 58 70 58 97
+878 CUFANT AÇO 72 80 49 40 49 40
+879 COPPERAJAH AÇO 122 130 69 80 69 30
+884 DURALUDON AÇO/DRAGÃO 70 95 115 120 50 85
+885 DREEPY DRAGÃO/FANTASMA 28 60 30 40 30 82
+886 DRAKLOAK DRAGÃO/FANTASMA 68 80 50 60 50 102
+887 DRAGAPULT DRAGÃO/FANTASMA 88 120 75 100 75 142
+888 ZACIAN FADA 92 120 115 80 115 138
+889 ZAMAZENTA LUTADOR 92 120 115 80 115 138
+890 ETERNATUS VENENO/DRAGÃO 140 85 95 145 95 130
+891 KUBFU LUTADOR 60 90 60 53 50 72
+892 URSHIFU LUTADOR/SOMBRIO 100 130 100 63 60 97
+893 ZARUDE SOMBRIO/PLANTA 105 120 105 70 95 105
+894 REGIELEKI ELÉTRICO 80 100 50 100 50 200
+895 REGIDRAGO DRAGÃO 200 100 50 100 50 80
+896 GLASTRIER GELO 100 145 130 65 110 30
+897 SPECTRIER FANTASMA 100 65 60 145 80 130
+898 CALYREX PSÍQUICO/PLANTA 100 80 80 80 80 80
+899 WYRDEER NORMAL/PSÍQUICO 103 105 72 105 75 65
+900 KLEAVOR INSETO/PEDRA 70 135 95 45 70 85
+905 ENAMORUS FADA/VOADOR 74 115 70 135 80 106
+915 LECHONK NORMAL 54 45 40 35 45 35
+916 OINKOLOGNE NORMAL 110 100 75 59 80 65
+917 TAROUNTULA INSETO 35 41 45 29 40 20
+918 SPIDOPS INSETO 60 79 92 52 86 35
+919 NYMBLE INSETO 33 46 40 21 25 45
+920 LOKIX INSETO/SOMBRIO 71 102 78 52 55 92
+921 PAWMI ELÉTRICO 45 50 20 40 25 60
+922 PAWMO ELÉTRICO/LUTADOR 60 75 40 50 40 85
+923 PAWMOT ELÉTRICO/LUTADOR 70 115 70 70 60 105
+924 TANDEMAUS NORMAL 50 50 45 40 45 75
+925 MAUSHOLD NORMAL 74 75 70 65 75 111
+926 FIDOUGH FADA 37 55 70 30 55 65
+927 DACHSBUN FADA 57 80 115 50 80 95
+928 SMOLIV PLANTA/NORMAL 41 35 45 58 51 30
+929 DOLLIV PLANTA/NORMAL 52 53 60 78 78 33
+930 ARBOLIVA PLANTA/NORMAL 78 69 90 125 109 39
+931 SQUAWKABILLY NORMAL/VOADOR 82 96 51 45 51 92
+932 NACLI PEDRA 55 55 75 35 35 25
+933 NACLSTACK PEDRA 60 60 100 35 65 35
+934 GARGANACL PEDRA 100 100 130 45 90 35
+935 CHARCADET FOGO 40 50 40 50 40 35
+936 ARMAROUGE FOGO/PSÍQUICO 85 60 100 125 80 75
+937 CERULEDGE FOGO/FANTASMA 75 125 80 60 100 85
+938 TADBULB ELÉTRICO 61 31 41 59 35 45
+939 BELLIBOLT ELÉTRICO 109 64 91 103 83 45
+940 WATTREL ELÉTRICO/VOADOR 40 40 35 55 40 70
+941 KILOWATTREL ELÉTRICO/VOADOR 70 70 60 105 60 125
+942 MASCHIFF SOMBRIO 60 78 60 40 51 51
+943 MABOSSTIFF SOMBRIO 80 120 90 60 70 85
+944 SHROODLE VENENO/NORMAL 40 65 35 40 35 75
+945 GRAFAIAI VENENO/NORMAL 63 95 65 80 72 110
+946 BRAMBLIN PLANTA/FANTASMA 40 65 30 45 35 60
+947 BRAMBLEGHAST PLANTA/FANTASMA 55 115 70 80 70 90
+948 TOEDSCOOL TERRA/PLANTA 40 40 35 50 100 70
+949 TOEDSCRUEL TERRA/PLANTA 80 70 65 80 120 100
+950 KLAWF PEDRA 70 100 115 35 55 75
+951 CAPSAKID PLANTA 50 62 40 62 40 50
+952 SCOVILLAIN PLANTA/FOGO 65 108 65 108 65 75
+953 RELLOR INSETO 41 50 60 31 58 30
+954 RABSCA INSETO/PSÍQUICO 75 50 85 115 100 45
+955 FLITTLE PSÍQUICO 30 35 30 55 30 75
+956 ESPATHRA PSÍQUICO 95 60 60 101 60 105
+957 TINKATINK FADA/AÇO 50 45 45 35 64 58
+958 TINKATUFF FADA/AÇO 65 55 55 45 82 78
+959 TINKATON FADA/AÇO 85 75 77 70 105 94
+960 WIGLETT ÁGUA 10 55 25 35 25 95
+961 WUGTRIO ÁGUA 35 100 50 50 70 120
+962 BOMBIRDIER VOADOR/SOMBRIO 70 103 85 60 85 82
+963 FINIZEN ÁGUA 70 45 40 45 40 75
+964 PALAFIN ÁGUA 100 70 72 53 62 100
+965 VAROOM AÇO/VENENO 45 70 63 30 45 47
+966 REVAVROOM AÇO/VENENO 80 119 90 54 67 90
+967 CYCLIZAR DRAGÃO/NORMAL 70 95 65 85 65 121
+968 ORTHWORM AÇO 70 85 145 60 55 65
+969 GLIMMET PEDRA/VENENO 48 35 42 105 60 60
+970 GLIMMORA PEDRA/VENENO 83 55 90 130 81 86
+971 GREAVARD FANTASMA 50 61 60 30 55 34
+972 HOUNDSTONE FANTASMA 72 101 100 50 97 68
+973 FLAMIGO VOADOR/LUTADOR 82 115 74 75 64 90
+974 CETODDLE GELO 108 68 45 30 40 43
+975 CETITAN GELO 170 113 65 45 55 73
+976 VELUZA ÁGUA/PSÍQUICO 90 102 73 78 65 70
+977 DONDOZO ÁGUA 150 100 115 65 65 35
+978 TATSUGIRI DRAGÃO/ÁGUA 68 50 60 120 95 82
+979 ANNIHILAPE LUTADOR/FANTASMA 110 115 80 50 90 90
+981 FARIGIRAF NORMAL/PSÍQUICO 120 90 70 110 70 60
+983 KINGAMBIT SOMBRIO/AÇO 100 135 120 60 85 50
+996 FRIGIBAX DRAGÃO/GELO 65 75 45 35 45 55
+997 ARCTIBAX DRAGÃO/GELO 90 95 66 45 65 62
+998 BAXCALIBUR DRAGÃO/GELO 115 145 92 75 86 87
+999 GIMMIGHOUL FANTASMA 45 30 70 75 70 10
+1000 GHOLDENGO AÇO/FANTASMA 87 60 95 133 91 84
+1001 WO-CHIEN SOMBRIO/PLANTA 85 85 100 95 135 70
+1002 CHIEN-PAO SOMBRIO/GELO 80 120 80 90 65 135
+1003 TING-LU SOMBRIO/TERRA 155 110 125 55 80 45
+1004 CHI-YU SOMBRIO/FOGO 55 80 80 135 120 100
+1011 DIPPLIN PLANTA/DRAGÃO 80 80 110 95 80 40
+1012 POLTCHAGEIST PLANTA/FANTASMA 40 45 45 74 54 50
+1013 SINISTCHA PLANTA/FANTASMA 71 60 106 121 80 70
+1014 OKIDOGI VENENO/LUTADOR 88 128 115 58 86 80
+1015 MUNKIDORI VENENO/PSÍQUICO 88 75 66 130 90 106
+1016 FEZANDIPITI VENENO/FADA 88 91 82 70 125 99
+1017 OGERPON PLANTA 80 120 84 60 96 110
+1018 ARCHALUDON AÇO/DRAGÃO 90 105 130 125 65 85
+1019 HYDRAPPLE PLANTA/DRAGÃO 106 80 110 120 80 44
+1024 TERAPAGOS NORMAL 90 65 85 65 85 60
+1025 PECHARUNT VENENO/FANTASMA 88 88 160 88 88 88
 `;
 
 /** As frases de Pokédex escritas à mão. O resto fica com o texto genérico —
@@ -556,12 +678,14 @@ for (const line of TABLE.trim().split("\n")) {
 
 /** as regras de evolução (troca e felicidade viraram nível, como no resto do jogo) */
 export const EVO_MAIS = {
+  girafarig: [{ lvl: 32, to: "farigiraf" }],
   pineco: [{ lvl: 31, to: "forretress" }],
   gligar: [{ lvl: 32, to: "gliscor" }],
   snubbull: [{ lvl: 23, to: "granbull" }],
   remoraid: [{ lvl: 25, to: "octillery" }],
   mantyke: [{ lvl: 32, to: "mantine" }],
   houndour: [{ lvl: 24, to: "houndoom" }],
+  stantler: [{ lvl: 32, to: "wyrdeer" }],
   poochyena: [{ lvl: 18, to: "mightyena" }],
   silcoon: [{ lvl: 10, to: "beautifly" }],
   cascoon: [{ lvl: 10, to: "dustox" }],
@@ -641,6 +765,7 @@ export const EVO_MAIS = {
   croagunk: [{ lvl: 37, to: "toxicroak" }],
   finneon: [{ lvl: 31, to: "lumineon" }],
   snover: [{ lvl: 40, to: "abomasnow" }],
+  primeape: [{ lvl: 36, onde: "fora", to: "annihilape" }],
   patrat: [{ lvl: 20, to: "watchog" }],
   poliwhirl: [{ lvl: 36, onde: "fora", to: "politoed" }],
   herdier: [{ lvl: 32, to: "stoutland" }],
@@ -695,6 +820,7 @@ export const EVO_MAIS = {
   shelmet: [{ lvl: 36, to: "accelgor" }],
   mienfoo: [{ lvl: 50, to: "mienshao" }],
   golett: [{ lvl: 43, onde: "fora", to: "golurk" }],
+  bisharp: [{ lvl: 32, to: "kingambit" }],
   pawniard: [{ lvl: 52, to: "bisharp" }],
   vullaby: [{ lvl: 54, to: "mandibuzz" }],
   zweilous: [{ lvl: 64, to: "hydreigon" }],
@@ -762,20 +888,65 @@ export const EVO_MAIS = {
   yamper: [{ lvl: 25, to: "boltund" }],
   carkol: [{ lvl: 34, to: "coalossal" }],
   rolycoly: [{ lvl: 18, to: "carkol" }],
-  applin: [{ lvl: 32, onde: "fenda", to: "appletun" }, { lvl: 32, to: "flapple" }],
+  dipplin: [{ lvl: 32, to: "hydrapple" }],
+  applin: [{ lvl: 32, onde: "fenda", to: "appletun" }, { lvl: 32, onde: "fenda", to: "dipplin" }, { lvl: 32, to: "flapple" }],
   silicobra: [{ lvl: 36, to: "sandaconda" }],
   arrokuda: [{ lvl: 26, to: "barraskewda" }],
   toxel: [{ lvl: 30, to: "toxtricity" }],
   sizzlipede: [{ lvl: 28, to: "centiskorch" }],
   clobbopus: [{ lvl: 32, to: "grapploct" }],
   sinistea: [{ lvl: 32, to: "polteageist" }],
+  hattrem: [{ lvl: 42, to: "hatterene" }],
+  hatenna: [{ lvl: 32, to: "hattrem" }],
+  morgrem: [{ lvl: 42, to: "grimmsnarl" }],
+  impidimp: [{ lvl: 32, to: "morgrem" }],
+  milcery: [{ lvl: 32, to: "alcremie" }],
+  snom: [{ amizade: 65, to: "frosmoth" }],
+  cufant: [{ lvl: 34, to: "copperajah" }],
+  duraludon: [{ lvl: 32, to: "archaludon" }],
+  drakloak: [{ lvl: 60, to: "dragapult" }],
+  dreepy: [{ lvl: 50, to: "drakloak" }],
   tyrogue: [{ lvl: 20, to: "hitmontop" }],
+  kubfu: [{ lvl: 32, to: "urshifu" }],
   lickitung: [{ lvl: 36, onde: "fora", to: "lickilicky" }],
+  lechonk: [{ lvl: 18, to: "oinkologne" }],
+  tarountula: [{ lvl: 15, to: "spidops" }],
+  nymble: [{ lvl: 24, to: "lokix" }],
+  pawmo: [{ lvl: 32, to: "pawmot" }],
+  pawmi: [{ lvl: 18, to: "pawmo" }],
+  tandemaus: [{ lvl: 25, to: "maushold" }],
+  fidough: [{ lvl: 26, to: "dachsbun" }],
+  dolliv: [{ lvl: 35, to: "arboliva" }],
+  smoliv: [{ lvl: 25, to: "dolliv" }],
+  naclstack: [{ lvl: 38, to: "garganacl" }],
+  nacli: [{ lvl: 24, to: "naclstack" }],
+  charcadet: [{ lvl: 32, onde: "fenda", to: "ceruledge" }, { lvl: 32, to: "armarouge" }],
+  tadbulb: [{ item: "pedra do trovão", to: "bellibolt" }],
+  wattrel: [{ lvl: 25, to: "kilowattrel" }],
+  maschiff: [{ lvl: 30, to: "mabosstiff" }],
+  shroodle: [{ lvl: 28, to: "grafaiai" }],
+  bramblin: [{ lvl: 32, to: "brambleghast" }],
+  toedscool: [{ lvl: 30, to: "toedscruel" }],
+  capsakid: [{ item: "pedra do fogo", to: "scovillain" }],
+  rellor: [{ lvl: 32, to: "rabsca" }],
   rhydon: [{ lvl: 36, onde: "fora", to: "rhyperior" }],
+  flittle: [{ lvl: 35, to: "espathra" }],
+  tinkatuff: [{ lvl: 38, to: "tinkaton" }],
+  tinkatink: [{ lvl: 24, to: "tinkatuff" }],
+  wiglett: [{ lvl: 26, to: "wugtrio" }],
+  finizen: [{ lvl: 38, to: "palafin" }],
+  varoom: [{ lvl: 40, to: "revavroom" }],
+  glimmet: [{ lvl: 35, to: "glimmora" }],
+  greavard: [{ lvl: 30, to: "houndstone" }],
   chansey: [{ amizade: 65, to: "blissey" }],
+  cetoddle: [{ item: "pedra do gelo", to: "cetitan" }],
   tangela: [{ lvl: 36, onde: "fora", to: "tangrowth" }],
+  arctibax: [{ lvl: 54, to: "baxcalibur" }],
+  frigibax: [{ lvl: 35, to: "arctibax" }],
+  gimmighoul: [{ lvl: 32, to: "gholdengo" }],
+  poltchageist: [{ lvl: 32, to: "sinistcha" }],
   seadra: [{ lvl: 36, onde: "fora", to: "kingdra" }],
-  scyther: [{ lvl: 36, onde: "fora", to: "scizor" }],
+  scyther: [{ lvl: 36, onde: "fora", to: "scizor" }, { lvl: 36, onde: "fora", to: "kleavor" }],
   electabuzz: [{ lvl: 36, onde: "fora", to: "electivire" }],
   magmar: [{ lvl: 36, onde: "fora", to: "magmortar" }],
   hoothoot: [{ lvl: 20, to: "noctowl" }],
