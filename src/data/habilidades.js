@@ -67,6 +67,7 @@ export const HABILIDADES = {
   pararaios:   { nome: "PARA-RAIOS", texto: "ABSORVE GOLPES ELÉTRICOS E RECUPERA HP.", imune: ["ELÉTRICO"], cura: 0.25 },
   esponja:     { nome: "ESPONJA", texto: "ABSORVE GOLPES DE ÁGUA E RECUPERA HP.", imune: ["ÁGUA"], cura: 0.25 },
   chamaviva:   { nome: "CHAMA VIVA", texto: "ABSORVE GOLPES DE FOGO E RECUPERA HP.", imune: ["FOGO"], cura: 0.25 },
+  ima:         { nome: "IMÃ", texto: "ABSORVE GOLPES DE AÇO E RECUPERA HP.", imune: ["AÇO"], cura: 0.25 },
   couraca:     { nome: "COURAÇA", texto: "NÃO LEVA ACERTO CRÍTICO.", semCrit: true },
   // O PAPA-MOSCA DO VICTREEBEL: quanto mais pesado o inseto, mais dá pra
   // comer. +5 de dano a cada meio quilo do alvo — um CATERPIE (2,9 kg) rende
@@ -90,6 +91,7 @@ export const HABILIDADE_POR_TIPO = {
 
 /** quem tem habilidade própria */
 export const HABILIDADE_DE = {
+  meltan: "ima", melmetal: "ima",
   litwick: "chuvadelava", lampent: "chuvadelava", chandelure: "chuvadelava",
   kyogre: "garoa", poliwrath: "garoa", politoed: "garoa", tentacruel: "garoa",
   groudon: "seca", ninetales: "seca", ninetalesalola: "corpogelado", charizard: "seca", torkoal: "seca",

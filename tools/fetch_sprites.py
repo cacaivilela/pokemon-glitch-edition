@@ -39,6 +39,7 @@ EXTRA_DEX = [161, 165, 167, 177, 183, 187, 193, 200, 202, 206, 214, 231, 246,
              642, 645, 649,
              716, 717, 718,
              880, 881, 882, 883,
+             808, 809,      # MELTAN e MELMETAL (a gota de metal da fenda)
              # os INICIAIS das outras regiões (src/data/iniciais.js): dá pra
              # escolher qualquer um deles como primeiro Pokémon
              152, 155, 158, 252, 255, 258, 387, 390, 393, 495, 498, 501,

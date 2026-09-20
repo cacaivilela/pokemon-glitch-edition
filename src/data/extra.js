@@ -88,6 +88,8 @@ const TABLE = `
 605 ELGYEM PSÍQUICO 55 55 55 85 55 30
 606 BEHEEYEM PSÍQUICO 75 75 75 125 95 40
 649 GENESECT INSETO/AÇO 71 120 95 120 95 99
+808 MELTAN AÇO 46 65 65 55 35 34
+809 MELMETAL AÇO 135 143 143 80 65 34
 235 SMEARGLE NORMAL 55 20 35 20 45 75
 483 DIALGA AÇO/DRAGÃO 100 120 120 150 100 90
 484 PALKIA ÁGUA/DRAGÃO 90 120 100 150 120 100
@@ -125,6 +127,8 @@ export const LORE = {
   elgyem: "APARECEU NUM DESERTO SEM PEGADA NENHUMA EM VOLTA.",
   beheeyem: "OS DEDOS PISCAM EM SEQUÊNCIA. É UM ENDEREÇO SENDO DIGITADO.",
   genesect: "UM FÓSSIL QUE ALGUÉM ABRIU E REESCREVEU. O CANHÃO NÃO ESTAVA NO ORIGINAL.",
+  meltan: "UMA GOTA DE METAL LÍQUIDO COM UMA PORCA DE CABEÇA. COME PREGO, PARAFUSO E O QUE MAIS FOR DE FERRO.",
+  melmetal: "TREZENTAS GOTAS QUE SE JUNTARAM. É DE FERRO ATÉ O MIOLO, E FERRO NENHUM PASSA POR ELE SEM FICAR.",
   smeargle: "ELE COPIA QUALQUER GOLPE QUE VÊ. AQUI DENTRO, COPIA COISA QUE NEM É GOLPE.",
   deoxysataque: "TODO O CORPO VIROU ARMA. NÃO SOBROU NADA PRA SE DEFENDER.",
   deoxysdefesa: "ELE SE FECHOU. AGORA AGUENTA O QUE VIER — E NÃO DEVOLVE QUASE NADA.",
@@ -212,6 +216,8 @@ export const DIM_ENCOUNTERS = {
     { id: "arctozolt", min: 30, max: 44, w: 16 },
     { id: "elgyem", min: 20, max: 32, w: 14 },
     { id: "smeargle", min: 18, max: 34, w: 12 },
+    { id: "meltan", min: 20, max: 34, w: 14 },      // a gota de metal (IMÃ: come golpe de AÇO)
+    { id: "melmetal", min: 40, max: 50, w: 2 },
   ],
   // água: o que a fenda copiou do mar, metade certo
   agua: [
