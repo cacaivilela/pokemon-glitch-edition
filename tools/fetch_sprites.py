@@ -97,6 +97,11 @@ def mais_dex():
         return []
     with open(MAIS_JS, encoding="utf-8") as f:
         return sorted({int(m.group(1)) for m in re.finditer(r"^(\d{1,4}) [A-Z]", f.read(), re.M)})
+# ESPÉCIES CUJO SPRITE PADRÃO DA POKEAPI É A FORMA ERRADA: o PALAFIN de
+# Pokédex é o "zero", que é um FINIZEN com uma mancha na barriga — a forma que
+# todo mundo conhece é a HERÓI (id de forma 10256). Aqui: nº da Pokédex -> id
+# de forma que vale como arte da espécie.
+FORMA_DA_ESPECIE = {964: 10256}
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "assets", "sprites", "pokemon")
 
@@ -156,9 +161,13 @@ def main():
             # sprite de costas em Esmeralda, por exemplo)
             bases = [b for b, hi in ((EMERALD, 386), (PLATINUM, 493), (BLACK_WHITE, 649))
                      if dex <= hi] + [MODERN]
-        jobs.append(([f"{b}/{dex}.png" for b in bases], os.path.join(OUT, f"{dex:03d}.png")))
+        forma = FORMA_DA_ESPECIE.get(dex)
+        if forma:
+            bases = [MODERN]
+        src = forma or dex
+        jobs.append(([f"{b}/{src}.png" for b in bases], os.path.join(OUT, f"{dex:03d}.png")))
         if not a.no_back:
-            jobs.append(([f"{b}/back/{dex}.png" for b in bases],
+            jobs.append(([f"{b}/back/{src}.png" for b in bases],
                          os.path.join(OUT, "back", f"{dex:03d}.png")))
 
     tally = {}
