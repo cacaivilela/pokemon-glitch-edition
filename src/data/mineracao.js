@@ -38,9 +38,23 @@ export const FERRAMENTAS = {
 /** O que fica enterrado. `forma` é a lista de células (dx,dy) que a coisa
  *  ocupa; `w` é o peso no sorteio; `cor` é como ela aparece na parede. */
 export const ACHADOS = [
+  // os de Kanto
   { item: "fóssil hélix", w: 14, cor: "#c8a878", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
   { item: "fóssil domo",  w: 14, cor: "#b8a090", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
   { item: "âmbar velho",  w: 4,  cor: "#e0a030", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+  // os de fora: as espécies já moravam na fenda (src/data/extra.js) — a parede
+  // é mais um lugar de onde elas vazam pra Kanto, e é mais raro que os de casa
+  { item: "fóssil raiz",   w: 5, cor: "#7a9a5a", forma: [[0, 0], [0, 1], [1, 1]] },
+  { item: "fóssil garra",  w: 5, cor: "#a89060", forma: [[0, 0], [1, 0], [1, 1]] },
+  { item: "fóssil crânio", w: 5, cor: "#c0c0b0", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+  { item: "fóssil escudo", w: 5, cor: "#9098a8", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+  { item: "fóssil casco",  w: 4, cor: "#6090a0", forma: [[0, 0], [1, 0], [2, 0], [1, 1]] },
+  { item: "fóssil pluma",  w: 4, cor: "#d0b0a0", forma: [[0, 0], [1, 0], [2, 0]] },
+  // os de Galar vêm em METADES: a máquina só liga com uma de cada
+  { item: "fóssil de ave",    w: 3, cor: "#e8d8c0", forma: [[0, 0], [1, 0]] },
+  { item: "fóssil de peixe",  w: 3, cor: "#80b0d0", forma: [[0, 0], [1, 0]] },
+  { item: "fóssil de dragão", w: 3, cor: "#a0d0a0", forma: [[0, 0], [0, 1]] },
+  // o resto
   { item: "pepita",       w: 10, cor: "#f0d048", forma: [[0, 0]] },
   { item: "pedra do fogo",   w: 6, cor: "#e06040", forma: [[0, 0], [1, 0]] },
   { item: "pedra da água",   w: 6, cor: "#4090e0", forma: [[0, 0], [1, 0]] },
@@ -51,11 +65,23 @@ export const ACHADOS = [
   { item: "estrela",         w: 6, cor: "#ffe080", forma: [[0, 0], [1, 1]] },
 ];
 
-/** Os fósseis e o que sai deles no laboratório. */
+/** Os fósseis e o que sai deles no laboratório. `precisa` é a lista de itens
+ *  que a máquina consome; a chave é o nome que aparece na escolha. Os de
+ *  Galar são duas metades — a cabeça de um bicho e o rabo de outro, colados:
+ *  DRACOZOLT (ave + dragão) e DRACOVISH (peixe + dragão) são o que sai quando
+ *  se remonta um fóssil errado de propósito. */
 export const FOSSEIS = {
   "fóssil hélix": { especie: "omanyte", nivel: 20 },
   "fóssil domo": { especie: "kabuto", nivel: 20 },
   "âmbar velho": { especie: "aerodactyl", nivel: 20 },
+  "fóssil raiz": { especie: "lileep", nivel: 20 },
+  "fóssil garra": { especie: "anorith", nivel: 20 },
+  "fóssil crânio": { especie: "cranidos", nivel: 20 },
+  "fóssil escudo": { especie: "shieldon", nivel: 20 },
+  "fóssil casco": { especie: "tirtouga", nivel: 20 },
+  "fóssil pluma": { especie: "archen", nivel: 20 },
+  "ave + dragão": { especie: "dracozolt", nivel: 25, precisa: ["fóssil de ave", "fóssil de dragão"] },
+  "peixe + dragão": { especie: "dracovish", nivel: 25, precisa: ["fóssil de peixe", "fóssil de dragão"] },
 };
 
 /** O que a mochila diz de cada coisa que sai da mina. */
@@ -63,6 +89,15 @@ export const MINA_LORE = {
   "fóssil hélix": "UMA CONCHA EM ESPIRAL VIRADA PEDRA. NO LABORATÓRIO DE CINNABAR ELA VOLTA A SER OMANYTE.",
   "fóssil domo": "UMA CARAPAÇA EM CÚPULA VIRADA PEDRA. NO LABORATÓRIO DE CINNABAR ELA VOLTA A SER KABUTO.",
   "âmbar velho": "RESINA COM UM PEDAÇO DE ASA DENTRO. NO LABORATÓRIO DE CINNABAR VIRA AERODACTYL.",
+  "fóssil raiz": "UM CAULE COM PÉTALAS VIRADO PEDRA. NÃO É DE KANTO. EM CINNABAR VIRA LILEEP.",
+  "fóssil garra": "UMA GARRA DE INSETO VIRADA PEDRA. NÃO É DE KANTO. EM CINNABAR VIRA ANORITH.",
+  "fóssil crânio": "UM CRÂNIO GROSSO COMO UMA PAREDE. NÃO É DE KANTO. EM CINNABAR VIRA CRANIDOS.",
+  "fóssil escudo": "UMA PLACA DE CABEÇA COM DUAS PONTAS. NÃO É DE KANTO. EM CINNABAR VIRA SHIELDON.",
+  "fóssil casco": "UM CASCO DE TARTARUGA VIRADO PEDRA. NÃO É DE KANTO. EM CINNABAR VIRA TIRTOUGA.",
+  "fóssil pluma": "UMA PENA GRANDE VIRADA PEDRA. NÃO É DE KANTO. EM CINNABAR VIRA ARCHEN.",
+  "fóssil de ave": "A METADE DE CIMA DE ALGUMA COISA COM PENAS. SOZINHA NÃO VIRA NADA: PRECISA DE UM FÓSSIL DE DRAGÃO.",
+  "fóssil de peixe": "A METADE DE CIMA DE ALGUMA COISA COM ESCAMAS. SOZINHA NÃO VIRA NADA: PRECISA DE UM FÓSSIL DE DRAGÃO.",
+  "fóssil de dragão": "A METADE DE BAIXO DE ALGUMA COISA COM RABO. SOZINHA NÃO VIRA NADA: PRECISA DE UM FÓSSIL DE AVE OU DE PEIXE.",
   "picareta": "A PICARETA DO BALCONISTA DE VIRIDIAN. ESCOLHA ELA NA MOCHILA PRA CAVAR ONDE VOCÊ ESTIVER.",
   "pepita": "UM TORRÃO DE OURO PURO. NÃO SERVE PRA NADA A NÃO SER VENDER, E VENDE BEM.",
   "estrela": "UM PEDAÇO DE ESTRELA QUE CAIU NA MINA. VENDE POR UM BOM PREÇO.",
@@ -113,6 +148,8 @@ export const MINA_TEXTO = {
   labTem: "VOCÊ TEM FÓSSIL AÍ! QUAL EU RESSUSCITO?",
   labSemVaga: "SUA EQUIPE E O BOX ESTÃO CHEIOS. ONDE EU IA PÔR O BICHO?",
   labFeito: ["A MÁQUINA TREMEU, APITOU, E...", "{MON} VOLTOU! N{NIVEL}, INTEIRO, DO JEITO QUE ERA."],
+  labMetade: "ISSO É METADE DE UM FÓSSIL. TRAZ A OUTRA METADE — UM DE CIMA E UM DE BAIXO — QUE EU COLO.",
+  labColado: ["A MÁQUINA TREMEU, APITOU, TREMEU DE NOVO, E...", "{MON} SAIU! N{NIVEL}. ...ELE NÃO ERA ASSIM. MAS TÁ VIVO."],
   labEquipe: "{MON} ENTROU NA EQUIPE.",
   labBox: "{MON} FOI PRO BOX.",
 };

@@ -2844,14 +2844,20 @@ export class OverworldScene {
   /** A PALEONTÓLOGA de CINNABAR: troca um fóssil da mochila pelo bicho vivo. */
   talkPaleontologa() {
     const T = DB.MINERACAO.MINA_TEXTO, F = DB.MINERACAO.FOSSEIS, O = DB.OVO_TEXTO;
-    const tem = Object.keys(F).filter((f) => (this.st.items[f] || 0) > 0);
-    if (!tem.length) return void this.dlg.say(T.labOferta);
+    const tenho = (f) => (this.st.items[f] || 0) > 0;
+    // o que dá pra ligar: um fóssil inteiro, ou as duas metades de um de Galar
+    const tem = Object.keys(F).filter((f) => (F[f].precisa || [f]).every(tenho));
+    if (!tem.length) {
+      // só uma metade na mochila: ela explica o que falta
+      const metade = Object.values(F).some((r) => r.precisa?.some(tenho));
+      return void this.dlg.say(metade ? T.labMetade : T.labOferta);
+    }
     if (this.st.party.length >= 6 && boxCheio(this.st)) return void this.dlg.say(T.labSemVaga);
     this.dlg.ask(T.labTem, tem.map((f) => f.toUpperCase()), (i) => {
-      const item = tem[i], { especie, nivel } = F[item];
-      this.spend(item, 1);
+      const item = tem[i], { especie, nivel, precisa } = F[item];
+      for (const gasto of precisa || [item]) this.spend(gasto, 1);
       const mon = createMon(especie, nivel);
-      const msgs = T.labFeito.map((l) => l.replace("{MON}", mon.nickname).replace("{NIVEL}", nivel));
+      const msgs = (precisa ? T.labColado : T.labFeito).map((l) => l.replace("{MON}", mon.nickname).replace("{NIVEL}", nivel));
       if (mon.luminoso) msgs.push(O.formas.luminoso);
       else if (mon.shiny) msgs.push(O.formas.shiny);
       if (this.st.party.length < 6) { this.st.party.push(mon); msgs.push(T.labEquipe.replace("{MON}", mon.nickname)); }

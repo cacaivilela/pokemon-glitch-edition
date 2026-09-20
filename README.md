@@ -142,11 +142,15 @@ destampado por inteiro — cavar é escolher onde gastar a parede. Não dá pra
 cavar dentro de casa.
 
 Embaixo da terra: **fóssil hélix**, **fóssil domo**, **âmbar velho** (raro),
-pepita, estrela, doce raro e as cinco pedras de evolução. No **Monte Lua B2F**
+os de fora — **raiz** (LILEEP), **garra** (ANORITH), **crânio** (CRANIDOS),
+**escudo** (SHIELDON), **casco** (TIRTOUGA), **pluma** (ARCHEN) —, as **metades
+de Galar** (fóssil de ave / de peixe + fóssil de dragão viram DRACOZOLT e
+DRACOVISH, remontados errado de propósito), pepita, estrela, doce raro e as
+cinco pedras de evolução. No **Monte Lua B2F**
 tem um mineiro que empresta as ferramentas (a primeira vez de graça, depois
 $300) pra quem ainda não tem a picareta. A **paleontóloga** na porta do
-laboratório de **Cinnabar** ressuscita os fósseis: OMANYTE, KABUTO e
-AERODACTYL no nível 20. As tabelas estão em `src/data/mineracao.js`, a tela em
+laboratório de **Cinnabar** ressuscita os fósseis (nível 20; os colados de
+Galar, 25). As tabelas estão em `src/data/mineracao.js`, a tela em
 `src/scenes/mineracao.js`.
 
 ## Os MYSTERY EGGS
