@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Monta src/data/mais.js — as espécies que faltavam — a partir da PokeAPI.
 
-    python3 tools/fetch_species.py            # as 400 primeiras que o jogo não tem
+    python3 tools/fetch_species.py --n 523    # as 523 primeiras que o jogo não tem
     python3 tools/fetch_species.py --n 200    # menos
     python3 tools/fetch_species.py --dex 152,153,154
 
@@ -169,7 +169,7 @@ EEVEE = [
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--n", type=int, default=400)
+    ap.add_argument("--n", type=int, default=523)
     ap.add_argument("--dex", default="")
     ap.add_argument("--max", type=int, default=1025)
     a = ap.parse_args()
@@ -213,6 +213,14 @@ const TABLE = `
 {chr(10).join(linhas)}
 `;
 
+/** As frases de Pokédex escritas à mão. O resto fica com o texto genérico —
+ *  "dados ainda não carregados" é exatamente o que uma espécie que vazou é. */
+const LORE = {{
+  uxie: "O SER DO CONHECIMENTO. QUEM OLHA NOS OLHOS DELE ESQUECE TUDO — POR ISSO ELE NÃO ABRE OS OLHOS.",
+  mesprit: "O SER DA EMOÇÃO. FOI ELE QUE ENSINOU AS PESSOAS A SENTIR ALEGRIA E TRISTEZA. DEPOIS FOI DORMIR NO FUNDO DE UM LAGO.",
+  azelf: "O SER DA VONTADE. QUEM ENCOSTA NELE PERDE A VONTADE DE FAZER QUALQUER COISA, E FICA PARADO PRA SEMPRE.",
+}};
+
 export const MAIS = {{}};
 for (const line of TABLE.trim().split("\\n")) {{
   if (!line.trim()) continue;
@@ -222,6 +230,7 @@ for (const line of TABLE.trim().split("\\n")) {{
   const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "");
   MAIS[id] = {{
     id, dex: +dex, name: name.replace(/-/g, " "), types: types.split("/"), base, bst, foreign: true,
+    dexText: LORE[id],
     catchRate: bst >= 600 ? 3 : bst >= 500 ? 45 : bst >= 400 ? 90 : 160,
     xpYield: Math.floor(bst / 4),
   }};
@@ -240,14 +249,18 @@ export const EVO_MAIS = {{
  *  de origem já tinha, senão 350 espécies novas engoliam as de casa. */
 const comuns = Object.values(MAIS).filter((s) => s.bst < 600);
 const nivel = (s) => (s.bst >= 500 ? [34, 46] : s.bst >= 400 ? [24, 38] : [14, 28]);
-const entrada = (s, [min, max]) => ({{ id: s.id, min, max, w: s.bst >= 500 ? 0.4 : 1 }});
+const entrada = (s, [min, max]) => ({{ id: s.id, min, max, w: s.bst >= 560 ? 0.12 : s.bst >= 500 ? 0.4 : 1 }});
+/** OS GUARDIÕES DO LAGO: UXIE, MESPRIT e AZELF não têm lago aqui — flutuam no
+ *  vazio da fenda, os três, e são o encontro mais raro dela. */
+export const GUARDIOES = ["uxie", "mesprit", "azelf"].filter((id) => MAIS[id]);
 export const MAIS_SEVII = comuns.filter((s) => s.dex <= 251).map((s) => entrada(s, nivel(s)));
 const voa = (s) => ["VOADOR", "FANTASMA", "PSÍQUICO", "ELÉTRICO"].some((t) => s.types.includes(t));
 const nada = (s) => ["ÁGUA", "GELO"].some((t) => s.types.includes(t));
 const fora = comuns.filter((s) => s.dex > 251);
 export const MAIS_DIM = {{
   agua: fora.filter((s) => nada(s)).map((s) => entrada(s, [nivel(s)[0] + 6, nivel(s)[1] + 8])),
-  ar: fora.filter((s) => !nada(s) && voa(s)).map((s) => entrada(s, [nivel(s)[0] + 6, nivel(s)[1] + 8])),
+  ar: fora.filter((s) => !nada(s) && voa(s) && !GUARDIOES.includes(s.id)).map((s) => entrada(s, [nivel(s)[0] + 6, nivel(s)[1] + 8]))
+    .concat(GUARDIOES.map((id) => ({{ id, min: 50, max: 50, w: 0.12 }}))),
   terra: fora.filter((s) => !nada(s) && !voa(s)).map((s) => entrada(s, [nivel(s)[0] + 6, nivel(s)[1] + 8])),
 }};
 '''

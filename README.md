@@ -22,14 +22,15 @@ python3 tools/fetch_sprites.py     # 151 Pokémon, frente e costas (64x64)
 python3 tools/fetch_sprites.py --mega   # as 15 formas MEGA
 python3 tools/fetch_overworld.py   # personagens do mapa (Red, Prof. Carvalho, enfermeira...)
 python3 tools/fetch_maps.py        # os mapas de Kanto: desenho, colisão, grama, barrancos, portas
-python3 tools/fetch_species.py     # AS QUE FALTAVAM: 400 espécies de Johto em diante (src/data/mais.js)
+python3 tools/fetch_species.py     # AS QUE FALTAVAM: 523 espécies de Johto em diante (src/data/mais.js)
 python3 tools/fetch_sprites.py --mais   # ...e os sprites delas
 ```
 
-Ao todo são **783 espécies** (151 de Kanto + 632 de fora) e, com as formas
-regionais, os bonés e as MEGAs, 884 entradas. As 400 de `mais.js` vivem no
+Ao todo são **906 espécies** (151 de Kanto + 755 de fora) e, com as formas
+regionais, os bonés e as MEGAs, 1007 entradas. As 523 de `mais.js` vivem no
 mato das ilhas SEVII (as de Johto, como no FireRed) e na fenda (o resto, por
-terreno); as evoluções que partem de um bicho de Kanto (ONIX → STEELIX, GLOOM →
+terreno; UXIE, MESPRIT e AZELF, os guardiões do lago, são o encontro mais raro
+do vazio dela); as evoluções que partem de um bicho de Kanto (ONIX → STEELIX, GLOOM →
 BELLOSSOM, SLOWPOKE → SLOWKING) só acontecem fora de Kanto ou por amizade, pra
 não roubar a regra que ele já tinha.
 

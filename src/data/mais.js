@@ -1,4 +1,4 @@
-// AS QUE FALTAVAM: 400 espécies de Johto pra frente, montadas por
+// AS QUE FALTAVAM: 523 espécies de Johto pra frente, montadas por
 // tools/fetch_species.py a partir da PokeAPI (nome, tipos, atributos-base e
 // evolução). Não são de Kanto: as de Johto moram no mato das ilhas SEVII —
 // como no FireRed — e as outras vazam pela 011GLITCHDIMENSION110, por terreno
@@ -406,7 +406,138 @@ const TABLE = `
 703 CARBINK PEDRA/FADA 50 50 150 50 150 50
 707 KLEFKI AÇO/FADA 57 80 91 80 87 75
 708 PHANTUMP FANTASMA/PLANTA 43 70 48 50 60 38
+709 TREVENANT FANTASMA/PLANTA 85 110 76 65 82 56
+710 PUMPKABOO FANTASMA/PLANTA 49 66 70 44 55 51
+711 GOURGEIST FANTASMA/PLANTA 65 90 122 58 75 84
+714 NOIBAT VOADOR/DRAGÃO 40 30 35 45 40 55
+715 NOIVERN VOADOR/DRAGÃO 85 70 80 97 80 123
+719 DIANCIE PEDRA/FADA 50 100 150 100 150 50
+720 HOOPA PSÍQUICO/FANTASMA 80 110 60 150 130 70
+721 VOLCANION FOGO/ÁGUA 80 110 120 130 90 70
+731 PIKIPEK NORMAL/VOADOR 35 75 30 30 30 65
+732 TRUMBEAK NORMAL/VOADOR 55 85 50 40 50 75
+733 TOUCANNON NORMAL/VOADOR 80 120 75 75 75 60
+734 YUNGOOS NORMAL 48 70 30 30 30 45
+735 GUMSHOOS NORMAL 88 110 60 55 60 45
+736 GRUBBIN INSETO 47 62 45 55 45 46
+737 CHARJABUG INSETO/ELÉTRICO 57 82 95 55 75 36
+738 VIKAVOLT INSETO/ELÉTRICO 77 70 90 145 75 43
+739 CRABRAWLER LUTADOR 47 82 57 42 47 63
+740 CRABOMINABLE LUTADOR/GELO 97 132 77 62 67 43
+741 ORICORIO FOGO/VOADOR 75 70 70 98 70 93
+742 CUTIEFLY INSETO/FADA 40 45 40 55 40 84
+743 RIBOMBEE INSETO/FADA 60 55 60 95 70 124
+744 ROCKRUFF PEDRA 45 65 40 30 40 60
+745 LYCANROC PEDRA 75 115 65 55 65 112
+746 WISHIWASHI ÁGUA 45 20 20 25 25 40
+747 MAREANIE VENENO/ÁGUA 50 53 62 43 52 45
+748 TOXAPEX VENENO/ÁGUA 50 63 152 53 142 35
+749 MUDBRAY TERRA 70 100 70 45 55 45
+750 MUDSDALE TERRA 100 125 100 55 85 35
+751 DEWPIDER ÁGUA/INSETO 38 40 52 40 72 27
+752 ARAQUANID ÁGUA/INSETO 68 70 92 50 132 42
+753 FOMANTIS PLANTA 40 55 35 50 35 35
+754 LURANTIS PLANTA 70 105 90 80 90 45
+755 MORELULL PLANTA/FADA 40 35 55 65 75 15
+756 SHIINOTIC PLANTA/FADA 60 45 80 90 100 30
+757 SALANDIT VENENO/FOGO 48 44 40 71 40 77
+758 SALAZZLE VENENO/FOGO 68 64 60 111 60 117
+759 STUFFUL NORMAL/LUTADOR 70 75 50 45 50 50
+760 BEWEAR NORMAL/LUTADOR 120 125 80 55 60 60
+761 BOUNSWEET PLANTA 42 30 38 30 38 32
+762 STEENEE PLANTA 52 40 48 40 48 62
+763 TSAREENA PLANTA 72 120 98 50 98 72
+764 COMFEY FADA 51 52 90 82 110 100
+765 ORANGURU NORMAL/PSÍQUICO 90 60 80 90 110 60
+766 PASSIMIAN LUTADOR 100 120 90 40 60 80
+767 WIMPOD INSETO/ÁGUA 25 35 40 20 30 80
+768 GOLISOPOD INSETO/ÁGUA 75 125 140 60 90 40
+769 SANDYGAST FANTASMA/TERRA 55 55 80 70 45 15
+770 PALOSSAND FANTASMA/TERRA 85 75 110 100 75 35
+771 PYUKUMUKU ÁGUA 55 60 130 30 130 5
+772 TYPE:-NULL NORMAL 95 95 95 95 95 59
+773 SILVALLY NORMAL 95 95 95 95 95 95
+774 MINIOR PEDRA/VOADOR 60 60 100 60 100 60
+775 KOMALA NORMAL 65 115 65 75 95 65
+776 TURTONATOR FOGO/DRAGÃO 60 78 135 91 85 36
+777 TOGEDEMARU ELÉTRICO/AÇO 65 98 63 40 73 96
+778 MIMIKYU FANTASMA/FADA 55 90 80 50 105 96
+779 BRUXISH ÁGUA/PSÍQUICO 68 105 70 70 70 92
+780 DRAMPA NORMAL/DRAGÃO 78 60 85 135 91 36
+781 DHELMISE FANTASMA/PLANTA 70 131 100 86 90 40
+782 JANGMO-O DRAGÃO 45 55 65 45 45 45
+783 HAKAMO-O DRAGÃO/LUTADOR 55 75 90 65 70 65
+784 KOMMO-O DRAGÃO/LUTADOR 75 110 125 100 105 85
+785 TAPU-KOKO ELÉTRICO/FADA 70 115 85 95 75 130
+786 TAPU-LELE PSÍQUICO/FADA 70 85 75 130 115 95
+787 TAPU-BULU PLANTA/FADA 70 130 115 85 95 75
+788 TAPU-FINI ÁGUA/FADA 70 75 115 95 130 85
+789 COSMOG PSÍQUICO 43 29 31 29 31 37
+790 COSMOEM PSÍQUICO 43 29 131 29 131 37
+791 SOLGALEO PSÍQUICO/AÇO 137 137 107 113 89 97
+792 LUNALA PSÍQUICO/FANTASMA 137 113 89 137 107 97
+793 NIHILEGO PEDRA/VENENO 109 53 47 127 131 103
+794 BUZZWOLE INSETO/LUTADOR 107 139 139 53 53 79
+795 PHEROMOSA INSETO/LUTADOR 71 137 37 137 37 151
+796 XURKITREE ELÉTRICO 83 89 71 173 71 83
+797 CELESTEELA AÇO/VOADOR 97 101 103 107 101 61
+798 KARTANA PLANTA/AÇO 59 181 131 59 31 109
+799 GUZZLORD SOMBRIO/DRAGÃO 223 101 53 97 53 43
+800 NECROZMA PSÍQUICO 97 107 101 127 89 79
+801 MAGEARNA AÇO/FADA 80 95 115 130 115 65
+802 MARSHADOW LUTADOR/FANTASMA 90 125 80 90 90 125
+803 POIPOLE VENENO 67 73 67 73 67 73
+804 NAGANADEL VENENO/DRAGÃO 73 73 73 127 73 121
+805 STAKATAKA PEDRA/AÇO 61 131 211 53 101 13
+806 BLACEPHALON FOGO/FANTASMA 53 127 53 151 79 107
+807 ZERAORA ELÉTRICO 88 112 75 102 80 143
+819 SKWOVET NORMAL 70 55 55 35 35 25
+820 GREEDENT NORMAL 120 95 95 55 75 20
+821 ROOKIDEE VOADOR 38 47 35 33 35 57
+822 CORVISQUIRE VOADOR 68 67 55 43 55 77
+823 CORVIKNIGHT VOADOR/AÇO 98 87 105 53 85 67
+824 BLIPBUG INSETO 25 20 20 25 45 45
+825 DOTTLER INSETO/PSÍQUICO 50 35 80 50 90 30
+826 ORBEETLE INSETO/PSÍQUICO 60 45 110 80 120 90
+827 NICKIT SOMBRIO 40 28 28 47 52 50
+828 THIEVUL SOMBRIO 70 58 58 87 92 90
+829 GOSSIFLEUR PLANTA 40 40 60 40 60 10
+830 ELDEGOSS PLANTA 60 50 90 80 120 60
+831 WOOLOO NORMAL 42 40 55 40 45 48
+832 DUBWOOL NORMAL 72 80 100 60 90 88
+833 CHEWTLE ÁGUA 50 64 50 38 38 44
+834 DREDNAW ÁGUA/PEDRA 90 115 90 48 68 74
+835 YAMPER ELÉTRICO 59 45 50 40 50 26
+836 BOLTUND ELÉTRICO 69 90 60 90 60 121
+837 ROLYCOLY PEDRA 30 40 50 40 50 30
+838 CARKOL PEDRA/FOGO 80 60 90 60 70 50
+839 COALOSSAL PEDRA/FOGO 110 80 120 80 90 30
+840 APPLIN PLANTA/DRAGÃO 40 40 80 40 40 20
+841 FLAPPLE PLANTA/DRAGÃO 70 110 80 95 60 70
+842 APPLETUN PLANTA/DRAGÃO 110 85 80 100 80 30
+843 SILICOBRA TERRA 52 57 75 35 50 46
+844 SANDACONDA TERRA 72 107 125 65 70 71
+845 CRAMORANT VOADOR/ÁGUA 70 85 55 85 95 85
+846 ARROKUDA ÁGUA 41 63 40 40 30 66
+847 BARRASKEWDA ÁGUA 61 123 60 60 50 136
+848 TOXEL ELÉTRICO/VENENO 40 38 35 54 35 40
+849 TOXTRICITY ELÉTRICO/VENENO 75 98 70 114 70 75
+850 SIZZLIPEDE FOGO/INSETO 50 65 45 50 50 45
+851 CENTISKORCH FOGO/INSETO 100 115 65 90 90 65
+852 CLOBBOPUS LUTADOR 50 68 60 50 50 32
+853 GRAPPLOCT LUTADOR 80 118 90 70 80 42
+854 SINISTEA FANTASMA 40 45 45 74 54 50
+855 POLTEAGEIST FANTASMA 60 65 65 134 114 70
+856 HATENNA PSÍQUICO 42 30 45 56 53 39
 `;
+
+/** As frases de Pokédex escritas à mão. O resto fica com o texto genérico —
+ *  "dados ainda não carregados" é exatamente o que uma espécie que vazou é. */
+const LORE = {
+  uxie: "O SER DO CONHECIMENTO. QUEM OLHA NOS OLHOS DELE ESQUECE TUDO — POR ISSO ELE NÃO ABRE OS OLHOS.",
+  mesprit: "O SER DA EMOÇÃO. FOI ELE QUE ENSINOU AS PESSOAS A SENTIR ALEGRIA E TRISTEZA. DEPOIS FOI DORMIR NO FUNDO DE UM LAGO.",
+  azelf: "O SER DA VONTADE. QUEM ENCOSTA NELE PERDE A VONTADE DE FAZER QUALQUER COISA, E FICA PARADO PRA SEMPRE.",
+};
 
 export const MAIS = {};
 for (const line of TABLE.trim().split("\n")) {
@@ -417,6 +548,7 @@ for (const line of TABLE.trim().split("\n")) {
   const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "");
   MAIS[id] = {
     id, dex: +dex, name: name.replace(/-/g, " "), types: types.split("/"), base, bst, foreign: true,
+    dexText: LORE[id],
     catchRate: bst >= 600 ? 3 : bst >= 500 ? 45 : bst >= 400 ? 90 : 160,
     xpYield: Math.floor(bst / 4),
   };
@@ -589,7 +721,54 @@ export const EVO_MAIS = {
   skrelp: [{ lvl: 48, to: "dragalge" }],
   clauncher: [{ lvl: 37, to: "clawitzer" }],
   helioptile: [{ lvl: 32, to: "heliolisk" }],
+  phantump: [{ lvl: 36, to: "trevenant" }],
+  pumpkaboo: [{ lvl: 36, to: "gourgeist" }],
+  noibat: [{ lvl: 48, to: "noivern" }],
+  trumbeak: [{ lvl: 28, to: "toucannon" }],
+  pikipek: [{ lvl: 14, to: "trumbeak" }],
+  yungoos: [{ lvl: 20, to: "gumshoos" }],
+  charjabug: [{ lvl: 32, to: "vikavolt" }],
+  grubbin: [{ lvl: 20, to: "charjabug" }],
+  crabrawler: [{ lvl: 32, to: "crabominable" }],
+  cutiefly: [{ lvl: 25, to: "ribombee" }],
+  rockruff: [{ lvl: 25, to: "lycanroc" }],
+  mareanie: [{ lvl: 38, to: "toxapex" }],
+  mudbray: [{ lvl: 30, to: "mudsdale" }],
+  dewpider: [{ lvl: 22, to: "araquanid" }],
+  fomantis: [{ lvl: 34, to: "lurantis" }],
+  morelull: [{ lvl: 24, to: "shiinotic" }],
+  salandit: [{ lvl: 33, to: "salazzle" }],
+  stufful: [{ lvl: 27, to: "bewear" }],
+  steenee: [{ lvl: 32, to: "tsareena" }],
+  bounsweet: [{ lvl: 18, to: "steenee" }],
+  wimpod: [{ lvl: 30, to: "golisopod" }],
+  sandygast: [{ lvl: 42, to: "palossand" }],
+  typenull: [{ amizade: 65, to: "silvally" }],
+  hakamoo: [{ lvl: 45, to: "kommoo" }],
+  jangmoo: [{ lvl: 35, to: "hakamoo" }],
   onix: [{ lvl: 36, onde: "fora", to: "steelix" }],
+  cosmoem: [{ lvl: 53, onde: "fenda", to: "lunala" }, { lvl: 53, to: "solgaleo" }],
+  cosmog: [{ lvl: 43, to: "cosmoem" }],
+  poipole: [{ lvl: 32, to: "naganadel" }],
+  skwovet: [{ lvl: 24, to: "greedent" }],
+  corvisquire: [{ lvl: 38, to: "corviknight" }],
+  rookidee: [{ lvl: 18, to: "corvisquire" }],
+  dottler: [{ lvl: 30, to: "orbeetle" }],
+  blipbug: [{ lvl: 10, to: "dottler" }],
+  nickit: [{ lvl: 18, to: "thievul" }],
+  gossifleur: [{ lvl: 20, to: "eldegoss" }],
+  wooloo: [{ lvl: 24, to: "dubwool" }],
+  chewtle: [{ lvl: 22, to: "drednaw" }],
+  yamper: [{ lvl: 25, to: "boltund" }],
+  carkol: [{ lvl: 34, to: "coalossal" }],
+  rolycoly: [{ lvl: 18, to: "carkol" }],
+  applin: [{ lvl: 32, onde: "fenda", to: "appletun" }, { lvl: 32, to: "flapple" }],
+  silicobra: [{ lvl: 36, to: "sandaconda" }],
+  arrokuda: [{ lvl: 26, to: "barraskewda" }],
+  toxel: [{ lvl: 30, to: "toxtricity" }],
+  sizzlipede: [{ lvl: 28, to: "centiskorch" }],
+  clobbopus: [{ lvl: 32, to: "grapploct" }],
+  sinistea: [{ lvl: 32, to: "polteageist" }],
   tyrogue: [{ lvl: 20, to: "hitmontop" }],
   lickitung: [{ lvl: 36, onde: "fora", to: "lickilicky" }],
   rhydon: [{ lvl: 36, onde: "fora", to: "rhyperior" }],
@@ -620,13 +799,17 @@ export const EVO_MAIS = {
  *  de origem já tinha, senão 350 espécies novas engoliam as de casa. */
 const comuns = Object.values(MAIS).filter((s) => s.bst < 600);
 const nivel = (s) => (s.bst >= 500 ? [34, 46] : s.bst >= 400 ? [24, 38] : [14, 28]);
-const entrada = (s, [min, max]) => ({ id: s.id, min, max, w: s.bst >= 500 ? 0.4 : 1 });
+const entrada = (s, [min, max]) => ({ id: s.id, min, max, w: s.bst >= 560 ? 0.12 : s.bst >= 500 ? 0.4 : 1 });
+/** OS GUARDIÕES DO LAGO: UXIE, MESPRIT e AZELF não têm lago aqui — flutuam no
+ *  vazio da fenda, os três, e são o encontro mais raro dela. */
+export const GUARDIOES = ["uxie", "mesprit", "azelf"].filter((id) => MAIS[id]);
 export const MAIS_SEVII = comuns.filter((s) => s.dex <= 251).map((s) => entrada(s, nivel(s)));
 const voa = (s) => ["VOADOR", "FANTASMA", "PSÍQUICO", "ELÉTRICO"].some((t) => s.types.includes(t));
 const nada = (s) => ["ÁGUA", "GELO"].some((t) => s.types.includes(t));
 const fora = comuns.filter((s) => s.dex > 251);
 export const MAIS_DIM = {
   agua: fora.filter((s) => nada(s)).map((s) => entrada(s, [nivel(s)[0] + 6, nivel(s)[1] + 8])),
-  ar: fora.filter((s) => !nada(s) && voa(s)).map((s) => entrada(s, [nivel(s)[0] + 6, nivel(s)[1] + 8])),
+  ar: fora.filter((s) => !nada(s) && voa(s) && !GUARDIOES.includes(s.id)).map((s) => entrada(s, [nivel(s)[0] + 6, nivel(s)[1] + 8]))
+    .concat(GUARDIOES.map((id) => ({ id, min: 50, max: 50, w: 0.12 }))),
   terra: fora.filter((s) => !nada(s) && !voa(s)).map((s) => entrada(s, [nivel(s)[0] + 6, nivel(s)[1] + 8])),
 };
