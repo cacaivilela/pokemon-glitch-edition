@@ -145,8 +145,11 @@ Embaixo da terra: **fóssil hélix**, **fóssil domo**, **âmbar velho** (raro),
 os de fora — **raiz** (LILEEP), **garra** (ANORITH), **crânio** (CRANIDOS),
 **escudo** (SHIELDON), **casco** (TIRTOUGA), **pluma** (ARCHEN) —, as **metades
 de Galar** (fóssil de ave / de peixe + fóssil de dragão viram DRACOZOLT e
-DRACOVISH, remontados errado de propósito), pepita, estrela, doce raro e as
-cinco pedras de evolução. No **Monte Lua B2F**
+DRACOVISH, remontados errado de propósito), pepita (e a **pepita grande**,
+$20000), estrela, doce raro, GREAT/ULTRA BALL, as cinco pedras de evolução e,
+raro, o que ficou preso na pedra vindo da fenda: pedra do crepúsculo, UP-GRADE,
+DUBIOUS DISC e MYSTERY EGG. A picareta racha só meia barra por batida; o
+martelo, três. No **Monte Lua B2F**
 tem um mineiro que empresta as ferramentas (a primeira vez de graça, depois
 $300) pra quem ainda não tem a picareta. A **paleontóloga** na porta do
 laboratório de **Cinnabar** ressuscita os fósseis (nível 20; os colados de

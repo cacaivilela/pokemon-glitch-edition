@@ -23,7 +23,7 @@ export const PAREDE = {
   cols: 12, rows: 8,        // a grade (16px por célula, cabe em 192x128)
   vida: 44,                 // quanto a parede aguenta antes de desabar
   profMin: 1, profMax: 5,   // camadas de terra em cima de cada célula
-  achadosMin: 3, achadosMax: 5,   // quantas coisas ficam escondidas
+  achadosMin: 3, achadosMax: 6,   // quantas coisas ficam escondidas
   pedras: 3,                // rochas que não saem e só gastam a parede
   aluguel: 300,             // o que o mineiro cobra depois da primeira vez
 };
@@ -31,7 +31,7 @@ export const PAREDE = {
 // As ferramentas: o que cada batida tira do centro, da cruz e das diagonais
 // (em camadas), e quanto racha a parede.
 export const FERRAMENTAS = {
-  picareta: { nome: "PICARETA", centro: 2, cruz: 1, diag: 0, racha: 1 },
+  picareta: { nome: "PICARETA", centro: 2, cruz: 1, diag: 0, racha: 0.5 },   // a de precisão: meia rachada por batida
   martelo:  { nome: "MARTELO",  centro: 3, cruz: 2, diag: 1, racha: 3 },
 };
 
@@ -54,15 +54,23 @@ export const ACHADOS = [
   { item: "fóssil de ave",    w: 3, cor: "#e8d8c0", forma: [[0, 0], [1, 0]] },
   { item: "fóssil de peixe",  w: 3, cor: "#80b0d0", forma: [[0, 0], [1, 0]] },
   { item: "fóssil de dragão", w: 3, cor: "#a0d0a0", forma: [[0, 0], [0, 1]] },
-  // o resto
-  { item: "pepita",       w: 10, cor: "#f0d048", forma: [[0, 0]] },
+  // o resto: `qtd` é quantos saem de uma vez (sem ela, um)
+  { item: "pepita",        w: 10, cor: "#f0d048", forma: [[0, 0]] },
+  { item: "pepita grande", w: 2,  cor: "#ffe860", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+  { item: "estrela",       w: 6,  cor: "#ffe080", forma: [[0, 0], [1, 1]] },
+  { item: "doce raro",     w: 8,  cor: "#f080c0", forma: [[0, 0]], qtd: [1, 3] },
+  { item: "great ball",    w: 6,  cor: "#4060e0", forma: [[0, 0]], qtd: [2, 4] },
+  { item: "ultra ball",    w: 3,  cor: "#303030", forma: [[0, 0]], qtd: [1, 3] },
   { item: "pedra do fogo",   w: 6, cor: "#e06040", forma: [[0, 0], [1, 0]] },
   { item: "pedra da água",   w: 6, cor: "#4090e0", forma: [[0, 0], [1, 0]] },
   { item: "pedra do trovão", w: 6, cor: "#e0d040", forma: [[0, 0], [1, 0]] },
   { item: "pedra da folha",  w: 6, cor: "#50c060", forma: [[0, 0], [1, 0]] },
   { item: "pedra da lua",    w: 5, cor: "#d0d0f0", forma: [[0, 0], [0, 1]] },
-  { item: "doce raro",       w: 8, cor: "#f080c0", forma: [[0, 0]] },
-  { item: "estrela",         w: 6, cor: "#ffe080", forma: [[0, 0], [1, 1]] },
+  // o que veio da fenda e ficou preso na pedra (ver DIM_LOOT em src/data/loot.js)
+  { item: "pedra do crepúsculo", w: 2, cor: "#201828", forma: [[0, 0], [0, 1]] },
+  { item: "up-grade",            w: 2, cor: "#60e0e0", forma: [[0, 0], [1, 0]] },
+  { item: "dubious disc",        w: 1, cor: "#c0f0ff", forma: [[0, 0], [1, 0]] },
+  { item: "mystery egg",         w: 2, cor: "#f8f0e0", forma: [[0, 0], [0, 1]] },
 ];
 
 /** Os fósseis e o que sai deles no laboratório. `precisa` é a lista de itens
@@ -100,11 +108,12 @@ export const MINA_LORE = {
   "fóssil de dragão": "A METADE DE BAIXO DE ALGUMA COISA COM RABO. SOZINHA NÃO VIRA NADA: PRECISA DE UM FÓSSIL DE AVE OU DE PEIXE.",
   "picareta": "A PICARETA DO BALCONISTA DE VIRIDIAN. ESCOLHA ELA NA MOCHILA PRA CAVAR ONDE VOCÊ ESTIVER.",
   "pepita": "UM TORRÃO DE OURO PURO. NÃO SERVE PRA NADA A NÃO SER VENDER, E VENDE BEM.",
+  "pepita grande": "UM TORRÃO DE OURO DO TAMANHO DE UM PUNHO. VENDE POR UMA FORTUNA.",
   "estrela": "UM PEDAÇO DE ESTRELA QUE CAIU NA MINA. VENDE POR UM BOM PREÇO.",
 };
 
 /** Preço de venda dos achados que nenhuma loja vende. */
-export const MINA_VENDA = { "pepita": 5000, "estrela": 1500 };
+export const MINA_VENDA = { "pepita": 5000, "pepita grande": 20000, "estrela": 1500 };
 
 export const MINEIRO = {
   id: "mineiro", x: 20, y: 30, sprite: "montanhista", dir: "down", mineracao: true,

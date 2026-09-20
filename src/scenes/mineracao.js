@@ -145,10 +145,14 @@ export class MineracaoScene {
   /** entrega o que saiu inteiro e volta pro mapa */
   sair() {
     this.acabou = false;
-    const levou = this.achados.filter((a) => a.pronto).map((a) => a.tipo.item);
-    for (const item of levou) this.st.items[item] = (this.st.items[item] || 0) + 1;
     const cont = {};
-    for (const i of levou) cont[i] = (cont[i] || 0) + 1;
+    for (const a of this.achados.filter((a) => a.pronto)) {
+      const [mn, mx] = a.tipo.qtd || [1, 1];
+      const n = mn + Math.floor(Math.random() * (mx - mn + 1));
+      this.st.items[a.tipo.item] = (this.st.items[a.tipo.item] || 0) + n;
+      cont[a.tipo.item] = (cont[a.tipo.item] || 0) + n;
+    }
+    const levou = Object.keys(cont);
     const lista = Object.entries(cont).map(([i, n]) => `${i.toUpperCase()}${n > 1 ? " x" + n : ""}`).join(", ");
     this.game.autosave?.(true);
     this.terminar(levou.length ? this.T.levou.replace("{LISTA}", lista) : this.T.nada);
