@@ -10,6 +10,7 @@ import { EVO_INICIAIS } from "./iniciais.js";
 import { EVO_ERAS } from "./eras.js";
 import { EVO_REGIONAIS } from "./regionais.js";
 import { EVO_BONES } from "./bones.js";
+import { EVO_MAIS } from "./mais.js";
 
 export const EVOLUTIONS = {
   // OS INICIAIS DAS OUTRAS REGIÕES. As regras saem de src/data/iniciais.js,
@@ -197,4 +198,13 @@ for (const [id, regras] of Object.entries(EVOLUTIONS)) {
     if (!r.item) continue;
     (EVO_ITEMS[r.item] ||= {})[id] = r.to;
   }
+}
+
+// AS QUE FALTAVAM (src/data/mais.js) entram NA FRENTE, como as regionais: as
+// regras delas em espécie que já existia (ONIX → STEELIX, GLOOM → BELLOSSOM,
+// SLOWPOKE → SLOWKING) só valem FORA DE KANTO ou por amizade, e a regra com
+// lugar tem que ser lida antes da geral — senão o SLOWBRO do nível 37 ganhava
+// sempre e o SLOWKING nunca existia.
+for (const [id, regras] of Object.entries(EVO_MAIS)) {
+  EVOLUTIONS[id] = [...regras, ...(EVOLUTIONS[id] || [])];
 }

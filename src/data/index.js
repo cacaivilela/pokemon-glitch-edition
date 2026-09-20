@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, aniv, reg, zonas, ovos, decamark, hab, pesos, mina, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, aniv, reg, zonas, ovos, decamark, hab, pesos, mina, mais, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -51,6 +51,7 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./habilidades.js" + V),
   import("./pesos.js" + V),
   import("./mineracao.js" + V),
+  import("./mais.js" + V),
   fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
 
@@ -85,6 +86,16 @@ function pontoSeco(geo) {
   return { x: cx, y: cy, dir: "down" };      // mapa 100% água: o jogo põe no surfe
 }
 
+/** Junta uma tabela de encontro com a lista de novatos, dando aos novatos,
+ *  somados, o mesmo peso que a tabela de casa já tinha — mais espécie não
+ *  pode significar menos das que já moravam ali. */
+function comPesoDeCasa(casa, novos) {
+  if (!novos.length) return casa;
+  const total = casa.reduce((s, e) => s + e.w, 0) || 1;
+  const soma = novos.reduce((s, e) => s + e.w, 0) || 1;
+  return [...casa, ...novos.map((e) => ({ ...e, w: (e.w * total) / soma }))];
+}
+
 function mergeMaps(kanto, authored) {
   const out = {};
   kanto = kanto || {};
@@ -102,6 +113,21 @@ function mergeMaps(kanto, authored) {
       spawn: first ? { x: first.x, y: first.y, dir: c.interior ? "up" : "down" }
                    : pontoSeco(geo),
     };
+  }
+  // JOHTO NO MATO DAS SEVII (src/data/mais.js): cada espécie de Johto que
+  // entrou mora em dois mapas abertos das ilhas, no nível do que já vive lá,
+  // e o grupo delas pesa o mesmo que os moradores antigos do mapa.
+  const abertos = Object.keys(out).filter((id) => /island/.test(id) && !out[id].interior && kanto[id]?.tags?.includes("2") && out[id].encounters.length);
+  if (abertos.length && mais.MAIS_SEVII?.length) {
+    const porMapa = Object.fromEntries(abertos.map((id) => [id, []]));
+    mais.MAIS_SEVII.forEach((e, i) => {
+      for (const id of new Set([abertos[i % abertos.length], abertos[(i * 5 + 3) % abertos.length]])) {
+        const casa = out[id].encounters;
+        const lo = Math.min(...casa.map((c) => c.min)), hi = Math.max(...casa.map((c) => c.max));
+        porMapa[id].push({ ...e, min: Math.max(e.min, lo - 4), max: Math.max(e.min, Math.min(e.max, hi + 2)) });
+      }
+    });
+    for (const id of abertos) out[id].encounters = comPesoDeCasa(out[id].encounters, porMapa[id]);
   }
   // AS SEVII ganham nome de gente. O nome montado do id sai "ONE ILHA", que é
   // inglês e português no mesmo rótulo — e ele aparece na faixa toda vez que
@@ -393,13 +419,16 @@ export function buildDB() {
     DEX_ORDER: gen1.DEX_ORDER,
     SPECIES: species.buildSpecies(
       { ...gen1.GEN1, ...extra.EXTRA, ...reg.REGIONAIS, ...eras.ERAS_ESPECIES,
-        ...iniciais.INICIAIS_ESPECIES, ...bones.BONES_ESPECIES, ...decamark.DECAMARK_ESPECIE,
+        ...iniciais.INICIAIS_ESPECIES, ...bones.BONES_ESPECIES, ...decamark.DECAMARK_ESPECIE, ...mais.MAIS,
         ...mega.MEGA_FORMS },
       types.TYPE_COLOR),
     EXTRA: extra.EXTRA,
     // as formas regionais entram na fenda junto com o resto que vaza pra lá
+    // ...e AS QUE FALTAVAM (src/data/mais.js) também, com o mesmo peso TOTAL da
+    // tabela de origem repartido entre elas: metade dos encontros continua
+    // sendo o que a fenda sempre teve, metade é o que vazou agora
     DIM_ENCOUNTERS: Object.fromEntries(Object.entries(extra.DIM_ENCOUNTERS).map(
-      ([terreno, lista]) => [terreno, [...lista, ...(reg.DIM_REGIONAIS[terreno] || [])]])),
+      ([terreno, lista]) => [terreno, comPesoDeCasa([...lista, ...(reg.DIM_REGIONAIS[terreno] || [])], mais.MAIS_DIM[terreno] || [])])),
     REGIONAIS: reg.REGIONAIS,
     REGIAO: reg.REGIAO,
     PEDRA_GELO: reg.PEDRA_GELO,

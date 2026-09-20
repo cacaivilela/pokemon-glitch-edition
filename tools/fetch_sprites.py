@@ -86,6 +86,17 @@ def regionais_dex():
         for m in re.finditer(r"^\s*(\d+)\s*\|\s*(\d+)\s*\|", f.read(), re.M):
             ids.add(int(m.group(2)) or int(m.group(1)))
     return sorted(ids)
+# AS QUE FALTAVAM (src/data/mais.js): a tabela é a lista — mexeu lá, o script
+# já sabe. Mesmo caso das regionais.
+MAIS_JS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src", "data", "mais.js")
+
+
+def mais_dex():
+    import re
+    if not os.path.exists(MAIS_JS):
+        return []
+    with open(MAIS_JS, encoding="utf-8") as f:
+        return sorted({int(m.group(1)) for m in re.finditer(r"^(\d{1,4}) [A-Z]", f.read(), re.M)})
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "assets", "sprites", "pokemon")
 
@@ -130,16 +141,17 @@ def main():
     ap.add_argument("--extra", action="store_true", help="só as espécies de fora de Kanto")
     ap.add_argument("--mega", action="store_true", help="só as formas MEGA")
     ap.add_argument("--regionais", action="store_true", help="só as formas regionais (ALOLA, GALAR, HISUI, PALDEA)")
+    ap.add_argument("--mais", action="store_true", help="só as que faltavam (src/data/mais.js)")
     a = ap.parse_args()
 
     jobs = []
-    dexes = (MEGA_DEX if a.mega else regionais_dex() if a.regionais
+    dexes = (MEGA_DEX if a.mega else regionais_dex() if a.regionais else mais_dex() if a.mais
              else EXTRA_DEX if a.extra else range(a.lo, a.hi + 1))
     for dex in dexes:
         bases = [a.base]
         if a.mega or (a.regionais and dex >= 10000):
             bases = [MODERN]              # forma: só existe com a arte moderna
-        elif a.extra or a.regionais:
+        elif a.extra or a.regionais or a.mais:
             # da geração de estreia pra frente, até achar (as antigas não têm
             # sprite de costas em Esmeralda, por exemplo)
             bases = [b for b, hi in ((EMERALD, 386), (PLATINUM, 493), (BLACK_WHITE, 649))
