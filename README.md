@@ -26,7 +26,7 @@ python3 tools/fetch_species.py     # AS QUE FALTAVAM: todas as 645 espécies de 
 python3 tools/fetch_sprites.py --mais   # ...e os sprites delas
 ```
 
-Ao todo são **1028 espécies** — a Pokédex nacional inteira até a 1025, mais PORYGON-Z e os que só existem aqui — e, com as formas
+Ao todo são **as 1025 espécies da Pokédex nacional**, mais os dois glitches (MISSINGNO e ??????????), e, com as formas
 regionais, os bonés e as MEGAs, 1129 entradas. As 645 de `mais.js` vivem no
 mato das ilhas SEVII (as de Johto, como no FireRed) e na fenda (o resto, por
 terreno; UXIE, MESPRIT e AZELF, os guardiões do lago, são o encontro mais raro
