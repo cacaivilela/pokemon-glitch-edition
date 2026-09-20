@@ -185,13 +185,6 @@ export class MineracaoScene {
         const a = this.achadoEm(x, y);
         ctx.fillStyle = a ? a.tipo.cor : COR_FUNDO;
         ctx.fillRect(px, py, CEL, CEL);
-        if (a) {                                    // o desenho da coisa: um brilho e a borda
-          ctx.fillStyle = "rgba(255,255,255,.45)"; ctx.fillRect(px + 3, py + 3, 4, 2);
-          ctx.fillStyle = "rgba(0,0,0,.25)";
-          if (!a.cels.includes(`${x + 1},${y}`)) ctx.fillRect(px + CEL - 1, py, 1, CEL);
-          if (!a.cels.includes(`${x},${y + 1}`)) ctx.fillRect(px, py + CEL - 1, CEL, 1);
-          if (a.pronto && Math.sin(this.t * 10) > 0) { ctx.fillStyle = "rgba(255,255,255,.35)"; ctx.fillRect(px, py, CEL, CEL); }
-        }
         continue;
       }
       ctx.fillStyle = CORES_TERRA[Math.min(p, CORES_TERRA.length) - 1];
@@ -199,6 +192,19 @@ export class MineracaoScene {
       ctx.fillStyle = "rgba(0,0,0,.12)";            // o grão da terra
       ctx.fillRect(px + ((x * 7 + y * 3) % 10), py + ((x * 5 + y * 11) % 10), 2, 2);
       ctx.fillRect(px + ((x * 3 + y * 7 + 6) % 12), py + ((x * 9 + y * 2 + 4) % 12), 1, 1);
+    }
+    // o desenho de cada coisa, recortado pelas células que já abriram
+    for (const a of this.achados) {
+      const abertas = a.cels.map((c) => c.split(",").map(Number)).filter(([cx, cy]) => this.prof[cy][cx] === 0);
+      if (!abertas.length) continue;
+      ctx.save();
+      ctx.beginPath();
+      for (const [cx, cy] of abertas) ctx.rect(GX + cx * CEL, GY + cy * CEL, CEL, CEL);
+      ctx.clip();
+      const w = (Math.max(...a.tipo.forma.map(([dx]) => dx)) + 1) * CEL, h = (Math.max(...a.tipo.forma.map(([, dy]) => dy)) + 1) * CEL;
+      desenhaAchado(ctx, a.tipo, GX + a.x * CEL, GY + a.y * CEL, w, h, this.t);
+      if (a.pronto && Math.sin(this.t * 10) > 0) { ctx.fillStyle = "rgba(255,255,255,.3)"; ctx.fillRect(GX + a.x * CEL, GY + a.y * CEL, w, h); }
+      ctx.restore();
     }
     // a grade fina por cima
     ctx.fillStyle = "rgba(0,0,0,.18)";
@@ -236,4 +242,77 @@ export class MineracaoScene {
       ctx.fillStyle = "#c0c0c8"; ctx.fillRect(x - 4, y - 2, 10, 5);  // a cabeça
     }
   }
+}
+
+// ---------------------------------------------------------------- os desenhos
+// Cada achado tem um `desenho` (src/data/mineracao.js); sem ele, sai a pedra
+// lisa da cor dele. Tudo em pixel: retângulos e arcos, nada de imagem.
+const px = (ctx, x, y, w, h, cor) => { ctx.fillStyle = cor; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
+const escuro = (cor, f = 0.6) => { const n = parseInt(cor.slice(1), 16); const c = (v) => Math.round(v * f); return `rgb(${c(n >> 16)},${c((n >> 8) & 255)},${c(n & 255)})`; };
+const claro = (cor) => { const n = parseInt(cor.slice(1), 16); const c = (v) => Math.min(255, Math.round(v + (255 - v) * 0.5)); return `rgb(${c(n >> 16)},${c((n >> 8) & 255)},${c(n & 255)})`; };
+function desenhaAchado(ctx, tipo, x, y, w, h, t) {
+  const cor = tipo.cor, esc = escuro(cor), cla = claro(cor), cx = x + w / 2, cy = y + h / 2;
+  const d = tipo.desenho || "pedra";
+  if (d === "helix") {                                  // a concha em espiral
+    for (let r = 13, i = 0; r > 2; r -= 2.6, i++) { ctx.fillStyle = i % 2 ? esc : cor; ctx.beginPath(); ctx.arc(cx + i * 0.8, cy + i * 0.6, r, 0, Math.PI * 2); ctx.fill(); }
+    px(ctx, cx - 6, cy - 9, 3, 2, cla);
+  } else if (d === "domo") {                            // a carapaça em cúpula com três sulcos
+    ctx.fillStyle = cor; ctx.beginPath(); ctx.arc(cx, cy + 5, 14, Math.PI, 0); ctx.fill();
+    px(ctx, cx - 15, cy + 4, 30, 3, esc);
+    for (const dx of [-7, 0, 7]) px(ctx, cx + dx, cy - 6, 2, 10, esc);
+    px(ctx, cx - 4, cy - 10, 6, 2, cla);
+  } else if (d === "ambar") {                           // o âmbar com a asa dentro
+    ctx.fillStyle = cor; ctx.beginPath(); ctx.moveTo(cx - 12, cy - 4); ctx.lineTo(cx - 3, cy - 13); ctx.lineTo(cx + 12, cy - 6); ctx.lineTo(cx + 9, cy + 12); ctx.lineTo(cx - 9, cy + 11); ctx.closePath(); ctx.fill();
+    px(ctx, cx - 6, cy - 2, 12, 2, esc); px(ctx, cx - 4, cy - 5, 2, 8, esc); px(ctx, cx + 2, cy - 5, 2, 8, esc); px(ctx, cx + 5, cy - 3, 2, 5, esc);
+    px(ctx, cx - 8, cy - 8, 4, 2, "#fff4c0");
+  } else if (d === "osso") {                            // fóssil genérico: a costela na pedra
+    px(ctx, x + 2, y + 2, w - 4, h - 4, cor);
+    px(ctx, x + 4, y + h / 2 - 1, w - 8, 2, cla);
+    for (let i = x + 5; i < x + w - 4; i += 5) px(ctx, i, y + 4, 2, h - 8, cla);
+    px(ctx, x + 2, y + h - 3, w - 4, 1, esc);
+  } else if (d === "cranio") {                          // o crânio de testa grossa
+    ctx.fillStyle = cor; ctx.beginPath(); ctx.arc(cx, cy - 3, 12, 0, Math.PI * 2); ctx.fill();
+    px(ctx, cx - 9, cy + 3, 18, 9, cor); px(ctx, cx - 8, cy - 1, 5, 4, esc); px(ctx, cx + 3, cy - 1, 5, 4, esc);
+    px(ctx, cx - 5, cy + 7, 10, 3, esc); for (const dx of [-4, 0, 4]) px(ctx, cx + dx, cy + 8, 2, 3, cla);
+    px(ctx, cx - 12, cy - 9, 24, 3, cla);
+  } else if (d === "escudo") {                          // a placa da cabeça, com as pontas
+    ctx.fillStyle = cor; ctx.beginPath(); ctx.moveTo(cx - 14, cy - 8); ctx.lineTo(cx + 14, cy - 8); ctx.lineTo(cx + 10, cy + 12); ctx.lineTo(cx - 10, cy + 12); ctx.closePath(); ctx.fill();
+    px(ctx, cx - 14, cy - 13, 4, 6, esc); px(ctx, cx + 10, cy - 13, 4, 6, esc);
+    px(ctx, cx - 6, cy - 1, 4, 4, esc); px(ctx, cx + 2, cy - 1, 4, 4, esc); px(ctx, cx - 11, cy - 6, 22, 2, cla);
+  } else if (d === "metade") {                          // meio fóssil: a linha do corte serrilhada
+    px(ctx, x + 2, y + 2, w - 4, h - 4, cor);
+    const vert = h > w;
+    for (let i = 0; i < (vert ? w : h) - 4; i += 4) vert ? px(ctx, x + 2 + i, y + h - 4 - (i % 8 ? 0 : 2), 4, 2, "#3a2a20") : px(ctx, x + w - 4 - (i % 8 ? 0 : 2), y + 2 + i, 2, 4, "#3a2a20");
+    px(ctx, x + 4, y + 4, w - 8, 2, cla); px(ctx, x + 4, y + h / 2, w - 8, 1, esc);
+  } else if (d === "pedra") {                           // pedra de evolução: a gema facetada
+    ctx.fillStyle = cor; ctx.beginPath(); ctx.moveTo(cx, cy - 10); ctx.lineTo(cx + 9, cy - 3); ctx.lineTo(cx + 6, cy + 9); ctx.lineTo(cx - 6, cy + 9); ctx.lineTo(cx - 9, cy - 3); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = esc; ctx.beginPath(); ctx.moveTo(cx, cy - 2); ctx.lineTo(cx + 6, cy + 9); ctx.lineTo(cx - 6, cy + 9); ctx.closePath(); ctx.fill();
+    px(ctx, cx - 4, cy - 6, 3, 3, "#ffffff");
+  } else if (d === "pepita") {                          // o torrão de ouro
+    ctx.fillStyle = cor; ctx.beginPath(); ctx.moveTo(cx - 6, cy - 2); ctx.lineTo(cx - 1, cy - 6); ctx.lineTo(cx + 6, cy - 4); ctx.lineTo(cx + 6, cy + 3); ctx.lineTo(cx + 1, cy + 6); ctx.lineTo(cx - 6, cy + 4); ctx.closePath(); ctx.fill();
+    px(ctx, cx - 3, cy - 3, 3, 2, "#ffffff"); px(ctx, cx - 2, cy + 3, 6, 2, esc);
+    if (w > CEL) { ctx.fillStyle = cor; ctx.beginPath(); ctx.arc(cx + 6, cy + 6, 6, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(cx - 8, cy - 7, 5, 0, Math.PI * 2); ctx.fill(); px(ctx, cx + 3, cy + 4, 2, 2, "#ffffff"); }
+  } else if (d === "estrela") {                         // a estrela de cinco pontas
+    ctx.fillStyle = cor; ctx.beginPath();
+    for (let i = 0; i < 10; i++) { const r = i % 2 ? 4 : 10, a = -Math.PI / 2 + i * Math.PI / 5; ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); }
+    ctx.closePath(); ctx.fill();
+    px(ctx, cx - 2, cy - 4, 2, 2, "#ffffff");
+  } else if (d === "doce") {                            // o doce raro embrulhado
+    px(ctx, cx - 5, cy - 4, 10, 8, cor); px(ctx, cx - 8, cy - 2, 3, 4, esc); px(ctx, cx + 5, cy - 2, 3, 4, esc); px(ctx, cx - 3, cy - 3, 3, 2, "#ffffff");
+  } else if (d === "bola") {                            // a bola, da cor de cima dela
+    ctx.fillStyle = "#f8f8f8"; ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = cor; ctx.beginPath(); ctx.arc(cx, cy, 6, Math.PI, 0); ctx.fill();
+    px(ctx, cx - 6, cy - 1, 12, 2, "#202020"); px(ctx, cx - 1, cy - 1, 3, 3, "#f8f8f8"); px(ctx, cx - 4, cy - 4, 2, 1, "#ffffff");
+  } else if (d === "ovo") {                             // o ovo com as pintas
+    ctx.fillStyle = cor; ctx.beginPath(); ctx.ellipse(cx, cy + 2, 7, 10, 0, 0, Math.PI * 2); ctx.fill();
+    for (const [dx, dy] of [[-3, -3], [2, 1], [-1, 6]]) px(ctx, cx + dx, cy + dy, 3, 3, "#7ac07a");
+    px(ctx, cx - 3, cy - 6, 2, 2, "#ffffff");
+  } else if (d === "disco") {                           // UP-GRADE / DUBIOUS DISC: o disco com o furo
+    ctx.fillStyle = cor; ctx.beginPath(); ctx.arc(cx, cy, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = esc; ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.beginPath(); ctx.arc(cx, cy, 7, Math.PI * 1.1 + t * 3, Math.PI * 1.4 + t * 3); ctx.lineTo(cx, cy); ctx.fill();
+  } else if (d === "crepusculo") {                      // a pedra preta que não reflete
+    ctx.fillStyle = "#101018"; ctx.beginPath(); ctx.moveTo(cx, cy - 12); ctx.lineTo(cx + 7, cy); ctx.lineTo(cx, cy + 12); ctx.lineTo(cx - 7, cy); ctx.closePath(); ctx.fill();
+    px(ctx, cx - 2, cy - 1, 4, 2, "#6a3a9a");
+  } else { px(ctx, x + 2, y + 2, w - 4, h - 4, cor); px(ctx, x + 4, y + 4, 4, 2, cla); }
 }

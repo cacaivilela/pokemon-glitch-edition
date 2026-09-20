@@ -36,41 +36,42 @@ export const FERRAMENTAS = {
 };
 
 /** O que fica enterrado. `forma` é a lista de células (dx,dy) que a coisa
- *  ocupa; `w` é o peso no sorteio; `cor` é como ela aparece na parede. */
+ *  ocupa; `w` é o peso no sorteio; `cor` e `desenho` são como ela aparece na
+ *  parede (os desenhos estão no fim de src/scenes/mineracao.js). */
 export const ACHADOS = [
   // os de Kanto
-  { item: "fóssil hélix", w: 14, cor: "#c8a878", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
-  { item: "fóssil domo",  w: 14, cor: "#b8a090", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
-  { item: "âmbar velho",  w: 4,  cor: "#e0a030", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+  { item: "fóssil hélix", w: 14, cor: "#c8a878", desenho: "helix", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+  { item: "fóssil domo",  w: 14, cor: "#b8a090", desenho: "domo", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+  { item: "âmbar velho",  w: 4,  cor: "#e0a030", desenho: "ambar", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
   // os de fora: as espécies já moravam na fenda (src/data/extra.js) — a parede
   // é mais um lugar de onde elas vazam pra Kanto, e é mais raro que os de casa
-  { item: "fóssil raiz",   w: 5, cor: "#7a9a5a", forma: [[0, 0], [0, 1], [1, 1]] },
-  { item: "fóssil garra",  w: 5, cor: "#a89060", forma: [[0, 0], [1, 0], [1, 1]] },
-  { item: "fóssil crânio", w: 5, cor: "#c0c0b0", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
-  { item: "fóssil escudo", w: 5, cor: "#9098a8", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
-  { item: "fóssil casco",  w: 4, cor: "#6090a0", forma: [[0, 0], [1, 0], [2, 0], [1, 1]] },
-  { item: "fóssil pluma",  w: 4, cor: "#d0b0a0", forma: [[0, 0], [1, 0], [2, 0]] },
+  { item: "fóssil raiz",   w: 5, cor: "#7a9a5a", desenho: "osso", forma: [[0, 0], [0, 1], [1, 1]] },
+  { item: "fóssil garra",  w: 5, cor: "#a89060", desenho: "osso", forma: [[0, 0], [1, 0], [1, 1]] },
+  { item: "fóssil crânio", w: 5, cor: "#c0c0b0", desenho: "cranio", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+  { item: "fóssil escudo", w: 5, cor: "#9098a8", desenho: "escudo", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+  { item: "fóssil casco",  w: 4, cor: "#6090a0", desenho: "domo", forma: [[0, 0], [1, 0], [2, 0], [1, 1]] },
+  { item: "fóssil pluma",  w: 4, cor: "#d0b0a0", desenho: "osso", forma: [[0, 0], [1, 0], [2, 0]] },
   // os de Galar vêm em METADES: a máquina só liga com uma de cada
-  { item: "fóssil de ave",    w: 3, cor: "#e8d8c0", forma: [[0, 0], [1, 0]] },
-  { item: "fóssil de peixe",  w: 3, cor: "#80b0d0", forma: [[0, 0], [1, 0]] },
-  { item: "fóssil de dragão", w: 3, cor: "#a0d0a0", forma: [[0, 0], [0, 1]] },
+  { item: "fóssil de ave",    w: 3, cor: "#e8d8c0", desenho: "metade", forma: [[0, 0], [1, 0]] },
+  { item: "fóssil de peixe",  w: 3, cor: "#80b0d0", desenho: "metade", forma: [[0, 0], [1, 0]] },
+  { item: "fóssil de dragão", w: 3, cor: "#a0d0a0", desenho: "metade", forma: [[0, 0], [0, 1]] },
   // o resto: `qtd` é quantos saem de uma vez (sem ela, um)
-  { item: "pepita",        w: 10, cor: "#f0d048", forma: [[0, 0]] },
-  { item: "pepita grande", w: 2,  cor: "#ffe860", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
-  { item: "estrela",       w: 6,  cor: "#ffe080", forma: [[0, 0], [1, 1]] },
-  { item: "doce raro",     w: 8,  cor: "#f080c0", forma: [[0, 0]], qtd: [1, 3] },
-  { item: "great ball",    w: 6,  cor: "#4060e0", forma: [[0, 0]], qtd: [2, 4] },
-  { item: "ultra ball",    w: 3,  cor: "#303030", forma: [[0, 0]], qtd: [1, 3] },
-  { item: "pedra do fogo",   w: 6, cor: "#e06040", forma: [[0, 0], [1, 0]] },
-  { item: "pedra da água",   w: 6, cor: "#4090e0", forma: [[0, 0], [1, 0]] },
-  { item: "pedra do trovão", w: 6, cor: "#e0d040", forma: [[0, 0], [1, 0]] },
-  { item: "pedra da folha",  w: 6, cor: "#50c060", forma: [[0, 0], [1, 0]] },
-  { item: "pedra da lua",    w: 5, cor: "#d0d0f0", forma: [[0, 0], [0, 1]] },
+  { item: "pepita",        w: 10, cor: "#f0d048", desenho: "pepita", forma: [[0, 0]] },
+  { item: "pepita grande", w: 2,  cor: "#ffe860", desenho: "pepita", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+  { item: "estrela",       w: 6,  cor: "#ffe080", desenho: "estrela", forma: [[0, 0], [1, 1]] },
+  { item: "doce raro",     w: 8,  cor: "#f080c0", desenho: "doce", forma: [[0, 0]], qtd: [1, 3] },
+  { item: "great ball",    w: 6,  cor: "#4060e0", desenho: "bola", forma: [[0, 0]], qtd: [2, 4] },
+  { item: "ultra ball",    w: 3,  cor: "#404048", desenho: "bola", forma: [[0, 0]], qtd: [1, 3] },
+  { item: "pedra do fogo",   w: 6, cor: "#e06040", desenho: "pedra", forma: [[0, 0], [1, 0]] },
+  { item: "pedra da água",   w: 6, cor: "#4090e0", desenho: "pedra", forma: [[0, 0], [1, 0]] },
+  { item: "pedra do trovão", w: 6, cor: "#e0d040", desenho: "pedra", forma: [[0, 0], [1, 0]] },
+  { item: "pedra da folha",  w: 6, cor: "#50c060", desenho: "pedra", forma: [[0, 0], [1, 0]] },
+  { item: "pedra da lua",    w: 5, cor: "#d0d0f0", desenho: "pedra", forma: [[0, 0], [0, 1]] },
   // o que veio da fenda e ficou preso na pedra (ver DIM_LOOT em src/data/loot.js)
-  { item: "pedra do crepúsculo", w: 2, cor: "#201828", forma: [[0, 0], [0, 1]] },
-  { item: "up-grade",            w: 2, cor: "#60e0e0", forma: [[0, 0], [1, 0]] },
-  { item: "dubious disc",        w: 1, cor: "#c0f0ff", forma: [[0, 0], [1, 0]] },
-  { item: "mystery egg",         w: 2, cor: "#f8f0e0", forma: [[0, 0], [0, 1]] },
+  { item: "pedra do crepúsculo", w: 2, cor: "#201828", desenho: "crepusculo", forma: [[0, 0], [0, 1]] },
+  { item: "up-grade",            w: 2, cor: "#60e0e0", desenho: "disco", forma: [[0, 0], [1, 0]] },
+  { item: "dubious disc",        w: 1, cor: "#c0f0ff", desenho: "disco", forma: [[0, 0], [1, 0]] },
+  { item: "mystery egg",         w: 2, cor: "#f8f0e0", desenho: "ovo", forma: [[0, 0], [0, 1]] },
 ];
 
 /** Os fósseis e o que sai deles no laboratório. `precisa` é a lista de itens
