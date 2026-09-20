@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, aniv, reg, zonas, ovos, decamark, hab, pesos, mina, mais, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, aniv, reg, zonas, ovos, decamark, hab, pesos, mina, mais, gopark, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -52,6 +52,7 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./pesos.js" + V),
   import("./mineracao.js" + V),
   import("./mais.js" + V),
+  import("./gopark.js" + V),
   fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
 
@@ -487,6 +488,8 @@ export function buildDB() {
     GLITCH_ZONES: zonas.GLITCH_ZONES,
     OVOS: ovos.OVOS,
     MINERACAO: mina,
+    GO_PARK: gopark.GO_PARK, CPM: gopark.CPM, MINIJOGOS_GO: gopark.MINIJOGOS_GO, MINIJOGO_POR_TIPO: gopark.MINIJOGO_POR_TIPO,
+    PREMIO_GO: gopark.PREMIO_GO, GO_TEXTO: gopark.GO_TEXTO,
     OVO_TEXTO: ovos.OVO_TEXTO,
     ZONA_TEXTO: zonas.ZONA_TEXTO,
     SEVII: sevii.SEVII,

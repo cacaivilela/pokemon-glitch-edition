@@ -166,6 +166,18 @@ laboratório de **Cinnabar** ressuscita os fósseis (nível 20; os colados de
 Galar, 25). As tabelas estão em `src/data/mineracao.js`, a tela em
 `src/scenes/mineracao.js`.
 
+## O GO PARK
+
+Na **Zona Safári**, logo na entrada, a atendente do GO PARK. **ENVIAR PRO GO**
+tira um Pokémon da equipe e baixa um cartão no estilo do GO com o **CP calculado
+pela fórmula real** (atributos convertidos em ATK/DEF/STA, IVs, nível, nerf dos
+lendários); ele passa a morar no parque (6 vagas). No parque: **CAPTURAR DE
+VOLTA** no estilo do GO (círculo que encolhe, NICE/GREAT/EXCELLENT, 5 arremessos
+por visita) e o **GO PLACE**, onde cada Pokémon libera um minijogo pelo tipo
+(corrida, mergulho, faísca, dancinha, sussurro) que paga poeira estelar e doce
+raro. Não há ligação real com o Pokémon GO: é um serviço fechado.
+`src/data/gopark.js`, `src/systems/gopark.js`, `src/scenes/gopark.js`.
+
 ## Os MYSTERY EGGS
 
 Em **todo Centro Pokémon** de Kanto (e das Sevii) tem um cientista atrás do

@@ -8,6 +8,7 @@
 import { CONCURSO } from "./concurso.js";
 import { MISSOES } from "./missoes.js";
 import { MINEIRO, PALEONTOLOGA } from "./mineracao.js";
+import { NPC_GO_PARK } from "./gopark.js";
 import { BLAINE_CONTA } from "./decamark.js";
 
 /** O palco do CONCURSO DE FUSÃO, na praça do sul de Cinnabar: a anfitriã na
@@ -611,6 +612,10 @@ export const MAPS = {
   },
   route25: {
     addNpcs: [{ id: "pedra_gyaradosita", x: 42, y: 9, sprite: "ball", gift: { item: "gyaradosita", qty: 1 } }],
+  },
+  safari_zone_center: {
+    // a atendente do GO PARK, logo na entrada (src/data/gopark.js)
+    addNpcs: [NPC_GO_PARK],
   },
   mt_moon_b2f: {
     // o MINEIRO empresta a picareta: a parede de fósseis (src/data/mineracao.js)

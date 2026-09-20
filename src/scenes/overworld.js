@@ -46,6 +46,8 @@ import { veu, temCeu, agora as horaDoMundo, ajustarRelogio } from "../systems/ci
 import { escuridaoDoLugar, ehCaverna, acesa, camadaDeLuz, brilho, RAIO } from "../systems/lanterna.js";
 import { AcampamentoScene } from "./acampamento.js";
 import { MineracaoScene } from "./mineracao.js";
+import { GoParkScene } from "./gopark.js";
+import * as GoPark from "../systems/gopark.js";
 import { LeilaoScene } from "./leilao.js";
 import { temBarraca } from "../systems/leilao.js";
 import { vendaveis } from "../systems/venda.js";
@@ -1850,6 +1852,7 @@ export class OverworldScene {
     if (npc.travessia) return this.oferecerTravessia(npc);
     if (npc.creche) return this.talkCreche();
     if (npc.mineracao) return this.talkMineiro(state);
+    if (npc.gopark) return this.talkGoPark(state);
     if (npc.fossil) return this.talkPaleontologa();
 
     // `conta`: o que este NPC sabe de uma missão. Com ela aberta (e, se ele
@@ -2868,6 +2871,40 @@ export class OverworldScene {
       this.game.autosave?.(true);
       this.dlg.say(msgs);
     });
+  }
+
+  /** A atendente do GO PARK (src/systems/gopark.js): manda um Pokémon "pro GO"
+   *  — o cartão com o CP de lá baixa, e ele passa a morar no parque — ou abre
+   *  o parque, onde se captura de volta e se joga o GO PLACE. */
+  talkGoPark(state) {
+    const T = DB.GO_TEXTO, st = this.st;
+    const menu = () => this.dlg.ask(T.menu, T.opcoes, (i) => {
+      if (i === 0) return this.enviarProGO();
+      if (i === 1) { if (!GoPark.parque(st).length) return void this.dlg.say(T.vazio); return void this.game.scenes.push(new GoParkScene()); }
+      if (i === 2) return void this.dlg.say(T.explica, menu);
+      this.dlg.say(T.nada);
+    });
+    if (state.talked) return menu();
+    state.talked = true;
+    this.dlg.say(T.oferta, menu);
+  }
+
+  enviarProGO() {
+    const T = DB.GO_TEXTO, st = this.st;
+    if (st.party.length <= 1) return void this.dlg.say(T.ultimo);
+    if (GoPark.parque(st).length >= DB.GO_PARK.vagas) return void this.dlg.say(T.cheio.replace("{N}", DB.GO_PARK.vagas));
+    this.menu = {
+      type: "party", index: 0, titulo: T.escolher,
+      escolher: (idx) => {
+        this.menu = null;
+        const mon = GoPark.enviar(st, idx);
+        if (!mon) return void this.dlg.say(T.ultimo);
+        const arquivo = GoPark.baixarCartao(mon);
+        Audio2.heal();
+        this.game.autosave?.(true);
+        this.dlg.say(T.enviado.map((l) => l.replace("{MON}", mon.nickname).replace("{CP}", mon.cpGO).replace("{ARQUIVO}", arquivo)));
+      },
+    };
   }
 
   talkCreche() {
