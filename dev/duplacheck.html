@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem das BATALHAS EM GRUPO</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+  #fotos { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  #fotos figure { margin:0; color:#89a; font-size:11px; }
+  #fotos canvas { image-rendering:pixelated; display:block; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<div id="fotos"></div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=15000">
+<script type="module">
+// AS BATALHAS EM GRUPO (src/scenes/grupobattle.js, src/data/duplas.js): os
+// dados, o turno de verdade (com a caixa de texto e as esperas curto-
+// circuitadas, porque o laço do jogo não roda em headless) e fotos da tela.
+const out = document.getElementById("out");
+const fotos = document.getElementById("fotos");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+let falhas = 0;
+const ok = (t, c, extra = "") => { if (!c) falhas++; p(`${t}: ${c ? "OK" : "FALHOU"} ${extra}`, c ? "ok" : "erro"); };
+
+try {
+  const { DB } = await import("/src/data/index.js");
+
+  h("OS DADOS");
+  const tipos = DB.PROVACOES.map((x) => x.tipo);
+  ok("todo tipo de provação tem dois ajudantes", tipos.every((t) => DB.AJUDANTES[t]?.length === 2));
+  const faltam = Object.values(DB.AJUDANTES).flat().filter((id) => !DB.SPECIES[id]);
+  ok(`toda espécie ajudante existe ${faltam.join(", ")}`, !faltam.length);
+  const golpesArea = Object.keys(DB.ESPALHA).filter((id) => !DB.MOVES[id]);
+  ok(`todo golpe de área existe ${golpesArea.join(", ")}`, !golpesArea.length);
+  ok("a força espalhada é 3/4", DB.FORCA_ESPALHADA === 0.75);
+
+  h("AS DUPLAS DE TREINADORES");
+  const tag = (mapa, x, y) => {
+    const geo = DB.KANTO[mapa];
+    return !geo || x < 0 || y < 0 || x >= geo.w || y >= geo.h ? -1 : geo.tags.charCodeAt(y * geo.w + x) - 48;
+  };
+  const livre = (mapa, x, y) => [DB.TAG.FREE, DB.TAG.GRASS].includes(tag(mapa, x, y));
+  const D = DB.DUPLAS_TREINADORES;
+  ok("são 8", D.length === 8);
+  ok("cada uma num mapa diferente", new Set(D.map((d) => d.mapa)).size === D.length);
+  ok("toda espécie existe", D.every((d) => d.time.every(([id]) => DB.SPECIES[id])));
+  ok("toda dupla tem pelo menos dois", D.every((d) => d.time.length >= 2));
+  ok("o sprite existe (overworld e retrato)", D.every((d) => ["garota", "garoto", "gentleman", "montanhista",
+    "pescador", "lutador", "rocket", "motoqueiro"].includes(d.sprite)));
+  ok("em chão andável, com os 8 vizinhos livres",
+    D.every((d) => [-1, 0, 1].every((dx) => [-1, 0, 1].every((dy) => livre(d.mapa, d.x + dx, d.y + dy)))));
+  ok("nenhuma perto de porta",
+    D.every((d) => !(DB.KANTO[d.mapa]?.warps || []).some((w) => Math.abs(w.x - d.x) <= 2 && Math.abs(w.y - d.y) <= 2)));
+  ok("nenhuma em cima de outro NPC",
+    D.every((d) => (DB.MAPS[d.mapa]?.npcs || []).filter((n) => n.x === d.x && n.y === d.y).length === 1));
+  ok("longe das marcas das provações",
+    D.every((d) => !DB.PROVACOES.some((x) => x.mapa === d.mapa && Math.abs(x.x - d.x) + Math.abs(x.y - d.y) < 6)));
+  const npcs = D.map((d) => (DB.MAPS[d.mapa]?.npcs || []).find((n) => n.id === `dupla_${d.mapa}`));
+  ok("todas entraram no mapa como treinador em dupla", npcs.every((n) => n?.trainer?.dupla && n.trainer.party.length >= 2));
+
+  h("AS PROVAÇÕES");
+  const { tamanhoDoGrupo, montarGrupoDoTotem } = await import("/src/systems/provacoes.js");
+  const tam = DB.PROVACOES.map(tamanhoDoGrupo);
+  p(`  ${DB.PROVACOES.map((x, i) => `${x.tipo}=${tam[i]}`).join(" ")}`);
+  ok("as 9 primeiras em dupla", tam.slice(0, 9).every((n) => n === 2));
+  ok("da 10ª (FOGO) em diante, trio", tam.slice(9).every((n) => n === 3) && DB.PROVACOES[9].tipo === "FOGO");
+  const g1 = montarGrupoDoTotem(DB.PROVACOES[0]);
+  const g10 = montarGrupoDoTotem(DB.PROVACOES[9]);
+  ok("dupla: o totem e um ajudante", g1.length === 2 && !!g1[0].totem && !g1[1].totem);
+  ok("trio: o totem e dois ajudantes", g10.length === 3 && !!g10[0].totem && !g10[1].totem && !g10[2].totem);
+  ok("o ajudante fica 5 níveis abaixo", g10[1].level === DB.PROVACOES[9].nivel - 5);
+  ok("os ajudantes do MISSINGNO. são hackeados",
+    montarGrupoDoTotem(DB.PROVACOES[18]).slice(1).every((m) => DB.SPECIES[m.species]?.hack));
+
+  h("A CENA, DE VERDADE");
+  const fr = document.createElement("iframe");
+  fr.width = 240; fr.height = 160; fr.style.opacity = "0.01";
+  fr.src = "/index.html?map=route24&starter=machamp:60&party=lapras:60,pikachu:60&perfil=dupla-teste";
+  document.body.appendChild(fr);
+  const espera = async (cond, ms = 9000) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) { try { if (cond()) return true; } catch {} await new Promise((r) => setTimeout(r, 40)); }
+    return false;
+  };
+  const subiu = await espera(() => fr.contentWindow?.game?.scenes?.top?.constructor?.name === "OverworldScene");
+  ok("o jogo abriu", subiu);
+  const W = fr.contentWindow, g = W.game;
+  g.autosave = () => {}; g.save = async () => "ok";
+  const { GrupoBattleScene } = await W.eval('import("/src/scenes/grupobattle.js")');
+  const { createMon } = await W.eval('import("/src/systems/mon.js")');
+  const prov = await W.eval('import("/src/systems/provacoes.js")');
+  const { SpriteStore } = await W.eval('import("/src/core/sprites.js")');
+
+  // a cena com o texto e as esperas resolvendo na hora
+  class Teste extends GrupoBattleScene {
+    say(t) { (this.log ||= []).push(...[].concat(t)); return Promise.resolve(); }
+    wait() { return Promise.resolve(); }
+    until() { return Promise.resolve(); }
+    async cutscene() {}
+    escolherQuemEntra(caiu, banco) { (this.log ||= []).push(`[ENTRA ${banco[0].m.nickname}]`); return Promise.resolve(banco[0].i); }
+  }
+  const st = g.state;
+  const cura = () => st.party.forEach((m) => { m.hp = m.maxHp; m.status = null; m.moves.forEach((x) => { x.pp = x.ppMax; }); });
+  const abre = async (args) => {
+    const c = new Teste();
+    g.scenes.push(c, args);
+    await espera(() => c.menu?.type === "main" || g.scenes.top !== c, 4000);
+    return c;
+  };
+  const fimDoTurno = (c) => espera(() => !c.busy && (c.menu?.type === "main" || g.scenes.top !== c), 6000);
+  const foto = async (c, nome) => {
+    const deles = c.lado.f.map((v) => c.monDe("f", v)).filter(Boolean);
+    const meus = c.lado.p.map((v) => c.monDe("p", v)).filter(Boolean);
+    deles.forEach((m) => W.Assets.mon(m.species, m.seed));
+    meus.forEach((m) => W.Assets.monBack(m.species, m.seed));
+    await espera(() => deles.every((m) => SpriteStore.pokemon[m.species])
+      && meus.every((m) => SpriteStore.pokemonBack[m.species]), 4000);
+    const cv = document.createElement("canvas");
+    cv.width = 240; cv.height = 160;
+    const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+    c.fadeA = 0; c.fadeDir = 0; c.showTrainer = false;
+    c.render(ctx);
+    const big = document.createElement("canvas");
+    big.width = 480; big.height = 320;
+    const b = big.getContext("2d"); b.imageSmoothingEnabled = false;
+    b.drawImage(cv, 0, 0, 480, 320);
+    const fig = document.createElement("figure");
+    fig.append(big, Object.assign(document.createElement("figcaption"), { textContent: nome }));
+    fotos.append(fig);
+  };
+  const golpeComDano = (mon) => mon.moves.findIndex((x) => (DB.MOVES[x.id]?.power || 0) > 0);
+
+  // ---------------------------------------------------------- 1. a dupla
+  const npcGemeas = npcs[0];
+  const trainer = { sprite: npcGemeas.sprite, ...npcGemeas.trainer };
+  const dinheiro = st.money;
+  let c = await abre({ trainer, npcKey: "route24.dupla_route24", tamanho: 2 });
+  ok("a dupla abriu no menu", c.menu?.type === "main");
+  ok("dois de cada lado", c.lado.f.length === 2 && c.lado.p.length === 2
+     && c.lado.f.every((v) => c.monDe("f", v)) && c.lado.p.every((v) => c.monDe("p", v)));
+  ok("a apresentação fala dos dois", c.log.some((l) => l.includes("GÊMEAS") && l.includes("DUPLA")));
+  ok("do seu lado saem os dois primeiros", c.monDe("p", c.lado.p[0]) === st.party[0] && c.monDe("p", c.lado.p[1]) === st.party[1]);
+  ok("as duas vagas suas escolhem", c.fila.length === 2);
+  await foto(c, "dupla: o menu");
+  c.menu = { type: "alvo", index: 1, ref: st.party[0].moves[0], z: false, vivos: [0, 1] };
+  c.busy = false;
+  await foto(c, "dupla: escolhendo o alvo");
+  c.menu = { type: "main", index: 0 };
+  const a0 = st.party[0], a1 = st.party[1];
+  c.escolheu({ tipo: "golpe", ref: a0.moves[Math.max(0, golpeComDano(a0))], alvo: 0 });
+  ok("a primeira escolha passa a vez pra segunda", c.escolhendo === 1 && c.menu?.type === "main");
+  ok("B na segunda volta pra primeira", c.voltarEscolha() && c.escolhendo === 0);
+  c.escolheu({ tipo: "golpe", ref: a0.moves[Math.max(0, golpeComDano(a0))], alvo: 0 });
+  c.escolheu({ tipo: "golpe", ref: a1.moves[Math.max(0, golpeComDano(a1))], alvo: 1 });
+  let chegou = await fimDoTurno(c);
+  for (let i = 0; i < 6 && g.scenes.top === c; i++) {
+    const fila = c.fila.map((k) => c.monDe("p", c.lado.p[k]));
+    const vivos = c.vivas("f").map((v) => c.lado.f.indexOf(v));
+    fila.forEach((m) => c.escolheu({ tipo: "golpe", ref: m.moves[Math.max(0, golpeComDano(m))], alvo: vivos[0] }));
+    chegou = await fimDoTurno(c);
+  }
+  p(`  ${c.log.slice(-8).join(" / ")}`);
+  ok("nível 60 contra 14: a dupla caiu e a batalha fechou", g.scenes.top !== c);
+  ok("a dupla ficou marcada como vencida", !!st.npcState["route24.dupla_route24"]?.defeated);
+  ok("o prêmio foi pago", st.money === dinheiro + trainer.prize);
+  ok("e a equipe ganhou XP", c.log.some((l) => l.includes("EXP.")));
+
+  // ------------------------------------------------ 2. golpe que pega todos
+  cura();
+  const fortes = { name: "TESTE", prize: 1, dupla: true, party: [{ id: "snorlax", lvl: 60 }, { id: "snorlax", lvl: 60 }] };
+  c = await abre({ trainer: fortes, tamanho: 2 });
+  const lapras = st.party[1];
+  lapras.moves = [{ id: "surfar", pp: 15, ppMax: 15 }];
+  const machamp = st.party[0];
+  machamp.moves = [{ id: "endurecer", pp: 30, ppMax: 30 }];
+  const hpF = c.lado.f.map((v) => c.monDe("f", v).hp), hpM = machamp.hp;
+  c.escolheu({ tipo: "golpe", ref: machamp.moves[0], alvo: 0 });
+  c.escolheu({ tipo: "golpe", ref: lapras.moves[0], alvo: 0 });
+  await fimDoTurno(c);
+  ok("SURFAR acertou os dois do outro lado", c.lado.f.every((v, i) => c.monDe("f", v).hp < hpF[i]));
+  ok("e acertou o parceiro (MACHAMP)", c.log.some((l) => l.includes("MACHAMP") && !l.startsWith("MACHAMP USOU")) && (machamp.hp < hpM || c.log.includes("MACHAMP DESVIOU!") || c.log.some((l) => l.includes("SNORLAX USOU"))));
+  ok("com o aviso de área", c.log.includes(DB.DUPLA_TEXTO.todos));
+  ok("ENDURECER não pediu alvo e subiu a DEFESA", c.lado.p[0].stages.def >= 1);
+
+  // ------------------------------------------ 3. quem cai é reposto
+  c.log = [];
+  st.party[0].hp = 0;
+  await c.reporVagas();
+  ok("a vaga de quem caiu recebe quem estava no banco", c.monDe("p", c.lado.p[0]) === st.party[2]);
+  st.party[1].hp = 0;
+  await c.reporVagas();
+  ok("sem ninguém no banco, a vaga fica vazia", c.lado.p[1].idx === null);
+  ok("ainda dá pra lutar com um só", c.vivas("p").length === 1 && c.temAlguem("p"));
+  // ------------------------------------------------- 4. perder
+  const volta = st.respawn?.map || DB.START_MAP;
+  st.party.forEach((m) => { m.hp = 0; });
+  await c.acabou();
+  ok("todo mundo no chão: perdeu, curou e voltou pro lugar seguro",
+    st.party.every((m) => m.hp === m.maxHp) && st.player.map === volta);
+  cura();
+
+  // ------------------------------------------------- 5. o totem em trio
+  // a provação tem que ser a do DB de dentro do jogo: é nele que a fila é contada
+  const DBj = (await W.eval('import("/src/data/index.js")')).DB;
+  const fogo = DBj.PROVACOES.find((x) => x.tipo === "FOGO");
+  const foes = prov.montarGrupoDoTotem(fogo);
+  c = await abre({ foes, tamanho: foes.length, npcKey: "teste.totem" });
+  ok("trio: três de cada lado", c.lado.f.length === 3 && c.lado.p.length === 3 && c.fila?.length === 3,
+     `f=${c.lado.f.length} p=${c.lado.p.length} fila=${c.fila?.length} menu=${c.menu?.type} hp=${st.party.map((m) => m.hp).join(",")} top=${g.scenes.top === c}`);
+  ok("o totem chamou ajuda", c.log.some((l) => l.includes("CHAMOU AJUDA")));
+  ok("a aura subiu no totem, e só nele", c.lado.f[0].stages[fogo.aura] === 1 && c.lado.f[1].stages[fogo.aura] === 0);
+  ok("o totem é grande, os ajudantes não", c.lado.f[0].sp.escala > 1 && c.lado.f[1].sp.escala === 1);
+  await foto(c, "trio: o totem de FOGO e dois ajudantes");
+  g.scenes.pop();
+
+  // ---------------------------------------- 6. o DIGLETT bombado em dupla
+  const terra = DBj.PROVACOES.find((x) => x.tipo === "TERRA");
+  c = await abre({ foes: prov.montarGrupoDoTotem(terra), tamanho: 2, npcKey: "teste.totem2" });
+  ok("TERRA em dupla: o DIGLETT bombado e um DIGLETT comum",
+    c.monDe("f", c.lado.f[0]).totem && c.monDe("f", c.lado.f[1]).species === "diglett" && !c.monDe("f", c.lado.f[1]).totem);
+  await espera(() => SpriteStore.pokemon.diglett, 3000);
+  await foto(c, "dupla: o DIGLETT bombado com o ajudante");
+  g.scenes.pop();
+
+  // ------------------------------------------- 7. a batalha link 2X2
+  h("A BATALHA LINK 2X2 (as duas pontas na mesma página)");
+  const { LinkBattleScene } = await W.eval('import("/src/scenes/linkbattle.js")');
+  cura();
+  const liga = (formato) => {
+    const dono = new LinkBattleScene(), conv = new LinkBattleScene();
+    const falas = { dono: [], conv: [] };
+    const jogo = { state: st, scenes: { pop() {} } };
+    for (const [c2, outro, eu, nome] of [[dono, conv, "A", "dono"], [conv, dono, "B", "conv"]]) {
+      c2.game = jogo;
+      c2.manda = (tipo, dados) => setTimeout(() => outro.recebeu({ ...dados, tipo, de: eu }), 0);
+      c2.dlgSay = null;
+      Object.defineProperty(c2, "dlg", {
+        configurable: true,
+        get() { return this._dlg; },
+        set(d) { d.say = (t, cb) => { falas[nome].push(...[].concat(t)); cb?.(); }; this._dlg = d; },
+      });
+    }
+    dono.enter({ id: "B", nome: "CONVIDADO", papel: "dono", formato });
+    conv.enter({ id: "A", nome: "DONO", papel: "convidado", formato });
+    // o laço do jogo não roda aqui: o relógio do teste faz o papel dele
+    clearInterval(window.relogio);
+    window.relogio = setInterval(() => { dono.update(0.05); conv.update(0.05); }, 25);
+    return { dono, conv, falas };
+  };
+  let L = liga("dupla");
+  await espera(() => L.dono.fase === "escolhendo" && L.conv.fase === "escolhendo", 4000);
+  ok("as duas pontas chegaram na escolha", L.dono.fase === "escolhendo" && L.conv.fase === "escolhendo");
+  ok("duas vagas em campo de cada lado", L.dono.estado?.a?.ativos?.length === 2 && L.conv.estado?.b?.ativos?.length === 2);
+  ok("cada ponta escolhe pelas duas vagas", L.dono.vagasMinhas?.length === 2 && L.conv.vagasMinhas?.length === 2);
+  ok("o convite foi anunciado em dupla", L.falas.dono.some((f) => / E /.test(f) && f.includes("MANDOU")));
+  // o dono dá SURFAR com a LAPRAS (vaga 1): tem que pegar os dois do outro lado
+  const lapDono = L.dono.meuTime[1];
+  lapDono.moves = [{ id: "surfar", pp: 15, ppMax: 15 }];
+  const antes = L.dono.lados.b.ativos.map((i) => L.dono.lados.b.time[i].hp);
+  L.dono.escolheuDupla({ tipo: "golpe", i: 0, alvo: 0 });
+  L.dono.escolheuDupla({ tipo: "golpe", i: 0, alvo: 0 });
+  L.conv.escolheuDupla({ tipo: "golpe", i: 0, alvo: 0 });
+  L.conv.escolheuDupla({ tipo: "golpe", i: 0, alvo: 1 });
+  await espera(() => L.dono.turno >= 2 && L.conv.fase === "escolhendo" && L.conv.turno >= 2, 4000);
+  const depois = L.dono.lados.b.ativos.map((i) => (i == null ? 0 : L.dono.lados.b.time[i].hp));
+  ok("o turno rodou e os dois voltaram pra escolha", L.dono.turno >= 2 && L.conv.turno >= 2);
+  // a LAPRAS do outro lado é imune a ÁGUA pela habilidade: o que prova que ela
+  // também foi alvo é a fala com o nome dela na frente (só golpe de área faz isso)
+  const alvosDoSurf = L.dono.lados.b.ativos.map((i) => L.dono.lados.b.time[i]);
+  ok("SURFAR no link pegou os dois do outro lado",
+    alvosDoSurf.every((m, k) => depois[k] < antes[k] || L.falas.dono.some((f) => f.startsWith(`${m.nickname}:`))));
+  ok("o convidado recebeu o mesmo HP que o dono calculou",
+    JSON.stringify(L.conv.estado.b.time.map((m) => m.hp)) === JSON.stringify(L.dono.lados.b.time.map((m) => m.hp)));
+  p(`  ${L.falas.conv.slice(-6).join(" / ")}`);
+  // desistir acaba dos dois lados
+  L.conv.escolheuDupla({ tipo: "desistir" });
+  L.dono.escolheuDupla({ tipo: "golpe", i: 0, alvo: 0 });
+  if (L.dono.fase === "escolhendo") L.dono.escolheuDupla({ tipo: "golpe", i: 0, alvo: 0 });
+  await espera(() => L.dono.fase === "fim" && L.conv.fase === "fim", 4000);
+  ok("desistir no 2X2 acaba a batalha nas duas pontas", L.dono.fase === "fim" && L.conv.fase === "fim");
+  ok("e quem desistiu perdeu", L.dono.vencedor === true && L.conv.vencedor === false);
+  // o 1X1 continua o de sempre
+  L = liga("simples");
+  await espera(() => L.dono.fase === "escolhendo" && L.conv.fase === "escolhendo", 4000);
+  ok("o 1X1 continua com um de cada lado", !L.dono.dupla && L.dono.lados.a.ativo === 0 && !L.dono.lados.a.ativos);
+
+  p(falhas ? `<br>${falhas} FALHA(S)` : "<br>tudo certo.", falhas ? "erro" : "ok");
+} catch (e) {
+  falhas++;
+  p("EXPLODIU: " + (e?.stack || e), "erro");
+}
+out.innerHTML = linhas.join("");
+</script>
+</body>
+</html>

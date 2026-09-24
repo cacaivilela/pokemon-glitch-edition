@@ -173,21 +173,48 @@ export class TitleScene {
     drawText(ctx, C.ajuda, 12, 142, PAL.ink2);
   }
 
-  render(ctx) {
-    const glitch = !!DB.CONFIG?.glitchMode;
+  /** O FUNDO DO MENU PRINCIPAL: a fenda, a 011GLITCHDIMENSION110. Roxo
+   *  escuro, faixas de cor escorregando de lado devagar e pixels caindo — tudo
+   *  com posição tirada do relógio e do índice, sem sorteio nenhum: é o visual
+   *  corrompido SEM o chuvisco, que pisca e cansa a vista numa tela parada. */
+  fundoFenda(ctx) {
     const g = ctx.createLinearGradient(0, 0, 0, 160);
-    if (glitch) { g.addColorStop(0, "#140a24"); g.addColorStop(0.6, "#2a1040"); g.addColorStop(1, "#0a0612"); }
-    else { g.addColorStop(0, "#2f7fd0"); g.addColorStop(0.55, "#8fd0f0"); g.addColorStop(1, "#e8f4c8"); }
+    g.addColorStop(0, "#140a24");
+    g.addColorStop(0.6, "#2a1040");
+    g.addColorStop(1, "#0a0612");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, 240, 160);
 
-    // nuvens / partículas
-    for (let i = 0; i < 26; i++) {
-      const x = (i * 47 + this.t * (glitch ? 12 : 6)) % 260 - 10;
-      const y = 12 + ((i * 29) % 60);
-      ctx.fillStyle = glitch ? (i % 5 === 0 ? "#b455ff" : "#3a2a55") : "rgba(255,255,255,.5)";
-      ctx.fillRect(x | 0, y | 0, glitch ? 1 : 6, glitch ? 1 : 2);
+    // as linhas escorregando: faixas finas que andam de lado, cada uma no seu passo
+    for (let i = 0; i < 7; i++) {
+      const y = 10 + i * 21 + (i % 2) * 5;
+      const w = 50 + ((i * 37) % 70);
+      const x = ((this.t * (8 + i * 5) + i * 83) % (240 + w)) - w;
+      ctx.fillStyle = i % 3 === 0 ? "rgba(180,85,255,0.22)" : "rgba(106,58,176,0.28)";
+      ctx.fillRect(Math.round(x), y, w, i % 2 ? 1 : 2);
+      // o pedaço que ficou pra trás, deslocado: é o que faz parecer linha lida errado
+      ctx.fillStyle = "rgba(180,85,255,0.12)";
+      ctx.fillRect(Math.round(x - w * 0.6), y + 3, Math.round(w * 0.4), 1);
     }
+
+    // os pixels caindo, devagar e sempre no mesmo desenho
+    for (let i = 0; i < 34; i++) {
+      const x = (i * 53 + (i % 4) * 11) % 240;
+      const vel = 10 + (i % 3) * 7;
+      const y = ((i * 37 + this.t * vel) % 176) - 8;
+      ctx.fillStyle = i % 7 === 0 ? "#f4f4ff" : i % 2 ? "#b455ff" : "#6a3ab0";
+      const lado = i % 5 === 0 ? 2 : 1;
+      ctx.fillRect(x, Math.round(y), lado, lado);
+      // o rastro: dois pixels mais apagados em cima de quem cai
+      ctx.globalAlpha = 0.35;
+      ctx.fillRect(x, Math.round(y) - 3, lado, 1);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  render(ctx) {
+    const glitch = !!DB.CONFIG?.glitchMode;
+    this.fundoFenda(ctx);
 
     // Quem desenhou a fusão que está na tela. Vai ACIMA do logo porque é a
     // única faixa livre: o painel do menu sobe até a altura dos bichos quando a
@@ -197,14 +224,16 @@ export class TitleScene {
       const linha = `${autores.length > 1 ? "FUSÕES" : "FUSÃO"} DE ${autores.join(" E ")}`;
       ctx.globalAlpha = 0.55 + Math.sin(this.t * 1.6) * 0.15;
       drawText(ctx, linha, Math.round((240 - linha.length * 6) / 2), 6,
-               glitch ? "#8f6bd8" : "#2b4a7a");
+               "#8f6bd8");
       ctx.globalAlpha = 1;
     }
 
     const wob = Math.sin(this.t * 2) * 1.5;
     drawText(ctx, "POKÉMON", 74, 20 + wob, "#ffd166", { shadow: "#7a4a10" });
-    drawText(ctx, "GLITCH EDITION", 60, 36 + wob, glitch ? "#f4f4ff" : "#2b4a7a", { shadow: glitch ? "#5b32b0" : "#dff0ff" });
-    ctx.fillStyle = glitch ? "#b455ff" : "#2b4a7a";
+    drawText(ctx, "GLITCH EDITION", 60, 36 + wob, "#f4f4ff", { shadow: "#5b32b0" });
+    // o VOLUME (src/data/versao.js), pequeno, na ponta da linha de baixo
+    if (DB.VOLUME) drawText(ctx, DB.VOLUME, 188 - DB.VOLUME.length * 6, 51, "#ffd166", { shadow: "#7a4a10" });
+    ctx.fillStyle = "#b455ff";
     ctx.fillRect(52, 48, 136, 1);
 
     // a VITRINE: sorteados de Kanto, alguns fundidos. Cada um entra com um
@@ -216,7 +245,8 @@ export class TitleScene {
       const entrou = Math.min(1, Math.max(0, (this.trocaT - i * 0.12) / VITRINE.entra));
       ctx.globalAlpha = entrou;
       // sobe um tiquinho enquanto aparece: dá o "pousar" que o corte não tem
-      ctx.drawImage(img, 26 + i * 66, 54 + bob + (1 - entrou) * 6, 52, 52);
+      // no tamanho de verdade (64): encolher apagava pupila e boca
+      ctx.drawImage(img, 20 + i * 70, 48 + bob + (1 - entrou) * 6, 64, 64);
       ctx.globalAlpha = 1;
     });
     if (glitch) ctx.drawImage(nullmonSprite(((this.t * 6) | 0) * 31 + 5), 96, 60, 48, 48);
@@ -232,6 +262,6 @@ export class TitleScene {
       if (i === this.index) cursor(ctx, x + 7, y + 4 + i * LINE_H);
     });
 
-    drawText(ctx, "FANGAME NÃO OFICIAL - V0.3", 34, 150, glitch ? "#6b5a8a" : "#4a6a8a");
+    drawText(ctx, "FANGAME NÃO OFICIAL - VOL. 4", 30, 150, "#8f7ab0");
   }
 }

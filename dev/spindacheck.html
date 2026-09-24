@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem do SPINDA</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; } .obs { color:#678; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+  canvas { image-rendering:pixelated; background:#222; margin:2px; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<div id="arte"></div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=25000">
+<script type="module">
+// O SPINDA: 4.294.967.296 padrões de mancha, carimbados pelo valor de
+// personalidade como no jogo original. Peças: src/data/spinda.js (gerado por
+// tools/fetch_spinda.py a partir do decomp), Assets.spinda em src/core/assets.js.
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "obs") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+let falhas = 0;
+const ok = (t, c, obs = "") => { if (!c) falhas++; p(`${t}: ${c ? "OK" : "FALHOU"}${obs ? ` — ${obs}` : ""}`, c ? "ok" : "erro"); };
+
+try {
+  const { DB } = await import("/src/data/index.js");
+  const { Assets } = await import("/src/core/assets.js");
+  const { SpriteStore, pedirMon } = await import("/src/core/sprites.js");
+  const { createMon } = await import("/src/systems/mon.js");
+  Assets.init();
+
+  const esperar = (cond, ms = 12000) => new Promise((res, rej) => {
+    const t0 = Date.now();
+    const bate = () => (cond() ? res(true) : Date.now() - t0 > ms ? rej(new Error("demorou")) : setTimeout(bate, 100));
+    bate();
+  });
+  pedirMon("spinda", 327);
+  Assets.monShiny("spinda");
+  await esperar(() => SpriteStore.pokemon.spinda && SpriteStore.pokemonShiny.spinda);
+
+  const px = (cv) => {
+    const c = document.createElement("canvas");
+    c.width = cv.width; c.height = cv.height;
+    const x = c.getContext("2d", { willReadFrequently: true });
+    x.drawImage(cv, 0, 0);
+    return x.getImageData(0, 0, c.width, c.height).data;
+  };
+  const hash = (d) => { let a = 5381; for (let i = 0; i < d.length; i++) a = ((a * 33) ^ d[i]) >>> 0; return a; };
+  const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+
+  h("AS PEÇAS (src/data/spinda.js, gerado do decomp)");
+  ok("quatro moldes", DB.SPINDA_MANCHAS?.length === 4, `${DB.SPINDA_MANCHAS?.length}`);
+  ok("cada molde tem 16 linhas de 16 bits",
+     DB.SPINDA_MANCHAS.every((m) => m.linhas.length === 16 && m.linhas.every((v) => v >= 0 && v <= 0xffff)));
+  ok("as âncoras são as do decomp",
+     JSON.stringify(DB.SPINDA_MANCHAS.map((m) => [m.x, m.y])) === JSON.stringify([[16, 7], [40, 8], [22, 25], [34, 26]]),
+     DB.SPINDA_MANCHAS.map((m) => `${m.x},${m.y}`).join(" "));
+  ok("três cores de corpo e três de mancha",
+     DB.SPINDA_CORPO.length === 3 && DB.SPINDA_MANCHA.comum.length === 3 && DB.SPINDA_MANCHA.shiny.length === 3);
+  ok("o sprite base é 64x64", SpriteStore.pokemon.spinda.width === 64 && SpriteStore.pokemon.spinda.height === 64);
+
+  h("O SPRITE BASE É LIMPO");
+  {
+    // sem mancha nenhuma, a cor de mancha só pode aparecer nas patas — e as
+    // patas ficam na metade de baixo. Em cima (orelhas e rosto) não pode ter.
+    const d = px(SpriteStore.pokemon.spinda);
+    const tintas = DB.SPINDA_MANCHA.comum.map(hex);
+    let emCima = 0;
+    for (let y = 0; y < 34; y++) for (let x = 0; x < 64; x++) {
+      const o = (y * 64 + x) * 4;
+      if (d[o + 3] < 255) continue;
+      if (tintas.some((t) => t[0] === d[o] && t[1] === d[o + 1] && t[2] === d[o + 2])) emCima++;
+    }
+    ok("nenhuma mancha assada no rosto e nas orelhas", emCima === 0, `${emCima} pixels de cor de mancha em cima`);
+  }
+
+  h("O CARIMBO");
+  const base = px(SpriteStore.pokemon.spinda);
+  const corpo = DB.SPINDA_CORPO.map(hex), tinta = DB.SPINDA_MANCHA.comum.map(hex);
+  {
+    const a = px(Assets.spinda(0x12345678));
+    ok("o carimbo muda o desenho", hash(a) !== hash(base));
+    // só pixel que era cor de corpo pode ter mudado, e só pra tinta da mesma posição
+    let errados = 0, pintados = 0;
+    for (let i = 0; i < base.length; i += 4) {
+      const mudou = base[i] !== a[i] || base[i + 1] !== a[i + 1] || base[i + 2] !== a[i + 2] || base[i + 3] !== a[i + 3];
+      if (!mudou) continue;
+      pintados++;
+      const k = corpo.findIndex((c) => c[0] === base[i] && c[1] === base[i + 1] && c[2] === base[i + 2]);
+      if (k < 0 || tinta[k][0] !== a[i] || tinta[k][1] !== a[i + 1] || tinta[k][2] !== a[i + 2]) errados++;
+    }
+    ok("só pinta em cima das três cores de corpo", errados === 0, `${errados} pixels errados de ${pintados} pintados`);
+    ok("pintou uma quantidade de pixels que faz sentido", pintados > 60 && pintados < 700, `${pintados} pixels`);
+  }
+  {
+    ok("o mesmo valor dá sempre o mesmo Spinda", hash(px(Assets.spinda(0xdeadbeef))) === hash(px(Assets.spinda(0xdeadbeef))));
+    const vistos = new Set();
+    for (let i = 0; i < 400; i++) vistos.add(hash(px(Assets.spinda((Math.random() * 2 ** 32) >>> 0))));
+    ok("400 valores dão 400 Spindas diferentes", vistos.size >= 396, `${vistos.size} distintos`);
+  }
+  {
+    // cada naco de 8 bits mexe NUMA mancha só: trocar o primeiro naco não pode
+    // mexer no que o quarto desenhou
+    const a = hash(px(Assets.spinda(0x88888888)));
+    const b = hash(px(Assets.spinda(0x88888889)));   // só o nibble X da 1ª mancha
+    const c = hash(px(Assets.spinda(0x98888888)));   // só o nibble Y da 4ª mancha
+    ok("mexer num naco muda o desenho", a !== b && a !== c && b !== c);
+  }
+  {
+    // 0x88888888: todo nibble é 8, ou seja deslocamento zero — as manchas caem
+    // exatamente nas âncoras. É o caso de referência da conta `âncora + n - 8`.
+    const d = px(Assets.spinda(0x88888888));
+    let bate = true;
+    for (const m of DB.SPINDA_MANCHAS) {
+      // o centro do molde tem bit ligado em toda mancha; se a âncora está certa,
+      // aquele pixel virou tinta (ou continuou sendo não-corpo)
+      const o = ((m.y + 4) * 64 + (m.x + 4)) * 4;
+      const eraCorpo = corpo.some((c) => c[0] === base[o] && c[1] === base[o + 1] && c[2] === base[o + 2]);
+      const virouTinta = tinta.some((t) => t[0] === d[o] && t[1] === d[o + 1] && t[2] === d[o + 2]);
+      if (eraCorpo && !virouTinta) bate = false;
+    }
+    ok("com todos os nibbles em 8, a mancha cai na âncora", bate);
+  }
+
+  h("O SHINY");
+  {
+    const s = px(Assets.spinda(0x12345678, true));
+    const laranja = DB.SPINDA_MANCHA.comum.map(hex);
+    let laranjas = 0;
+    for (let i = 0; i < s.length; i += 4) {
+      if (s[i + 3] < 255) continue;
+      if (laranja.some((t) => t[0] === s[i] && t[1] === s[i + 1] && t[2] === s[i + 2])) laranjas++;
+    }
+    ok("o shiny não tem nenhum pixel da rampa laranja", laranjas === 0, `${laranjas}`);
+    const verde = DB.SPINDA_MANCHA.shiny.map(hex);
+    let verdes = 0;
+    for (let i = 0; i < s.length; i += 4) {
+      if (s[i + 3] < 255) continue;
+      if (verde.some((t) => t[0] === s[i] && t[1] === s[i + 1] && t[2] === s[i + 2])) verdes++;
+    }
+    ok("e tem mancha verde", verdes > 60, `${verdes} pixels verdes`);
+    ok("shiny e comum têm manchas no mesmo lugar",
+       (() => {
+         const c = px(Assets.spinda(0x12345678));
+         let iguais = 0, total = 0;
+         for (let i = 0; i < s.length; i += 4) {
+           const mc = base[i] !== c[i] || base[i + 1] !== c[i + 1] || base[i + 2] !== c[i + 2];
+           if (!mc) continue;
+           total++;
+           if (s[i] !== c[i] || s[i + 1] !== c[i + 1] || s[i + 2] !== c[i + 2]) iguais++;
+         }
+         return total > 0 && iguais === total;
+       })());
+  }
+
+  h("NO JOGO");
+  {
+    const a = createMon("spinda", 20), b = createMon("spinda", 20);
+    ok("o seed vai até 2^32", a.seed > 0xffff || b.seed > 0xffff, `${a.seed}, ${b.seed}`);
+    ok("dois Spinda capturados saem diferentes",
+       hash(px(Assets.mon("spinda", a.seed))) !== hash(px(Assets.mon("spinda", b.seed))));
+    ok("Assets.mon carimba (não devolve o desenho limpo)",
+       hash(px(Assets.mon("spinda", a.seed))) !== hash(base));
+    ok("comCor de um Spinda shiny devolve o carimbo verde",
+       hash(px(Assets.comCor(Assets.mon("spinda", a.seed), { species: "spinda", seed: a.seed, shiny: true })))
+       === hash(px(Assets.spinda(a.seed, true))));
+    ok("outra espécie não é afetada",
+       hash(px(Assets.mon("pikachu", 7))) === hash(px(SpriteStore.pokemon.pikachu || Assets.mon("pikachu", 7))));
+  }
+
+  // a foto: uma grade de Spindas pra olhar
+  {
+    const E = 2, COLS = 8, LIN = 4;
+    const cv = document.createElement("canvas");
+    cv.width = COLS * 64 * E; cv.height = LIN * 64 * E + 28 * E;
+    const x = cv.getContext("2d");
+    x.imageSmoothingEnabled = false;
+    x.fillStyle = "#2a2a30"; x.fillRect(0, 0, cv.width, cv.height);
+    for (let i = 0; i < COLS * LIN; i++) {
+      const shiny = i >= COLS * (LIN - 1);
+      const pid = i === 0 ? 0x88888888 : (Math.random() * 2 ** 32) >>> 0;
+      const g = Assets.spinda(pid, shiny);
+      x.drawImage(g, (i % COLS) * 64 * E, Math.floor(i / COLS) * 64 * E, 64 * E, 64 * E);
+    }
+    x.fillStyle = "#9fd"; x.font = `${11 * E}px monospace`;
+    x.fillText("SPINDA — tres fileiras comuns e uma shiny; a 1a e o valor 0x88888888 (deslocamento zero)",
+               6 * E, LIN * 64 * E + 18 * E);
+    document.getElementById("arte").append(cv);
+    try {
+      await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "spinda", dataUrl: cv.toDataURL(), log: "grade" }) });
+    } catch (e) {}
+  }
+} catch (e) {
+  falhas++;
+  p(`EXPLODIU: ${e && e.stack || e}`, "erro");
+}
+p(falhas ? `${falhas} FALHA(S)` : "TUDO OK", falhas ? "erro" : "ok");
+out.innerHTML = linhas.join("");
+const texto = linhas.join("\n").replace(/<h2>/g, "\n").replace(/<[^>]+>/g, "");
+try { await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "spinda-log", log: texto }) }); } catch (e) {}
+document.title = "pronto";
+</script>
+</body>
+</html>

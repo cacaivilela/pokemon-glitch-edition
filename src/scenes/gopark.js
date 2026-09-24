@@ -1,5 +1,10 @@
-// O GO PARK: o que foi "pro GO" anda solto aqui, e volta se você capturar no
-// estilo do GO. E o GO PLACE, onde cada um deles libera um minijogo.
+// UM PARQUE do GO PARK COMPLEX: o que foi "pro GO" — e o que veio DO GO —
+// anda solto aqui, e volta se você capturar no estilo do GO. E o GO PLACE,
+// onde cada um deles libera um minijogo.
+//
+// Cabem 20 por parque, e é por isso que as escolhas aqui usam uma LISTA
+// ROLÁVEL própria em vez do menu do diálogo: o menu do diálogo desenha todas
+// as opções de uma vez, e 20 linhas não cabem numa tela de 160 pixels.
 // As regras estão em src/systems/gopark.js; as tabelas em src/data/gopark.js.
 import { DB } from "../data/index.js";
 import { Assets } from "../core/assets.js";
@@ -9,13 +14,19 @@ import { panel, drawText, cursor, fade, PAL, LINE_H } from "../core/gfx.js";
 import { Dialogue } from "../systems/dialogue.js";
 import { guardar as guardarNoBox, cheio as boxCheio } from "../systems/box.js";
 import { parque, voltar, minijogoDe, chanceCaptura } from "../systems/gopark.js";
+import { reduzido } from "../core/reduzir.js";
 
 const W = 240, H = 160;
-const HORIZONTE = 60, CHAO = 108;
+const HORIZONTE = 60;
+const FAIXAS = 5, FAIXA0 = 96, FAIXA_H = 14;        // 5 fileiras: 20 cabem sem virar uma pilha só
+const LISTA_VIS = 6;                                 // linhas visíveis na lista rolável
 const SETAS = { up: "↑", down: "↓", left: "←", right: "→" };
 const seqNova = (n) => Array.from({ length: n }, () => ["up", "down", "left", "right"][Math.floor(Math.random() * 4)]);
 
 export class GoParkScene {
+  /** `i` é qual parque do complexo abrir (o overworld pergunta antes). */
+  constructor(i = 0) { this.iParque = i; }
+
   enter() {
     this.T = DB.GO_TEXTO;
     this.dlg = new Dialogue();
@@ -25,10 +36,12 @@ export class GoParkScene {
     this.menu = { tipo: "principal", i: 0 };
     this.captura = null;             // o arremesso rodando
     this.jogo = null;                // o minijogo rodando
+    this.lista = null;               // a lista rolável (capturar / GO PLACE)
     this.tentativas = {};            // arremessos gastos por Pokémon nesta visita
+    this.p = parque(this.st, this.iParque);
     // cada um anda de um lado pro outro numa faixa do gramado
-    this.bichos = parque(this.st).map((mon, i) => ({
-      mon, x: 30 + Math.random() * 180, y: CHAO - 10 - (i % 3) * 12, dir: Math.random() < 0.5 ? 1 : -1,
+    this.bichos = this.p.mons.map((mon, i) => ({
+      mon, x: 24 + Math.random() * 192, y: FAIXA0 + (i % FAIXAS) * FAIXA_H, dir: Math.random() < 0.5 ? 1 : -1,
       vel: 6 + Math.random() * 10, t: Math.random() * 3, bob: Math.random() * 6,
     }));
     Audio2.select();
@@ -57,6 +70,7 @@ export class GoParkScene {
     if (this.dlg.update(dt)) return;
     if (this.captura) return this.updateCaptura(dt);
     if (this.jogo) return this.updateJogo(dt);
+    if (this.lista) return this.updateLista();
     if (this.menu.tipo === "principal") return this.updatePrincipal();
   }
 
@@ -74,17 +88,65 @@ export class GoParkScene {
 
   nomes() { return this.bichos.map((b) => `${b.mon.nickname} CP${b.mon.cpGO || "?"}`); }
 
+  // ---------------------------------------------------------- lista rolável
+  /** Abre a lista. `itens` são rótulos; `cb(i)` recebe o índice escolhido, ou
+   *  -1 se desistiu. */
+  abrirLista(titulo, itens, cb) {
+    this.lista = { titulo, itens, i: 0, topo: 0, cb };
+  }
+
+  updateLista() {
+    const L = this.lista, n = L.itens.length;
+    if (Input.consume("up")) { L.i = (L.i + n - 1) % n; Audio2.blip(); }
+    if (Input.consume("down")) { L.i = (L.i + 1) % n; Audio2.blip(); }
+    L.topo = Math.max(0, Math.min(L.topo, n - LISTA_VIS));
+    if (L.i < L.topo) L.topo = L.i;                          // subiu além do topo
+    if (L.i >= L.topo + LISTA_VIS) L.topo = L.i - LISTA_VIS + 1;   // desceu além do rodapé
+    if (Input.consume("b")) { this.lista = null; Audio2.cancel(); return void L.cb(-1); }
+    if (!Input.consume("a")) return;
+    Audio2.select();
+    this.lista = null;
+    L.cb(L.i);
+  }
+
+  drawLista(ctx) {
+    const L = this.lista, n = L.itens.length;
+    const alt = Math.min(LISTA_VIS, n);
+    const h = alt * LINE_H + 22;
+    panel(ctx, 4, H - h - 4, W - 8, h);
+    drawText(ctx, L.titulo, 12, H - h + 2, PAL.ink);
+    for (let k = 0; k < alt; k++) {
+      const idx = L.topo + k;
+      if (idx >= n) break;
+      const y = H - h + 14 + k * LINE_H;
+      if (idx === L.i) cursor(ctx, 10, y);
+      drawText(ctx, L.itens[idx], 18, y, PAL.ink, { maxChars: 33 });
+    }
+    // a barrinha de rolagem, pra saber que tem mais embaixo
+    if (n > LISTA_VIS) {
+      const tx = W - 12, ty = H - h + 14, th = alt * LINE_H - 2;
+      ctx.fillStyle = PAL.ink2; ctx.fillRect(tx, ty, 2, th);
+      const bh = Math.max(4, th * alt / n);
+      ctx.fillStyle = PAL.ink; ctx.fillRect(tx, ty + (th - bh) * L.topo / Math.max(1, n - alt), 2, bh);
+    }
+    drawText(ctx, `${L.i + 1}/${n}`, 190, H - h + 2, PAL.ink2);
+  }
+
   // -------------------------------------------------------------- captura
   escolherCaptura() {
     if (!this.bichos.length) return void this.dlg.say(this.T.vazio);
-    this.dlg.ask(this.T.quem, [...this.nomes(), "VOLTAR"], (i) => {
+    this.abrirLista(this.T.quem, this.nomes(), (i) => {
       const b = this.bichos[i]; if (!b) return;
-      const gastos = this.tentativas[b.mon.nickname + b.mon.seed] || 0;
+      const gastos = this.tentativas[this.chave(b.mon)] || 0;
       if (gastos >= DB.GO_PARK.arremessos) return void this.dlg.say(this.T.fugiu.replace("{MON}", b.mon.nickname));
       this.captura = { bicho: b, fase: "mira", r: 1, t: 0, bola: null, chacoalhos: 0, nota: null };
       this.dlg.say(this.T.arremesso);
     });
   }
+
+  /** Dois bichos podem ter o mesmo apelido E a mesma semente (dois que vieram
+   *  do mesmo arquivo do GO, por exemplo). A identidade é o objeto. */
+  chave(mon) { return this.p.mons.indexOf(mon); }
 
   updateCaptura(dt) {
     const c = this.captura, b = c.bicho;
@@ -98,7 +160,7 @@ export class GoParkScene {
       c.nota = q > 0.85 ? 2 : q > 0.6 ? 1 : q > 0.3 ? 0 : -1;
       c.qualidade = q;
       c.fase = "voo"; c.t = 0; c.bola = { x: 120, y: 150 };
-      this.tentativas[b.mon.nickname + b.mon.seed] = (this.tentativas[b.mon.nickname + b.mon.seed] || 0) + 1;
+      this.tentativas[this.chave(b.mon)] = (this.tentativas[this.chave(b.mon)] || 0) + 1;
       Audio2.tone(500, 0.08);
       return;
     }
@@ -121,11 +183,14 @@ export class GoParkScene {
         this.captura = null;
         Audio2.heal();
         this.game.autosave?.(true);
-        return void this.dlg.say([this.T.pegou.replace("{MON}", b.mon.nickname), (onde === "box" ? this.T.box : this.T.equipe).replace("{MON}", b.mon.nickname)]);
+        const falas = [this.T.pegou.replace("{MON}", b.mon.nickname)];
+        if (b.mon.doGO) falas.push(this.T.chegouDoGO.replace("{MON}", b.mon.nickname));
+        falas.push((onde === "box" ? this.T.box : this.T.equipe).replace("{MON}", b.mon.nickname));
+        return void this.dlg.say(falas);
       }
       this.captura = null;
       Audio2.cancel();
-      const gastos = this.tentativas[b.mon.nickname + b.mon.seed];
+      const gastos = this.tentativas[this.chave(b.mon)];
       this.dlg.say(gastos >= DB.GO_PARK.arremessos ? this.T.fugiu.replace("{MON}", b.mon.nickname) : this.T.escapou.replace("{MON}", b.mon.nickname));
     }
   }
@@ -134,7 +199,7 @@ export class GoParkScene {
   escolherJogo() {
     if (!this.bichos.length) return void this.dlg.say(this.T.vazio);
     const lista = this.bichos.map((b) => `${minijogoDe(b.mon).nome} DE ${b.mon.nickname}`);
-    this.dlg.ask(this.T.qualJogo, [...lista, "VOLTAR"], (i) => {
+    this.abrirLista(this.T.qualJogo, lista, (i) => {
       const b = this.bichos[i]; if (!b) return;
       const mj = minijogoDe(b.mon);
       this.jogo = { mj, bicho: b, rodada: 0, notas: [], t: 0, pos: 0, dir: 1, alvo: 0.5, prog: 0, estado: "espera", espera: 1, seq: seqNova(4), i: 0, mostra: 2.2 };
@@ -221,15 +286,16 @@ export class GoParkScene {
       const sobe = Math.sin(this.t * 4 + b.bob) * (b.dir ? 1.5 : 0.5);
       if (img) {
         ctx.save();
-        if (b.dir > 0) { ctx.translate(Math.round(b.x + 16), 0); ctx.scale(-1, 1); ctx.drawImage(img, 0, Math.round(b.y - 32 + sobe), 32, 32); }
-        else ctx.drawImage(img, Math.round(b.x - 16), Math.round(b.y - 32 + sobe), 32, 32);
+        if (b.dir > 0) { ctx.translate(Math.round(b.x + 16), 0); ctx.scale(-1, 1); ctx.drawImage(reduzido(img, 32), 0, Math.round(b.y - 32 + sobe), 32, 32); }
+        else ctx.drawImage(reduzido(img, 32), Math.round(b.x - 16), Math.round(b.y - 32 + sobe), 32, 32);
         ctx.restore();
       }
-      if (!this.captura && !this.jogo && !this.dlg.active) drawText(ctx, `CP${b.mon.cpGO || "?"}`, Math.round(b.x - 12), Math.round(b.y - 40), "#fff");
+      if (!this.captura && !this.jogo && !this.lista && !this.dlg.active) drawText(ctx, `CP${b.mon.cpGO || "?"}`, Math.round(b.x - 12), Math.round(b.y - 40), "#fff");
     }
     if (this.captura) this.drawCaptura(ctx);
     if (this.jogo) this.drawJogo(ctx);
-    if (this.menu.tipo === "principal" && !this.dlg.active && !this.captura && !this.jogo) this.drawMenu(ctx);
+    if (this.lista) this.drawLista(ctx);
+    if (this.menu.tipo === "principal" && !this.dlg.active && !this.captura && !this.jogo && !this.lista) this.drawMenu(ctx);
     this.dlg.render(ctx);
     if (this.fadeA > 0) fade(ctx, this.fadeA);
   }
@@ -242,7 +308,7 @@ export class GoParkScene {
       if (i === this.menu.i) cursor(ctx, 9, y + 2);
       drawText(ctx, o, 17, y, PAL.ink);
     });
-    drawText(ctx, `GO PARK ${this.bichos.length}/${DB.GO_PARK.vagas}`, 150, 4, "#fff");
+    drawText(ctx, `${this.p.nome} ${this.bichos.length}/${DB.GO_PARK.porParque}`, 132, 4, "#fff", { maxChars: 17 });
   }
 
   drawCaptura(ctx) {

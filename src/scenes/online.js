@@ -252,7 +252,7 @@ export class OnlineMenuScene {
   }
 
   updateOque() {
-    const opcoes = ["CHAMAR PRA TROCAR", "DESAFIAR", "VOLTAR"];
+    const opcoes = ["CHAMAR PRA TROCAR", "DESAFIAR 1X1", "DESAFIAR 2X2", "VOLTAR"];
     const lista = this.outros();
     const alvo = lista[this.alvo];
     if (!alvo) { this.modo = "menu"; return; }
@@ -263,14 +263,15 @@ export class OnlineMenuScene {
     Audio2.select();
     const pick = opcoes[this.index2];
     if (pick === "VOLTAR") { this.modo = "jogadores"; return; }
-    const modo = pick === "DESAFIAR" ? "batalha" : "troca";
+    const modo = pick.startsWith("DESAFIAR") ? "batalha" : "troca";
+    const formato = pick === "DESAFIAR 2X2" ? "dupla" : "simples";
     if (modo === "batalha" && !this.st.party.some((m) => m.hp > 0)) {
       return void this.dlg.say(txt("batalhaSemTime"));
     }
     if (modo === "troca" && this.st.party.length < 2) {
       return void this.dlg.say(txt("trocaUltimo"));
     }
-    if (!Online.convidar(alvo.id, modo)) return void this.dlg.say(txt("semServidor"));
+    if (!Online.convidar(alvo.id, modo, formato)) return void this.dlg.say(txt("semServidor"));
     this.modo = "menu";
     this.dlg.say(txt("convidou", { NOME: alvo.nome }));
   }
@@ -288,7 +289,7 @@ export class OnlineMenuScene {
       const nomes = lista.map((p) => `${p.nome} ${p.mapa === this.st.player.map ? "(AQUI)" : ""}`.trim());
       menuBox(ctx, 8, 30, 140, nomes.length ? nomes : ["NINGUÉM"], this.alvo);
       if (this.modo === "oque") {
-        menuBox(ctx, 100, 78, 132, ["CHAMAR PRA TROCAR", "DESAFIAR", "VOLTAR"], this.index2);
+        menuBox(ctx, 100, 66, 132, ["CHAMAR PRA TROCAR", "DESAFIAR 1X1", "DESAFIAR 2X2", "VOLTAR"], this.index2);
       }
     } else if (this.modo === "frases") {
       menuBox(ctx, 8, 30, 150, DB.FRASES || [], this.index2);

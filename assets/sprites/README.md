@@ -23,6 +23,46 @@ assets/sprites/pokemon/back/001.png
 
 Sem isso, o sprite de frente é espelhado como provisório.
 
+## Pokémon (shiny)
+
+```
+assets/sprites/pokemon/shiny/001.png
+assets/sprites/pokemon/shiny/back/001.png
+```
+
+**Opcional, e é a cor certa.** Sem arquivo aqui, o shiny é o filtro de
+`src/core/assets.js`: a mesma arte com o matiz girado. O filtro tem um limite
+conhecido — girar o matiz não mexe em pixel cinza, então bicho preto-e-branco
+sai igual ao comum, que é o mesmo que não ter shiny. Quando o PNG existe, ele
+ganha do filtro.
+
+Pra baixar a arte shiny oficial (mesma fonte dos sprites comuns, e da mesma
+geração, pra não misturar traço):
+
+```bash
+python3 tools/fetch_sprites.py --shiny --only 95,112,201     # espécies escolhidas
+python3 tools/fetch_sprites.py --shiny --to 151              # Kanto inteira
+```
+
+`dev/shinycheck.html` mede quanto o shiny de cada espécie muda de cor (ΔE) e
+mostra comum e shiny lado a lado — é de lá que sai a lista de quem precisa de
+PNG próprio.
+
+## O SPINDA é diferente
+
+`pokemon/327.png` e `pokemon/shiny/327.png` **não vêm da PokeAPI**: eles são o
+desenho LIMPO, sem mancha nenhuma, porque as quatro manchas do SPINDA são
+carimbadas em tempo de execução pelo valor de personalidade do bicho (a mesma
+conta dos jogos de verdade — veja `src/data/spinda.js`). O sprite da PokeAPI
+vem com as manchas de UM Spinda assadas dentro; usar ele faria todo Spinda do
+jogo sair idêntico.
+
+```bash
+python3 tools/fetch_spinda.py    # monta o 327 limpo e a tabela das manchas
+```
+
+O `fetch_sprites.py` sabe disso e pula o 327 mesmo com `--force`.
+
 ## Personagens do mapa
 
 Uma folha por personagem, **4 colunas x 3 linhas**, cada quadro do mesmo tamanho
@@ -83,5 +123,9 @@ python3 tools/slice_sheet.py folha.png 64 64 assets/sprites/pokemon --start 1
 ## Sobre direitos
 
 Os sprites originais de Pokémon FireRed são da Nintendo / Creatures / Game Freak.
-Este repositório **não distribui** nenhum deles — se você colocar arquivos aqui,
-eles ficam só na sua máquina, e o `.gitignore` já evita commitá-los sem querer.
+
+**Atenção:** ao contrário do que este arquivo dizia antes, o `.gitignore` NÃO
+cobre `assets/sprites/` — os PNGs baixados aqui entram no repositório quando
+você commita (hoje são uns 2300 arquivos). Se a intenção for não distribuir a
+arte, acrescente `assets/sprites/pokemon/` ao `.gitignore` e tire os arquivos do
+índice com `git rm --cached -r assets/sprites/pokemon`.

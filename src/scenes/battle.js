@@ -26,6 +26,7 @@ import {
 import { habilidadeDoMon, entrada as entradaDaHabilidade, contato as contatoDaHabilidade, curaDoTurno } from "../systems/habilidades.js";
 import { opcoesMega, megaEvoluir, reverterMega, reverterTudo } from "../systems/mega.js";
 import { venceu as venceuAmizade } from "../systems/creche.js";
+import { reduzido } from "../core/reduzir.js";
 
 const W = 240, H = 160;
 
@@ -75,6 +76,10 @@ export class BattleScene {
     this.flash = 0;
     this.fx = [];                 // os efeitos das cutscenes de golpe
     this.raid = args.raid || null;   // GLITCH RAID: a casca do chefe
+    // O TOTEM de uma PROVAÇÃO (src/systems/provacoes.js). Ele não vem por
+    // argumento: vem DENTRO do bicho, porque quem monta o totem é o mundo e o
+    // que chega aqui é só um Pokémon grande com uma aura pendurada.
+    this.totem = this.foe?.totem || null;
     this.cristalUsado = false;       // o GOLPE Z é uma vez por batalha
     this.zArmado = false;
     // O CLIMA (src/data/habilidades.js): a TEMPESTADE chove sempre; o resto
@@ -87,6 +92,7 @@ export class BattleScene {
     if (this.raid) this.sp.f.escala = RAID.cresceDe;
     // o ALFA entra grande e fica grande — do seu lado também, se for seu
     if (!this.raid && this.foe?.alfa) this.sp.f.escala = 1.3;
+    if (this.totem) this.sp.f.escala = DB.TOTEM?.tamanho || 1.35;
     if (this.mine?.alfa) this.sp.p.escala = 1.3;
     this.crescendo = null;
     st.seen[this.foe.species] = true;
@@ -98,6 +104,25 @@ export class BattleScene {
   }
 
   exit() { Audio2.stopLoop(); }
+
+  /** O TOTEM DIGLETT, da cabeça pra baixo (src/core/diglettbombado.js). Ele
+   *  não é quadrado como os outros sprites, então não passa pelo `drawMon`: é
+   *  desenhado em pé na plataforma, com os pés nela e os punhos no alto da
+   *  tela. 3/4 do tamanho, sem suavizar — a peça inteira tem 99 px de altura e
+   *  a tela de batalha não tem isso livre acima da caixa de status. A batalha
+   *  em grupo (src/scenes/grupobattle.js) chama esta mesma função com o lugar e
+   *  o tamanho da vaga dele. */
+  drawDiglettBombado(ctx, fimg, bob, sp = this.sp.f, mon = this.foe, cx = 178, pe = 72, k = 0.75) {
+    if (sp.blink > 0 && Math.floor(sp.blink * 22) % 2 === 0) return;
+    const inteiro = Assets.diglettBombado(Assets.comCor(fimg, mon));
+    const l = sp.lunge > 0 ? -Math.sin((0.3 - sp.lunge) / 0.3 * Math.PI) * 12 : 0;
+    const w = Math.round(inteiro.width * k), h = Math.round(inteiro.height * k);
+    // encolhido pelo redutor de pixel art: o DIGLETT de cima não perde o olho
+    const img = reduzido(inteiro, w, h);
+    ctx.globalAlpha = sp.alpha;
+    ctx.drawImage(img, Math.round(cx - w / 2 + sp.dx + l), Math.round(pe - h + sp.dy + bob), w, h);
+    ctx.globalAlpha = 1;
+  }
 
   /** O chefe de GLITCH RAID nasce com a escala dele: se ele voltar pra tela por
    *  outro caminho (trocar de bicho, reviver), volta grande, e não do tamanho
@@ -188,6 +213,14 @@ export class BattleScene {
       await this.say(`${this.trainer.name} QUER BATALHAR!`);
       await this.trainerOut();
       await this.say(`${this.trainer.name} ENVIOU ${this.foe.nickname}!`);
+    } else if (this.totem) {
+      // as falas de acordar são da provação (src/data/provacoes.js): o que sobe
+      // da marca muda de uma pra outra, e é isso que faz dezoito lutas de chefe
+      // não serem a mesma luta dezoito vezes
+      Audio2.tone(147, 0.3, "triangle", 0.5);
+      for (const linha of this.totem.acorda || []) await this.say(linha);
+      await this.say((DB.PROVACOES_TEXTO?.apareceu || "O TOTEM {MON} SE LEVANTA!")
+        .replace("{MON}", this.foe.nickname));
     } else if (this.raid) {
       // a GLITCH RAID nunca tinha se apresentado: `raidApareceu` estava escrito
       // no story.js e não era dito por ninguém
@@ -216,8 +249,26 @@ export class BattleScene {
     await this.say(`VAI, ${this.mine.nickname}!`);
     if (this.clima) await this.say(DB.CLIMA_TEXTO[this.clima.tipo].continua);
     await this.entrou("f");
+    if (this.totem) await this.auraDoTotem();
     await this.entrou("p");
     this.menu = { type: "main", index: 0 };
+  }
+
+  /** A AURA DO TOTEM: um atributo dele já começa um estágio acima.
+   *
+   *  É pouco no papel (1,5x em um número só) e é muito na mão: o time de
+   *  pós-jogo que passa por cima de qualquer selvagem precisa, aqui, olhar QUAL
+   *  número subiu antes de escolher o golpe. Era isso ou dar mais HP pro totem
+   *  — e mais HP não faz ninguém pensar, só faz a luta durar. */
+  async auraDoTotem() {
+    const k = this.totem?.aura;
+    if (!k) return;
+    const T = DB.PROVACOES_TEXTO || {};
+    this.fStages[k] = Math.min(6, (this.fStages[k] || 0) + (DB.TOTEM?.aura ?? 1));
+    Audio2.tone(392, 0.08); Audio2.tone(523, 0.14);
+    await this.say((T.aura || "{STAT} DE {MON} AUMENTOU!")
+      .replace("{STAT}", DB.NOME_STAT?.[k] || k)
+      .replace("{MON}", this.foe.nickname));
   }
 
   /** O QUE A HABILIDADE FAZ AO ENTRAR EM CAMPO: GAROA/SECA mudam o clima,
@@ -829,6 +880,12 @@ export class BattleScene {
       Audio2.cancel();
       return void this.say(DB.STORY.glitch.raidSemBola);
     }
+    // O TOTEM NÃO É PRÊMIO: ele é porteiro. Nenhuma bola funciona nele — nem a
+    // GLITCHBALL, que pega tudo. O que se leva da marca é o cristal.
+    if (this.totem) {
+      Audio2.cancel();
+      return void this.say(DB.PROVACOES_TEXTO?.semBola || "A BOLA VOLTA PRA SUA MÃO.");
+    }
     const g = DB.STORY.glitchball;
     const ehGlitch = !!g && item === g.item;
     if (this.trainer) {
@@ -965,7 +1022,13 @@ export class BattleScene {
    *  RAID derrubada — os dois terminam no mesmo lugar, e um jeito só de guardar
    *  é um jeito só de errar. */
   async guardarCapturado() {
+    // espécie nova: a POKÉDEX anota, e diz que anotou (src/data/pokedex.js)
+    const novo = !this.st.caught[this.foe.species] && !!this.st.flags?.pokedex;
     this.st.caught[this.foe.species] = true;
+    if (novo && DB.POKEDEX_TEXTO?.registrou) {
+      Audio2.tone(660, 0.06); Audio2.tone(990, 0.1);
+      await this.say(DB.POKEDEX_TEXTO.registrou.replace("{MON}", this.foe.nickname));
+    }
     if (this.boss && this.npcKey) (this.st.npcState[this.npcKey] ||= {}).defeated = true;
     if (this.st.party.length < 6) {
       this.st.party.push(this.foe);
@@ -989,6 +1052,11 @@ export class BattleScene {
 
   async tryFlee() {
     this.menu = null;
+    if (this.totem) {
+      await this.say(DB.PROVACOES_TEXTO?.fuga || "A MARCA NÃO DEIXA VOCÊ SAIR.");
+      this.menu = { type: "main", index: 0 };
+      return;
+    }
     if (this.boss) {
       await this.say("A FENDA SE FECHOU ATRÁS DE VOCÊ. NÃO TEM PRA ONDE FUGIR!");
       this.menu = { type: "main", index: 0 };
@@ -1302,13 +1370,14 @@ export class BattleScene {
       ctx.drawImage(tart, Math.round(146 + this.tOut * 110), Math.round(4 + bob), 64, 64);
     } else if (!this.showTrainer && (!isFainted(this.foe) || this.disp.f > 0 || this.sp.f.alpha > 0)) {
       const fimg = Assets.mon(this.foe.species, this.foe.seed);
-      drawMon(Assets.comCor(fimg, this.foe), 146,
-              4 + bob + (this.raid ? RAID.desce : 0), this.sp.f, -1);
+      if (this.totem && this.foe.species === "diglett") this.drawDiglettBombado(ctx, fimg, bob);
+      else drawMon(Assets.comCor(fimg, this.foe), 146,
+                   4 + bob + (this.raid ? RAID.desce : 0), this.sp.f, -1);
     }
     if (this.ballAnim) this.drawBall(ctx);
     if (this.sp.p.alpha > 0) {
       const pimg = Assets.monBack(this.mine.species, this.mine.seed);
-      drawMon(Assets.comCor(pimg, this.mine), 14, 46 - bob, this.sp.p, 1);
+      drawMon(Assets.comCor(pimg, this.mine, true), 14, 46 - bob, this.sp.p, 1);
     }
 
     if (this.fx.length) this.drawFx(ctx);

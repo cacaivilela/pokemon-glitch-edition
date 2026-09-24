@@ -5,6 +5,7 @@ assets/sprites/pokemon/. Só stdlib.
     python3 tools/fetch_sprites.py                 # 151 de Kanto, frente + costas
     python3 tools/fetch_sprites.py --mega          # as formas MEGA
     python3 tools/fetch_sprites.py --regionais     # ALOLA, GALAR, HISUI, PALDEA
+    python3 tools/fetch_sprites.py --shiny --only 95,112,201   # a arte SHINY oficial
     python3 tools/fetch_sprites.py --to 151 --force
     python3 tools/fetch_sprites.py --base https://outro/espelho
 
@@ -102,6 +103,12 @@ def mais_dex():
 # todo mundo conhece é a HERÓI (id de forma 10256). Aqui: nº da Pokédex -> id
 # de forma que vale como arte da espécie.
 FORMA_DA_ESPECIE = {964: 10256}
+# ESPÉCIES QUE NÃO VÊM DAQUI. O sprite do SPINDA é montado por
+# tools/fetch_spinda.py: o desenho tem que ser o LIMPO, sem mancha, porque as
+# manchas dele são carimbadas na hora pelo valor de personalidade. O da PokeAPI
+# vem com as manchas de um Spinda assadas dentro, e baixar por cima faria todo
+# Spinda do jogo sair igual àquele.
+GERADOS = {327: "tools/fetch_spinda.py"}
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "assets", "sprites", "pokemon")
 
@@ -147,36 +154,58 @@ def main():
     ap.add_argument("--mega", action="store_true", help="só as formas MEGA")
     ap.add_argument("--regionais", action="store_true", help="só as formas regionais (ALOLA, GALAR, HISUI, PALDEA)")
     ap.add_argument("--mais", action="store_true", help="só as que faltavam (src/data/mais.js)")
+    ap.add_argument("--shiny", action="store_true",
+                    help="baixa a arte SHINY oficial pra pokemon/shiny/ em vez da comum")
+    ap.add_argument("--only", default="",
+                    help="lista de ids separados por vírgula (número da Pokédex ou id de forma)")
     a = ap.parse_args()
 
     jobs = []
-    dexes = (MEGA_DEX if a.mega else regionais_dex() if a.regionais else mais_dex() if a.mais
-             else EXTRA_DEX if a.extra else range(a.lo, a.hi + 1))
+    if a.only:
+        dexes = [int(x) for x in a.only.replace(" ", "").split(",") if x]
+    else:
+        dexes = (MEGA_DEX if a.mega else regionais_dex() if a.regionais else mais_dex() if a.mais
+                 else EXTRA_DEX if a.extra else range(a.lo, a.hi + 1))
+    # A ARTE SHINY mora numa pasta `shiny/` dentro de cada geração, com o mesmo
+    # número: .../firered-leafgreen/shiny/95.png e .../back/shiny/95.png. Ela
+    # tem que vir DA MESMA GERAÇÃO do sprite comum, senão o bicho comum é um
+    # sprite da geração III e o shiny dele é uma arte moderna — os dois lado a
+    # lado no mesmo jogo, com traço diferente.
+    destino = os.path.join(OUT, "shiny") if a.shiny else OUT
+    pulados = []
     for dex in dexes:
+        if dex in GERADOS and not a.shiny:
+            pulados.append(dex)
+            continue
         bases = [a.base]
-        if a.mega or (a.regionais and dex >= 10000):
+        if a.mega or (a.regionais and dex >= 10000) or (a.only and dex >= 10000):
             bases = [MODERN]              # forma: só existe com a arte moderna
-        elif a.extra or a.regionais or a.mais:
+        elif a.extra or a.regionais or a.mais or a.only:
             # da geração de estreia pra frente, até achar (as antigas não têm
             # sprite de costas em Esmeralda, por exemplo)
-            bases = [b for b, hi in ((EMERALD, 386), (PLATINUM, 493), (BLACK_WHITE, 649))
+            bases = ([DEFAULT_BASE] if dex <= 151 else []) + \
+                    [b for b, hi in ((EMERALD, 386), (PLATINUM, 493), (BLACK_WHITE, 649))
                      if dex <= hi] + [MODERN]
         forma = FORMA_DA_ESPECIE.get(dex)
         if forma:
             bases = [MODERN]
         src = forma or dex
-        jobs.append(([f"{b}/{src}.png" for b in bases], os.path.join(OUT, f"{dex:03d}.png")))
+        meio = "shiny/" if a.shiny else ""
+        jobs.append(([f"{b}/{meio}{src}.png" for b in bases],
+                     os.path.join(destino, f"{dex:03d}.png")))
         if not a.no_back:
-            jobs.append(([f"{b}/back/{src}.png" for b in bases],
-                         os.path.join(OUT, "back", f"{dex:03d}.png")))
+            jobs.append(([f"{b}/back/{meio}{src}.png" for b in bases],
+                         os.path.join(destino, "back", f"{dex:03d}.png")))
 
     tally = {}
     with ThreadPoolExecutor(max_workers=8) as pool:
         for res in pool.map(lambda j: grab(j[0], j[1], a.force), jobs):
             tally[res] = tally.get(res, 0) + 1
 
+    for dex in pulados:
+        print(f"  nº {dex} não vem daqui: rode {GERADOS[dex]}")
     print("  ".join(f"{k}: {v}" for k, v in sorted(tally.items())))
-    print(f"destino: {OUT}")
+    print(f"destino: {destino}")
     return 0 if tally.get("ok", 0) or tally.get("pulado", 0) else 1
 
 

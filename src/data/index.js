@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, aniv, reg, zonas, ovos, decamark, hab, pesos, mina, mais, gopark, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, aniv, reg, zonas, ovos, decamark, hab, pesos, mina, mais, gopark, spinda, prov, hack, duplas, dex, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -53,6 +53,11 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./mineracao.js" + V),
   import("./mais.js" + V),
   import("./gopark.js" + V),
+  import("./spinda.js" + V),
+  import("./provacoes.js" + V),
+  import("./hackeanas.js" + V),
+  import("./duplas.js" + V),
+  import("./pokedex.js" + V),
   fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
 
@@ -159,6 +164,22 @@ function mergeMaps(kanto, authored) {
   // de placa importados mostram por padrão.
   for (const [id, placas] of Object.entries(decamark.DECAMARK_PLACAS)) {
     if (out[id]) out[id].signs = { ...(out[id].signs || {}), ...placas };
+  }
+
+  // AS DUPLAS DE TREINADORES (src/data/duplas.js): um NPC por dupla, montado
+  // da tabela de lá — o formato é o de qualquer treinador escrito à mão, com
+  // `dupla: true` no `trainer`, e é isso que manda a batalha pra cena dupla.
+  for (const d of duplas.DUPLAS_TREINADORES) {
+    const m = out[d.mapa];
+    if (!m) continue;
+    const id = `dupla_${d.mapa}`;
+    if ((m.npcs || []).some((n) => n.id === id)) continue;
+    m.npcs = [...(m.npcs || []), {
+      id, x: d.x, y: d.y, dir: d.dir || "down", sprite: d.sprite,
+      lines: d.fala, afterLines: d.depois,
+      trainer: { name: d.nome, prize: d.premio, dupla: true, sight: 4,
+                 party: d.time.map(([id2, lvl]) => ({ id: id2, lvl })) },
+    }];
   }
 
   // O PC dos Centros Pokémon: mesma planta, mesma coordenada em Kanto inteira
@@ -421,7 +442,7 @@ export function buildDB() {
     SPECIES: species.buildSpecies(
       { ...gen1.GEN1, ...extra.EXTRA, ...reg.REGIONAIS, ...eras.ERAS_ESPECIES,
         ...iniciais.INICIAIS_ESPECIES, ...bones.BONES_ESPECIES, ...decamark.DECAMARK_ESPECIE, ...mais.MAIS,
-        ...mega.MEGA_FORMS },
+        ...hack.HACKEANAS, ...mega.MEGA_FORMS },
       types.TYPE_COLOR),
     EXTRA: extra.EXTRA,
     // as formas regionais entram na fenda junto com o resto que vaza pra lá
@@ -429,9 +450,15 @@ export function buildDB() {
     // tabela de origem repartido entre elas: metade dos encontros continua
     // sendo o que a fenda sempre teve, metade é o que vazou agora
     DIM_ENCOUNTERS: Object.fromEntries(Object.entries(extra.DIM_ENCOUNTERS).map(
-      ([terreno, lista]) => [terreno, comPesoDeCasa([...lista, ...(reg.DIM_REGIONAIS[terreno] || [])], mais.MAIS_DIM[terreno] || [])])),
+      ([terreno, lista]) => [terreno, comPesoDeCasa(
+        [...lista, ...(reg.DIM_REGIONAIS[terreno] || []), ...(hack.DIM_HACKEANAS[terreno] || [])],
+        mais.MAIS_DIM[terreno] || [])])),
     REGIONAIS: reg.REGIONAIS,
-    REGIAO: reg.REGIAO,
+    // AS FORMAS HACKEANAS entram no mesmo rótulo de região das regionais: pra
+    // quem lê a Pokédex, "HACK" é de onde aquele bicho veio (src/data/hackeanas.js)
+    REGIAO: { ...reg.REGIAO, ...hack.REGIAO_HACKEANAS },
+    HACKEANAS: hack.HACKEANAS,
+    HACK_BASE_DE: hack.BASE_DE,
     PEDRA_GELO: reg.PEDRA_GELO,
     WEATHER_TRIO: extra.WEATHER_TRIO,
     RARE_LEGEND: extra.RARE_LEGEND,
@@ -442,6 +469,25 @@ export function buildDB() {
     DECAMARK: { registro: decamark.REGISTRO, naFenda: decamark.REGISTRO_NA_FENDA },
     CRISTAL: bones.CRISTAL,
     ZCRISTAIS: zc.ZCRISTAIS,
+    ITENS_RENOMEADOS: zc.RENOMEADOS,
+    // AS PROVAÇÕES da ILHA DOIS: de onde os cristais de tipo saem agora
+    PROVACOES: prov.PROVACOES,
+    PROVACAO_GUARDIA: prov.GUARDIA,
+    PROVACOES_TEXTO: prov.PROVACOES_TEXTO,
+    TOTEM: prov.TOTEM,
+    // AS BATALHAS DUPLAS (e em trio): src/data/duplas.js
+    ESPALHA: duplas.ESPALHA,
+    FORCA_ESPALHADA: duplas.FORCA_ESPALHADA,
+    AJUDANTES: duplas.AJUDANTES,
+    AJUDANTE_ABAIXO: duplas.AJUDANTE_ABAIXO,
+    TRIO_A_PARTIR: duplas.TRIO_A_PARTIR,
+    DUPLAS_TREINADORES: duplas.DUPLAS_TREINADORES,
+    DUPLA_TEXTO: duplas.DUPLA_TEXTO,
+    // A POKÉDEX: as falas do professor, os marcos e o AMULETO (src/data/pokedex.js)
+    POKEDEX_TEXTO: dex.POKEDEX_TEXTO,
+    MARCOS_DEX: dex.MARCOS,
+    AMULETO: dex.AMULETO,
+    NOME_STAT: prov.NOME_STAT,
     DESCIDA: desc.DESCIDA,
     BOLAS: bolas.BOLAS,
     ANIVERSARIO: aniv.ANIVERSARIO,
@@ -471,7 +517,8 @@ export function buildDB() {
     FLY_SPOTS: field.FLY_SPOTS,
     MUSIC: music.MUSIC,
     MUSIC_ALIAS: music.MUSIC_ALIAS,
-    ITEM_LORE: { ...loot.ITEM_LORE, ...mega.PEDRA_LORE, ...bolas.BOLA_LORE, ...ovos.OVO_LORE, ...decamark.DECAMARK_LORE },
+    ITEM_LORE: { ...loot.ITEM_LORE, ...mega.PEDRA_LORE, ...bolas.BOLA_LORE, ...ovos.OVO_LORE, ...decamark.DECAMARK_LORE,
+                 [dex.AMULETO.item]: dex.AMULETO.lore },
     STARTERS: species.STARTERS,
     BOX: box.BOX,
     BOX_PAPEIS: box.BOX_PAPEIS,
@@ -489,7 +536,8 @@ export function buildDB() {
     OVOS: ovos.OVOS,
     MINERACAO: mina,
     GO_PARK: gopark.GO_PARK, CPM: gopark.CPM, MINIJOGOS_GO: gopark.MINIJOGOS_GO, MINIJOGO_POR_TIPO: gopark.MINIJOGO_POR_TIPO,
-    PREMIO_GO: gopark.PREMIO_GO, GO_TEXTO: gopark.GO_TEXTO,
+    PREMIO_GO: gopark.PREMIO_GO, GO_TEXTO: gopark.GO_TEXTO, GO_PARQUE_NOME: gopark.GO_PARQUE_NOME,
+    SPINDA_MANCHAS: spinda.SPINDA_MANCHAS, SPINDA_CORPO: spinda.SPINDA_CORPO, SPINDA_MANCHA: spinda.SPINDA_MANCHA,
     OVO_TEXTO: ovos.OVO_TEXTO,
     ZONA_TEXTO: zonas.ZONA_TEXTO,
     SEVII: sevii.SEVII,
@@ -501,6 +549,7 @@ export function buildDB() {
     ARISCOS: bravos.ARISCOS,
     RIVAL: rival.RIVAL,
     VERSAO: versao.VERSAO,
+    VOLUME: versao.VOLUME,
     MISSAO_TEXTO: missoes.MISSAO_TEXTO,
     IDIOMAS: idiomas.IDIOMAS,
     DICIONARIOS: idiomas.DICIONARIOS,

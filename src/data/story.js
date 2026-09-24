@@ -371,8 +371,8 @@ export const STORY = {
     semTime: "VOCÊ AINDA NÃO TEM NENHUM POKÉMON PRA GUARDAR.",
   },
 
-  /** DECODIFICADOR DE GENOMA. O professor entrega na PRIMEIRA conversa, antes
-   *  de qualquer insígnia: é o aparelho que ele usava pra ler genoma e que
+  /** DECODIFICADOR DE GENOMA. O professor entrega logo depois do inicial e da
+   *  POKÉDEX (a ordem está em src/data/pokedex.js): é o aparelho que ele usava pra ler genoma e que
    *  começou a devolver leitura de dois bichos ao mesmo tempo. Ele junta e
    *  separa — e o que ele junta continua junto depois de salvar. */
   fusao: {

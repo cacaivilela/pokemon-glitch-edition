@@ -1,9 +1,11 @@
-// OS CRISTAIS Z: dezoito de TIPO na ILHA DOIS, sete de ESPÉCIE nas outras.
+// OS CRISTAIS Z: dezenove de TIPO (prêmio das PROVAÇÕES, por Kanto), sete de ESPÉCIE nas ilhas.
 //
 // A ilha 2 era a sobra da conta dos bonés: ela pedia o boné da geração 2, e boné
 // de JOHTO nunca existiu (ver src/data/bones.js). Em vez de ficar sendo a ilha
-// sem graça, ela virou A ILHA DOS CRISTAIS — um de cada tipo, espalhados por ela
-// e pelo CABO DA BEIRA, pra quem quiser catar todos.
+// sem graça, ela virou A ILHA DAS PROVAÇÕES — uma marca no chão pra cada tipo,
+// um TOTEM dormindo em cima de cada marca, e o cristal daquele tipo na mão de
+// quem derrubar o totem. Quem manda nisso é src/data/provacoes.js; aqui embaixo
+// fica só O QUE É cada cristal.
 //
 // COMO SE USA: com o cristal do tipo certo na mochila, aperte Q antes de
 // escolher o golpe. Se o golpe for daquele tipo, ele sai como GOLPE Z — uma vez
@@ -35,8 +37,22 @@ const TABLE = [
   ["SOMBRIO", "sombrio", "BURACO NEGRO"],
   ["AÇO", "aco", "FERRO CORTA-MUNDO"],
   ["FADA", "fada", "BRILHO FEÉRICO"],
-  ["GLITCH", "glitch", "SOBRESCREVER TUDO"],
+  // O DE DRAGÃO chegou depois, junto com a provação dele (src/data/provacoes.js),
+  // e chegou com nome próprio como o de GLITCH: DRACONINUM Z.
+  ["DRAGÃO", "dragao", "DESTRUIÇÃO MEDIEVAL", "draconinum z"],
+  // O DE GLITCH TEM NOME PRÓPRIO. Os dezessete de cima são "CRISTAL Z DE
+  // <TIPO>" porque o jogo é em português e um cristal de água se chama cristal
+  // de água. O décimo oitavo não: GLITCH não é um tipo que existe em lugar
+  // nenhum, então ele não tem nome traduzido pra respeitar — e o nome que ele
+  // pede é o da série, o que a gente usaria se esse tipo tivesse existido.
+  ["GLITCH", "glitch", "SOBRESCREVER TUDO", "glitchinium"],
 ];
+
+/** Nomes antigos de item -> nome de hoje. Quem tem "cristal z de glitch" na
+ *  mochila de um save anterior fica com o GLITCHINIUM no lugar (o jogo aplica
+ *  isso ao carregar, em src/main.js): renomear um item sem isso é confiscar o
+ *  item de quem já tinha. */
+export const RENOMEADOS = { "cristal z de glitch": "glitchinium" };
 
 /** Força de todo golpe Z de tipo. Um número só: o Z é o teto, e teto que varia
  *  por tipo vira tabela de decoreba. O do PIKACHU é mais forte de propósito —
@@ -45,9 +61,9 @@ export const PODER_Z = 180;
 
 export const ZCRISTAIS = [];
 export const Z_GOLPES = {};
-for (const [tipo, slug, nome] of TABLE) {
+for (const [tipo, slug, nome, apelido] of TABLE) {
   const golpe = `z${slug}`;
-  ZCRISTAIS.push({ tipo, item: `cristal z de ${slug}`, golpe, nome });
+  ZCRISTAIS.push({ tipo, item: apelido || `cristal z de ${slug}`, golpe, nome });
   Z_GOLPES[golpe] = {
     name: nome, type: tipo, power: PODER_Z, acc: 100, pp: 1, category: "especial", z: true,
   };
@@ -86,35 +102,14 @@ for (const [item, especie, tipo, nome, poder, mapa, x, y] of ESPECIE) {
 /** O cristal daquele tipo, ou null. */
 export const cristalDoTipo = (tipo) => ZCRISTAIS.find((c) => c.tipo === tipo) || null;
 
-/** ONDE ELES ESTÃO: espalhados pela ILHA DOIS e pelo CABO DA BEIRA, os dois
- *  mapas da ilha 2, com pelo menos seis tiles entre um e outro — juntos demais
- *  eles viram um monte, e catar um monte não é catar.
+/** ONDE ELES ESTÃO: NO FIM DE UMA PROVAÇÃO.
  *
- *  Os lugares foram escolhidos conferindo o mapa: chão andável, três vizinhos
- *  livres, longe de porta. A ordem casa com a de TABLE, então o primeiro tipo
- *  fica no primeiro lugar. */
-const LUGARES = [
-  ["two_island", 8, 5],
-  ["two_island", 13, 4],
-  ["two_island", 15, 8],
-  ["two_island", 16, 13],
-  ["two_island", 20, 9],
-  ["two_island", 22, 13],
-  ["two_island", 24, 5],
-  ["two_island", 26, 9],
-  ["two_island", 26, 15],
-  ["two_island", 28, 3],
-  ["two_island", 29, 12],
-  ["two_island_cape_brink", 6, 14],
-  ["two_island_cape_brink", 7, 33],
-  ["two_island_cape_brink", 8, 38],
-  ["two_island_cape_brink", 9, 17],
-  ["two_island_cape_brink", 11, 35],
-  ["two_island_cape_brink", 14, 18],
-  ["two_island_cape_brink", 14, 38],
-];
-
-ZCRISTAIS.forEach((c, i) => {
-  const l = LUGARES[i];
-  if (l) { c.mapa = l[0]; c.x = l[1]; c.y = l[2]; }
-});
+ *  Eles já estiveram largados pelo chão da ILHA DOIS e do CABO DA BEIRA —
+ *  dezoito bolas espalhadas, catadas em meia hora de caminhada. Agora cada um é
+ *  o prêmio do TOTEM que dorme naquele mesmo lugar (src/data/provacoes.js): a
+ *  lista de lugares mudou de arquivo porque o lugar deixou de ser um esconderijo
+ *  e virou uma luta, e é a provação que sabe onde a luta acontece.
+ *
+ *  Os DE ESPÉCIE, ali em cima, continuam no chão de uma ilha cada um. Eles não
+ *  ganharam provação de propósito: cristal que só serve pra UM bicho já custa
+ *  encontrar o bicho. */

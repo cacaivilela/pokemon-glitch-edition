@@ -94,6 +94,7 @@ export const ONLINE_TEXTO = {
   trocaUltimo: "É O ÚNICO POKÉMON QUE VOCÊ TEM. SEM ELE NÃO DÁ PRA ANDAR.",
 
   batalhaConvite: "{NOME} TE DESAFIOU PRA UMA BATALHA!",
+  batalhaConviteDupla: "{NOME} TE DESAFIOU PRA UMA BATALHA DUPLA (2X2)!",
   batalhaEspera: "ESPERANDO {NOME}...",
   batalhaComeca: "A BATALHA CONTRA {NOME} VAI COMEÇAR!",
   batalhaSemTime: "VOCÊ PRECISA DE UM POKÉMON EM PÉ PRA BATALHAR.",

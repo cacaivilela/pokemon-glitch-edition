@@ -40,7 +40,11 @@ export function rollDimEncounter(terrain, state) {
   for (const e of table) {
     r -= e.w;
     if (r <= 0) {
-      const { lvl, opts } = talvezAlfa(randRange(e.min, e.max), { ...brilho, corrupt: chance(0.15) });
+      // `corrupt: true` na entrada nasce corrompido SEMPRE (é o caso das FORMAS
+      // HACKEANAS, que são literalmente isso) — igual ao que a tabela de Kanto
+      // já fazia logo abaixo. O resto da fenda continua na chance de sempre.
+      const { lvl, opts } = talvezAlfa(randRange(e.min, e.max),
+        { ...brilho, corrupt: !!e.corrupt || chance(0.15) });
       return { mon: createMon(e.id, lvl, opts), glitch: true };
     }
   }

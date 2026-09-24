@@ -37,6 +37,21 @@ const ctx = buffer.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 dctx.imageSmoothingEnabled = false;
 
+/** ITEM QUE MUDOU DE NOME. Só o CRISTAL Z DE GLITCH até agora, que virou
+ *  GLITCHINIUM (src/data/zcristais.js). Trocar o nome de um item sem trocar a
+ *  chave na mochila de quem já tinha é confiscar o item: o jogo procuraria o
+ *  nome novo e acharia um vidro vazio. A troca é feita ao carregar, uma vez, e
+ *  soma as quantidades caso as duas chaves existam. */
+function renomearItens(st) {
+  const mapa = DB.ITENS_RENOMEADOS || {};
+  for (const [antigo, novo] of Object.entries(mapa)) {
+    const n = st?.items?.[antigo];
+    if (!n) continue;
+    st.items[novo] = Math.min(999, (st.items[novo] || 0) + n);
+    delete st.items[antigo];
+  }
+}
+
 function newState() {
   return {
     player: { name: "VERMELHO", map: DB.START_MAP, ...DB.MAPS[DB.START_MAP].spawn },
@@ -138,6 +153,7 @@ const game = {
     if (data) {
       this.state = data;
       this.state.badges ||= [];
+      renomearItens(this.state);
       reverterTudo(this.state);
       Glitch.forced = !!this.state.flags?.glitchWorld;
       this.state.party.forEach(recalc);
@@ -304,6 +320,8 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
     const [sid, slvl] = (q.get("starter") || "charmander").split(":");
     const mon = game.giveStarter(sid);
     if (slvl) { mon.level = +slvl; recalc(mon); mon.hp = mon.maxHp; }
+    // atalho de dev: a POKÉDEX já vem na mão (o resto do laboratório não)
+    game.state.flags.pokedex = true;
   }
   const p = game.state.player;
   if (q.has("map")) {

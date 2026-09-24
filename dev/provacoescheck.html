@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem das PROVAÇÕES</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=9000">
+<script type="module">
+// AS PROVAÇÕES: as dezenove marcas espalhadas por Kanto, na ordem, os totens que dormem nelas e o
+// cristal Z que sai de cada uma. Sem jogo — só as peças
+// (src/data/provacoes.js, src/systems/provacoes.js).
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+let falhas = 0;
+const ok = (t, c) => { if (!c) falhas++; p(`${t}: ${c ? "OK" : "FALHOU"}`, c ? "ok" : "erro"); };
+
+try {
+  const { DB } = await import("/src/data/index.js");
+  const { PROVACOES, PROVACOES_TEXTO, TOTEM, GUARDIA } = await import("/src/data/provacoes.js");
+  const { estado, feitas, noMapa, montarTotem, pagar, aPagar, chaveDoTotem, temOTipo, ilhaAcordou,
+          proxima, espalhar, espalhadas, falaDaGuardia }
+    = await import("/src/systems/provacoes.js");
+  const { RAID } = await import("/src/data/glitch.js");
+
+  h("AS DEZENOVE");
+  ok("DB.PROVACOES existe", !!DB.PROVACOES && DB.PROVACOES === PROVACOES);
+  ok("são 19", PROVACOES.length === 19);
+  ok("uma por tipo, sem repetir", new Set(PROVACOES.map((x) => x.tipo)).size === 19);
+  ok("um tipo de cada, e todos existem", PROVACOES.every((x) => DB.TYPES.includes(x.tipo)));
+  const semProva = DB.TYPES.filter((t) => !PROVACOES.some((x) => x.tipo === t));
+  ok(`todo tipo do jogo tem provação: ${semProva.join(", ") || "nenhum de fora"}`, !semProva.length);
+  const ORDEM = ["NORMAL", "LUTADOR", "VOADOR", "VENENO", "TERRA", "PEDRA", "INSETO", "FANTASMA", "AÇO",
+    "FOGO", "ÁGUA", "PLANTA", "ELÉTRICO", "PSÍQUICO", "GELO", "DRAGÃO", "SOMBRIO", "FADA", "GLITCH"];
+  ok("a ordem é a da tabela de tipos, GLITCH por último", PROVACOES.map((x) => x.tipo).join() === ORDEM.join());
+  ok("o nível sobe a cada marca", PROVACOES.every((x, i) => !i || x.nivel > PROVACOES[i - 1].nivel));
+  ok("cada uma paga o cristal daquele tipo",
+    PROVACOES.every((x) => DB.ZCRISTAIS.find((c) => c.tipo === x.tipo)?.item === x.item));
+  ok("todo cristal de tipo tem provação",
+    DB.ZCRISTAIS.filter((c) => !c.especie).every((c) => PROVACOES.some((x) => x.item === c.item)));
+  ok("os de ESPÉCIE continuam sem provação (e no chão)",
+    DB.ZCRISTAIS.filter((c) => c.especie).every((c) => c.mapa && !PROVACOES.some((x) => x.item === c.item)));
+  ok("nenhum cristal de TIPO ficou largado no chão",
+    DB.ZCRISTAIS.filter((c) => !c.especie).every((c) => !c.mapa));
+  ok("o golpe Z de cada uma existe",
+    PROVACOES.every((x) => DB.MOVES[DB.ZCRISTAIS.find((c) => c.item === x.item).golpe]));
+  ok("ids únicos", new Set(PROVACOES.map((x) => x.id)).size === 19);
+  ok("o de GLITCH se chama GLITCHINIUM",
+    PROVACOES.find((x) => x.tipo === "GLITCH").item === "glitchinium");
+  const dragao = PROVACOES.find((x) => x.tipo === "DRAGÃO");
+  ok("o de DRAGÃO é o DRACONINUM Z, com DESTRUIÇÃO MEDIEVAL",
+    dragao.item === "draconinum z" && DB.MOVES[DB.ZCRISTAIS.find((c) => c.item === dragao.item).golpe].name === "DESTRUIÇÃO MEDIEVAL"
+    && DB.MOVES[DB.ZCRISTAIS.find((c) => c.item === dragao.item).golpe].type === "DRAGÃO");
+  ok("e o totem dele é DRAGAPULT", dragao.totem === "dragapult");
+  ok("os outros 17 continuam CRISTAL Z DE <TIPO>",
+    PROVACOES.filter((x) => !["GLITCH", "DRAGÃO"].includes(x.tipo)).every((x) => x.item.startsWith("cristal z de ")));
+  ok("o nome antigo do GLITCHINIUM está na tabela de renomeados",
+    DB.ITENS_RENOMEADOS["cristal z de glitch"] === "glitchinium");
+
+  h("OS TOTENS");
+  ok("toda espécie existe", PROVACOES.every((x) => DB.SPECIES[x.totem]));
+  ok("cada totem é do tipo da provação dele",
+    PROVACOES.every((x) => DB.SPECIES[x.totem]?.types.includes(x.tipo)));
+  ok("todos de pós-jogo (nível >= 55)", PROVACOES.every((x) => x.nivel >= 55));
+  ok("a aura é um atributo de verdade",
+    PROVACOES.every((x) => ["atk", "def", "spa", "spd", "spe"].includes(x.aura)));
+  ok("toda aura tem nome escrito", PROVACOES.every((x) => DB.NOME_STAT[x.aura]));
+  ok("todo totem tem golpe pra usar", PROVACOES.every((x) => montarTotem(x).moves.length > 0));
+  for (const x of PROVACOES) {
+    const m = montarTotem(x);
+    p(`${x.tipo.padEnd(9)} ${String(DB.SPECIES[x.totem].name).padEnd(12)} nv${x.nivel} ` +
+      `hp=${m.maxHp} aura=${DB.NOME_STAT[x.aura]} — ${x.nome}`);
+  }
+  const semTotem = montarTotem(PROVACOES[0]);
+  ok("o HP sai inflado pelo TOTEM.vidas", semTotem.maxHp > 0 && semTotem.hp === semTotem.maxHp);
+  ok("a aura viaja dentro do bicho", !!semTotem.totem?.aura && !!semTotem.totem?.acorda?.length);
+  ok("o TOTEM é menor que o chefe de raid", TOTEM.tamanho < RAID.tamanho);
+
+  h("OS LUGARES");
+  const tag = (mapa, x, y) => {
+    const geo = DB.KANTO[mapa];
+    return x < 0 || y < 0 || x >= geo.w || y >= geo.h ? -1 : geo.tags.charCodeAt(y * geo.w + x) - 48;
+  };
+  const livre = (mapa, x, y) => [DB.TAG.FREE, DB.TAG.GRASS].includes(tag(mapa, x, y));
+  const vizinhos = (m) => [[0, 1], [0, -1], [1, 0], [-1, 0]].filter(([dx, dy]) => livre(m.mapa, m.x + dx, m.y + dy)).length;
+  ok("nenhuma nas ilhas: todas em Kanto", PROVACOES.every((x) => !/island|sevii|navel/.test(x.mapa) || x.mapa === "cinnabar_island"));
+  ok("cada uma num mapa diferente", new Set(PROVACOES.map((x) => x.mapa)).size === PROVACOES.length);
+  ok("toda uma tem o nome do lugar pra guardiã falar", PROVACOES.every((x) => x.lugar?.length > 2));
+  ok("toda marca tem os 8 vizinhos andáveis",
+    PROVACOES.every((x) => [-1, 0, 1].every((dx) => [-1, 0, 1].every((dy) => livre(x.mapa, x.x + dx, x.y + dy)))));
+  ok("toda marca está em chão andável", PROVACOES.every((x) => livre(x.mapa, x.x, x.y)));
+  ok("toda marca tem pelo menos 3 vizinhos livres", PROVACOES.every((x) => vizinhos(x) >= 3));
+  ok("nenhuma em cima de outra", new Set(PROVACOES.map((x) => `${x.mapa}.${x.x},${x.y}`)).size === 19);
+  ok("nenhuma em cima de um NPC do mapa",
+    PROVACOES.every((x) => !(DB.MAPS[x.mapa]?.npcs || []).some((n) => n.x === x.x && n.y === x.y)));
+  ok("nenhuma em cima de uma porta",
+    PROVACOES.every((x) => !(DB.KANTO[x.mapa]?.warps || []).some((w) => w.x === x.x && w.y === x.y)));
+  ok("nenhuma na frente de uma porta",
+    PROVACOES.every((x) => !(DB.KANTO[x.mapa]?.warps || []).some((w) => w.x === x.x && Math.abs(w.y - x.y) === 1)));
+  const perto = PROVACOES.flatMap((a, i) => PROVACOES.slice(i + 1)
+    .filter((b) => b.mapa === a.mapa && Math.abs(a.x - b.x) + Math.abs(a.y - b.y) < 6)
+    .map((b) => `${a.tipo}/${b.tipo}`));
+  ok(`pelo menos 6 tiles entre duas marcas do mesmo mapa ${perto.length ? "(" + perto.join(", ") + ")" : ""}`, !perto.length);
+
+  h("A GUARDIÃ");
+  ok("fica na ILHA DOIS", GUARDIA.mapa === "two_island" && DB.PROVACAO_GUARDIA === GUARDIA);
+  ok("em chão andável", livre(GUARDIA.mapa, GUARDIA.x, GUARDIA.y));
+  ok("não pisa em ninguém",
+    !(DB.MAPS[GUARDIA.mapa]?.npcs || []).some((n) => n.x === GUARDIA.x && n.y === GUARDIA.y));
+  ok("não pisa em marca nenhuma",
+    !PROVACOES.some((x) => x.mapa === GUARDIA.mapa && x.x === GUARDIA.x && x.y === GUARDIA.y));
+  ok("não tranca a porta do porto",
+    !(DB.KANTO[GUARDIA.mapa]?.warps || []).some((w) => w.x === GUARDIA.x && w.y === GUARDIA.y));
+
+  h("O ESTADO DE CADA UMA (só olhando o save)");
+  const save = (extra = {}) => ({ flags: {}, items: {}, party: [], npcState: {}, playtime: 0, ...extra });
+  const agua = PROVACOES.find((x) => x.tipo === "ÁGUA");
+  const glitch = PROVACOES.find((x) => x.tipo === "GLITCH");
+  let st = save({ party: [{ species: "lapras" }] });
+  ok("antes do pós-jogo: fechada", estado(st, agua) === "fechada" && !ilhaAcordou(st));
+  const naoEspalha = save(); 
+  ok("e a guardiã não espalha antes do pós-jogo", espalhar(naoEspalha) === false && !espalhadas(naoEspalha));
+  const todasNoMapa = (s) => PROVACOES.reduce((n, x) => n + noMapa(s, x.mapa).filter((y) => y === x).length, 0);
+  ok("e o mapa não mostra marca nenhuma", todasNoMapa(st) === 0);
+  st.flags.caughtMissingno = true;
+  ok("pós-jogo aberto, mas sem falar com a guardiã: nenhuma marca", todasNoMapa(st) === 0);
+  ok("a primeira conversa espalha", espalhar(st) === true && espalhadas(st));
+  ok("a segunda não espalha de novo", espalhar(st) === false);
+  ok("depois de espalhar, as 19 aparecem", todasNoMapa(st) === 19);
+  ok("a próxima é a de NORMAL", proxima(st)?.tipo === "NORMAL");
+  // o que está pronto depende da fila: as de antes da ÁGUA feitas
+  const ateAgua = (extra = {}) => save({ flags: { caughtMissingno: true, provacoesEspalhadas: true },
+    provacoes: Object.fromEntries(PROVACOES.slice(0, PROVACOES.indexOf(agua)).map((x) => [x.id, { feita: true }])),
+    ...extra });
+  ok("com LAPRAS e ÁGUA na vez: ÁGUA pronta", estado(ateAgua({ party: [{ species: "lapras" }] }), agua) === "pronta"
+    && temOTipo(st, agua));
+  ok("fora da vez: travada, mesmo com o tipo", estado(st, agua) === "travada");
+  ok("GELO vem depois: travada com LAPRAS", estado(ateAgua({ party: [{ species: "lapras" }] }), PROVACOES.find((x) => x.tipo === "GELO")) === "travada");
+  ok("na vez, sem o tipo: semtipo", estado(ateAgua(), agua) === "semtipo");
+  ok("o que está no PC não conta", estado(ateAgua({ box: [{ species: "lapras" }] }), agua) === "semtipo");
+  ok("a de GLITCH nasce travada", estado(st, glitch) === "travada");
+  st = ateAgua({ party: [{ species: "lapras" }] });
+
+  h("A LUTA E O PRÊMIO");
+  ok("nada a pagar antes de lutar", aPagar(st) === null);
+  st.npcState[chaveDoTotem(agua)] = { defeated: true };
+  ok("o totem caiu: há o que pagar", aPagar(st) === agua);
+  const premio = pagar(st, agua);
+  ok("o cristal foi pra mochila", st.items[agua.item] === 1);
+  ok("o prêmio fala três linhas", premio?.length === 3);
+  ok("e ensina o Q", premio[2] === PROVACOES_TEXTO.comoUsa);
+  ok("agora está feita", estado(st, agua) === "feita" && feitas(st) === PROVACOES.indexOf(agua) + 1);
+  ok("a marca sumiu do mapa", !noMapa(st, agua.mapa).some((x) => x.tipo === "ÁGUA"));
+  ok("e a vez passou pra de PLANTA", proxima(st)?.tipo === "PLANTA");
+  ok("não paga duas vezes", aPagar(st) === null && pagar(st, agua) === null);
+
+  h("SAVE ANTIGO (os cristais estavam largados no chão)");
+  const velho = save({ flags: { caughtMissingno: true, provacoesEspalhadas: true }, items: { [agua.item]: 1 } });
+  ok("quem já tem o cristal não luta de novo", estado(velho, agua) === "feita");
+  ok("e ele não aparece no mapa", !noMapa(velho, agua.mapa).some((x) => x.tipo === "ÁGUA"));
+  ok("e a fila pula a que ele já tem", (() => {
+    const v = save({ flags: { caughtMissingno: true, provacoesEspalhadas: true },
+      items: Object.fromEntries(PROVACOES.slice(0, 3).map((x) => [x.item, 1])) });
+    return proxima(v) === PROVACOES[3];
+  })());
+
+  h("A ÚLTIMA");
+  const quase = save({
+    flags: { caughtMissingno: true }, party: [{ species: "missingno" }],
+    provacoes: Object.fromEntries(PROVACOES.filter((x) => x.tipo !== "GLITCH").map((x) => [x.id, { feita: true }])),
+  });
+  quase.flags.provacoesEspalhadas = true;
+  ok("18 feitas", feitas(quase) === 18);
+  ok("com MISSINGNO na equipe ela abre", estado(quase, glitch) === "pronta");
+  ok("sem ele, ela pede o tipo",
+    estado({ ...quase, party: [{ species: "lapras" }] }, glitch) === "semtipo");
+  ok("o totem dela é MISSINGNO.", glitch.totem === "missingno" && DB.SPECIES.missingno.types.includes("GLITCH"));
+  const pagoGlitch = pagar(save({ flags: { caughtMissingno: true } }), glitch);
+  ok("e o prêmio dela fala o nome próprio do cristal", pagoGlitch[1].includes("GLITCHINIUM"));
+  ok("um save antigo com o nome velho vira GLITCHINIUM", (() => {
+    const st = { items: { "cristal z de glitch": 1, "poção": 2 } };
+    for (const [antigo, novo] of Object.entries(DB.ITENS_RENOMEADOS)) {
+      if (!st.items[antigo]) continue;
+      st.items[novo] = (st.items[novo] || 0) + st.items[antigo];
+      delete st.items[antigo];
+    }
+    return st.items.glitchinium === 1 && !st.items["cristal z de glitch"] && st.items["poção"] === 2;
+  })());
+
+  h("O MUNDO (os NPCs que o overworld monta, sem abrir o jogo)");
+  const { OverworldScene } = await import("/src/scenes/overworld.js");
+  // um `this` de mentira: provacoesNpcs e talkProvacao só olham o save, o DB e
+  // a caixa de diálogo — é o bastante pra rodar os dois aqui fora
+  const cena = (st) => {
+    const dito = [];
+    return {
+      st, dito,
+      dlg: {
+        say: (linhas, cb) => { dito.push(...[].concat(linhas)); cb?.(); },
+        ask: (texto, ops, cb) => { dito.push(texto); cena.ultimaEscolha = cb; },
+      },
+      provacoesNpcs: OverworldScene.prototype.provacoesNpcs,
+      talkProvacao: OverworldScene.prototype.talkProvacao,
+      startTotemBattle: function () { this.dito.push("[BATALHA]"); },
+      conferirProvacao: OverworldScene.prototype.conferirProvacao,
+      game: { autosave() {} },
+    };
+  };
+  const mundo = (extra) => cena(save({ flags: { caughtMissingno: true, provacoesEspalhadas: true },
+                                       party: [{ species: "lapras" }], player: { map: "two_island" }, ...extra }));
+  let c = mundo({});
+  let npcs = c.provacoesNpcs();
+  ok("na ILHA DOIS agora só fica a guardiã", npcs.length === 1 && npcs[0].guardiaProvacao);
+  c = cena(save({ flags: { caughtMissingno: true }, player: { map: "two_island" } }));
+  ok("e ela está lá antes de espalhar (é ela que espalha)", c.provacoesNpcs().some((n) => n.guardiaProvacao));
+  c = cena(save({ flags: { caughtMissingno: true }, player: { map: "route1" } }));
+  ok("antes da conversa, a ROTA 1 não tem marca", c.provacoesNpcs().length === 0);
+  c = mundo({ player: { map: "route1" } });
+  npcs = c.provacoesNpcs();
+  ok("depois, a ROTA 1 tem a de NORMAL", npcs.length === 1 && npcs[0].provacao.tipo === "NORMAL");
+  ok("todo totem tem sprite de bicho",
+    PROVACOES.every((x) => mundo({ player: { map: x.mapa } }).provacoesNpcs().some((n) => n.provacao === x && n.sprite === `mon:${x.totem}`)));
+  ok("nenhum totem cai em cima de outro NPC do mapa",
+    PROVACOES.every((x) => !(DB.MAPS[x.mapa]?.npcs || []).some((o) => o.x === x.x && o.y === x.y)));
+  c = cena(save({ party: [{ species: "lapras" }], player: { map: "route1" } }));
+  ok("antes do pós-jogo o mapa não monta nada", c.provacoesNpcs().length === 0);
+
+  const marcaEm = (cn, tipo) => {
+    const x = PROVACOES.find((y) => y.tipo === tipo);
+    cn.st.player.map = x.mapa;
+    return cn.provacoesNpcs().find((n) => n.provacao?.tipo === tipo);
+  };
+  c = mundo({});
+  c.talkProvacao(marcaEm(c, "ÁGUA"));
+  ok("encostar fora da vez: ela diz qual vem antes e onde",
+    c.dito.at(-1).includes("NORMAL") && c.dito.at(-1).includes("ROTA 1"));
+  c = mundo({ provacoes: Object.fromEntries(PROVACOES.slice(0, PROVACOES.indexOf(agua)).map((x) => [x.id, { feita: true }])) });
+  c.dito.length = 0;
+  c.st.party = [{ species: "pikachu" }];
+  c.talkProvacao(marcaEm(c, "ÁGUA"));
+  ok("na vez, sem o tipo: ela diz qual falta", c.dito.at(-1).includes("ÁGUA"));
+  c.st.party = [{ species: "lapras" }];
+  c.dito.length = 0;
+  c.talkProvacao(marcaEm(c, "ÁGUA"));
+  ok("com o tipo: ela pergunta", c.dito.at(-1) === PROVACOES_TEXTO.pergunta.replace("{TIPO}", "ÁGUA"));
+  cena.ultimaEscolha(1);
+  ok("dizer não só adia", c.dito.at(-1) === PROVACOES_TEXTO.recusa);
+  c.dito.length = 0;
+  c.talkProvacao(marcaEm(c, "ÁGUA"));
+  cena.ultimaEscolha(0);
+  ok("dizer sim começa a luta", c.dito.at(-1) === "[BATALHA]");
+  c.dito.length = 0;
+  c.st.npcState[chaveDoTotem(agua)] = { defeated: true };
+  ok("o totem derrubado sai do mapa na hora", !marcaEm(c, "ÁGUA"));
+  ok("e ao voltar da batalha o cristal é pago", c.conferirProvacao() === true && c.st.items[agua.item] === 1);
+  ok("e não paga de novo", c.conferirProvacao() === false);
+
+  h("A GUARDIÃ FALANDO");
+  const g0 = save({ flags: { caughtMissingno: true } });
+  espalhar(g0);
+  const fala0 = falaDaGuardia(g0, true);
+  ok("a primeira conversa conta que espalhou", fala0.includes(PROVACOES_TEXTO.espalhou));
+  ok("e diz onde é a primeira", fala0.some((l) => l.includes("NORMAL") && l.includes("ROTA 1")));
+  const fala1 = falaDaGuardia(ateAgua());
+  ok("depois ela é o placar e diz a próxima", fala1.some((l) => l.includes("ÁGUA") && l.includes(agua.lugar)));
+  ok("a conta tem as 19", fala1.some((l) => l.includes("DE 19")));
+  p(`  ${fala1.join(" / ")}`);
+  const fala2 = falaDaGuardia(quase);
+  ok("com 18 feitas ela manda pra de GLITCH", fala2.some((l) => l.includes("GLITCH") && l.includes(glitch.lugar)));
+
+  h("O TEXTO");
+  ok("toda marca tem o que dizer", PROVACOES.every((x) => x.marca?.length >= 2 && x.acorda && x.venceu));
+  ok("a do DIGLETT está fora da terra",
+    /FORA DA TERRA/.test(PROVACOES.find((x) => x.tipo === "TERRA").acorda));
+  ok("e o buraco dela está vazio",
+    PROVACOES.find((x) => x.tipo === "TERRA").marca.join(" ").includes("VAZIO"));
+  ok("todas as falas genéricas existem",
+    ["guardia", "espalhou", "denovo", "proxima", "depois", "ultima", "regra", "fechada", "semTipo", "travada", "pergunta", "opcoes", "recusa",
+     "apareceu", "aura", "fuga", "semBola", "premio", "comoUsa", "contagem", "todas"]
+      .every((k) => PROVACOES_TEXTO[k]?.length));
+
+  p(falhas ? `<br>${falhas} FALHA(S)` : "<br>tudo certo.", falhas ? "erro" : "ok");
+} catch (e) {
+  p("EXPLODIU: " + (e?.stack || e), "erro");
+}
+out.innerHTML = linhas.join("");
+</script>
+</body>
+</html>

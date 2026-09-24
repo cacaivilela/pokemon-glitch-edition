@@ -14,6 +14,12 @@
 //
 // O que a batalha link TEM: golpes, tipos, crítico, status, ordem por
 // velocidade, troca de Pokémon e desistência.
+//
+// DOIS FORMATOS: 1X1 (o de sempre) e 2X2 (`formato: "dupla"`, escolhido por
+// quem desafia e mandado junto com o convite). No 2X2 cada lado tem duas vagas,
+// cada vaga escolhe golpe e ALVO, os golpes de área (src/data/duplas.js) pegam
+// mais de um, e quem cai é trocado SOZINHO pelo próximo da equipe — escolher o
+// substituto no meio do turno faria os dois lados esperarem um pelo outro.
 // O que ela NÃO tem: item, captura, XP e dinheiro. Ninguém sai daqui mais forte
 // nem mais fraco — os dois lados lutam com CÓPIAS da equipe, então o save não é
 // tocado em nenhum momento.
@@ -39,6 +45,7 @@ export class LinkBattleScene {
   enter(args = {}) {
     this.parceiro = { id: args.id, nome: (args.nome || "?").toUpperCase() };
     this.dono = args.papel === "dono";
+    this.dupla = args.formato === "dupla";
     this.dlg = new Dialogue();
     this.fase = "juntando";      // juntando | escolhendo | esperando | rolando | fim
     this.turno = 0;
@@ -97,6 +104,7 @@ export class LinkBattleScene {
       }
       case "batalhaVez":                       // o dono está pedindo minha escolha
         this.turno = m.turno;
+        if (m.dupla) { this.comecaEscolhaDupla(); break; }
         this.soTroca = !!m.soTroca;
         if (m.espera) {                        // o outro lado está trocando: eu passo
           this.fase = "esperando";
@@ -113,7 +121,9 @@ export class LinkBattleScene {
         this.estado = m.estado;
         this.sincronizaTime();
         this.fase = "rolando";
-        this.dlg.say(m.falas || [], () => { this.fase = "esperando"; });
+        // se a vez do próximo turno chegou enquanto as falas rolavam, a
+        // escolha já está aberta: o fim da fala não pode fechar ela de novo
+        this.dlg.say(m.falas || [], () => { if (this.fase === "rolando") this.fase = "esperando"; });
         break;
       case "batalhaFim":
         this.fim(!m.donoGanhou, m.motivo);     // quem recebe isto é sempre o convidado
@@ -125,6 +135,7 @@ export class LinkBattleScene {
   /** o dono só começa quando tem os dois times na mão */
   tentaComecar() {
     if (!this.dono || !this.timeDele || this.fase !== "juntando") return;
+    if (this.dupla) return this.comecaDupla();
     this.lados = {
       a: { time: this.meuTime, ativo: 0, stages: newStages(), nome: (this.game.state.player.name || "VOCÊ").toUpperCase() },
       b: { time: this.timeDele, ativo: 0, stages: newStages(), nome: this.parceiro.nome },
@@ -140,6 +151,7 @@ export class LinkBattleScene {
 
   // ============================================================ o dono manda
   novoTurno() {
+    if (this.dupla) return this.novoTurnoDupla();
     this.turno++;
     this.acaoDele = null;
     this.acaoMinha = null;
@@ -166,6 +178,7 @@ export class LinkBattleScene {
 
   /** as duas escolhas chegaram: roda o turno e conta pro outro lado */
   rodaTurno() {
+    if (this.dupla) return this.rodaTurnoDupla();
     const falas = [];
     const a = this.lados.a, b = this.lados.b;
 
@@ -258,7 +271,8 @@ export class LinkBattleScene {
   /** manda pro outro lado o retrato da batalha depois do turno */
   publicaEstado(falas) {
     const foto = (lado) => ({
-      ativo: lado.ativo,
+      ativo: lado.ativos ? (lado.ativos.find((i) => i != null) ?? 0) : lado.ativo,
+      ...(lado.ativos ? { ativos: lado.ativos } : {}),
       time: lado.time.map((m) => ({
         species: m.species, nickname: m.nickname, level: m.level,
         hp: m.hp, maxHp: m.maxHp, status: m.status, shiny: !!m.shiny,
@@ -346,6 +360,7 @@ export class LinkBattleScene {
     if (this.fase !== "escolhendo") return;
 
     const m = this.menu;
+    if (this.dupla) return this.menuDupla(m);
     if (m.tipo === "raiz") return this.menuRaiz(m);
     if (m.tipo === "golpes") return this.menuGolpes(m);
     if (m.tipo === "trocar") return this.menuTrocar(m);
@@ -390,6 +405,7 @@ export class LinkBattleScene {
 
   // ================================================================= render
   render(ctx) {
+    if (this.dupla) return this.renderDupla(ctx);
     const g = ctx.createLinearGradient(0, 0, 0, H);
     g.addColorStop(0, "#7fb0e0");
     g.addColorStop(1, "#d8ecb8");
@@ -397,8 +413,9 @@ export class LinkBattleScene {
     ctx.fillRect(0, 0, W, H);
 
     const meu = this.meuLado(), dele = this.ladoDele();
-    if (dele) this.desenhaMon(ctx, dele.time[dele.ativo], 146, 8, 56, false);
-    if (meu) this.desenhaMon(ctx, meu.time[meu.ativo], 22, 58, 56, true);
+    // no tamanho de verdade (64): encolher o sprite apagava pupila e boca
+    if (dele) this.desenhaMon(ctx, dele.time[dele.ativo], 144, 4, 64, false);
+    if (meu) this.desenhaMon(ctx, meu.time[meu.ativo], 18, 50, 64, true);
     if (dele) this.placa(ctx, dele.time[dele.ativo], 8, 10, this.parceiro.nome, dele);
     if (meu) this.placa(ctx, meu.time[meu.ativo], 120, 74, "VOCÊ", meu);
 
@@ -418,7 +435,7 @@ export class LinkBattleScene {
   desenhaMon(ctx, foto, x, y, tam, meuLado) {
     if (!foto) return;
     const img = meuLado ? Assets.monBack(foto.species, foto.seed) : Assets.mon(foto.species, foto.seed);
-    const arte = Assets.comCor(img, foto);
+    const arte = Assets.comCor(img, foto, !!meuLado);
     if (foto.hp <= 0) ctx.globalAlpha = 0.35;
     ctx.drawImage(arte, x, y, tam, tam);
     ctx.globalAlpha = 1;
@@ -470,6 +487,337 @@ export class LinkBattleScene {
     vivos.forEach(({ mon }, i) => {
       drawText(ctx, `${mon.nickname} Nv${mon.level} ${mon.hp}/${mon.maxHp}`, 18, 112 + i * LINE_H, PAL.ink);
       if (i === m.index) cursor(ctx, 10, 112 + i * LINE_H);
+    });
+  }
+
+  // =================================================================== 2X2
+  /** as duas primeiras de pé de cada time */
+  primeirosDois(time) {
+    const out = [];
+    time.forEach((m, i) => { if (out.length < 2 && !isFainted(m)) out.push(i); });
+    while (out.length < 2) out.push(null);
+    return out;
+  }
+
+  comecaDupla() {
+    const lado = (time, nome) => ({ time, nome, ativos: this.primeirosDois(time), stages: [newStages(), newStages()] });
+    this.lados = {
+      a: lado(this.meuTime, (this.game.state.player.name || "VOCÊ").toUpperCase()),
+      b: lado(this.timeDele, this.parceiro.nome),
+    };
+    const manda = (l) => {
+      const nomes = l.ativos.filter((i) => i != null).map((i) => l.time[i].nickname);
+      return `${l.nome} MANDOU ${nomes.join(" E ")}!`;
+    };
+    this.publicaEstado([manda(this.lados.a), manda(this.lados.b)]);
+    this.novoTurno();
+  }
+
+  novoTurnoDupla() {
+    this.turno++;
+    this.acaoDele = null;
+    this.acaoMinha = null;
+    this.manda("batalhaVez", { turno: this.turno, dupla: true });
+    this.comecaEscolhaDupla();
+  }
+
+  /** As vagas minhas com alguém de pé escolhem, uma de cada vez. */
+  comecaEscolhaDupla() {
+    const meu = this.meuLado();
+    const ativos = meu?.ativos || [0, null];
+    this.vagasMinhas = [0, 1].filter((k) => ativos[k] != null && this.meuTime[ativos[k]]?.hp > 0);
+    this.escolhasDupla = [];
+    this.fase = "escolhendo";
+    this.menu = { tipo: "raiz", index: 0 };
+  }
+
+  get vagaDaVez() { return this.vagasMinhas?.[(this.escolhasDupla || []).length]; }
+  monDaVez() {
+    const i = this.meuLado()?.ativos?.[this.vagaDaVez];
+    return i != null ? this.meuTime[i] : null;
+  }
+
+  escolheuDupla(acao) {
+    if (acao.tipo === "desistir") return this.escolheu({ tipo: "desistir" });
+    this.escolhasDupla.push({ vaga: this.vagaDaVez, ...acao });
+    if (this.escolhasDupla.length < this.vagasMinhas.length) {
+      this.menu = { tipo: "raiz", index: 0 };
+      return;
+    }
+    this.escolheu({ tipo: "dupla", acoes: this.escolhasDupla });
+  }
+
+  menuDupla(m) {
+    const mon = this.monDaVez();
+    if (!mon) return this.escolheu({ tipo: "dupla", acoes: this.escolhasDupla || [] });
+    const lista = (n) => {
+      if (Input.consume("up")) { m.index = (m.index + n - 1) % n; Audio2.blip(); }
+      if (Input.consume("down")) { m.index = (m.index + 1) % n; Audio2.blip(); }
+    };
+    if (m.tipo === "raiz") {
+      lista(3);
+      if (Input.consume("b") && this.escolhasDupla.length) {
+        this.escolhasDupla.pop();
+        return void Audio2.cancel();
+      }
+      if (!Input.consume("a")) return;
+      Audio2.select();
+      if (m.index === 0) this.menu = { tipo: "golpes", index: 0 };
+      else if (m.index === 1) this.menu = { tipo: "trocar", index: 0 };
+      else this.escolheuDupla({ tipo: "desistir" });
+      return;
+    }
+    if (m.tipo === "golpes") {
+      const golpes = mon.moves || [];
+      if (!golpes.length) return this.escolheuDupla({ tipo: "golpe", i: 0, alvo: 0 });
+      lista(golpes.length);
+      if (Input.consume("b")) { this.menu = { tipo: "raiz", index: 0 }; return void Audio2.cancel(); }
+      if (!Input.consume("a")) return;
+      Audio2.select();
+      const dele = this.ladoDele();
+      const vivos = [0, 1].filter((k) => dele?.ativos?.[k] != null && dele.time[dele.ativos[k]].hp > 0);
+      const id = golpes[m.index].id;
+      if (vivos.length > 1 && !DB.ESPALHA?.[id] && DB.MOVES[id]?.stat?.target !== "self") {
+        this.menu = { tipo: "alvo", index: 0, golpe: m.index, vivos };
+      } else this.escolheuDupla({ tipo: "golpe", i: m.index, alvo: vivos[0] ?? 0 });
+      return;
+    }
+    if (m.tipo === "alvo") {
+      if (Input.consume("left") || Input.consume("up") || Input.consume("right") || Input.consume("down")) {
+        m.index = 1 - m.index; Audio2.blip();
+      }
+      if (Input.consume("b")) { this.menu = { tipo: "golpes", index: m.golpe }; return void Audio2.cancel(); }
+      if (Input.consume("a")) { Audio2.select(); this.escolheuDupla({ tipo: "golpe", i: m.golpe, alvo: m.vivos[m.index] }); }
+      return;
+    }
+    if (m.tipo === "trocar") {
+      const banco = this.bancoDupla();
+      if (!banco.length) { this.menu = { tipo: "raiz", index: 0 }; return void this.dlg.say("NÃO TEM MAIS NINGUÉM EM PÉ."); }
+      m.index = Math.min(m.index, banco.length - 1);
+      lista(banco.length);
+      if (Input.consume("b")) { this.menu = { tipo: "raiz", index: 0 }; return void Audio2.cancel(); }
+      if (Input.consume("a")) { Audio2.select(); this.escolheuDupla({ tipo: "trocar", i: banco[m.index].i }); }
+    }
+  }
+
+  /** quem está no banco: de pé, fora das vagas e sem já ter sido chamado */
+  bancoDupla() {
+    const ativos = this.meuLado()?.ativos || [];
+    const chamados = new Set((this.escolhasDupla || []).filter((e) => e.tipo === "trocar").map((e) => e.i));
+    return this.meuTime.map((mon, i) => ({ mon, i }))
+      .filter(({ mon, i }) => mon.hp > 0 && !ativos.includes(i) && !chamados.has(i));
+  }
+
+  /** o turno 2X2, rodado só pelo dono */
+  rodaTurnoDupla() {
+    const falas = [];
+    const a = this.lados.a, b = this.lados.b;
+    const acoesDe = (acao) => (acao?.tipo === "dupla" ? acao.acoes || [] : []);
+    const vivo = (l, k) => l.ativos[k] != null && !isFainted(l.time[l.ativos[k]]);
+    const acabouAlguem = () => {
+      for (const [l, outro] of [[a, b], [b, a]]) {
+        if (!l.time.some((m) => !isFainted(m))) { this.acabou(outro === a, falas); return true; }
+      }
+      return false;
+    };
+
+    // 1. desistência acaba na hora
+    for (const [l, outro, acao] of [[a, b, this.acaoMinha], [b, a, this.acaoDele]]) {
+      if (acao?.tipo === "desistir") {
+        falas.push(txt("batalhaFugiu", { NOME: l.nome }));
+        return this.acabou(outro === a, falas);
+      }
+    }
+
+    // 2. trocas
+    for (const [l, acao] of [[a, this.acaoMinha], [b, this.acaoDele]]) {
+      for (const e of acoesDe(acao)) {
+        if (e.tipo !== "trocar") continue;
+        const k = e.vaga === 1 ? 1 : 0;
+        const i = Math.max(0, Math.min(l.time.length - 1, e.i | 0));
+        if (isFainted(l.time[i]) || l.ativos.includes(i) || !vivo(l, k)) continue;
+        l.ativos[k] = i;
+        l.stages[k] = newStages();
+        falas.push(`${l.nome} MANDOU ${l.time[i].nickname}!`);
+      }
+    }
+
+    // 3. golpes: prioridade, velocidade, sorteio
+    const golpes = [];
+    for (const [l, alvo, acao] of [[a, b, this.acaoMinha], [b, a, this.acaoDele]]) {
+      for (const e of acoesDe(acao)) {
+        if (e.tipo !== "golpe") continue;
+        const k = e.vaga === 1 ? 1 : 0;
+        if (!vivo(l, k)) continue;
+        const mon = l.time[l.ativos[k]];
+        const ref = mon.moves[Math.max(0, Math.min(mon.moves.length - 1, e.i | 0))];
+        golpes.push({ l, alvo, k, e, pri: DB.MOVES[ref?.id]?.priority || 0,
+          vel: effectiveStat(mon, "spe", l.stages[k]), sorte: Math.random() });
+      }
+    }
+    golpes.sort((x, y) => y.pri - x.pri || y.vel - x.vel || x.sorte - y.sorte);
+    for (const g of golpes) {
+      if (!vivo(g.l, g.k)) continue;
+      this.usaGolpeDupla(g.l, g.alvo, g.k, g.e, falas);
+      if (acabouAlguem()) return;
+    }
+
+    // 4. queimadura e veneno
+    for (const l of [a, b]) {
+      for (const k of [0, 1]) {
+        if (!vivo(l, k)) continue;
+        const mon = l.time[l.ativos[k]];
+        const d = statusTickDamage(mon);
+        if (!d) continue;
+        mon.hp = Math.max(0, mon.hp - d);
+        falas.push(`${mon.nickname} SOFRE COM ${mon.status === "envenenado" ? "O VENENO" : "A QUEIMADURA"}!`);
+        if (isFainted(mon)) falas.push(`${mon.nickname} DESMAIOU!`);
+      }
+    }
+    if (acabouAlguem()) return;
+
+    // 5. quem caiu dá lugar ao próximo em pé, sozinho
+    for (const l of [a, b]) {
+      for (const k of [0, 1]) {
+        if (vivo(l, k)) continue;
+        const prox = l.time.findIndex((m, i) => !isFainted(m) && !l.ativos.includes(i));
+        if (prox < 0) { l.ativos[k] = null; continue; }
+        l.ativos[k] = prox;
+        l.stages[k] = newStages();
+        falas.push(`${l.nome} MANDOU ${l.time[prox].nickname}!`);
+      }
+    }
+
+    this.publicaEstado(falas);
+    this.novoTurno();
+  }
+
+  usaGolpeDupla(l, alvoLado, k, e, falas) {
+    const mon = l.time[l.ativos[k]];
+    const ref = mon.moves[Math.max(0, Math.min(mon.moves.length - 1, e.i | 0))];
+    if (!ref) return;
+    const mv = DB.MOVES[ref.id];
+    if (mon.status === "paralisia" && Math.random() < 0.25) {
+      return void falas.push(`${mon.nickname} ESTÁ PARALISADO E NÃO CONSEGUE SE MEXER!`);
+    }
+    if (ref.pp <= 0) return void falas.push(`${mon.nickname} NÃO TEM PP PRA ${mv.name}!`);
+    ref.pp = Math.max(0, ref.pp - 1);
+    falas.push(`${mon.nickname} USOU ${mv.name}!`);
+
+    if (mv.stat?.target === "self" && !mv.power) {
+      for (const f of applyMoveEffects(mv, mon, mon, l.stages[k], l.stages[k]) || []) falas.push(f);
+      return;
+    }
+    // os alvos: um só (o escolhido, ou o outro se ele já caiu) ou todos em volta
+    const vivos = (lado) => [0, 1].filter((j) => lado.ativos[j] != null && !isFainted(lado.time[lado.ativos[j]]));
+    const esp = DB.ESPALHA?.[ref.id];
+    let alvos = [];
+    if (esp) {
+      alvos = vivos(alvoLado).map((j) => [alvoLado, j]);
+      if (esp === "todos") alvos.push(...vivos(l).filter((j) => j !== k).map((j) => [l, j]));
+    } else {
+      const quer = e.alvo === 1 ? 1 : 0;
+      const j = vivos(alvoLado).includes(quer) ? quer : vivos(alvoLado)[0];
+      if (j != null) alvos = [[alvoLado, j]];
+    }
+    if (!alvos.length) return void falas.push("MAS NÃO TINHA NINGUÉM PRA ACERTAR!");
+    const varios = alvos.length > 1;
+    for (const [lo, j] of alvos) {
+      const alvoMon = lo.time[lo.ativos[j]];
+      if (!accuracyCheck(ref.id, l.stages[k], lo.stages[j])) {
+        falas.push(varios ? `${alvoMon.nickname} DESVIOU!` : "MAS ERROU O ALVO!");
+        continue;
+      }
+      if (mv.power > 0) {
+        const r = calcDamage(mon, alvoMon, ref.id, l.stages[k], lo.stages[j]);
+        const dano = r.dmg ? Math.max(1, Math.round(r.dmg * (varios ? (DB.FORCA_ESPALHADA ?? 0.75) : 1))) : 0;
+        alvoMon.hp = Math.max(0, alvoMon.hp - dano);
+        if (r.crit) falas.push("ACERTO CRÍTICO!");
+        const t = effText(r.eff);
+        if (t) falas.push(varios ? `${alvoMon.nickname}: ${t}` : t);
+      }
+      for (const f of applyMoveEffects(mv, mon, alvoMon, l.stages[k], lo.stages[j]) || []) falas.push(f);
+      if (isFainted(alvoMon)) { falas.push(`${alvoMon.nickname} DESMAIOU!`); Audio2.faint(); }
+    }
+  }
+
+  renderDupla(ctx) {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#7fb0e0");
+    g.addColorStop(1, "#d8ecb8");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    const meu = this.meuLado(), dele = this.ladoDele();
+    const foto = (lado, k) => (lado?.ativos?.[k] != null ? lado.time[lado.ativos[k]] : null);
+    if (dele) [0, 1].forEach((k) => this.desenhaMon(ctx, foto(dele, k), 116 + k * 58, 6 - k * 4, 64, false));
+    if (meu) [0, 1].forEach((k) => this.desenhaMon(ctx, foto(meu, k), 0 + k * 56, 46, 64, true));
+    const placa = (f, x, y, vez) => {
+      if (!f) return;
+      panel(ctx, x, y, 104, 18);
+      if (vez) { ctx.fillStyle = "#ffd166"; ctx.fillRect(x + 2, y + 2, 2, 14); }
+      drawText(ctx, f.nickname.slice(0, 9), x + 6, y + 3, PAL.ink);
+      drawText(ctx, `N${f.level}`, x + 78, y + 3, PAL.ink2);
+      const pct = Math.max(0, f.hp / Math.max(1, f.maxHp));
+      bar(ctx, x + 6, y + 12, 92, 3, pct, hpColor(pct));
+    };
+    if (dele) [0, 1].forEach((k) => placa(foto(dele, k), 4, 3 + k * 19, false));
+    if (meu) [0, 1].forEach((k) => placa(foto(meu, k), 132, 72 + k * 19,
+      this.fase === "escolhendo" && this.vagaDaVez === k));
+    if (this.menu?.tipo === "alvo" && this.fase === "escolhendo" && Math.floor(Date.now() / 250) % 2 === 0) {
+      const k = this.menu.vivos[this.menu.index];
+      const cx = 148 + k * 58;
+      ctx.fillStyle = "#e0242a";
+      ctx.beginPath(); ctx.moveTo(cx - 5, 2); ctx.lineTo(cx + 5, 2); ctx.lineTo(cx, 8); ctx.fill();
+    }
+
+    if (this.fase === "escolhendo") this.desenhaMenuDupla(ctx);
+    else if (this.fase === "esperando" || this.fase === "juntando") {
+      panel(ctx, 2, 110, 236, 26);
+      drawText(ctx, this.fase === "juntando" ? "JUNTANDO AS EQUIPES..."
+        : txt("batalhaEspera", { NOME: this.parceiro.nome }), 10, 118, PAL.ink);
+    }
+    this.dlg.render(ctx);
+    if (this.fadeA > 0) fade(ctx, this.fadeA);
+  }
+
+  desenhaMenuDupla(ctx) {
+    const m = this.menu;
+    const mon = this.monDaVez();
+    if (!mon) return;
+    panel(ctx, 2, 110, 236, 48);
+    if (m.tipo === "raiz") {
+      drawText(ctx, `${mon.nickname}:`, 10, 116, PAL.ink);
+      drawText(ctx, `${this.escolhasDupla.length + 1}/${this.vagasMinhas.length}`, 10, 140, PAL.ink2);
+      ["LUTAR", "TROCAR", "DESISTIR"].forEach((o, i) => {
+        drawText(ctx, o, 150, 116 + i * LINE_H, PAL.ink);
+        if (i === m.index) cursor(ctx, 142, 116 + i * LINE_H);
+      });
+      return;
+    }
+    if (m.tipo === "golpes") {
+      (mon.moves || []).forEach((gp, i) => {
+        const mv = DB.MOVES[gp.id];
+        const x = 8 + (i % 2) * 112, y = 116 + Math.floor(i / 2) * LINE_H;
+        drawText(ctx, (mv?.name || gp.id).slice(0, 13), x + 8, y, gp.pp ? PAL.ink : PAL.hpRed);
+        if (i === m.index) cursor(ctx, x, y);
+      });
+      const sel = mon.moves[m.index];
+      if (sel) drawText(ctx, `PP ${sel.pp}/${sel.ppMax}${DB.ESPALHA?.[sel.id] ? "  ÁREA" : ""}`, 10, 142, PAL.ink2);
+      return;
+    }
+    if (m.tipo === "alvo") {
+      const dele = this.ladoDele();
+      const k = m.vivos[m.index];
+      drawText(ctx, "EM QUEM?", 10, 118, PAL.ink);
+      drawText(ctx, `< ${dele.time[dele.ativos[k]].nickname} >`, 10, 132, PAL.ink);
+      return;
+    }
+    const banco = this.bancoDupla();
+    if (!banco.length) return void drawText(ctx, "NINGUÉM EM PÉ.", 18, 116, PAL.ink);
+    const ini = Math.max(0, Math.min(banco.length - 3, m.index - 1));
+    banco.slice(ini, ini + 3).forEach(({ mon: b }, j) => {
+      drawText(ctx, `${b.nickname} Nv${b.level} ${b.hp}/${b.maxHp}`, 18, 116 + j * LINE_H, PAL.ink);
+      if (ini + j === m.index) cursor(ctx, 10, 116 + j * LINE_H);
     });
   }
 }

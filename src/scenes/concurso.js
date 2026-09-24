@@ -12,6 +12,7 @@ import { Glitch } from "../systems/glitchfx.js";
 import { Dialogue } from "../systems/dialogue.js";
 import { julgar, rodada, premio, faixa } from "../systems/concurso.js";
 import { panel, drawText, fade, PAL, LINE_H } from "../core/gfx.js";
+import { reduzido } from "../core/reduzir.js";
 
 const W = 240, H = 160;
 const PALCO = { x: 120, y: 58 };
@@ -164,7 +165,7 @@ export class ConcursoScene {
     DB.CONCURSO.jurados.forEach((jur, i) => {
       const x = 34 + i * 62, y = 108;
       const arte = Assets.actor(jur.sprite)?.up?.[0];
-      if (arte) ctx.drawImage(arte, x, y, 16, 16);
+      if (arte) ctx.drawImage(reduzido(arte, 16), x, y, 16, 16);
       const dada = this.notasNaTela.find((n) => n.jurado.id === jur.id);
       drawText(ctx, jur.titulo.slice(0, 8), x - 10, y + 18, PAL.ink2);
       drawText(ctx, dada ? dada.nota.toFixed(1) : "-", x + 20, y + 4, dada ? "#ffd166" : PAL.ink2);

@@ -2,8 +2,9 @@
 // Trocar por PNGs depois e so mudar Assets.tiles / Assets.mons.
 import { makeRng } from "./rng.js";
 import { DB } from "../data/index.js";
-import { SpriteStore, pedirMon } from "./sprites.js";
+import { SpriteStore, pedirMon, pedirMonShiny } from "./sprites.js";
 import { url as arquivo } from "./base.js";
+import { corpoBombado, CORPO } from "./diglettbombado.js";
 
 export const TILE = 16;
 
@@ -665,6 +666,9 @@ function fusaoSprite(sp, lado, seed) {
   return img;
 }
 
+/** "#de8b4a" -> [222, 139, 74] */
+const corDeHex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+
 export const Assets = {
   tiles: null, actors: null, shapes: null, ball: null, rustle: null, rocha: null, bloco: null,
   init() {
@@ -715,7 +719,17 @@ export const Assets = {
     return SpriteStore.overworld[kind] || this.actors[kind] || this.actors.hero;
   },
 
-  /** versao shiny: mesma arte com as cores giradas */
+  /** A COR SHINY INVENTADA: a mesma arte com o matiz girado.
+   *
+   *  É a RESERVA, não o caminho principal — quem manda é `monShiny()`, que usa
+   *  a arte shiny de verdade quando o PNG existe. Este filtro fica pras
+   *  espécies que não têm shiny oficial pra ter: as fusões da oficina, o
+   *  MISSINGNO, o DECAMARK, as formas glitch.
+   *
+   *  E ele tem um limite conhecido: girar o matiz não mexe em pixel cinza, então
+   *  em bicho preto-e-branco o shiny sai igual ao comum. Foi por isso que as 89
+   *  espécies mais acinzentadas ganharam PNG shiny próprio — dá pra medir
+   *  quanto cada uma muda em dev/shinycheck.html. */
   shiny(img) {
     if (!img) return img;
     if (!this._shiny) this._shiny = new Map();
@@ -755,13 +769,86 @@ export const Assets = {
     return cv;
   },
 
+  /** O SPINDA: as quatro manchas carimbadas pelo valor de personalidade.
+   *
+   *  É a conta do jogo original (DrawSpindaSpots, no decomp), e está explicada
+   *  em src/data/spinda.js: 32 bits lidos de 8 em 8, um naco por mancha, nibble
+   *  baixo = X e nibble alto = Y, cada um entrando como `âncora + nibble - 8`.
+   *  O pixel só é pintado se o que está embaixo for uma das três cores claras
+   *  do corpo — é isso que faz a mancha parar na borda da orelha em vez de
+   *  vazar pro contorno, pro olho ou pras patas.
+   *
+   *  `pid` é o `seed` do Pokémon, que é o valor de personalidade dele. */
+  spinda(pid, shiny = false) {
+    const base = shiny ? SpriteStore.pokemonShiny.spinda : SpriteStore.pokemon.spinda;
+    const manchas = DB.SPINDA_MANCHAS;
+    if (!base || !manchas) return null;
+    // as âncoras são coordenadas do desenho de 64x64 do decomp; noutro tamanho
+    // elas não querem dizer nada, então o desenho fica como veio
+    if (base.width !== 64 || base.height !== 64) return base;
+
+    const chave = `${pid >>> 0}|${shiny ? 1 : 0}`;
+    if (!this._spinda) this._spinda = new Map();
+    const hit = this._spinda.get(chave);
+    if (hit) return hit;
+
+    const { cv, ctx } = makeCanvas(64, 64);
+    ctx.drawImage(base, 0, 0);
+    const dados = ctx.getImageData(0, 0, 64, 64), px = dados.data;
+    const corpo = DB.SPINDA_CORPO.map(corDeHex);
+    const tinta = DB.SPINDA_MANCHA[shiny ? "shiny" : "comum"].map(corDeHex);
+
+    let p = pid >>> 0;
+    for (const m of manchas) {
+      const x0 = m.x + ((p & 0x0f) - 8);
+      let y = m.y + (((p & 0xf0) >> 4) - 8);
+      for (let linha = 0; linha < 16; linha++, y++) {
+        let bits = m.linhas[linha];
+        for (let col = x0; col < x0 + 16; col++, bits >>= 1) {
+          if (!(bits & 1)) continue;
+          if (col < 0 || col > 63 || y < 0 || y > 63) continue;
+          const o = (y * 64 + col) * 4;
+          if (px[o + 3] < 255) continue;                 // transparente não recebe mancha
+          const k = corpo.findIndex((c) => c[0] === px[o] && c[1] === px[o + 1] && c[2] === px[o + 2]);
+          if (k < 0) continue;                           // não é cor de corpo: contorno, olho, pata
+          px[o] = tinta[k][0]; px[o + 1] = tinta[k][1]; px[o + 2] = tinta[k][2];
+        }
+      }
+      p >>>= 8;                                          // o próximo naco, pra próxima mancha
+    }
+    ctx.putImageData(dados, 0, 0);
+    // o cache é por padrão desenhado; num box cheio de SPINDA ele não pode crescer sem fim
+    if (this._spinda.size > 96) this._spinda.delete(this._spinda.keys().next().value);
+    this._spinda.set(chave, cv);
+    return cv;
+  },
+
+  /** A ARTE SHINY DE VERDADE, se esta espécie tiver uma. Devolve null quando
+   *  não tem — e aí quem chamou usa o filtro. Pede o PNG na primeira vez. */
+  monShiny(id, costas = false) {
+    const sp = DB.SPECIES[id];
+    if (!sp || sp.fusao || sp.crescimento) return null;   // composta: não existe shiny oficial
+    pedirMonShiny(sp.id || id, sp.spriteDex || sp.dex);
+    // Sem arte shiny do lado pedido, devolve null e quem chamou usa o filtro em
+    // cima do sprite certo. Cair no sprite de FRENTE quando pedem as costas
+    // desenharia o bicho olhando pra quem ele está de costas.
+    return (costas ? SpriteStore.pokemonShinyBack[id] : SpriteStore.pokemonShiny[id]) || null;
+  },
+
   /** A arte com a cor QUE AQUELE BICHO TEM. Luminoso ganha do shiny, e o comum
    *  e a arte crua. Existe pra nao haver quatro telas decidindo isso cada uma
-   *  do seu jeito — e pra que a proxima tela que desenhar bicho ja acerte. */
-  comCor(img, mon) {
+   *  do seu jeito — e pra que a proxima tela que desenhar bicho ja acerte.
+   *
+   *  `costas` diz qual lado `img` é, porque a arte shiny tem frente e costas
+   *  próprias e não dá pra adivinhar isso olhando o canvas. */
+  comCor(img, mon, costas = false) {
     let out = img;
     if (mon?.luminoso) out = this.luminoso(img);
-    else if (mon?.shiny) out = this.shiny(img);
+    else if (mon?.shiny) {
+      // o SPINDA shiny é carimbado na rampa verde; só a frente, como no original
+      const spinda = mon.species === "spinda" && !costas ? this.spinda(mon.seed, true) : null;
+      out = spinda || (mon.species && this.monShiny(mon.species, costas)) || this.shiny(img);
+    }
     return mon?.alfa ? this.alfa(out) : out;
   },
 
@@ -787,6 +874,24 @@ export const Assets = {
     return cv;
   },
 
+  /** O TOTEM DIGLETT DE CORPO PRESENTE (src/core/diglettbombado.js): o sprite
+   *  de sempre, intacto, em cima de um corpo que ninguém pediu. As linhas vazias
+   *  de cima são cortadas — quem desenha precisa saber onde começa o punho. */
+  diglettBombado(img) {
+    if (!img) return img;
+    if (!this._bombado) this._bombado = new Map();
+    const hit = this._bombado.get(img);
+    if (hit) return hit;
+    const { rows, paleta } = corpoBombado();
+    const corpo = spriteFromRows(rows, paleta);
+    const topo = rows.findIndex((r) => /[^.]/.test(r));
+    const { cv, ctx } = makeCanvas(CORPO.w, CORPO.h - topo);
+    ctx.drawImage(corpo, 0, -topo);
+    ctx.drawImage(img, CORPO.spriteX, CORPO.spriteY - topo);
+    this._bombado.set(img, cv);
+    return cv;
+  },
+
   /** silhueta chapada do sprite (a troca de formas da evolucao) */
   silhueta(img) {
     if (!img) return img;
@@ -808,6 +913,8 @@ export const Assets = {
     const sp = DB.SPECIES[id];
     if (sp?.fusao) return fusaoSprite(sp, "frente", seed);
     const ext = SpriteStore.pokemon[id];
+    // o SPINDA não tem UM sprite: o desenho é limpo e as manchas saem do seed
+    if (ext && id === "spinda") return this.spinda(seed) || ext;
     if (ext) return ext;
     // ainda não foi pedido: pede agora e mostra a arte provisória enquanto vem
     if (sp) pedirMon(sp.id || id, sp.spriteDex || sp.dex);

@@ -18,6 +18,7 @@ import { gainXp } from "../systems/mon.js";
 import { agora, veu } from "../systems/ciclo.js";
 import { naMochila, cozinhar, comer, descansar } from "../systems/acampamento.js";
 import { INGREDIENTES, MINIJOGOS } from "../data/acampamento.js";
+import { reduzido } from "../core/reduzir.js";
 
 const W = 240, H = 160;
 // O palco cabe entre o horizonte e a caixa de texto: 72 a 110. Tudo aqui
@@ -282,7 +283,7 @@ export class AcampamentoScene {
     for (const l of this.lugares) {
       const img = Assets.mon(l.mon.species, l.mon.seed);
       const sobe = Math.sin(this.t * 2 + l.bob) * 1.5;   // respirando
-      if (img) ctx.drawImage(img, Math.round(l.x - 16), Math.round(l.pes - 32 + sobe), 32, 32);
+      if (img) ctx.drawImage(reduzido(img, 32), Math.round(l.x - 16), Math.round(l.pes - 32 + sobe), 32, 32);
     }
     this.drawFogo(ctx);
 

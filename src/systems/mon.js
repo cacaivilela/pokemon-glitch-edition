@@ -32,7 +32,13 @@ export function createMon(speciesId, level, opts = {}) {
     shiny: !!opts.shiny,
     luminoso: !!opts.luminoso,
     alfa: !!opts.alfa,               // maior, mais forte, sempre bravo (ver config.js)
-    seed: opts.seed ?? randInt(9999),
+    // O SEED É O VALOR DE PERSONALIDADE. Além de semear a arte (a variação da
+    // fusão, o ruído do glitch) e de ser a chave do bicho na creche, é ele que
+    // decide as MANCHAS DO SPINDA — e é por isso que vai até 2^32: é o tamanho
+    // que dá os 4.294.967.296 padrões do bicho, como nos jogos de verdade.
+    // Quem foi capturado antes disto tem seed pequeno e continua valendo; só
+    // desenha um padrão com menos variação nas duas últimas manchas.
+    seed: opts.seed ?? randInt(2 ** 32),
     hp: 0,
   };
   recalc(mon);

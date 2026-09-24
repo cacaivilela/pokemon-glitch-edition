@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem do REDUTOR de sprite</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  canvas { image-rendering:pixelated; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<canvas id="cv"></canvas>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=6000">
+<script type="module">
+// O REDUTOR (src/core/reduzir.js): encolher sprite sem jogar fora a pupila.
+// Em cada linha: o original, e em cada tamanho o jeito ANTIGO (o navegador
+// pulando pixel) do lado do NOVO.
+const out = document.getElementById("out");
+const linhas = [];
+let falhas = 0;
+const ok = (t, c) => { if (!c) falhas++; linhas.push(`<div class="${c ? "ok" : "erro"}">${t}: ${c ? "OK" : "FALHOU"}</div>`); };
+try {
+  const { reduzido } = await import("/src/core/reduzir.js");
+  const carrega = (src) => new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
+  const ids = ["025", "133", "004", "001", "094", "054", "143", "052"];
+  const tams = [52, 46, 28, 24, 20];
+  const imgs = await Promise.all(ids.map((i) => carrega(`/assets/sprites/pokemon/${i}.png`)));
+  ok("os sprites carregaram", imgs.every(Boolean));
+  const a = imgs[0];
+  ok("sem encolher, devolve a própria imagem", reduzido(a, 64) === a && reduzido(a, 80) === a);
+  ok("o mesmo tamanho sai do guardado", reduzido(a, 24) === reduzido(a, 24));
+  ok("o tamanho pedido", reduzido(a, 24).width === 24 && reduzido(a, 30, 20).height === 20);
+  const cel = 70, K = 3;
+  const cv = document.getElementById("cv");
+  cv.width = cel * (1 + 2 * tams.length) * K; cv.height = cel * ids.length * K;
+  const c = cv.getContext("2d");
+  c.imageSmoothingEnabled = false;
+  c.fillStyle = "#c8dcf0"; c.fillRect(0, 0, cv.width, cv.height);
+  imgs.forEach((img, r) => {
+    if (!img) return;
+    c.drawImage(img, 3 * K, (r * cel + 3) * K, 64 * K, 64 * K);
+    tams.forEach((t, k) => {
+      // o antigo: desenhar pequeno direto, sem suavizar
+      const velho = document.createElement("canvas"); velho.width = t; velho.height = t;
+      const vc = velho.getContext("2d"); vc.imageSmoothingEnabled = false; vc.drawImage(img, 0, 0, t, t);
+      c.drawImage(velho, (cel * (1 + 2 * k) + 3) * K, (r * cel + 3) * K, t * K, t * K);
+      c.drawImage(reduzido(img, t), (cel * (2 + 2 * k) + 3) * K, (r * cel + 3) * K, t * K, t * K);
+    });
+  });
+  linhas.push(`<div>colunas: original | depois, pra cada tamanho (${tams.join(", ")}): ANTIGO | NOVO</div>`);
+} catch (e) { falhas++; linhas.push(`<div class="erro">EXPLODIU: ${e.stack || e}</div>`); }
+linhas.push(`<div class="${falhas ? "erro" : "ok"}">${falhas ? falhas + " FALHA(S)" : "tudo certo."}</div>`);
+out.innerHTML = linhas.join("");
+</script>
+</body>
+</html>

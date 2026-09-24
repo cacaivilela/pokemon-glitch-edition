@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem da POKÉDEX</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+  #fotos { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  #fotos figure { margin:0; color:#89a; font-size:11px; }
+  #fotos canvas { image-rendering:pixelated; display:block; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<div id="fotos"></div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=12000">
+<script type="module">
+// A POKÉDEX (src/systems/pokedex.js, src/scenes/pokedex.js, src/data/pokedex.js):
+// as listas, as perguntas da ficha, os marcos do professor, a ordem do
+// laboratório (inicial > Pokédex > decodificador) e fotos da tela.
+const out = document.getElementById("out");
+const fotos = document.getElementById("fotos");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+let falhas = 0;
+const ok = (t, c, extra = "") => { if (!c) falhas++; p(`${t}: ${c ? "OK" : "FALHOU"} ${extra}`, c ? "ok" : "erro"); };
+
+try {
+  const { DB } = await import("/src/data/index.js");
+  const X = await import("/src/systems/pokedex.js");
+
+  h("AS LISTAS");
+  const L = X.listas();
+  ok("KANTO tem as 151", L.KANTO.length === 151, `(${L.KANTO.length})`);
+  ok("do BULBASAUR ao MEW", L.KANTO[0] === "bulbasaur" && L.KANTO[150] === "mew");
+  const numeros = L.NACIONAL.map((id) => DB.SPECIES[id].dex);
+  const numsDex = L.NACIONAL.map(X.numeroNaDex);
+  ok("NACIONAL em ordem, sem número repetido",
+    numsDex.every((n, i) => !i || n > numsDex[i - 1]), `(${L.NACIONAL.length} espécies, até ${numsDex.at(-1)})`);
+  ok("nenhuma forma na NACIONAL", !L.NACIONAL.some((id) => X.ehForma(id)));
+  ok("a NACIONAL tem 1028: as 1025, o MISSINGNO., o ?????????? e o MEWTHREE", L.NACIONAL.length === 1028,
+    `(${L.NACIONAL.length})`);
+  const de1a1025 = new Set(L.NACIONAL.slice(0, 1025).map((id) => DB.SPECIES[id].dex));
+  ok("do 1 ao 1025 sem buraco", de1a1025.size === 1025 && [...de1a1025].every((n) => n >= 1 && n <= 1025));
+  ok("os três do fim são 1026, 1027 e 1028", L.NACIONAL.slice(1025).join() === "missingno,decamark,mewthree"
+    && ["missingno", "decamark", "mewthree"].map(X.numeroNaDex).join() === "1026,1027,1028");
+  ok("e eles não estão em FORMAS", !["missingno", "decamark", "mewthree"].some((id) => L.FORMAS.includes(id)));
+  ok("as formas estão em FORMAS", ["pikachuhack", "megacharizardx", "raichualola"]
+    .every((id) => !DB.SPECIES[id] || L.FORMAS.includes(id)));
+  ok("regional com número próprio é NACIONAL (OBSTAGOON, URSALUNA, CLODSIRE)",
+    ["obstagoon", "ursaluna", "clodsire"].every((id) => L.NACIONAL.includes(id) && !L.FORMAS.includes(id)));
+  ok("regional que divide número é FORMA (URSALUNA-PALDEA)", L.FORMAS.includes("ursalunapaldea"));
+  ok("nenhuma fusão em lista nenhuma", ![...L.NACIONAL, ...L.FORMAS].some((id) => DB.SPECIES[id]?.fusao));
+  p(`  FORMAS: ${L.FORMAS.length} (ex.: ${L.FORMAS.slice(0, 6).map((id) => DB.SPECIES[id].name).join(", ")}...)`);
+
+  h("VISTO E PEGO");
+  const st = { seen: { pidgey: true, rattata: true }, caught: { rattata: true }, flags: {}, items: {},
+               party: [{ species: "charmander" }], box: [{ species: "squirtle" }] };
+  ok("nunca visto: nada", X.estado(st, "mew") === null);
+  ok("visto", X.estado(st, "pidgey") === "visto");
+  ok("pego", X.estado(st, "rattata") === "pego");
+  X.sincronizar(st);
+  ok("quem é seu (equipe e box) conta como pego", X.estado(st, "charmander") === "pego" && X.estado(st, "squirtle") === "pego");
+  const c = X.contagem(st, L.KANTO);
+  ok("a conta de KANTO", c.vistos === 4 && c.pegos === 3 && c.total === 151, JSON.stringify(c));
+
+  h("A FICHA");
+  const ondePidgey = X.onde("pidgey");
+  ok("o PIDGEY vive em algum lugar", ondePidgey.length > 0, `(${ondePidgey.slice(0, 4).join(", ")})`);
+  ok("o MEW não vive solto", X.onde("mew").length === 0);
+  const ch = X.cadeia("charmeleon");
+  ok("a linha do CHARMELEON vai do CHARMANDER ao CHARIZARD",
+    ch.map((g) => g.join()).join(" > ") === "charmander > charmeleon > charizard", JSON.stringify(ch));
+  const ev = X.cadeia("eevee");
+  ok("a do EEVEE se parte em várias", ev.length === 2 && ev[1].length >= 3, JSON.stringify(ev));
+  ok("quem não evolui é um estágio só", X.cadeia("tauros").length === 1);
+  ok("o peso do PIKACHU é 6 kg", X.peso("pikachu") === 6);
+
+  h("O PROFESSOR AVALIA");
+  const cheio = (n) => ({ seen: {}, caught: Object.fromEntries(L.KANTO.slice(0, n).map((id) => [id, true])),
+                          flags: {}, items: {}, party: [], box: [] });
+  ok("9 pegos: nada ainda", X.marcosDevidos(cheio(9)).length === 0);
+  const s10 = cheio(10);
+  ok("10 pegos: o primeiro marco", X.marcosDevidos(s10).map((m) => m.n).join() === "10");
+  X.pagarMarco(s10, X.marcosDevidos(s10)[0]);
+  ok("pagou 10 POKÉ BOLAS", s10.items["poké bola"] === 10);
+  ok("e não paga de novo", X.marcosDevidos(s10).length === 0 && !X.pagarMarco(s10, DB.MARCOS_DEX[0]));
+  const s151 = cheio(151);
+  ok("151: todos os marcos de uma vez", X.marcosDevidos(s151).length === DB.MARCOS_DEX.length);
+  ok("todo item de marco existe na loja ou na mochila de alguém",
+    DB.MARCOS_DEX.every((m) => m.item && m.qtd > 0 && m.fala));
+  DB.MARCOS_DEX.forEach((m) => X.pagarMarco(s151, m));
+  ok("o último é o AMULETO BRILHANTE", s151.items["amuleto brilhante"] === 1);
+  ok("e ele triplica a sorte de cor", X.fatorAmuleto(s151) === 3 && X.fatorAmuleto(s10) === 1);
+  ok("o amuleto tem frase na mochila", !!DB.ITEM_LORE["amuleto brilhante"]);
+
+  h("QUEM TEM A POKÉDEX");
+  ok("jogo novo: não tem", !X.temPokedex({ flags: {} }));
+  ok("recebeu do professor: tem", X.temPokedex({ flags: { pokedex: true } }));
+  ok("save antigo, já com inicial e decodificador: ganha sem voltar ao laboratório",
+    X.temPokedex({ flags: { starterChosen: true, decodificador: true } }));
+  ok("save antigo, só com o decodificador (sem inicial): ainda não",
+    !X.temPokedex({ flags: { decodificador: true } }));
+
+  h("O LABORATÓRIO: INICIAL > POKÉDEX > DECODIFICADOR");
+  const { OverworldScene } = await import("/src/scenes/overworld.js");
+  const O = OverworldScene.prototype;
+  const falou = [];
+  const lab = {
+    st: { flags: {}, items: {}, party: [], seen: {}, caught: {}, badges: [], npcState: {} },
+    dlg: { say: (t, cb) => { falou.push(...[].concat(t)); cb?.(); }, ask() {} },
+    game: { autosave() {}, giveStarter(id) { const m = { species: id, nickname: DB.SPECIES[id].name }; lab.st.party.push(m); return m; } },
+    entregarInicial: O.entregarInicial, darPokedex: O.darPokedex, darDecodificador: O.darDecodificador, talkOak: O.talkOak,
+  };
+  lab.entregarInicial("charmander", {});
+  const onde1 = (t) => falou.findIndex((l) => l.includes(t));
+  const iIni = onde1("VOCÊ RECEBEU CHARMANDER"), iDex = onde1(DB.POKEDEX_TEXTO.ganhou),
+        iDec = onde1(DB.STORY.fusao.ganhou), iFim = onde1("SIGA PELA ROTA 1");
+  ok("a ordem é inicial, Pokédex, decodificador, e só então a ROTA 1",
+    iIni >= 0 && iIni < iDex && iDex < iDec && iDec < iFim, `(${iIni}, ${iDex}, ${iDec}, ${iFim})`);
+  ok("as três marcas ficaram no save", lab.st.flags.starterChosen && lab.st.flags.pokedex && lab.st.flags.decodificador);
+  ok("o decodificador foi pra mochila", lab.st.items[DB.FUSAO.item] === 1);
+  // save antigo: pegou o decodificador primeiro (a ordem de antes) e ainda não tem inicial
+  falou.length = 0;
+  lab.st = { flags: { decodificador: true }, items: { [DB.FUSAO.item]: 1 }, party: [], seen: {}, caught: {}, badges: [], npcState: {} };
+  lab.entregarInicial("squirtle", {});
+  ok("save de antes: o inicial dá a Pokédex e não repete o decodificador",
+    falou.some((l) => l === DB.POKEDEX_TEXTO.ganhou) && !falou.some((l) => l === DB.STORY.fusao.ganhou)
+    && falou.some((l) => l.includes("SIGA PELA ROTA 1")));
+  // jogo novo, falando com o professor ANTES de pegar a bola: ele não dá mais o decodificador
+  falou.length = 0;
+  lab.st = { flags: {}, items: {}, party: [], seen: {}, caught: {}, badges: [], npcState: {} };
+  lab.talkOak({ lines: ["ESCOLHA UMA DAS POKÉ BOLAS."] }, {});
+  ok("antes do inicial o professor só manda escolher a bola", !lab.st.flags.decodificador && !lab.st.flags.pokedex
+    && falou.includes("ESCOLHA UMA DAS POKÉ BOLAS."));
+
+  h("A TELA");
+  const fr = document.createElement("iframe");
+  fr.width = 240; fr.height = 160; fr.style.opacity = "0.01";
+  fr.src = "/index.html?map=pallet&starter=charmander:20&party=pidgey:10,pikachu:12&perfil=dex-teste";
+  document.body.appendChild(fr);
+  const espera = async (f, ms = 9000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (f()) return true; } catch {} await new Promise((r) => setTimeout(r, 50)); } return false; };
+  ok("o jogo abriu", await espera(() => fr.contentWindow?.game?.scenes?.top?.constructor?.name === "OverworldScene"));
+  const W = fr.contentWindow, g = W.game;
+  g.autosave = () => {};
+  ok("o menu tem POKÉDEX em primeiro", g.scenes.top.itensMenu()[0] === "POKÉDEX");
+  const gs = g.state;
+  Object.assign(gs.seen, { rattata: true, spearow: true, bulbasaur: true, mewtwo: true });
+  // nove já pegos (os três da equipe contam): o professor paga o de 10 na hora
+  for (const id of ["caterpie", "weedle", "rattata", "oddish", "bellsprout", "ekans", "sandshrew"]) gs.caught[id] = gs.seen[id] = true;
+  const { PokedexScene } = await W.eval('import("/src/scenes/pokedex.js")');
+  const { SpriteStore } = await W.eval('import("/src/core/sprites.js")');
+  const bolas = gs.items["poké bola"] || 0;
+  const cena = new PokedexScene();
+  g.scenes.push(cena, {});
+  ok("com 10 de Kanto o professor manda as bolas pela Pokédex", (gs.items["poké bola"] || 0) === bolas + 10);
+  ok("e ele fala pela Pokédex", !!cena.dlg.active);
+  cena.dlg = new cena.dlg.constructor();      // fecha a fala pras fotos
+  const foto = async (nome, ids) => {
+    ids.forEach((id) => W.Assets.mon(id, 1));
+    await espera(() => ids.every((id) => SpriteStore.pokemon[id]), 4000);
+    const cv = document.createElement("canvas"); cv.width = 240; cv.height = 160;
+    const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+    cena.fadeA = 0; cena.render(ctx);
+    const big = document.createElement("canvas"); big.width = 480; big.height = 320;
+    const b = big.getContext("2d"); b.imageSmoothingEnabled = false; b.drawImage(cv, 0, 0, 480, 320);
+    const fig = document.createElement("figure");
+    fig.append(big, Object.assign(document.createElement("figcaption"), { textContent: nome }));
+    fotos.append(fig);
+  };
+  cena.index = 3; cena.topo = 0;
+  await foto("a lista de KANTO (cursor no CHARMANDER)", ["charmander"]);
+  cena.ficha = { id: "charmander", pagina: 0 };
+  await foto("a ficha: DADOS", ["charmander"]);
+  cena.ficha.pagina = 1;
+  await foto("a ficha: ATRIBUTOS e EVOLUÇÃO", ["charmander"]);
+  cena.ficha = { id: "pidgey", pagina: 2 };
+  await foto("a ficha: ONDE (PIDGEY)", ["pidgey"]);
+  cena.ficha = { id: "mewtwo", pagina: 0 };
+  await foto("só VISTO: desenho sem os dados (MEWTWO)", ["mewtwo"]);
+  cena.ficha = null; cena.aba = 2; cena.index = 0; cena.topo = 0;
+  await foto("a aba FORMAS", []);
+
+  p(falhas ? `<br>${falhas} FALHA(S)` : "<br>tudo certo.", falhas ? "erro" : "ok");
+} catch (e) {
+  falhas++;
+  p("EXPLODIU: " + (e?.stack || e), "erro");
+}
+out.innerHTML = linhas.join("");
+</script>
+</body>
+</html>

@@ -14,6 +14,9 @@ import { Online } from "../systems/online.js";
 import { OnlineMenuScene } from "./online.js";
 import { TradeScene } from "./trade.js";
 import { LinkBattleScene } from "./linkbattle.js";
+import { GrupoBattleScene } from "./grupobattle.js";
+import { PokedexScene } from "./pokedex.js";
+import { temPokedex, fatorAmuleto } from "../systems/pokedex.js";
 import { Glitch } from "../systems/glitchfx.js";
 import { randRange } from "../core/rng.js";
 import { rollEncounter, rollDimEncounter, rollFlores } from "../systems/encounters.js";
@@ -61,13 +64,20 @@ import { eraDoMapa, erasAbertas, celebiApareceu, chaveGuardiao, acabouOTempo }
 import { ehFusao, fundivel, previsao, partes, temFicha, fichasProntas, variantes,
          buscarDoMundo, especiePorTexto, montarEspecie, servidorMundo,
          importarFicha, trocarVariante, versoesInvertidas } from "../systems/fusao.js";
+import { noMapa as provacoesNoMapa, estado as estadoProvacao, montarTotem,
+         chaveDoTotem, pagar as pagarProvacao, aPagar as provacaoAPagar,
+         falaDaGuardia, ilhaAcordou, espalhar as espalharProvacoes, montarGrupoDoTotem,
+         proxima as proximaProvacao } from "../systems/provacoes.js";
 import { BattleScene } from "./battle.js";
 import { EvolutionScene } from "./evolution.js";
 import { FusionScene } from "./fusion.js";
 import { FusaoEditorScene } from "./fusaoeditor.js";
 import { ConcursoScene } from "./concurso.js";
+import { reduzido } from "../core/reduzir.js";
 
 const W = 240, H = 160;
+/** Linhas visíveis na lista do GO PARK (a box inteira cabe nela, rolando). */
+const GO_LISTA_VIS = 6;
 // tempos do FireRed, contados em quadros (o loop roda fixo em 60fps):
 // 16 quadros por tile andando, 8 correndo, 6 pra virar no lugar.
 const WALK = 16, RUN = 8, TURN = 6, HOP = 20;
@@ -272,6 +282,7 @@ export class OverworldScene {
     this.snapCamera();
     if (this.st.flags.escortPending) this.spawnEscort();
     this.reporEstaticos();
+    this.conferirProvacao();          // derrubou o totem: a marca se apaga e paga
     adiantarDoMapa(this.st);          // os bichos deste mapa, antes de aparecerem
     this.checkMissionDone();
   }
@@ -287,7 +298,8 @@ export class OverworldScene {
   }
 
   perguntaConvite(c) {
-    const chave = c.modo === "batalha" ? "batalhaConvite" : "trocaConvite";
+    const chave = c.modo !== "batalha" ? "trocaConvite"
+      : c.formato === "dupla" ? "batalhaConviteDupla" : "batalhaConvite";
     const frase = String(DB.ONLINE_TEXTO?.[chave] || "").replace("{NOME}", c.nome);
     this.dlg.ask(frase, ["SIM", "NÃO"], (i) => {
       const combinado = Online.responder(i === 0);
@@ -450,6 +462,7 @@ export class OverworldScene {
     const cristal = this.cristalNoCume();
     if (cristal) extra.push(cristal);
     extra.push(...this.cristaisNoChao());
+    extra.push(...this.provacoesNpcs());
     const rasgo = portalAberto(this.st, mapa);
     if (rasgo) extra.push({ id: "rasgo", x: rasgo.x, y: rasgo.y, sprite: "rasgo", raidPortal: true, dir: "down" });
     const f = this.st.fragment;
@@ -503,6 +516,87 @@ export class OverworldScene {
       .filter((c) => c.mapa === aqui && !this.st.items?.[c.item])
       .map((c) => ({ id: `z_${c.golpe}`, x: c.x, y: c.y, dir: "down",
                      sprite: "ball", zcristal: c }));
+  }
+
+  /** AS PROVAÇÕES DA ILHA DOIS: a GUARDIÃ na subida do porto e um TOTEM
+   *  dormindo em cima de cada marca que ainda não foi passada.
+   *
+   *  O totem é um NPC de chefe, como os de ESTATICOS: ele fica parado, você
+   *  anda até lá e encosta. Perdeu, ele continua de pé — a provação não tem
+   *  tranca, tem porteiro, e porteiro não some porque você foi embora. */
+  provacoesNpcs() {
+    const aqui = this.st.player.map;
+    const lista = [];
+    const G = DB.PROVACAO_GUARDIA;
+    if (G && G.mapa === aqui && ilhaAcordou(this.st)) {
+      lista.push({ id: "guardia_provacoes", x: G.x, y: G.y, dir: G.dir || "down",
+                   sprite: G.sprite, guardiaProvacao: true, lines: [] });
+    }
+    for (const p of provacoesNoMapa(this.st, aqui)) {
+      if (this.st.npcState[chaveDoTotem(p)]?.defeated) continue;   // caiu, falta só pagar
+      lista.push({ id: `totem_${p.id}`, x: p.x, y: p.y, dir: "down",
+                   sprite: `mon:${p.totem}`, provacao: p, lines: p.marca });
+    }
+    return lista;
+  }
+
+  /** Encostar numa marca. O que ela diz depende só do save: o pós-jogo abriu?
+   *  falta alguém do tipo dela na equipe? é a de GLITCH e ainda faltam
+   *  provações? Se está tudo certo, ela pergunta — e quem responde é você. */
+  talkProvacao(npc) {
+    const p = npc.provacao;
+    const T = DB.PROVACOES_TEXTO;
+    const diz = (linha) => this.dlg.say([...p.marca, linha]);
+    switch (estadoProvacao(this.st, p)) {
+      case "fechada": return void diz(T.fechada);
+      case "travada": {
+        const antes = proximaProvacao(this.st);
+        return void diz(T.travada.replace("{TIPO}", antes.tipo).replace("{LUGAR}", antes.lugar));
+      }
+      case "semtipo": return void diz(T.semTipo.replace("{TIPO}", p.tipo));
+      case "feita": return void this.dlg.say(p.venceu);
+      default: break;
+    }
+    this.dlg.say(p.marca, () => {
+      this.dlg.ask(T.pergunta.replace("{TIPO}", p.tipo), T.opcoes, (i) => {
+        if (i !== 0) { Audio2.cancel(); return void this.dlg.say(T.recusa); }
+        this.startTotemBattle(p);
+      });
+    });
+  }
+
+  /** O totem acorda. É batalha de chefe (não dá pra fugir) com uma diferença:
+   *  bola nenhuma funciona nele, e quem diz isso é a cena de batalha, olhando o
+   *  `totem` que veio dentro do bicho. A fenda só entra na de GLITCH — nas
+   *  outras dezessete a ilha não tem nada de corrompido, e piscar a tela em
+   *  todas elas seria gastar o susto à toa. */
+  startTotemBattle(p) {
+    Audio2.stopLoop();
+    if (p.tipo === "GLITCH") { Glitch.hit(2); Audio2.glitch(); }
+    Audio2.tone(880, 0.08); Audio2.tone(660, 0.12);
+    // O TOTEM NÃO VEM SOZINHO: ele chama um ajudante (dupla) ou dois (trio), e
+    // do seu lado saem tantos quanto os dele (src/data/duplas.js)
+    const foes = montarGrupoDoTotem(p);
+    this.fx = {
+      t: 0,
+      cb: () => this.game.scenes.push(new GrupoBattleScene(), {
+        foes, tamanho: foes.length, glitch: p.tipo === "GLITCH", npcKey: chaveDoTotem(p),
+      }),
+    };
+  }
+
+  /** Voltou da batalha: se algum totem caiu e o cristal dele ainda não foi
+   *  pago, paga agora. A conta é feita aqui e não no fim da batalha porque o
+   *  prêmio é do MUNDO, não da luta — é a marca que se apaga. */
+  conferirProvacao() {
+    const p = provacaoAPagar(this.st);
+    if (!p) return false;
+    const linhas = pagarProvacao(this.st, p);
+    if (!linhas) return false;
+    Audio2.heal();
+    this.game.autosave?.(true);
+    this.dlg.say(linhas);
+    return true;
   }
 
   /** OS MOTOQUEIROS DA ILHA TRÊS. Eles se gabam da velocidade da bicicleta, e é
@@ -1181,7 +1275,8 @@ export class OverworldScene {
     if (st.player.map !== "glitchdim") {
       // a cor do bicho pode ser reescrita por um DLC — a SHINY ZONE. O gancho
       // devolve outra `sorte` (número) ou a cor pronta ({ shiny, luminoso })
-      let sorte = fator(st, "sorte"), brilho = null;
+      // o AMULETO BRILHANTE (a Pokédex de Kanto completa) soma na mesma conta
+      let sorte = fator(st, "sorte") * fatorAmuleto(st), brilho = null;
       for (const f of DB.GANCHOS?.brilho || []) {
         const r = f(st, sorte);
         if (typeof r === "number") sorte = r;
@@ -1657,7 +1752,12 @@ export class OverworldScene {
     Audio2.tone(880, 0.08); Audio2.tone(660, 0.12);
     // o retrato de batalha tem o mesmo nome do sprite de overworld do NPC
     const trainer = { sprite: npc.sprite, ...npc.trainer };
-    this.fx = { t: 0, cb: () => this.game.scenes.push(new BattleScene(), { trainer, npcKey: key }) };
+    // EM DUPLA: as duplas de treinadores sempre (src/data/duplas.js); e todo
+    // treinador com dois ou mais, se a opção BATALHA DUPLA estiver ligada
+    const dupla = !!trainer.dupla || (!!this.st.flags?.todasDuplas && (trainer.party || []).length >= 2);
+    this.fx = { t: 0, cb: () => (dupla
+      ? this.game.scenes.push(new GrupoBattleScene(), { trainer, npcKey: key, tamanho: 2 })
+      : this.game.scenes.push(new BattleScene(), { trainer, npcKey: key })) };
   }
 
   /** O CAÇADOR do pokésave vem andando; quando encosta, ataca sem perguntar. */
@@ -1831,6 +1931,12 @@ export class OverworldScene {
     // PIKASHUNIUM Z no cume e os dezoito da ILHA DOIS respondiam com a fala das
     // bolas do Carvalho, a meio mundo de distância dele.
     if (ehMotoqueiro(npc, this.st.player.map)) return this.espantarMotoqueiros();
+    if (npc.provacao) return this.talkProvacao(npc);
+    if (npc.guardiaProvacao) {
+      const agora = espalharProvacoes(this.st);
+      if (agora) { Audio2.heal(); this.game.autosave?.(true); }
+      return void this.dlg.say(falaDaGuardia(this.st, agora));
+    }
     if (npc.zcristal) return this.pegarZ(npc.zcristal);
     if (npc.cristal) return this.pegarCristal();
     if (npc.sprite === "ball") return this.pickStarter(npc, state);
@@ -2475,7 +2581,7 @@ export class OverworldScene {
 
   /** PROF. CARVALHO entrega o DECODIFICADOR DE GENOMA e emenda no assunto do
    *  dia (o inicial, ou o que ele fosse falar mesmo). */
-  darDecodificador(npc, state) {
+  darDecodificador(npc, state, depois = null) {
     const F = DB.STORY.fusao;
     const st = this.st;
     st.flags.decodificador = true;
@@ -2484,7 +2590,7 @@ export class OverworldScene {
       Audio2.glitch();
       Glitch.hit(1.2);
       this.game.autosave?.(true);
-      this.dlg.say([F.ganhou, ...F.explica], () => this.talkOak(npc, state));
+      this.dlg.say([F.ganhou, ...F.explica], () => (depois ? depois() : this.talkOak(npc, state)));
     });
   }
 
@@ -2873,38 +2979,176 @@ export class OverworldScene {
     });
   }
 
-  /** A atendente do GO PARK (src/systems/gopark.js): manda um Pokémon "pro GO"
-   *  — o cartão com o CP de lá baixa, e ele passa a morar no parque — ou abre
-   *  o parque, onde se captura de volta e se joga o GO PLACE. */
+  /** A ATENDENTE DO GO PARK COMPLEX (src/systems/gopark.js).
+   *
+   *  Quatro coisas: manda um Pokémon da EQUIPE OU DA BOX pro GO (e o cartão
+   *  com o QR baixa), PUXA os seus do POKÉMON GO pra dentro do complexo, abre
+   *  um dos cinco parques, e explica o que dá e o que não dá pra fazer. */
   talkGoPark(state) {
     const T = DB.GO_TEXTO, st = this.st;
     const menu = () => this.dlg.ask(T.menu, T.opcoes, (i) => {
       if (i === 0) return this.enviarProGO();
-      if (i === 1) { if (!GoPark.parque(st).length) return void this.dlg.say(T.vazio); return void this.game.scenes.push(new GoParkScene()); }
-      if (i === 2) return void this.dlg.say(T.explica, menu);
+      if (i === 1) return this.puxarDoGO();
+      if (i === 2) return this.entrarNoParque();
+      if (i === 3) return void this.dlg.say(T.explica, menu);
       this.dlg.say(T.nada);
     });
     if (state.talked) return menu();
     state.talked = true;
-    this.dlg.say(T.oferta, menu);
+    this.dlg.say(T.oferta.map((l) => l.replace("{P}", DB.GO_PARK.parques).replace("{V}", DB.GO_PARK.porParque)), menu);
   }
 
+  /** ENVIAR PRO GO: de onde, quem, e o cartão baixa. */
   enviarProGO() {
     const T = DB.GO_TEXTO, st = this.st;
-    if (st.party.length <= 1) return void this.dlg.say(T.ultimo);
-    if (GoPark.parque(st).length >= DB.GO_PARK.vagas) return void this.dlg.say(T.cheio.replace("{N}", DB.GO_PARK.vagas));
-    this.menu = {
-      type: "party", index: 0, titulo: T.escolher,
-      escolher: (idx) => {
-        this.menu = null;
-        const mon = GoPark.enviar(st, idx);
-        if (!mon) return void this.dlg.say(T.ultimo);
-        const arquivo = GoPark.baixarCartao(mon);
-        Audio2.heal();
-        this.game.autosave?.(true);
-        this.dlg.say(T.enviado.map((l) => l.replace("{MON}", mon.nickname).replace("{CP}", mon.cpGO).replace("{ARQUIVO}", arquivo)));
-      },
+    if (!GoPark.parqueComVaga(st)) {
+      return void this.dlg.say(T.cheio.replace("{N}", GoPark.totalNoParque(st)).replace("{P}", DB.GO_PARK.parques));
+    }
+    this.dlg.ask(T.origem, T.origemOpcoes, (k) => {
+      if (k !== 0 && k !== 1) return;
+      const daEquipe = k === 0;
+      if (daEquipe && st.party.length <= 1) return void this.dlg.say(T.ultimo);
+      const lista = GoPark.candidatos(st).filter((c) => c.origem === (daEquipe ? "equipe" : "box"));
+      if (!lista.length) return void this.dlg.say(daEquipe ? T.ultimo : T.boxVazia);
+      this.menu = {
+        type: "goLista", titulo: T.escolher, index: 0, top: 0,
+        itens: lista.map((c) => ({
+          rotulo: `${c.mon.nickname} N${c.mon.level} CP${GoPark.cpDe(c.mon)}`, mon: c.mon,
+        })),
+        escolher: (mon) => {
+          this.menu = null;
+          const foi = GoPark.enviar(st, mon);
+          if (!foi) return void this.dlg.say(T.ultimo);
+          const arquivo = GoPark.baixarCartao(foi, st.player?.name || "");
+          const parque = GoPark.parqueDe(st, foi);
+          Audio2.heal();
+          this.game.autosave?.(true);
+          this.dlg.say(T.enviado.map((l) => l
+            .replace("{MON}", foi.nickname).replace("{CP}", foi.cpGO)
+            .replace("{ARQUIVO}", arquivo).replace("{PARQUE}", parque?.nome || "PARQUE")));
+        },
+      };
+    });
+  }
+
+  /** PUXAR DO GO: por onde entram os que vêm de fora. */
+  puxarDoGO() {
+    const T = DB.GO_TEXTO;
+    this.dlg.ask(T.puxarMenu, T.puxarOpcoes, (i) => {
+      if (i === 0) return this.lerDoGO("texto");
+      if (i === 1) return this.lerDoGO("imagem");
+      if (i === 2) return this.digitarDoGO();
+    });
+  }
+
+  /** Abre o seletor do sistema e lê o que vier: JSON/CSV com a sua coleção do
+   *  GO, ou a imagem de um cartão (aí o que vale é o QR). Mesmo padrão do
+   *  importar do FUSIONGLITCH, logo acima. */
+  lerDoGO(tipo) {
+    const T = DB.GO_TEXTO;
+    this.menu = null;
+    const imagem = tipo === "imagem";
+    this.dlg.say(imagem ? T.puxarImagem : T.puxarArquivo);
+    const entrada = document.createElement("input");
+    entrada.type = "file";
+    entrada.accept = imagem ? "image/*" : "application/json,text/csv,text/plain,.json,.csv,.txt";
+    entrada.style.display = "none";
+    document.body.appendChild(entrada);
+    entrada.onchange = () => {
+      const arquivo = entrada.files?.[0];
+      entrada.remove();
+      if (!arquivo) return void this.dlg.say(T.cancelou);
+      this.dlg.say(T.lendo);
+      if (!imagem) {
+        const leitor = new FileReader();
+        leitor.onload = () => this.receberDoGO(GoPark.importar(leitor.result));
+        leitor.onerror = () => { Audio2.cancel(); this.dlg.say(T.erroFormato); };
+        return void leitor.readAsText(arquivo);
+      }
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(img.src);
+        this.receberDoGO(GoPark.importarDeImagem(img));
+      };
+      img.onerror = () => { URL.revokeObjectURL(img.src); Audio2.cancel(); this.dlg.say(T.erroQR); };
+      img.src = URL.createObjectURL(arquivo);
     };
+    entrada.click();
+  }
+
+  /** DIGITAR NA MÃO: sem arquivo nenhum, olhando a tela do GO. Espécie e CP
+   *  bastam — o nível sai da conta do CP ao contrário. */
+  digitarDoGO() {
+    this.menu = { type: "goDigitar", linha: 0, textos: ["", "", ""] };
+  }
+
+  /** Fecha o digitado: monta o Pokémon e manda pro complexo. */
+  confirmarDigitado(m) {
+    const T = DB.GO_TEXTO;
+    const species = GoPark.especieDe(m.textos[0], m.textos[0]);
+    if (!species) { Audio2.cancel(); return void this.dlg.say(T.digitarNada); }
+    const cp = Number(String(m.textos[1]).replace(/[^\d]/g, ""));
+    const [a, d, v] = String(m.textos[2]).split(/[.\s\/-]+/).map((n) => Number(n));
+    const reg = { name: species, cp: cp > 0 ? cp : undefined };
+    if (Number.isFinite(a)) { reg.attack = a; reg.defense = Number.isFinite(d) ? d : a; reg.stamina = Number.isFinite(v) ? v : a; }
+    if (!(cp > 0) && !Number.isFinite(a)) { Audio2.cancel(); return void this.dlg.say(T.erroFormato); }
+    this.menu = null;
+    const r = GoPark.monDoGO(reg);
+    if (r.erro) { Audio2.cancel(); return void this.dlg.say(T.digitarNada); }
+    this.receberDoGO({ mons: [r.mon], avisos: [], estimado: r.nivelEstimado });
+  }
+
+  /** A CHEGADA: o que o importador devolveu entra nos parques que tiverem vaga.
+   *  Nada é jogado fora em silêncio — o que não coube e o que não foi entendido
+   *  viram fala. */
+  receberDoGO({ mons, avisos, estimado }) {
+    const T = DB.GO_TEXTO, st = this.st;
+    if (!mons.length) {
+      Audio2.cancel();
+      const q = avisos[0] || "";
+      if (q === "qr") return void this.dlg.say(T.erroQR);
+      if (q === "cartao") return void this.dlg.say(T.erroCartao);
+      if (q === "formato" || q === "vazio") return void this.dlg.say(T.erroFormato);
+      return void this.dlg.say(T.erroNenhum);
+    }
+    const entraram = [];
+    for (const mon of mons) { if (GoPark.receber(st, mon)) entraram.push(mon); else break; }
+    if (!entraram.length) {
+      Audio2.cancel();
+      return void this.dlg.say(T.cheio.replace("{N}", GoPark.totalNoParque(st)).replace("{P}", DB.GO_PARK.parques));
+    }
+    const falas = [];
+    if (entraram.length === 1) {
+      const mon = entraram[0], parque = GoPark.parqueDe(st, mon);
+      falas.push(...T.puxouUm.map((l) => l
+        .replace("{MON}", mon.nickname).replace("{CP}", mon.cpGO)
+        .replace("{PARQUE}", parque?.nome || "PARQUE")));
+    } else {
+      falas.push(...T.puxouVarios.map((l) => l.replace("{N}", entraram.length)));
+    }
+    if (entraram.length < mons.length) {
+      falas.push(T.puxouParcial.replace("{N}", entraram.length).replace("{F}", mons.length - entraram.length));
+    }
+    if (estimado) falas.push(T.nivelEstimado);
+    if (avisos?.length) falas.push(T.avisoSobrou.replace("{N}", avisos.length).replace("{L}", avisos.join(", ")));
+    Audio2.heal();
+    this.game.autosave?.(true);
+    this.dlg.say(falas);
+  }
+
+  /** ENTRAR NO PARQUE: são cinco, e cada um mostra quantos tem dentro. */
+  entrarNoParque() {
+    const T = DB.GO_TEXTO, st = this.st;
+    if (!GoPark.totalNoParque(st)) return void this.dlg.say(T.vazio);
+    const parques = GoPark.complexo(st);
+    const opcoes = parques.map((p) => T.parqueLinha
+      .replace("{NOME}", p.nome).replace("{N}", p.mons.length).replace("{V}", DB.GO_PARK.porParque));
+    this.dlg.ask(T.qualParque, [...opcoes, "VOLTAR"], (i) => {
+      const p = parques[i];
+      if (!p) return;
+      if (!p.mons.length) return void this.dlg.say(T.parqueVazio);
+      this.game.scenes.push(new GoParkScene(i));
+    });
   }
 
   talkCreche() {
@@ -3463,9 +3707,12 @@ export class OverworldScene {
     const S = DB.STORY;
     const n = st.badges.length;
 
-    // DECODIFICADOR DE GENOMA: a primeira coisa que ele faz, na primeira
-    // conversa — antes do inicial, antes de qualquer insígnia.
-    if (!st.flags.decodificador) return this.darDecodificador(npc, state);
+    // A ORDEM DO LABORATÓRIO: o INICIAL (nas bolas da mesa), depois a POKÉDEX,
+    // depois o DECODIFICADOR DE GENOMA. Normalmente os dois saem em sequência
+    // logo depois de você pegar a bola (`entregarInicial`); isto aqui é pra
+    // quem saiu antes do fim da conversa, ou pra um save de antes da Pokédex.
+    if (st.flags.starterChosen && !temPokedex(st)) return this.darPokedex(() => this.talkOak(npc, state));
+    if (st.flags.starterChosen && !st.flags.decodificador) return this.darDecodificador(npc, state);
 
     // A GLITCHFORM: com o VISOR-G.L.I.T.C.H do Conor no bolso, o professor
     // explica pra que mais ele serve — e é essa conversa que destranca o
@@ -3611,11 +3858,23 @@ export class OverworldScene {
     this.st.flags.starterChosen = true;
     this.st.flags.meuInicial = id;             // o AZUL escolhe a partir disto
     Audio2.heal();
-    this.dlg.say([
-      `VOCÊ RECEBEU ${mon.nickname}!`,
-      "PROF. CARVALHO: BOA ESCOLHA! AGORA SIGA PELA ROTA 1.",
-      "VIRIDIAN FICA AO NORTE. LÁ TEM CENTRO POKÉMON E LOJA.",
-    ]);
+    // o inicial, depois a POKÉDEX, depois o DECODIFICADOR — e só então o
+    // "siga pela ROTA 1", que é o fim da conversa
+    const fim = () => this.dlg.say(DB.POKEDEX_TEXTO?.fim || []);
+    const decodificador = () => (this.st.flags.decodificador ? fim() : this.darDecodificador(null, state, fim));
+    this.dlg.say([`VOCÊ RECEBEU ${mon.nickname}!`], () =>
+      (temPokedex(this.st) && this.st.flags.pokedex ? decodificador() : this.darPokedex(decodificador)));
+  }
+
+  /** A POKÉDEX sai da mão do professor (src/data/pokedex.js). */
+  darPokedex(depois) {
+    const P = DB.POKEDEX_TEXTO;
+    this.st.flags.pokedex = true;
+    this.dlg.say(P.entrega, () => {
+      Audio2.heal();
+      this.game.autosave?.(true);
+      this.dlg.say([P.ganhou, ...P.explica], () => depois?.());
+    });
   }
 
   // ---------------------------------------------------------------- menu
@@ -3753,6 +4012,8 @@ export class OverworldScene {
   /** itens do menu principal: VOAR entra quando alguém da equipe sabe voar */
   itensMenu() {
     const base = ["POKÉMON", "BOX", "MOCHILA", "INSÍGNIAS"];
+    // a POKÉDEX vem do professor, logo depois do inicial (src/data/pokedex.js)
+    if (temPokedex(this.st)) base.unshift("POKÉDEX");
     // ACAMPAR só aparece quando dá: com barraca na mochila e chão de fora. Menu
     // que oferece o que não funciona é menu que mente.
     if (podeAcampar(this.st, this.map).ok) base.push("ACAMPAR");
@@ -4039,6 +4300,7 @@ export class OverworldScene {
           return void this.game.scenes.push(new AcampamentoScene());
         }
         if (pick === "ONLINE") { this.menu = null; return void this.game.scenes.push(new OnlineMenuScene()); }
+        if (pick === "POKÉDEX") { this.menu = null; return void this.game.scenes.push(new PokedexScene(), {}); }
         if (pick === "POKÉMON") this.menu = { type: "party", index: 0 };
         else if (pick === "BOX") this.menu = { type: "box", lado: "box", index: 0, top: 0 };
         else if (pick === "MOCHILA") this.menu = { type: "bag", index: 0 };
@@ -4066,6 +4328,38 @@ export class OverworldScene {
         return;
       }
       if (Input.consume("b") || Input.consume("a")) { this.menu = { type: "main", index: 0 }; Audio2.cancel(); }
+      return;
+    }
+    if (m.type === "goLista") {
+      // A escolha de quem vai pro GO: pode ter a box inteira aqui dentro, então
+      // é lista com rolagem, e não o menu do diálogo (que desenha tudo de uma vez).
+      const n = m.itens.length;
+      if (Input.consume("up")) { m.index = (m.index + n - 1) % n; Audio2.blip(); }
+      if (Input.consume("down")) { m.index = (m.index + 1) % n; Audio2.blip(); }
+      if (Input.consume("left")) { m.index = Math.max(0, m.index - GO_LISTA_VIS); Audio2.blip(); }
+      if (Input.consume("right")) { m.index = Math.min(n - 1, m.index + GO_LISTA_VIS); Audio2.blip(); }
+      m.top = Math.max(0, Math.min(m.top, n - GO_LISTA_VIS));
+      if (m.index < m.top) m.top = m.index;
+      if (m.index >= m.top + GO_LISTA_VIS) m.top = m.index - GO_LISTA_VIS + 1;
+      if (Input.consume("b")) { this.menu = null; Audio2.cancel(); return void this.dlg.say(DB.GO_TEXTO.cancelou); }
+      if (Input.consume("a")) { Audio2.select(); m.escolher(m.itens[m.index].mon); }
+      return;
+    }
+    if (m.type === "goDigitar") {
+      if (Texto.ativo()) {
+        if (!Texto.estado()) return;
+        const escrito = Texto.termina();
+        if (escrito !== null) m.textos[m.linha] = escrito;
+        return;
+      }
+      if (Input.consume("up")) { m.linha = (m.linha + 3) % 4; Audio2.blip(); }
+      if (Input.consume("down")) { m.linha = (m.linha + 1) % 4; Audio2.blip(); }
+      if (Input.consume("b")) { this.menu = null; Audio2.cancel(); return void this.dlg.say(DB.GO_TEXTO.cancelou); }
+      if (Input.consume("a")) {
+        if (m.linha < 3) { Texto.comeca(m.textos[m.linha] || "", m.linha === 0 ? 14 : 10); Audio2.select(); return; }
+        Audio2.select();
+        this.confirmarDigitado(m);
+      }
       return;
     }
     if (m.type === "bag") {
@@ -4461,7 +4755,7 @@ export class OverworldScene {
       return;
     }
     if (m.type === "opts") {
-      const n = 6;
+      const n = 7;
       if (Input.consume("up")) m.index = (m.index + n - 1) % n;
       if (Input.consume("down")) m.index = (m.index + 1) % n;
       if (Input.consume("b")) {
@@ -4479,6 +4773,8 @@ export class OverworldScene {
         else if (m.index === 2) this.mudaVelocidade(1);
         else if (m.index === 3) this.mudaIdioma(1);
         else if (m.index === 4) this.abrirDataAniversario("opts");
+        // BATALHA DUPLA: todo treinador com 2+ luta em dupla (é do save)
+        else if (m.index === 5) this.st.flags.todasDuplas = !this.st.flags.todasDuplas;
         else { Save.clear(); this.menu = null; this.dlg.say("SAVE APAGADO. RECARREGUE A PÁGINA."); }
       }
     }
@@ -4672,7 +4968,7 @@ export class OverworldScene {
       // o Pokémon vem POR CIMA, cobrindo o herói da cintura pra baixo
       const mon = Assets.mon(this.st.surfando, 7);
       const bob = Math.sin(performance.now() / 260) * 1.2;    // sobe e desce na água
-      ctx.drawImage(mon, Math.round(x) - 5, Math.round(y + 4 + bob), 26, 26);
+      ctx.drawImage(reduzido(mon, 26), Math.round(x) - 5, Math.round(y + 4 + bob), 26, 26);
     }
   }
 
@@ -4748,7 +5044,7 @@ export class OverworldScene {
     // o ALFA é maior — é a primeira coisa que se nota nele, antes da cor
     const lado = b.mon.alfa ? 38 : 28;
     const x = Math.round(b.x * TILE - cx - 6 - (lado - 28) / 2), y = Math.round(b.y * TILE - cy - 12 - pulo - (lado - 28));
-    ctx.drawImage(img, x, y, lado, lado);
+    ctx.drawImage(reduzido(img, lado), x, y, lado, lado);
     // e o AVISO em cima dele. Perseguidor sem aviso é armadilha: quem toma uma
     // batalha que não pediu tem que ter tido a chance de ver ela chegando.
     if (caca && Math.floor(performance.now() / 220) % 2 === 0) {
@@ -4778,7 +5074,7 @@ export class OverworldScene {
     const x = (c.de.x + (c.x - c.de.x) * k) * TILE - cx;
     const y = (c.de.y + (c.y - c.de.y) * k) * TILE - cy;
     const pulo = this.move ? Math.abs(Math.sin(k * Math.PI)) * 2 : 0;
-    ctx.drawImage(img, Math.round(x - 6), Math.round(y - 12 - pulo), 28, 28);
+    ctx.drawImage(reduzido(img, 28), Math.round(x - 6), Math.round(y - 12 - pulo), 28, 28);
   }
 
   drawNpc(ctx, n, cx, cy) {
@@ -4864,7 +5160,7 @@ export class OverworldScene {
     }
     if (n.sprite.startsWith("mon:")) {
       const img = Assets.mon(n.sprite.slice(4), 7);
-      return void ctx.drawImage(img, x - 12, y - 24, 40, 40);
+      return void ctx.drawImage(reduzido(img, 40), x - 12, y - 24, 40, 40);
     }
     const set = Assets.actor(n.sprite)[n.dir || "down"];
     // andando, alterna a perna como o jogador (a paridade sai da posição)
@@ -4925,7 +5221,7 @@ export class OverworldScene {
       ctx.fillRect(bx, by, 26, 26);
       ctx.fillStyle = "#0a0614";
       ctx.fillRect(bx + 1, by + 1, 24, 24);
-      if (mon) ctx.drawImage(Assets.mon(mon.species, mon.seed), bx + 1, by + 1, 24, 24);
+      if (mon) ctx.drawImage(reduzido(Assets.mon(mon.species, mon.seed), 24), bx + 1, by + 1, 24, 24);
     };
     const p = this.st.party;
     cx(x, y, p[0]);
@@ -4954,7 +5250,7 @@ export class OverworldScene {
       this.st.party.forEach((mon, i) => {
         const y = 24 + i * 24;
         if (i === m.index) cursor(ctx, 8, y + 7);
-        ctx.drawImage(Assets.comCor(Assets.mon(mon.species, mon.seed), mon), 16, y - 2, 24, 24);
+        ctx.drawImage(reduzido(Assets.comCor(Assets.mon(mon.species, mon.seed), mon), 24), 16, y - 2, 24, 24);
         drawText(ctx, mon.nickname, 46, y + 2, PAL.ink);
         drawText(ctx, `N${mon.level}`, 152, y + 2, PAL.ink);
         bar(ctx, 46, y + 14, 76, 4, hpPct(mon), hpColor(hpPct(mon)));
@@ -4966,6 +5262,60 @@ export class OverworldScene {
         if (mon.alfa) drawText(ctx, "ALFA", 182, y + 11, "#e0242a");
       });
       drawText(ctx, "X VOLTA", 180, H - 20, PAL.ink2);
+      return;
+    }
+    if (m.type === "goLista") {
+      panel(ctx, 4, 4, W - 8, H - 8);
+      drawText(ctx, m.titulo, 12, 10, PAL.ink);
+      drawText(ctx, `${m.index + 1}/${m.itens.length}`, 186, 10, PAL.ink2);
+      for (let k = 0; k < GO_LISTA_VIS; k++) {
+        const i = m.top + k;
+        if (i >= m.itens.length) break;
+        const it = m.itens[i], y = 26 + k * 18;
+        if (i === m.index) cursor(ctx, 8, y + 4);
+        ctx.drawImage(reduzido(Assets.comCor(Assets.mon(it.mon.species, it.mon.seed), it.mon), 20), 16, y - 3, 20, 20);
+        drawText(ctx, it.rotulo, 40, y + 2, PAL.ink, { maxChars: 30 });
+      }
+      if (m.itens.length > GO_LISTA_VIS) {
+        const th = GO_LISTA_VIS * 18 - 4;
+        ctx.fillStyle = PAL.ink2; ctx.fillRect(W - 14, 26, 2, th);
+        const bh = Math.max(4, th * GO_LISTA_VIS / m.itens.length);
+        ctx.fillStyle = PAL.ink;
+        ctx.fillRect(W - 14, 26 + (th - bh) * m.top / Math.max(1, m.itens.length - GO_LISTA_VIS), 2, bh);
+      }
+      drawText(ctx, "←→ PULA  X VOLTA", 96, H - 18, PAL.ink2);
+      return;
+    }
+    if (m.type === "goDigitar") {
+      const T = DB.GO_TEXTO;
+      panel(ctx, 4, 4, W - 8, H - 8);
+      drawText(ctx, "PUXAR DO GO", 12, 10, PAL.ink);
+      const rotulos = [T.digitarEspecie, T.digitarCP, T.digitarIV];
+      const curtos = ["POKÉMON", "CP", "IV A.D.PS"];
+      rotulos.forEach((_, i) => {
+        const y = 28 + i * 20;
+        if (m.linha === i) cursor(ctx, 10, y);
+        drawText(ctx, curtos[i], 20, y, PAL.ink);
+        const escrevendo = Texto.ativo() && m.linha === i;
+        const txt = escrevendo ? Texto.buf() + ((this.animT * 3) % 1 > 0.5 ? "_" : "") : (m.textos[i] || "---");
+        drawText(ctx, String(txt).slice(0, 16), 96, y, m.textos[i] || escrevendo ? PAL.ink : PAL.ink2);
+      });
+      // a prévia: se já dá pra saber quem é, mostra o sprite e o nível que sai do CP
+      const sp = m.textos[0] && DB.SPECIES[GoPark.especieDe(m.textos[0], m.textos[0])];
+      if (sp) {
+        ctx.drawImage(reduzido(Assets.mon(sp.id, 7), 28), 196, 26, 28, 28);
+        const cp = Number(String(m.textos[1]).replace(/[^\d]/g, ""));
+        if (cp > 0) {
+          const [a, d, v] = String(m.textos[2]).split(/[.\s\/-]+/).map(Number);
+          const ivs = Number.isFinite(a) ? { atk: a, def: Number.isFinite(d) ? d : a, sta: Number.isFinite(v) ? v : a } : undefined;
+          drawText(ctx, `N${GoPark.nivelPorCP(sp.id, ivs, cp).level}`, 198, 56, PAL.ink2);
+        }
+      }
+      if (m.linha === 3) cursor(ctx, 10, 96);
+      drawText(ctx, "TRAZER PRO PARQUE", 20, 96, sp ? PAL.ink : PAL.ink2);
+      drawText(ctx, "Z DIGITA / ESCOLHE", 20, 118, PAL.ink2);
+      drawText(ctx, "SÓ A ESPÉCIE E O CP JÁ BASTAM", 20, 130, PAL.ink2);
+      drawText(ctx, "X VOLTA", 20, 142, PAL.ink2);
       return;
     }
     if (m.type === "oficinaDigitar") {
@@ -4982,7 +5332,7 @@ export class OverworldScene {
           : (m.textos[i] || F.digitarVazio);
         drawText(ctx, String(txt).slice(0, 14), 72, y, sp ? PAL.glitch : PAL.ink2);
         if (sp) {
-          ctx.drawImage(Assets.mon(sp.id, 7), 158, y - 8, 24, 24);
+          ctx.drawImage(reduzido(Assets.mon(sp.id, 7), 24), 158, y - 8, 24, 24);
           drawText(ctx, `${String(sp.dex || 0).padStart(3, "0")}`, 188, y, PAL.ink2);
         }
       });
@@ -4990,7 +5340,7 @@ export class OverworldScene {
       const preview = m.ids[0] && m.ids[1] ? montarEspecie(m.ids[0], m.ids[1]) : null;
       if (preview) {
         DB.SPECIES[preview.id] = preview;
-        ctx.drawImage(Assets.mon(preview.id, 7), 20, 84, 40, 40);
+        ctx.drawImage(reduzido(Assets.mon(preview.id, 7), 40), 20, 84, 40, 40);
         drawText(ctx, preview.name, 68, 92, PAL.glitch);
         drawText(ctx, preview.types.join("/"), 68, 104, PAL.ink2);
         drawText(ctx, preview.codigo, 68, 116, PAL.ink2);
@@ -5049,7 +5399,7 @@ export class OverworldScene {
         if (y > 118) return;
         if (i === m.index) cursor(ctx, 8, y + 4);
         const sp = previsao({ species: p.cabeca }, { species: p.corpo }, v.variante);
-        if (sp) ctx.drawImage(Assets.mon(sp.id, m.mon.seed), 16, y - 2, 20, 20);
+        if (sp) ctx.drawImage(reduzido(Assets.mon(sp.id, m.mon.seed), 20), 16, y - 2, 20, 20);
         const atual = m.mon.species === (sp?.id || "");
         drawText(ctx, (sp?.name || "?").slice(0, 12), 42, y + 2,
                  atual ? PAL.ink2 : v.origem === "jogo" ? "#f0c419" : v.origem === "auto" ? PAL.ink : "#59d99b");
@@ -5072,7 +5422,7 @@ export class OverworldScene {
         const y = 26 + i * 18;
         if (y > 118) return;
         if (i === m.index) cursor(ctx, 8, y + 4);
-        ctx.drawImage(Assets.mon(mon.species, mon.seed), 16, y, 18, 18);
+        ctx.drawImage(reduzido(Assets.mon(mon.species, mon.seed), 18), 16, y, 18, 18);
         drawText(ctx, mon.nickname.slice(0, 11), 38, y + 5, ehFusao(mon) ? PAL.glitch : PAL.ink);
         drawText(ctx, `N${mon.level}`, 112, y + 5, PAL.ink2);
       });
@@ -5083,7 +5433,7 @@ export class OverworldScene {
         const atual = vs[Math.min(m.variante || 0, vs.length - 1)] || vs[0];
         const sp = previsao(m.cabeca, escolhido, atual.variante);
         if (sp) {
-          ctx.drawImage(Assets.mon(sp.id, m.cabeca.seed), 164, 26, 48, 48);
+          ctx.drawImage(reduzido(Assets.mon(sp.id, m.cabeca.seed), 48), 164, 26, 48, 48);
           drawText(ctx, sp.name, 148, 78, PAL.ink);
           drawText(ctx, sp.types.join("/").slice(0, 14), 148, 90, PAL.ink2);
           drawText(ctx, `TOTAL ${sp.bst}`, 148, 100, PAL.ink2);
@@ -5104,7 +5454,7 @@ export class OverworldScene {
           else if (vs.length > 1) drawText(ctx, `C ${(m.variante || 0) + 1}/${vs.length}`, 148, 120, PAL.ink2);
         } else drawText(ctx, F.naoDaParaFundir.slice(0, 14), 148, 60, PAL.ink2);
       } else if (escolhido) {
-        ctx.drawImage(Assets.mon(escolhido.species, escolhido.seed), 164, 26, 48, 48);
+        ctx.drawImage(reduzido(Assets.mon(escolhido.species, escolhido.seed), 48), 164, 26, 48, 48);
         drawText(ctx, escolhido.nickname.slice(0, 14), 148, 78, PAL.ink);
         const sp = DB.SPECIES[escolhido.species];
         drawText(ctx, sp.types.join("/").slice(0, 14), 148, 90, PAL.ink2);
@@ -5226,7 +5576,7 @@ export class OverworldScene {
       this.st.party.forEach((mon, i) => {
         const y = 26 + i * 20;
         if (i === m.index) cursor(ctx, 8, y + 4);
-        ctx.drawImage(Assets.mon(mon.species, mon.seed), 16, y - 2, 20, 20);
+        ctx.drawImage(reduzido(Assets.mon(mon.species, mon.seed), 20), 16, y - 2, 20, 20);
         drawText(ctx, mon.nickname, 42, y + 2, PAL.ink);
         drawText(ctx, `N${mon.level}`, 150, y + 2, PAL.ink2);
         drawText(ctx, `${mon.moves.length}/4`, 190, y + 2, PAL.ink2);
@@ -5362,7 +5712,7 @@ export class OverworldScene {
       // ficha do escolhido
       const img = Assets.mon(sp.id, 7);
       // a prévia sai NA COR escolhida: o menu mostra o que vai baixar
-      const cor = { shiny: m.cor === 1, luminoso: m.cor === 2 };
+      const cor = { species: sp.id, shiny: m.cor === 1, luminoso: m.cor === 2 };
       ctx.drawImage(Assets.comCor(img, cor), 158, 22, 48, 48);
       drawText(ctx, sp.types.join("/").slice(0, 12), 150, 74, PAL.ink2);
       drawText(ctx, `NÍVEL ${String(m.lvl).padStart(3, " ")}`, 150, 86, PAL.ink);
@@ -5415,6 +5765,7 @@ export class OverworldScene {
         ["VELOCIDADE", this.nomeVelocidade()],
         ["IDIOMA", idioma.nome],
         [DB.ANIVERSARIO_TEXTO.rotulo, this.resumoAniversario()],
+        [DB.DUPLA_TEXTO?.opcao || "BATALHA DUPLA", this.st.flags?.todasDuplas ? "ON" : "OFF"],
         ["LIMPAR SAVE", ""],
       ];
       panel(ctx, 30, 32, 180, linhas.length * LINE_H + 32);
@@ -5429,6 +5780,7 @@ export class OverworldScene {
       // aniversário: ali ela conta quanto falta pro dia
       const aviso = DB.AVISO_IDIOMA?.[Opcoes.get("idioma")];
       if (m.index === 4) drawText(ctx, this.dicaAniversario().slice(0, 38), 12, 150, PAL.glitch);
+      else if (m.index === 5) drawText(ctx, (DB.DUPLA_TEXTO?.opcaoDica || "").slice(0, 38), 12, 150, PAL.glitch);
       else if (aviso) drawText(ctx, aviso.slice(0, 38), 12, 150, PAL.ink2);
     }
   }

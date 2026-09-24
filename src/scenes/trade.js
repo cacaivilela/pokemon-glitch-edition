@@ -21,6 +21,7 @@ import { Assets } from "../core/assets.js";
 import { Online } from "../systems/online.js";
 import { Dialogue } from "../systems/dialogue.js";
 import { panel, drawText, cursor, fade, PAL, LINE_H } from "../core/gfx.js";
+import { reduzido } from "../core/reduzir.js";
 
 const W = 240, H = 160;
 const txt = (k, vars = {}) =>
@@ -209,7 +210,7 @@ export class TradeScene {
       drawText(ctx, "...", x - 4, 50, PAL.ink2);
       return;
     }
-    ctx.drawImage(Assets.mon(mon.species, mon.seed), x - 4, 34, 48, 48);
+    ctx.drawImage(reduzido(Assets.mon(mon.species, mon.seed), 48), x - 4, 34, 48, 48);
     drawText(ctx, mon.nickname, x - 4, 84, PAL.ink);
     drawText(ctx, `Nv${mon.level}`, x + 52, 84, PAL.ink2);
     if (pronto) drawText(ctx, "PRONTO", x + 30, 24, PAL.hpGreen);

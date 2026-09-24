@@ -26,6 +26,7 @@ import { fichaParaEditar, salvarFicha, apagarFicha, temFicha, montarEspecie,
          fichaInvertida, copiarInvertida, publicarFicha, mandarProMundo,
          servidorMundo } from "../systems/fusao.js";
 import { panel, drawText, cursor, PAL } from "../core/gfx.js";
+import { reduzido } from "../core/reduzir.js";
 
 const W = 240, H = 160;
 const ABAS = ["DESENHO", "FICHA", "STATS"];
@@ -125,8 +126,8 @@ export class FusaoEditorScene {
   coresDosPais() {
     const { ctx } = makeCanvas(64, 32);
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(Assets.mon(this.cabeca, 7), 0, 0, 32, 32);
-    ctx.drawImage(Assets.mon(this.corpo, 7), 32, 0, 32, 32);
+    ctx.drawImage(reduzido(Assets.mon(this.cabeca, 7), 32), 0, 0, 32, 32);
+    ctx.drawImage(reduzido(Assets.mon(this.corpo, 7), 32), 32, 0, 32, 32);
     const conta = new Map();
     try {
       const d = ctx.getImageData(0, 0, 64, 32).data;

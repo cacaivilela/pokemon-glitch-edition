@@ -309,12 +309,14 @@ export const Online = {
   // -------------------------------------------------------------- convites
   livre() { return this.ocupacao === LIVRE; },
 
-  convidar(id, modo) {
+  /** `formato` só vale pra batalha: "simples" (1X1) ou "dupla" (2X2). Ele
+   *  viaja no convite, e é quem convida que escolhe. */
+  convidar(id, modo, formato = "simples") {
     if (!Net.ligado() || !this.livre() || !this.podeOnline()) return false;
     const alvo = this.peers.get(id);
     if (!alvo) return false;
-    this.conviteEnviado = { id, nome: alvo.nome, modo, t: cfg().convite || 30 };
-    Net.manda("convite", { modo, nome: Net.nome }, id);
+    this.conviteEnviado = { id, nome: alvo.nome, modo, formato, t: cfg().convite || 30 };
+    Net.manda("convite", { modo, formato, nome: Net.nome }, id);
     return true;
   },
 
@@ -324,7 +326,8 @@ export const Online = {
     }
     const p = this.peers.get(msg.de);
     this.convitePendente = {
-      id: msg.de, nome: msg.nome || p?.nome || "?", modo: msg.modo, t: cfg().convite || 30,
+      id: msg.de, nome: msg.nome || p?.nome || "?", modo: msg.modo,
+      formato: msg.formato === "dupla" ? "dupla" : "simples", t: cfg().convite || 30,
     };
     this._emite("convite", this.convitePendente);
   },

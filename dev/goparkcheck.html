@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem do GO PARK</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; } .obs { color:#678; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+  iframe { width:480px; height:320px; border:1px solid #333; background:#000; }
+  canvas { image-rendering: pixelated; border:1px solid #333; vertical-align: top; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<div id="arte"></div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=20000">
+<script type="module">
+// O GO PARK COMPLEX: o envio (equipe e box), o cartão com QR, o leitor de QR,
+// o importador do POKÉMON GO e os cinco parques.
+// Peças: src/data/gopark.js, src/systems/gopark.js, src/systems/qr.js,
+//        src/scenes/gopark.js, e os menus do GO PARK em src/scenes/overworld.js.
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "obs") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+let falhas = 0;
+const ok = (t, c, obs = "") => { if (!c) falhas++; p(`${t}: ${c ? "OK" : "FALHOU"}${obs ? ` — ${obs}` : ""}`, c ? "ok" : "erro"); };
+
+
+try {
+  const { DB } = await import("/src/data/index.js");
+  const { Assets } = await import("/src/core/assets.js");
+  const { createMon } = await import("/src/systems/mon.js");
+  const { garantirBoxes, guardar: guardarNoBox, todosGuardados } = await import("/src/systems/box.js");
+  const GP = await import("/src/systems/gopark.js");
+  const QR = await import("/src/systems/qr.js");
+  Assets.init();
+
+  const novoSt = () => { const st = { party: [], items: {}, money: 0, player: { name: "TESTE" } }; garantirBoxes(st); return st; };
+  const imagemDe = (c) => c.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, c.width, c.height);
+
+  // ------------------------------------------------------------------ QR
+  h("O QR (src/systems/qr.js)");
+  {
+    const casos = ["PGE1|pikachu|FAISCA|25", "PGE1|nidoranf|ÇÃO-ÁÉÍ|100|31.31.31.31.31.31|sl|9999|EU|beef", "P" + "9".repeat(200)];
+    let bons = 0, total = 0;
+    for (const txt of casos) for (const escala of [1, 3, 8]) {
+      total++;
+      if (QR.ler(imagemDe(QR.desenhar(txt, { escala }))) === txt) bons++;
+    }
+    ok(`gera e lê em escala 1, 3 e 8 (${bons}/${total})`, bons === total);
+
+    const alvo = casos[1];
+    let girados = 0;
+    for (const graus of [90, 180, 270, 12, -7]) {
+      const src = QR.desenhar(alvo, { escala: 6 });
+      const r = graus * Math.PI / 180;
+      const lado = Math.ceil((Math.abs(Math.cos(r)) + Math.abs(Math.sin(r))) * src.width) + 20;
+      const c = document.createElement("canvas"); c.width = c.height = lado;
+      const x = c.getContext("2d", { willReadFrequently: true });
+      x.fillStyle = "#fff"; x.fillRect(0, 0, lado, lado);
+      x.translate(lado / 2, lado / 2); x.rotate(r); x.drawImage(src, -src.width / 2, -src.height / 2);
+      if (QR.ler(imagemDe(c)) === alvo) girados++;
+    }
+    ok("lê o código girado (90, 180, 270, 12 e -7 graus)", girados === 5, `${girados}/5`);
+
+    // A CORREÇÃO DE ERRO, medida em MÓDULOS (e não em pixels, senão o teste
+    // depende do tamanho que o texto gerou). O nível M corrige ~15%: um borrão
+    // sólido de 6x6 módulos — um dedo no cartão — passa sempre; 15 módulos
+    // espalhados também; 60 não passa, e é pra não passar mesmo.
+    const real = "PGE1|vulpixalola|NEVE|33|31.29.25.29.25.27|s|777|TESTE|a958";
+    const esc = 6, mg = 4, lado = QR.gerar(real, { nivel: "M" }).n;
+    const comEstrago = (pinta) => {
+      const c = QR.desenhar(real, { escala: esc, margem: mg, nivel: "M" });
+      const x = c.getContext("2d", { willReadFrequently: true });
+      pinta(x, (mx, my, w = 1, h = 1, cor = "#000") => {
+        x.fillStyle = cor; x.fillRect((mx + mg) * esc, (my + mg) * esc, w * esc, h * esc);
+      });
+      return QR.ler(imagemDe(c));
+    };
+    ok("um borrão de 6x6 módulos não atrapalha", comEstrago((x, mod) => mod(10, 10, 6, 6)) === real);
+    // Estrago ESPALHADO, num padrão fixo: uma checagem que sorteia muda de
+    // resposta a cada execução e deixa de ser checagem. Aqui é uma varredura
+    // com passo por dentro da lista de células, o que garante que "90 módulos"
+    // são mesmo 90 lugares diferentes — um passo do tipo `k*7 % 17` repetiria
+    // a mesma posição a cada 17 voltas e estragaria muito menos do que diz.
+    const celulas = [];
+    for (let cy = 8; cy < lado - 8; cy++) for (let cx = 8; cx < lado - 8; cx++) celulas.push([cx, cy]);
+    const estragar = (quantos, giro) => comEstrago((x, mod) => {
+      const passo = Math.max(1, Math.floor(celulas.length / quantos));
+      for (let k = 0; k < quantos; k++) {
+        const [mx, my] = celulas[(k * passo + giro) % celulas.length];
+        mod(mx, my, 1, 1, (k + giro) % 2 ? "#000" : "#fff");
+      }
+    });
+    let espalhados = 0;
+    for (let t = 0; t < 6; t++) if (estragar(15, t) === real) espalhados++;
+    ok("15 módulos trocados no meio também são consertados", espalhados === 6, `${espalhados}/6`);
+    let demais = 0;
+    for (let t = 0; t < 6; t++) if (estragar(90, t) === real) demais++;
+    ok("estrago grande demais é recusado, não lido errado", demais === 0, `${demais}/6 leram`);
+
+    const vazio = document.createElement("canvas"); vazio.width = vazio.height = 200;
+    const xv = vazio.getContext("2d", { willReadFrequently: true });
+    xv.fillStyle = "#fff"; xv.fillRect(0, 0, 200, 200);
+    xv.fillStyle = "#000"; xv.fillRect(20, 20, 60, 60); xv.fillRect(120, 140, 30, 30);
+    ok("imagem sem QR devolve null (não inventa)", QR.ler(imagemDe(vazio)) === null);
+  }
+
+  // -------------------------------------------------------------- complexo
+  h("OS CINCO PARQUES");
+  ok("são 5 de 20", DB.GO_PARK.parques === 5 && DB.GO_PARK.porParque === 20);
+  {
+    const st = novoSt();
+    st.goPark = [createMon("pikachu", 20), createMon("gengar", 30)];     // o save antigo (lista solta)
+    const c = GP.complexo(st);
+    ok("o save antigo vira complexo sem perder ninguém", c.length === 5 && GP.totalNoParque(st) === 2);
+    ok("e vira objeto, não lista", !Array.isArray(st.goPark));
+  }
+  {
+    const st = novoSt();
+    st.party = [createMon("pikachu", 5)];
+    let postos = 0;
+    for (let i = 0; i < 105; i++) if (GP.receber(st, createMon("rattata", 3))) postos++;
+    ok("cabem 100 e nem um a mais", postos === 100 && GP.parqueComVaga(st) === null, `${postos}`);
+    ok("espalhou 20 em cada", GP.complexo(st).every((q) => q.mons.length === 20));
+  }
+
+  // ----------------------------------------------------------------- envio
+  h("ENVIAR PRO GO — DA EQUIPE E DA BOX");
+  {
+    const st = novoSt();
+    st.party = [createMon("pikachu", 5), createMon("charmander", 12)];
+    const guardado = createMon("snorlax", 40);
+    guardarNoBox(st, guardado);
+    const cands = GP.candidatos(st);
+    ok("a lista de quem pode ir tem a equipe E a box", cands.length === 3 && cands.some((c) => c.origem === "box"),
+       cands.map((c) => `${c.mon.nickname}/${c.origem}`).join(" "));
+    ok("um da box vai pro parque e sai da box",
+       GP.enviar(st, guardado) === guardado && !todosGuardados(st).includes(guardado) && GP.parque(st, 0).mons.includes(guardado));
+    const daEquipe = st.party[1];
+    ok("um da equipe também vai", GP.enviar(st, daEquipe) === daEquipe && !st.party.includes(daEquipe));
+    ok("mas o último da equipe não vai", GP.enviar(st, st.party[0]) === null && st.party.length === 1);
+    ok("quem foi ganhou o CP do GO", GP.parque(st, 0).mons.every((m) => m.cpGO >= 10));
+  }
+
+  // ---------------------------------------------------------------- cartão
+  h("O CARTÃO E O SEU QR");
+  {
+    const mon = createMon("vulpixalola", 33, { nickname: "NEVE", seed: 777, shiny: true,
+      ivs: { hp: 31, atk: 29, def: 25, spa: 29, spd: 25, spe: 27 } });
+    const cod = GP.codificar(mon, "TESTE");
+    const r = GP.decodificar(cod);
+    ok("o código volta igualzinho",
+       r && r.mon.species === mon.species && r.mon.level === mon.level && r.mon.nickname === mon.nickname
+       && r.mon.seed === mon.seed && r.mon.shiny && JSON.stringify(r.mon.ivs) === JSON.stringify(mon.ivs)
+       && r.treinador === "TESTE", cod);
+    ok("e dá o mesmo CP dos dois lados", r && GP.cpDe(r.mon) === GP.cpDe(mon), `${GP.cpDe(mon)}`);
+    ok("o código cabe folgado num QR", cod.length <= 120, `${cod.length} caracteres`);
+    ok("código adulterado é recusado pelo CRC", GP.decodificar(cod.replace("|33|", "|77|")) === null);
+    ok("espécie que não existe é recusada", GP.decodificar("PGE1|naoexiste|X|5|1.1.1.1.1.1|-|0|-|0000") === null);
+
+    const cartao = GP.cartao(mon, "TESTE");
+    const lido = QR.lerDe(cartao);
+    const volta = lido && GP.decodificar(lido);
+    ok("o QR desenhado DENTRO do cartão é legível", !!lido, String(lido).slice(0, 50));
+    ok("e traz o Pokémon inteiro de volta",
+       volta && volta.mon.species === "vulpixalola" && volta.mon.level === 33 && volta.mon.nickname === "NEVE");
+    document.getElementById("arte").append(cartao);
+  }
+
+  // ------------------------------------------------------------ vindo do GO
+  h("PUXAR DO POKÉMON GO");
+  {
+    const r = GP.importar(JSON.stringify([
+      { name: "Pikachu", cp: 800, iv_attack: 15, iv_defense: 12, iv_stamina: 10, nickname: "FAISCA" },
+      { name: "Alolan Vulpix", cp: 1100, attack: 14, defense: 15, stamina: 13 },
+      { pokemon_name: "Gengar", cp: 2500, shiny: true },
+      { name: "Snorlax", level: 30 },
+    ]));
+    ok("lê um JSON com as colunas em inglês", r.mons.length === 4,
+       `${r.mons.length} — ${r.mons.map((m) => m.species).join(", ")}`);
+    ok("acerta as espécies, forma regional inclusive",
+       JSON.stringify(r.mons.map((m) => m.species)) === JSON.stringify(["pikachu", "vulpixalola", "gengar", "snorlax"]));
+    ok("traz apelido e shiny", r.mons[0].nickname === "FAISCA" && r.mons[2].shiny === true);
+    ok("marca quem veio do GO", r.mons.every((m) => m.doGO === true));
+    ok("o CP pedido bate de perto com o que saiu", Math.abs(GP.cpDe(r.mons[0]) - 800) <= 60,
+       `pedi 800, deu ${GP.cpDe(r.mons[0])}`);
+
+    const csv = GP.importar("nome;cp;ataque;defesa;ps\nCHARIZARD;2100;15;14;15\nMEWTWO;3400;15;15;15\nBANANA;100;1;1;1");
+    ok("lê CSV com as colunas em português", csv.mons.length === 2);
+    ok("a linha que não dá vira aviso, não some calada", csv.avisos.some((a) => a.includes("BANANA")), csv.avisos.join(" · "));
+    ok("acha pelo número da Pokédex", GP.importar('[{"pokedex_number":6,"cp":2100}]').mons[0]?.species === "charizard");
+
+    let nomes = 0;
+    const pares = [["Alolan Vulpix", "vulpixalola"], ["VULPIX-ALOLA", "vulpixalola"], ["Vulpix (Alolan)", "vulpixalola"],
+      ["Galarian Meowth", "meowthgalar"], ["PIKACHU", "pikachu"], ["pikachu", "pikachu"]];
+    for (const [escrito, esperado] of pares) if (GP.especieDe(escrito) === esperado) nomes++;
+    ok("entende o nome escrito de vários jeitos", nomes === pares.length, `${nomes}/${pares.length}`);
+    ok("nome que não existe NÃO vira MISSINGNO", GP.especieDe("Charizardinho") === null, String(GP.especieDe("Charizardinho")));
+
+    let lixos = 0;
+    for (const txt of ["", "bom dia", '{"a":1}', "1,2,3"]) { const q = GP.importar(txt); if (!q.mons.length && q.avisos.length) lixos++; }
+    ok("arquivo sem Pokémon não inventa nenhum", lixos === 4, `${lixos}/4`);
+
+    ok("importa o cartão deste jogo pelo texto",
+       GP.importar(GP.codificar(createMon("dragonite", 45), "ALGUEM")).mons[0]?.species === "dragonite");
+    ok("avisa quando o nível saiu do CP (arquivo sem coluna de nível)",
+       GP.importar('[{"name":"Gengar","cp":2500}]').estimado === true);
+    ok("e não avisa quando o nível veio no arquivo",
+       GP.importar('[{"name":"Gengar","level":30}]').estimado === false);
+  }
+
+  h("O CP AO CONTRÁRIO (é assim que o nível sai da tela do GO)");
+  {
+    let certos = 0;
+    const casos = [["pikachu", 25], ["gengar", 40], ["snorlax", 15], ["mewtwo", 50], ["magikarp", 8]];
+    for (const [sp, nivel] of casos) {
+      const cp = GP.cpDe(createMon(sp, nivel, { ivs: GP.deIVsGO({ atk: 15, def: 15, sta: 15 }) }));
+      const r = GP.nivelPorCP(sp, { atk: 15, def: 15, sta: 15 }, cp);
+      if (r.level === nivel) certos++; else p(`  ${sp} N${nivel}: CP ${cp} devolveu N${r.level}`, "erro");
+    }
+    ok("o nível volta exato a partir do CP", certos === casos.length, `${certos}/${casos.length}`);
+    let iv = 0;
+    for (let g = 0; g <= 15; g++) {
+      const s = GP.statsGO({ species: "pikachu", ivs: GP.deIVsGO({ atk: g, def: g, sta: g }) });
+      if (s.ivAtk === g && s.ivDef === g && s.ivSta === g) iv++;
+    }
+    ok("os IVs 0-15 do GO sobrevivem à ida e à volta", iv === 16, `${iv}/16`);
+  }
+
+  h("VOLTAR DO PARQUE");
+  {
+    const st = novoSt();
+    st.party = [createMon("pikachu", 5)];
+    const mon = createMon("lapras", 35);
+    GP.receber(st, mon);
+    ok("volta pra equipe e limpa o CP do GO",
+       GP.voltar(st, mon) === "equipe" && st.party.includes(mon) && mon.cpGO === undefined && GP.totalNoParque(st) === 0);
+    const st2 = novoSt();
+    st2.party = Array.from({ length: 6 }, () => createMon("rattata", 3));
+    const m2 = createMon("lapras", 35);
+    GP.receber(st2, m2);
+    ok("com a equipe cheia, vai pro box", GP.voltar(st2, m2) === "box" && todosGuardados(st2).includes(m2));
+  }
+
+  // ------------------------------------------------------------- a interface
+  h("A INTERFACE, DIRIGIDA POR DENTRO");
+  await checarTelas();
+
+  async function checarTelas() {
+    const fr = document.createElement("iframe");
+    // perfil próprio: sem isto o autosave escreve por cima do save desta máquina
+    fr.src = "/?perfil=gopark-check&map=safari_zone_center";
+    document.body.appendChild(fr);
+    const w = await esperar(() => fr.contentWindow?.game?.scenes?.top && fr.contentWindow.game.state && fr.contentWindow);
+    const jogo = fr.contentWindow.game;
+    const sc = jogo.scenes.top;
+    ok("o overworld carregou na ZONA SAFÁRI", !!sc && sc.st.player.map === "safari_zone_center", sc?.st?.player?.map);
+
+    // nada de baixar arquivo de verdade a cada checagem: guardamos o clique
+    const baixados = [];
+    fr.contentWindow.HTMLAnchorElement.prototype.click = function () { baixados.push(this.download); };
+
+    // uma equipe e uma box conhecidas
+    const { createMon: cm } = await import("/src/systems/mon.js");
+    const { guardar } = await import("/src/systems/box.js");
+    sc.st.party = [cm("pikachu", 22), cm("bulbasaur", 18)];
+    const naBox = cm("snorlax", 41, { nickname: "SONECA" });
+    guardar(sc.st, naBox);
+
+    const passar = () => { for (let i = 0; i < 40 && sc.dlg.active && !sc.dlg.choice; i++) { sc.dlg.chars = 1e9; sc.dlg.next(); } };
+    const escolher = (i) => { const c = sc.dlg.choice; sc.dlg.choice = null; sc.dlg.active = sc.dlg.queue.length > 0; c.cb(i); passar(); };
+
+    sc.talkGoPark({});
+    passar();
+    ok("a atendente abre o menu com 5 opções", sc.dlg.choice?.options.length === 5, sc.dlg.choice?.options.join(" / "));
+
+    // ---- ENVIAR PRO GO, da BOX
+    escolher(0);
+    ok("ENVIAR PRO GO pergunta de onde", /EQUIPE/.test(sc.dlg.choice?.options?.[0] || ""), sc.dlg.choice?.options.join(" / "));
+    escolher(1);                                        // DA BOX
+    ok("a lista da box aparece e é rolável", sc.menu?.type === "goLista" && sc.menu.itens.length === 1,
+       `${sc.menu?.type} com ${sc.menu?.itens?.length}`);
+    ok("e mostra o CP do GO na linha", /CP\d+/.test(sc.menu.itens[0].rotulo), sc.menu.itens[0].rotulo);
+    sc.menu.escolher(naBox);
+    passar();
+    ok("o da box foi parar no parque", GP.parque(sc.st, 0).mons.includes(naBox));
+    ok("e saiu da box", !todosGuardados(sc.st).includes(naBox));
+    ok("o cartão foi baixado", baixados.length === 1 && /^GO-SONECA-CP\d+\.png$/.test(baixados[0]), baixados.join());
+
+    // ---- ENVIAR PRO GO, da EQUIPE
+    sc.talkGoPark({ talked: true }); passar(); escolher(0); escolher(0);
+    ok("a lista da equipe traz os 2", sc.menu?.type === "goLista" && sc.menu.itens.length === 2, `${sc.menu?.itens?.length}`);
+    const doTime = sc.st.party[1];
+    sc.menu.escolher(doTime); passar();
+    ok("o da equipe foi pro parque", GP.parque(sc.st, 0).mons.includes(doTime) && sc.st.party.length === 1);
+
+    // ---- com um só na equipe, o menu recusa
+    sc.talkGoPark({ talked: true }); passar(); escolher(0); escolher(0);
+    ok("com um Pokémon só, não deixa enviar da equipe", sc.menu === null, String(sc.menu?.type));
+
+    // ---- PUXAR DO GO, digitando na mão
+    sc.talkGoPark({ talked: true }); passar(); escolher(1);
+    ok("PUXAR DO GO oferece arquivo, foto e digitar", sc.dlg.choice?.options.length === 4, sc.dlg.choice?.options.join(" / "));
+    escolher(2);
+    ok("a tela de digitar abre", sc.menu?.type === "goDigitar", String(sc.menu?.type));
+    // o CP digitado é o que ESTE jogo calcula pra um MEWTWO nível 30 de IV
+    // cheio — assim o teste confere a volta, em vez de chutar um número.
+    const cpAlvo = GP.cpDe(cm("mewtwo", 30, { ivs: GP.deIVsGO({ atk: 15, def: 15, sta: 15 }) }));
+    sc.menu.textos = ["MEWTWO", String(cpAlvo), "15.15.15"];
+    const antes = GP.totalNoParque(sc.st);
+    sc.confirmarDigitado(sc.menu); passar();
+    ok("o que foi digitado virou Pokémon no parque", GP.totalNoParque(sc.st) === antes + 1);
+    const veio = GP.moradores(sc.st).at(-1);
+    ok("com a espécie certa, marcado como vindo do GO", veio.species === "mewtwo" && veio.doGO === true, veio.species);
+    ok("e com o nível tirado do CP", veio.level === 30, `N${veio.level} (digitei CP ${cpAlvo}, que é o do nível 30)`);
+
+    // ---- digitar besteira
+    sc.talkGoPark({ talked: true }); passar(); escolher(1); escolher(2);
+    sc.menu.textos = ["BANANA", "100", ""];
+    sc.confirmarDigitado(sc.menu);
+    ok("nome que não existe é recusado sem criar nada", GP.totalNoParque(sc.st) === antes + 1);
+    passar();
+
+    // ---- ENTRAR NO PARQUE
+    sc.talkGoPark({ talked: true }); passar(); escolher(2);
+    ok("pergunta em qual dos 5 parques entrar", sc.dlg.choice?.options.length === 6, sc.dlg.choice?.options.join(" / "));
+    ok("e mostra a lotação de cada um", /\(\d+\/20\)/.test(sc.dlg.choice.options[0]), sc.dlg.choice.options[0]);
+    escolher(0);
+    for (let i = 0; i < 20; i++) jogo.scenes.top.update?.(1 / 30);
+    const parque = jogo.scenes.top;
+    ok("a cena do parque abriu", parque?.constructor?.name === "GoParkScene", parque?.constructor?.name);
+    ok("com todo mundo desenhado no gramado", parque.bichos.length === GP.parque(sc.st, 0).mons.length,
+       `${parque.bichos?.length}`);
+    ok("as fileiras não empilham todos na mesma linha", new Set(parque.bichos.map((b) => b.y)).size > 1);
+
+    parque.escolherCaptura();
+    ok("a escolha de quem capturar é lista rolável", parque.lista?.itens.length === parque.bichos.length,
+       `${parque.lista?.itens?.length} itens`);
+    parque.lista.cb(0);
+    ok("escolher começa o arremesso", !!parque.captura && parque.captura.fase === "mira");
+    parque.captura = null;
+    parque.escolherJogo();
+    ok("o GO PLACE lista um minijogo por morador", parque.lista?.itens.length === parque.bichos.length,
+       parque.lista?.itens?.[0]);
+    parque.lista.cb(0);
+    ok("e o minijogo começa", !!parque.jogo && !!parque.jogo.mj.mec, parque.jogo?.mj?.nome);
+
+    fr.remove();
+  }
+
+  function esperar(cond, ms = 15000) {
+    return new Promise((res, rej) => {
+      const t0 = Date.now();
+      const bate = () => {
+        let v = null;
+        try { v = cond(); } catch (e) { v = null; }
+        if (v) return res(v);
+        if (Date.now() - t0 > ms) return rej(new Error("esperei demais pelo jogo carregar"));
+        setTimeout(bate, 60);
+      };
+      bate();
+    });
+  }
+} catch (e) {
+  falhas++;
+  p(`EXPLODIU: ${e && e.stack || e}`, "erro");
+}
+p(falhas ? `${falhas} FALHA(S)` : "TUDO OK", falhas ? "erro" : "ok");
+out.innerHTML = linhas.join("");
+const texto = linhas.join("\n").replace(/<h2>/g, "\n").replace(/<[^>]+>/g, "");
+try { await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "gopark", log: texto }) }); } catch (e) {}
+document.title = "pronto";
+</script>
+</body>
+</html>

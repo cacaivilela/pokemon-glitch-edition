@@ -385,11 +385,11 @@ function espelhado(img) {
  *  fração do passo (0..1) pro pulinho; `dir` decide frente, costas ou espelho.
  *  Serve pra você e pros outros jogadores da sala (drawPeer). */
 export function desenharPokemon(ctx, ps, x, y, dir, k = 0, escala = 28) {
-  const fake = { shiny: !!ps.shiny, luminoso: !!ps.luminoso };
+  const fake = { species: ps.species, shiny: !!ps.shiny, luminoso: !!ps.luminoso };
   const seed = 7;
   let img = dir === "up" ? Assets.monBack(ps.species, seed) : Assets.mon(ps.species, seed);
   if (!img) return;
-  img = Assets.comCor(img, fake);
+  img = Assets.comCor(img, fake, dir === "up");
   if (dir === "right") img = espelhado(img);
   const pulo = k > 0 && k < 1 ? Math.abs(Math.sin(k * Math.PI)) * 2 : 0;
   const d = (escala - 16) / 2;

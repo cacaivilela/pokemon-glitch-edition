@@ -2,8 +2,10 @@
 // usa a arte provisória gerada em assets.js — nada quebra, nada fica preto.
 //
 // Convenção de nomes (veja assets/sprites/README.md):
-//   assets/sprites/pokemon/025.png        frente (ou pikachu.png)
-//   assets/sprites/pokemon/back/025.png   costas
+//   assets/sprites/pokemon/025.png            frente (ou pikachu.png)
+//   assets/sprites/pokemon/back/025.png       costas
+//   assets/sprites/pokemon/shiny/025.png      a cor SHINY de verdade (opcional)
+//   assets/sprites/pokemon/shiny/back/025.png
 //   assets/sprites/overworld/hero.png     folha 4 colunas x 3 linhas (baixo/cima/esquerda)
 //   assets/sprites/tiles/grama.png        tile de 16x16
 import { url } from "./base.js";
@@ -12,6 +14,8 @@ import { DB } from "../data/index.js";
 export const SpriteStore = {
   pokemon: {},      // id -> canvas/Image
   pokemonBack: {},
+  pokemonShiny: {},     // id -> a arte shiny oficial, quando o PNG existe
+  pokemonShinyBack: {},
   overworld: {},    // nome -> {down,up,left,right} com 4 frames cada
   trainers: {},     // nome -> retrato de batalha 64x64
   tiles: {},        // char -> Image
@@ -118,17 +122,119 @@ export const TILE_FILES = {
 // entrasse na tela naquela partida inteira.
 const pedidos = new Set();
 
+/** A ARTE HACKEADA: o desenho da base, lido errado.
+ *
+ *  As FORMAS HACKEANAS (src/data/hackeanas.js) não têm arte própria e não
+ *  deviam ter: elas SÃO o bicho original lido com o deslocamento errado, e é
+ *  isso que a imagem mostra. O PNG que chega é o do RHYDON de sempre; o que vai
+ *  pra tela é ele com as linhas escorregadas, um pedaço com os canais de cor
+ *  trocados e dois blocos de lixo por cima — exatamente o que os atributos
+ *  dela já fizeram com os números.
+ *
+ *  É DETERMINÍSTICO: a semente sai do id da espécie, então o mesmo bicho quebra
+ *  do mesmo jeito em toda partida, em todo aparelho. Um sprite que se
+ *  redesenhasse a cada carregamento não seria um bicho, seria um chuvisco.
+ *
+ *  Nenhum arquivo novo em assets/ — e é de propósito: baixar dezenove PNGs pra
+ *  guardar a mesma imagem estragada de dezenove jeitos seria pagar disco por
+ *  uma conta que o navegador faz em um milésimo de segundo. */
+export function corromperSprite(img, semente) {
+  const w = img.width | 0, h = img.height | 0;
+  if (!w || !h) return img;
+  const novo = document.createElement("canvas");
+  novo.width = w; novo.height = h;
+  const c = novo.getContext("2d");
+  c.imageSmoothingEnabled = false;
+  c.drawImage(img, 0, 0);
+
+  // a fonte é uma cópia: as fatias são lidas do desenho inteiro, e não do que
+  // as fatias anteriores já mexeram — senão o estrago vira borrão
+  const fonte = document.createElement("canvas");
+  fonte.width = w; fonte.height = h;
+  fonte.getContext("2d").drawImage(novo, 0, 0);
+
+  let s = (semente >>> 0) || 1;
+  const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+  const inteiro = (n) => Math.floor(rnd() * n);
+
+  // 1. AS LINHAS ESCORREGAM. Cada faixa anda pro lado e dá a volta pelo outro
+  //    lado — é o que uma linha lida do lugar errado faz na tela de verdade.
+  const faixas = 4 + inteiro(4);
+  for (let i = 0; i < faixas; i++) {
+    const y = inteiro(h);
+    const alt = 1 + inteiro(Math.max(2, Math.round(h / 14)));
+    const dx = Math.round((rnd() * 2 - 1) * (w / 5)) || 1;
+    c.clearRect(0, y, w, alt);
+    c.drawImage(fonte, 0, y, w, alt, dx, y, w, alt);
+    c.drawImage(fonte, 0, y, w, alt, dx + (dx > 0 ? -w : w), y, w, alt);
+  }
+
+  // 2. OS CANAIS TROCADOS, numa faixa só. Vermelho vira azul onde o byte da cor
+  //    foi lido na ordem errada.
+  try {
+    const y = inteiro(Math.max(1, h - 4));
+    const alt = 2 + inteiro(Math.max(2, Math.round(h / 8)));
+    const d = c.getImageData(0, y, w, Math.min(alt, h - y));
+    for (let i = 0; i < d.data.length; i += 4) {
+      const r = d.data[i]; d.data[i] = d.data[i + 2]; d.data[i + 2] = r;
+    }
+    c.putImageData(d, 0, y);
+  } catch { /* canvas sem leitura de pixel: fica só o resto do estrago */ }
+
+  // 3. OS BLOCOS DE LIXO, com cor tirada do próprio bicho: o pedaço que sobrou
+  //    na memória é da mesma imagem, não é tinta de fora.
+  for (let i = 0; i < 2 + inteiro(2); i++) {
+    const bx = inteiro(w), by = inteiro(h);
+    const bw = 2 + inteiro(Math.max(3, Math.round(w / 7)));
+    const bh = 1 + inteiro(Math.max(2, Math.round(h / 16)));
+    c.drawImage(fonte, inteiro(Math.max(1, w - bw)), inteiro(Math.max(1, h - bh)), bw, bh, bx, by, bw, bh);
+  }
+  return novo;
+}
+
+/** semente estável a partir do id (djb2) */
+function sementeDe(id) {
+  let n = 5381;
+  for (let i = 0; i < id.length; i++) n = ((n * 33) ^ id.charCodeAt(i)) >>> 0;
+  return n;
+}
+
+/** Se a espécie for uma FORMA HACKEANA, o que vai pro store é o desenho
+ *  estragado. O sprite pedido continua sendo o da base (`spriteDex`), que é o
+ *  que existe em assets/. */
+const talvezHackear = (id, img, lado) =>
+  (img && DB.SPECIES?.[id]?.hack) ? corromperSprite(img, sementeDe(id + lado)) : img;
+
 /** Pede o sprite daquela espécie (frente e costas), uma vez só. Enquanto ele
  *  não chega, quem desenha usa a arte provisória — nada fica preto. */
 export function pedirMon(id, dex) {
   if (!id || pedidos.has(id)) return;
   pedidos.add(id);
   findMon("pokemon", id, dex).then((img) => {
-    if (img) { SpriteStore.pokemon[id] = img; SpriteStore.loaded++; }
+    if (img) { SpriteStore.pokemon[id] = talvezHackear(id, img, "f"); SpriteStore.loaded++; }
     else SpriteStore.missing.add(id);
   });
   findMon("pokemon/back", id, dex).then((img) => {
-    if (img) SpriteStore.pokemonBack[id] = img;
+    if (img) SpriteStore.pokemonBack[id] = talvezHackear(id, img, "c");
+  });
+}
+
+/** A ARTE SHINY, pedida só quando um shiny precisa ser desenhado.
+ *
+ *  Shiny é raro (1 em 1024), então pedir o PNG shiny de toda espécie que
+ *  aparece seria dobrar os pedidos pra quase nunca usar. Aqui o arquivo só é
+ *  procurado na primeira vez que um shiny daquela espécie vai pra tela — e se
+ *  ele não existir, quem chamou cai no filtro de cor de assets.js, como antes. */
+const pedidosShiny = new Set();
+
+export function pedirMonShiny(id, dex) {
+  if (!id || pedidosShiny.has(id)) return;
+  pedidosShiny.add(id);
+  findMon("pokemon/shiny", id, dex).then((img) => {
+    if (img) SpriteStore.pokemonShiny[id] = img;
+  });
+  findMon("pokemon/shiny/back", id, dex).then((img) => {
+    if (img) SpriteStore.pokemonShinyBack[id] = img;
   });
 }
 

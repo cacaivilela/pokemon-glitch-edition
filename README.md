@@ -1,4 +1,4 @@
-# Pokémon Glitch Edition
+# Pokémon Glitch Edition — Vol. 4
 
 Fangame 2D de Pokémon FireRed em **Kanto**, com **só os 151 da primeira geração**.
 Boilerplate próprio + live update: roda direto no navegador com ES modules
@@ -122,8 +122,23 @@ Todo Pokémon que aparece tem uma cor, e são três:
 | cor | quanto | como é |
 |---|---|---|
 | comum | o resto | a arte de sempre |
-| **shiny** | 1 em 1024 | a mesma arte com as cores giradas |
+| **shiny** | 1 em 1024 | a **cor shiny de verdade** quando existe PNG dela; senão, a arte com o matiz girado |
 | **LUMINOSO** | **1 em 9999** | a mesma arte **acesa**, com o brilho vazando pela borda |
+
+**A cor do shiny.** Ela era sempre inventada: um filtro
+(`hue-rotate(150deg) saturate(1.6) brightness(1.1)`) igual pra todo mundo. Isso
+erra de um jeito previsível — girar o matiz não mexe em pixel cinza, então
+TAUROS, UNOWN, BLITZLE, ZEBSTRIKA, ZEKROM e companhia saíam com o "shiny"
+idêntico ao comum. As **89 espécies** em que isso mais acontecia agora têm o
+**PNG shiny oficial** em `assets/sprites/pokemon/shiny/`, da mesma geração do
+sprite comum; o filtro ficou como reserva pro resto e pras espécies que este
+jogo inventou (fusões, MISSINGNO, DECAMARK), que não têm shiny oficial pra ter.
+
+Vale saber que o shiny oficial de alguns Pokémon é **sutil de propósito** —
+MARSHADOW, URSHIFU, ZARUDE, UMBREON e VULPIX-ALOLA mudam pouquíssimo de cor no
+jogo original, e agora mudam pouco aqui também. `dev/shinycheck.html` mede isso:
+mostra comum e shiny lado a lado com o ΔE de cada espécie, e é de lá que sai a
+lista de quem precisa de arte própria.
 
 O luminoso é sorteado **antes** do shiny e ganha dele: um Pokémon é comum,
 shiny **ou** luminoso, nunca dois. Se fosse ao contrário, a cor mais rara do
@@ -140,6 +155,36 @@ Onde a cor conta: no bicho andando na **grama**, na batalha (sua e a do link),
 na **fusão** — a luz pega igual ao brilho, e ganha dele — e no **leilão**, onde
 o shiny paga o dobro e o luminoso paga **cinco vezes**. O **sanduíche amargo**
 do acampamento multiplica as duas chances.
+
+## O SPINDA: 4.294.967.296 desenhos
+
+O SPINDA não tem um sprite — tem quatro bilhões, e aqui é **do mesmo jeito que
+em todos os jogos de Pokémon**: o desenho dele é limpo, sem mancha nenhuma, e
+as **quatro manchas são carimbadas na hora de desenhar**, na posição que o
+**valor de personalidade** daquele bicho mandar.
+
+A conta é a do original (`DrawSpindaSpots`, no decomp): os 32 bits da
+personalidade são lidos **de 8 em 8**, um naco por mancha; de cada naco, o
+nibble **baixo** é o deslocamento X e o **alto** é o Y, e cada um entra como
+`âncora + nibble − 8` — ou seja, cada mancha anda de −8 a +7 em volta do lugar
+dela. Quatro manchas × 8 bits = **2³² = 4.294.967.296 combinações**.
+
+O carimbo respeita o corpo: um pixel de mancha só pinta se o pixel debaixo for
+uma das **três cores claras** do corpo. É isso que faz a mancha parar na borda
+da orelha em vez de vazar pro contorno, pro olho ou pras patas.
+
+| o quê | onde |
+|---|---|
+| a personalidade | é o `seed` do Pokémon (`src/systems/mon.js`), que por isso vai até 2³² |
+| moldes, âncoras e cores | `src/data/spinda.js` — **gerado**, não edite à mão |
+| o carimbo | `Assets.spinda()` em `src/core/assets.js` |
+| montar as peças | `python3 tools/fetch_spinda.py` (pega do decomp `pret/pokefirered`) |
+| conferir | `dev/spindacheck.html` — desenha uma grade e confere a conta |
+
+O **shiny** dele tem o corpo da **mesma cor**: o que muda é a rampa das manchas
+e das patas, que vai de laranja pra verde. E as **costas** não têm mancha
+sorteada — no original o carimbo só vale pro sprite de frente, e o de costas
+tem uma mancha fixa desenhada.
 
 ## A mineração
 
@@ -166,17 +211,48 @@ laboratório de **Cinnabar** ressuscita os fósseis (nível 20; os colados de
 Galar, 25). As tabelas estão em `src/data/mineracao.js`, a tela em
 `src/scenes/mineracao.js`.
 
-## O GO PARK
+## O GO PARK COMPLEX
 
-Na **Zona Safári**, logo na entrada, a atendente do GO PARK. **ENVIAR PRO GO**
-tira um Pokémon da equipe e baixa um cartão no estilo do GO com o **CP calculado
-pela fórmula real** (atributos convertidos em ATK/DEF/STA, IVs, nível, nerf dos
-lendários); ele passa a morar no parque (6 vagas). No parque: **CAPTURAR DE
-VOLTA** no estilo do GO (círculo que encolhe, NICE/GREAT/EXCELLENT, 5 arremessos
-por visita) e o **GO PLACE**, onde cada Pokémon libera um minijogo pelo tipo
-(corrida, mergulho, faísca, dancinha, sussurro) que paga poeira estelar e doce
-raro. Não há ligação real com o Pokémon GO: é um serviço fechado.
-`src/data/gopark.js`, `src/systems/gopark.js`, `src/scenes/gopark.js`.
+Na **Zona Safári**, logo na entrada, a atendente do GO PARK. O complexo tem
+**cinco parques de vinte** — cem vagas — e ele anda nos dois sentidos que dá
+pra ter de verdade.
+
+**ENVIAR PRO GO** tira um Pokémon **da equipe ou de qualquer box** e baixa um
+cartão no estilo da tela do GO, com o **CP calculado pela fórmula real**
+(atributos convertidos em ATK/DEF/STA, IVs, nível, nerf dos lendários). No
+rodapé do cartão vai um **QR que é o Pokémon inteiro**: outro save deste jogo
+lê esse QR e o bicho chega no parque de lá. O Pokémon passa a morar no parque.
+
+**PUXAR DO GO** traz pra dentro do complexo o que está na **sua conta do
+Pokémon GO**, por três portas:
+
+- **arquivo**: JSON ou CSV com a sua coleção — o que a Niantic te manda quando
+  você pede a sua cópia dos dados, ou uma tabela que você mesmo montou. O
+  leitor é tolerante: acha as colunas pelo nome, em inglês ou em português, em
+  qualquer arrumação, e entende `Alolan Vulpix`, `VULPIX-ALOLA` e o número da
+  Pokédex. Linha que ele não entende vira aviso na tela, não some calada.
+- **foto de um cartão**: lê o QR de um cartão gerado por este jogo, inclusive
+  de uma foto torta ou com um borrão em cima (o leitor de QR é próprio, em
+  `src/systems/qr.js`, com correção de erro Reed–Solomon).
+- **digitar na mão**: espécie e CP bastam. O nível sai do CP — é a conta do GO
+  ao contrário. As três barras da avaliação deixam mais exato.
+
+No parque: **CAPTURAR DE VOLTA** no estilo do GO (círculo que encolhe,
+NICE/GREAT/EXCELLENT, 5 arremessos por visita) e o **GO PLACE**, onde cada
+morador libera um minijogo pelo tipo (corrida, mergulho, faísca, dancinha,
+sussurro) que paga poeira estelar e doce raro.
+
+**O que não existe, e não é limitação deste jogo:** mandar Pokémon *para dentro*
+do app do Pokémon GO. O GO não tem save no aparelho nem importação — o bicho só
+passa a existir dentro do servidor da Niantic, e nem o Pokémon HOME consegue
+mandar pra lá (o GO Transporter só vai GO → HOME). O GO Park do Let's Go
+também é mão única. Quem promete o contrário está forjando tráfego pra sua
+conta, e por isso aqui **nunca** se pede senha nem token do GO: tudo é arquivo
+seu, lido na sua máquina. O que sai deste jogo é o cartão.
+
+`src/data/gopark.js`, `src/systems/gopark.js`, `src/systems/qr.js`,
+`src/scenes/gopark.js`, e os menus em `src/scenes/overworld.js`.
+Checagem: `dev/goparkcheck.html`.
 
 ## Os MYSTERY EGGS
 
@@ -278,6 +354,9 @@ qualquer partida):
   relógio. Um tile leva 32 quadros no DEVAGAR, 16 no NORMAL (o do FireRed) e 8
   no TURBO — a mesma velocidade de quando você segura SHIFT.
 - **IDIOMA** — PORTUGUÊS, ENGLISH, ESPAÑOL.
+- **BATALHA DUPLA** — ON faz todo treinador com 2+ Pokémon lutar em dupla
+  (ver **BATALHAS EM GRUPO**). Essa fica no **save**, não no navegador: é regra
+  da partida, não preferência de quem está na tela.
 
 As duas ficam no navegador (`localStorage`), não no save: são de quem está na
 frente da tela. Apagar a partida não muda o idioma, e o idioma escolhido na tela
@@ -332,10 +411,56 @@ Os dados ficam em `src/data/mega.js` (uma tabela: espécie de origem, nome da
 forma, pedra, sprite e stats) e têm hot-swap como todo o resto de `src/data/`.
 Atalho de dev: `?mega=1` na URL enche a mochila com o anel e as 16 pedras.
 
+## A POKÉDEX
+
+O **PROF. CARVALHO** dá três coisas no laboratório, nesta ordem: o **inicial**
+(nas Poké Bolas da mesa), a **POKÉDEX** e o **DECODIFICADOR DE GENOMA** — e só
+então manda seguir pela ROTA 1. Save de antes da Pokédex que já tinha passado
+do laboratório ganha ela direto, sem voltar a Pallet.
+
+Ela abre pelo menu (**X → POKÉDEX**, a primeira linha) e anota duas coisas:
+**VISTO** (apareceu numa batalha na sua frente) e **PEGO** (foi seu em algum
+momento: capturado, chocado, trocado, ganhado, evoluído). Capturar uma espécie
+nova avisa: "OS DADOS DE X FORAM REGISTRADOS NA POKÉDEX!".
+
+- **Três abas** (**C** troca): **KANTO** (as 151), **NACIONAL** (as **1028**:
+  as 1025 da Pokédex nacional e, no fim, **1026 MISSINGNO.**, **1027
+  ??????????** e **1028 MEWTHREE**) e **FORMAS** (as regionais que dividem
+  número com outro bicho, as hackeanas, MEGA e bonés). Regional com número
+  próprio — OBSTAGOON, SIRFETCH'D, URSALUNA, CLODSIRE — é NACIONAL. As fusões
+  ficam de fora: quem guarda elas é o decodificador.
+- **A lista**: cima/baixo anda, esquerda/direita pula 10, **Z** abre a ficha.
+  Quem você nunca viu é um tracinho — a Pokédex não adivinha.
+- **A ficha**, em três páginas (esquerda/direita; cima/baixo vai pro
+  anterior/próximo que você já viu): **DADOS** (desenho, tipos, região, peso e
+  o texto), **ATRIBUTOS** (os seis números-base, o total e a linha de
+  evolução) e **ONDE** (os mapas em que ele vive solto, e a fenda). Só VISTO
+  mostra o desenho e o nome; os dados são de quem PEGOU.
+
+**O professor avalia.** A cada marco de **Kanto** pegos ele fala pela Pokédex
+na próxima vez que você abrir, e manda um presente, uma vez cada:
+
+| pegos | presente |
+| --- | --- |
+| 10 | 10 POKÉ BOLAS |
+| 25 | 5 GREAT BALLS |
+| 50 | 5 ULTRA BALLS |
+| 80 | 2 PEDRAS DA LUA |
+| 120 | 10 ULTRA BALLS |
+| 151 | o **AMULETO BRILHANTE** |
+
+O **AMULETO BRILHANTE** triplica a chance de um selvagem nascer shiny (e
+luminoso) — na mesma conta do SANDUÍCHE AMARGO, então os dois somam.
+
+`src/data/pokedex.js` (falas, marcos e o amuleto), `src/systems/pokedex.js`
+(as listas, visto/pego, onde vive, a evolução, os marcos) e
+`src/scenes/pokedex.js` (a tela). `dev/pokedexcheck.html` confere tudo isso,
+a ordem do laboratório, e tira fotos da tela.
+
 ## Fusão: o DECODIFICADOR DE GENOMA
 
-O **PROF. CARVALHO** entrega a máquina na **primeira conversa**, antes do
-inicial e de qualquer insígnia. Ela abre pela mochila (`Z` em cima do item) e
+O **PROF. CARVALHO** entrega a máquina logo depois do **inicial** e da
+**POKÉDEX** — nessa ordem, na mesma conversa. Ela abre pela mochila (`Z` em cima do item) e
 faz três coisas:
 
 - **FUNDIR** — dois Pokémon da equipe viram um só. A **CABEÇA** dá o rosto, o
@@ -993,6 +1118,72 @@ A fenda tem conteúdo que não existe em Kanto:
 
 Os sprites das espécies de fora vêm com `python3 tools/fetch_sprites.py --extra`.
 
+## AS FORMAS HACKEANAS
+
+ALOLA é o mesmo bicho criado em outro **lugar**. **HACK** é o mesmo bicho lido em
+outro **estado**: ninguém levou este RHYDON pra região nenhuma — alguém mexeu no
+arquivo onde ele estava guardado, e ele voltou assim. Num jogo chamado GLITCH
+EDITION, essa é a região que faltava, e ela não fica no mapa: fica no cartucho.
+
+São **vinte**, e cada uma é uma piada sobre um furo de verdade dos jogos de
+Kanto: o **RHYDON**, que é o primeiro bicho que alguém programou e está na base
+de todos os outros; o **DITTO**, que copia o que vê e desta vez viu memória; o
+**MEW** embaixo do caminhão; o **PORYGON**, feito de código; o **FARFETCH'D** e o
+apóstrofo que nenhum programa leu inteiro; o **MR. MIME** e o ponto no meio do
+nome; a **NIDORAN♀** e o símbolo que não é letra; o **GENGAR** que diziam ser a
+evolução do MEW; o **PIKACHU**, o primeiro nome que todo mundo procura pra
+editar; o **MEWTWO** que veio pronto de fora; o **KADABRA**, que evolui por uma
+troca que nunca chegou; e o **VOLTORB**, um item que finge ser bicho.
+
+**A regra dos atributos, que é a peça inteira.** A forma hackeana tem **os mesmos
+seis números da base, em outra ordem**. Nada é inventado, nada é inflado: o total
+de status é idêntico ao do original, até o último ponto. É o que acontece de
+verdade quando um programa lê uma estrutura com o deslocamento errado — os bytes
+são os mesmos, o significado é que escorregou uma casa. Daí sai um **KADABRA com
+120 de HP e 30 de velocidade**, um **PIKACHU que aguenta pancada e não corre** e
+um **MEWTWO que bate de porrada** (154 de ataque físico). A piada e o
+balanceamento são a MESMA regra, então não existe forma hackeana forte demais
+por acidente.
+
+> O DITTO e o MEW saem iguais à base, e não é bug: os seis números deles já são o
+> mesmo número. Num bicho perfeitamente simétrico o erro não tem por onde entrar
+> — e o DITTO, ainda por cima, é o bicho cujo trabalho é copiar.
+
+**O tipo.** Toda forma hackeana é **metade GLITCH** — fica com um tipo do
+original e o outro vira GLITCH. **Com uma exceção:** o **MEWTWO-HACK é
+ELÉTRICO/GLITCH**, um tipo que o MEWTWO nunca teve em lugar nenhum. Nas outras o
+deslocamento pegou só os números; nele pegou o byte do tipo junto — e é o bicho
+certo pra isso, porque é o que mais aparece em save adulterado e a única coisa
+que ainda batia nele era o tipo. É o que se vê antes de qualquer número, e é o que
+as liga ao resto do jogo: com uma delas na equipe você cumpre a exigência da
+**última provação**, a do GLITCHINIUM, que pede alguém de GLITCH.
+
+**Elas evoluem, e a linha inteira é hackeana.** Um KADABRA-HACK vira
+ALAKAZAM-HACK, nunca um ALAKAZAM de Kanto — a mesma regra das formas regionais.
+**O gatilho é o mesmo da base**: nível 37 pro ALAKAZAM, PEDRA DO TROVÃO pro
+RAICHU-HACK, UP-GRADE pro PORYGON2-HACK. E o erro é **o mesmo erro** ao longo da
+linha: os três NIDORAN escorregam uma casa, os dois PORYGON escorregam duas. Uma
+linhagem com um deslocamento por estágio seriam três acidentes; assim é um
+acidente só, que ficou. (`dev/hackeanascheck.html` compara cada gatilho com o da
+base **como ele está hoje** — se alguém mudar o KADABRA de nível, o teste acusa.)
+
+**O sprite é a base lida errado, e é feito em código.** Nenhum PNG novo:
+`corromperSprite` (`src/core/sprites.js`) pega o desenho original que chegou de
+`assets/` e escorrega as linhas, troca os canais de cor numa faixa e joga dois
+blocos de lixo por cima — exatamente o que os atributos já fizeram com os
+números. É **determinístico** (a semente sai do id da espécie), então o mesmo
+bicho quebra do mesmo jeito em toda partida e em todo aparelho: um sprite que se
+redesenhasse a cada carregamento não seria um bicho, seria um chuvisco.
+
+**Onde elas aparecem:** na 011GLITCHDIMENSION110, por terreno, como tudo que não
+é de Kanto — raras (≈1% dos encontros da fenda) e **sempre corrompidas**, porque
+é literalmente o que elas são. Nenhuma nasce na grama de Kanto.
+
+`src/data/hackeanas.js` (as vinte, o giro de cada linha e as evoluções),
+`corromperSprite` em `src/core/sprites.js` (a arte) e `dev/hackeanascheck.html`
+(confere os números girados, o total de status igual ao da base, os gatilhos, a
+raridade na fenda e desenha a base ao lado da hackeada pra você olhar).
+
 ## AS TRÊS ERAS: o pós-jogo com o CELEBI
 
 Capturado o MISSINGNO., a fenda fecha — e a última linha do FIM. é
@@ -1036,6 +1227,142 @@ Atalhos de dev: `?eras=1` põe o CELEBI na clareira (como se a fenda já tivesse
 fechado) e `?era=paradoxo` joga direto dentro de uma era. `dev/eracheck.html`
 confere as espécies, os três mapas (inclusive se dá pra chegar a pé no guardião)
 e a fila que abre uma era depois da outra.
+
+## BATALHAS EM GRUPO: duplas e trios
+
+Batalha de dois contra dois (e de três contra três). Cada Pokémon seu escolhe o
+que fazer, um de cada vez (o da vez pula um pouco e ganha uma faixa amarela na
+caixa; **X** volta pro anterior). Golpe de um alvo pergunta **EM QUEM?** (setas
+e uma seta vermelha em cima do alvo). Os **golpes de área** não perguntam nada:
+pegam todo mundo que alcançam, com 3/4 da força em cada um — e TERREMOTO e
+SURFAR acertam o seu parceiro também. Quem cai sai da vaga: do outro lado entra
+o próximo da equipe; do seu, você escolhe quem entra.
+
+**Onde acontece:**
+
+- **Duplas de treinadores** espalhadas por Kanto (um NPC com os dois nomes,
+  como as gêmeas do FireRed):
+
+  | onde | dupla | nv |
+  | --- | --- | --- |
+  | ROTA 24 | GÊMEAS ANA E BIA | 14 |
+  | ROTA 25 | IRMÃOS TUCO E TITO | 16 |
+  | ROTA 4 | MONTANHISTAS DUDA E RUI | 18 |
+  | ROTA 6 | CASAL JOÃO E LIA | 19–20 |
+  | ROTA 12 | PESCADORES ZÉ E NINO | 27–28 |
+  | ROTA 13 | LUTADORES KIM E JÔ | 31 |
+  | ROTA 14 | DUPLA ROCKET | 33 |
+  | ROTA 18 | MOTOQUEIROS BETO E GIL | 34–35 |
+
+- **Todo treinador com 2+ Pokémon**, se você ligar **BATALHA DUPLA** no menu
+  **OPÇÕES** (fica guardado no save; desligado por padrão).
+- **As provações**: o totem e os ajudantes (dupla ou trio, ver abaixo).
+- **A batalha link**, quando quem desafia escolhe **DESAFIAR 2X2**.
+
+Tem golpe com alvo, golpe de área, prioridade e velocidade entre todos, troca,
+poção, o **CRISTAL Z** (Q, uma vez por batalha), clima, habilidades (INTIMIDAR
+pega os dois do outro lado), status, XP, dinheiro e insígnia. Não tem captura
+nem fuga (é sempre treinador ou totem), nem MEGA e GLITCHBOOSTER, que continuam
+sendo do um contra um.
+
+`src/scenes/grupobattle.js` (a cena), `src/data/duplas.js` (golpes de área,
+ajudantes dos totens, as duplas de treinadores e as falas) e
+`dev/duplacheck.html` (confere os dados, roda turnos de verdade contra a dupla,
+o golpe de área, a reposição, a derrota, o totem em trio, a batalha link 2X2
+com as duas pontas na mesma página — e tira fotos da tela).
+
+## AS PROVAÇÕES: os CRISTAIS Z, espalhados por KANTO
+
+Os dezenove **CRISTAIS Z de tipo** — um pra cada tipo do jogo, DRAGÃO e GLITCH
+inclusive — não estão largados pelo chão. Cada um é o prêmio de uma
+**PROVAÇÃO**: uma marca no chão com um **TOTEM** dormindo em cima dela.
+Derrube o totem, leve o cristal.
+
+As marcas moravam todas na ILHA DOIS e no CABO DA BEIRA, a poucos passos umas
+das outras, e dava pra fazer as dezoito numa tarde. Agora quem cuida delas é a
+**GUARDIÃ** (a velha na subida do porto da ILHA DOIS): na **primeira conversa
+com ela no pós-jogo**, ela **espalha as marcas por Kanto**, uma por cidade ou
+rota. Antes dessa conversa não tem marca em lugar nenhum. Depois, ela é o
+placar: diz quantas foram, **qual é a próxima e onde fica**.
+
+**As regras:**
+
+1. **Só no pós-jogo.** Antes de o MISSINGNO. ser capturado a guardiã não
+   espalha nada.
+2. **Em ordem.** A ordem é a da tabela de tipos, com GLITCH por último. Uma
+   marca só acorda depois que a anterior foi feita; encostar numa fora da vez
+   diz qual vem antes e onde ela está. O nível do totem sobe um por marca.
+3. **Só com o tipo na equipe.** A provação de ÁGUA só acorda pra quem chega com
+   alguém de ÁGUA **andando junto** (o que está no PC não conta).
+4. **O totem não se pega.** Nenhuma bola funciona nele, nem a GLITCHBALL. E não
+   dá pra fugir: daqui só se sai pelo fim.
+5. **O totem não vem sozinho.** Ele chama AJUDA, como nos jogos de Alola: nas
+   9 primeiras vem um ajudante (**dupla**, dois contra dois); da 10ª, a de FOGO,
+   em diante vêm dois (**trio**, três contra três). Do seu lado saem tantos
+   Pokémon quanto os do outro. Os ajudantes estão em `AJUDANTES`, em
+   `src/data/duplas.js`, e a posição onde o trio começa é `TRIO_A_PARTIR`.
+
+**O que é um TOTEM:** o mesmo bicho de sempre, com **HP 2,4x**, os outros
+atributos **1,15x**, **maior na tela** — e uma **AURA**, que levanta um atributo
+dele um estágio no primeiro instante da luta. Perdeu? Ele continua de pé: a
+provação não tem tranca, tem porteiro.
+
+| # | tipo | totem | nv | aura | onde |
+| --- | --- | --- | --- | --- | --- |
+| 1 | NORMAL | GUMSHOOS | 57 | ATAQUE | ROTA 1 |
+| 2 | LUTADOR | BEWEAR | 58 | ATAQUE | SAFFRON |
+| 3 | VOADOR | TOUCANNON | 59 | ATAQUE | ROTA 16 |
+| 4 | VENENO | MUK | 60 | ESP.DEF | FUCHSIA |
+| 5 | **TERRA** | **DIGLETT** | **61** | **VELOCIDADE** | **ROTA 11** |
+| 6 | PEDRA | LYCANROC | 62 | VELOCIDADE | PEWTER |
+| 7 | INSETO | VIKAVOLT | 63 | ESP. | ROTA 2 |
+| 8 | FANTASMA | MIMIKYU | 64 | ATAQUE | LAVENDER |
+| 9 | AÇO | CELESTEELA | 65 | DEFESA | VERMILION |
+| 10 | FOGO | SALAZZLE | 66 | VELOCIDADE | ROTA 8 |
+| 11 | ÁGUA | ARAQUANID | 67 | DEFESA | CERULEAN |
+| 12 | PLANTA | LURANTIS | 68 | ESP. | CELADON |
+| 13 | ELÉTRICO | TOGEDEMARU | 69 | VELOCIDADE | ROTA 10 |
+| 14 | PSÍQUICO | ORANGURU | 70 | ESP. | ROTA 5 |
+| 15 | GELO | BEARTIC | 71 | DEFESA | ROTA 15 |
+| 16 | DRAGÃO | DRAGAPULT | 72 | VELOCIDADE | ROTA 23 |
+| 17 | SOMBRIO | GUZZLORD | 73 | DEFESA | ROTA 9 |
+| 18 | FADA | RIBOMBEE | 74 | VELOCIDADE | ROTA 3 |
+| 19 | **GLITCH** | **MISSINGNO.** | **75** | **ATAQUE** | **VIRIDIAN** |
+
+**A do TERRA é um DIGLETT fora da terra.** A marca dela é um buraco de DIGLETT
+**vazio**, com uma sombra comprida demais saindo dele. O totem sobe **inteiro,
+de corpo presente** — e na batalha dá pra ver: o sprite de sempre do DIGLETT,
+intacto, em cima de um corpo bombado fazendo duplo bíceps, de calção vermelho (o
+monte de terra do sprite vira a gola). O corpo é desenhado em código
+(`src/core/diglettbombado.js`), sem PNG novo; `dev/diglettcheck.html` mostra a
+peça e um quadro da batalha. É também a única provação com `vidas` própria (5x
+em vez de 2,4x): o DIGLETT tem 10 de HP-base.
+
+**A de DRAGÃO** é a mais nova: DRAGÃO era o único tipo sem cristal Z. O totem
+é um **DRAGAPULT**, a marca fica na ROTA 23 (a caminho da VICTORY ROAD) e o
+prêmio é o **DRACONINUM Z**, cujo golpe é a **DESTRUIÇÃO MEDIEVAL**.
+
+**O GLITCHINIUM.** Os cristais comuns se chamam "CRISTAL Z DE <TIPO>". O de
+GLITCH se chama **GLITCHINIUM**, porque GLITCH não é um tipo que exista em
+lugar nenhum. Quem já tinha "cristal z de glitch" num save antigo recebe o
+GLITCHINIUM no lugar (`renomearItens`, em `src/main.js`).
+
+**A de GLITCH é a última**, em VIRIDIAN, onde o velho ensina a pegar Pokémon, e
+quem dorme nela é o **MISSINGNO.** — de novo, e sem bola desta vez.
+
+Quem já tinha o cristal de um tipo (pego do chão na versão antiga, ou de uma
+provação feita na ilha) chega com aquela provação **já fechada**, e a fila
+pula ela.
+
+Como se usa o cristal continua igual: **Q** na batalha e um golpe daquele tipo,
+uma vez por luta, sem gastar o item. Os sete **CRISTAIS DE ESPÉCIE**
+(PIKANIUM, EEVIUM, SNORLIUM...) continuam largados no chão de uma ilha cada um.
+
+`src/data/provacoes.js` (as dezenove, na ordem, as falas e os lugares),
+`src/systems/provacoes.js` (o estado de cada uma, a fila, a guardiã espalhando,
+o totem e o prêmio) e `dev/provacoescheck.html` (confere tudo: lugares
+andáveis e longe de NPC, a ordem, o estado olhando só o save e o prêmio pago
+uma vez só).
 
 ## Acampar
 
@@ -1825,6 +2152,12 @@ CÓPIAS da equipe, então ninguém sai daqui mais forte nem mais fraco e o save 
 tocado em momento nenhum. Quem desmaia troca numa rodada só de troca, sem dar um
 golpe de graça pro outro lado.
 
+**1X1 ou 2X2.** Quem desafia escolhe **DESAFIAR 1X1** ou **DESAFIAR 2X2**, e o
+formato vai junto com o convite ("TE DESAFIOU PRA UMA BATALHA DUPLA (2X2)!").
+No 2X2 cada vaga escolhe golpe e alvo, os golpes de área pegam mais de um, e
+quem cai é trocado **sozinho** pelo próximo da equipe — escolher o substituto no
+meio do turno faria os dois lados esperarem um pelo outro.
+
 ## Presente misterioso
 
 Na tela de título (com uma partida gravada) e no menu ONLINE. Dois caminhos, como
@@ -1942,6 +2275,25 @@ antes de dar o resultado por bom. A única diferença que ela aceita é a cor
 debaixo de um pixel invisível (a paleta junta todo transparente numa cor só, e
 não existe jeito de isso mudar o que aparece na tela).
 
+### Sprite pequeno sem perder o olho
+
+Compactar **não muda o desenho** (o `compacta.py` confere pixel por pixel). O
+que fazia um bicho perder a pupila, o olho ou mudar de expressão era outra
+coisa: desenhar o sprite de 64x64 **menor** do que ele é, sem suavizar. O
+navegador pega um pixel de origem pra cada pixel novo e joga o resto fora — e
+com escala quebrada (64 → 46, 64 → 26) a pupila de dois pixels às vezes é
+justamente o que foi jogado fora.
+
+Duas regras agora:
+
+- **O que é grande na tela é desenhado em 64, o tamanho de verdade**: batalha
+  em grupo, batalha link e a vitrine da tela de título. Nenhum pixel some.
+- **Os ícones** (equipe, box, bichos no mato, leilão, creche, oficina, troca)
+  passam por `reduzido`, em `src/core/reduzir.js`: cada pixel novo fica com a
+  cor que ocupa mais área no pedaço da imagem que ele cobre, e no empate ganha
+  a mais escura — a pupila, a boca, o contorno. O resultado fica guardado por
+  sprite e por tamanho. `dev/reduzircheck.html` mostra o antigo do lado do novo.
+
 ## Carregar rápido (e continuar rápido)
 
 Três coisas no `dev_server.py`, todas do lado do servidor — o jogo não mudou:
@@ -2019,6 +2371,10 @@ src/
     idiomas.js         os dicionários de tradução (pt -> en/es)
     missoes.js         as side quests: pedido, lugar, objetivo e prêmio
     eras.js            AS TRÊS ERAS: espécies novas, os três mapas e o CELEBI
+    provacoes.js       AS PROVAÇÕES: os 19 totens espalhados por Kanto, em ordem, e o cristal de cada um
+    duplas.js          BATALHAS EM GRUPO: golpes de área, ajudantes dos totens, as duplas de treinadores
+    pokedex.js         A POKÉDEX: as falas do professor, os marcos e o AMULETO BRILHANTE
+    hackeanas.js       AS FORMAS HACKEANAS: os seis números da base em outra ordem
     bolas.js           as bolas: preço, bônus de captura e quando entram na loja
     rival.js           o AZUL: onde ele aparece, o que fala e o time dele
     fusoes.js          as fusões escritas à mão (GENGQUAZA, ALAKAGAR, PIKASAUR...)
@@ -2035,6 +2391,7 @@ src/
     concurso.js        as notas dos três jurados e a rodada com os rivais
     missoes.js         estado das missões e os checadores de objetivo
     eras.js            que era está aberta, e quem é o guardião de cada mapa
+    provacoes.js       o estado de cada provação, o totem inflado e o prêmio
     faxina.js          a revisão semanal do acervo de fusões
     aniversario.js     a data no save, o calendário e o que sai da bola
     glitchzones.js     o embaralhador de tiles, a arte fatiada e a parede que cede
@@ -2043,12 +2400,14 @@ src/
     online.js          presença, convites, chat e o filtro do que vem de fora
   scenes/
     title.js  overworld.js  battle.js
+    grupobattle.js     a batalha em grupo: duplas e trios
+    pokedex.js         a POKÉDEX: a lista com as três abas e a ficha
     fusion.js          a fusão e a separação acontecendo na tela
     concurso.js        o palco de Cinnabar: entradas, notas e o resultado
     fusaoeditor.js     a oficina: estúdio de sprite, ficha e crescimento por nível
     online.js          a sala e o PRESENTE MISTERIOSO
     trade.js           a troca entre dois jogadores
-    linkbattle.js      a batalha link
+    linkbattle.js      a batalha link (1X1 e 2X2)
 assets/
   sprites/             PNGs externos (vazio por padrão): pokemon/, overworld/, trainers/, tiles/
   maps/                mapas renderizados + kanto.json (geometria e colisão)

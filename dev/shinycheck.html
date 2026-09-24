@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>medição das cores shiny</title>
+<style>
+  body { background:#111; color:#9fd; font:12px/1.4 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; } .obs { color:#678; } .alerta { color:#fc6; }
+  h2 { color:#b455ff; font-size:13px; margin:12px 0 2px; }
+  table { border-collapse:collapse; margin:4px 0; }
+  td { padding:1px 8px 1px 0; vertical-align:middle; }
+  canvas { image-rendering:pixelated; vertical-align:middle; background:#222; }
+</style>
+</head>
+<body>
+<div id="out">medindo... (os sprites carregam sob demanda, leva uns segundos)</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=60000">
+<script type="module">
+// QUANTO O SHINY MUDA DE COR, espécie por espécie.
+//
+// O shiny é um filtro único pra todo mundo (Assets.shiny, src/core/assets.js):
+// hue-rotate(150deg) saturate(1.6) brightness(1.1). Um giro de matiz não mexe
+// em pixel cinza — então em bicho acinzentado o "shiny" sai igual ao comum, que
+// é o mesmo que não ter shiny. Esta página mede isso: ΔE (CIE76) médio entre o
+// sprite comum e o shiny, só nos pixels opacos.
+const out = document.getElementById("out");
+const { DB } = await import("/src/data/index.js");
+const { Assets } = await import("/src/core/assets.js");
+const { SpriteStore, pedirMon } = await import("/src/core/sprites.js");
+Assets.init();
+
+// ---- só as espécies com sprite próprio (fusão e mega são compostas)
+const ids = Object.keys(DB.SPECIES).filter((id) => {
+  const sp = DB.SPECIES[id];
+  return sp && !sp.fusao && !sp.crescimento;
+});
+
+// ---- pede todos e espera chegar
+for (const id of ids) { const sp = DB.SPECIES[id]; pedirMon(sp.id || id, sp.spriteDex || sp.dex); }
+const t0 = Date.now();
+let anterior = -1;
+while (Date.now() - t0 < 45000) {
+  const n = ids.filter((id) => SpriteStore.pokemon[id]).length;
+  if (n === ids.length) break;
+  if (n === anterior && Date.now() - t0 > 8000) break;    // parou de chegar
+  anterior = n;
+  await new Promise((r) => setTimeout(r, 400));
+}
+
+// ---- sRGB -> Lab, pra medir diferença como o olho vê
+const srgb = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+const f = (t) => (t > 216 / 24389 ? Math.cbrt(t) : (841 / 108) * t + 4 / 29);
+function lab(r, g, b) {
+  const R = srgb(r), G = srgb(g), B = srgb(b);
+  const X = (0.4124 * R + 0.3576 * G + 0.1805 * B) / 0.95047;
+  const Y = 0.2126 * R + 0.7152 * G + 0.0722 * B;
+  const Z = (0.0193 * R + 0.1192 * G + 0.9505 * B) / 1.08883;
+  const fx = f(X), fy = f(Y), fz = f(Z);
+  return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+}
+const satMedia = (d) => {
+  let s = 0, n = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 128) continue;
+    const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]);
+    s += mx ? (mx - mn) / mx : 0; n++;
+  }
+  return n ? s / n : 0;
+};
+
+function pixels(img) {
+  const c = document.createElement("canvas");
+  c.width = img.width; c.height = img.height;
+  const x = c.getContext("2d", { willReadFrequently: true });
+  x.drawImage(img, 0, 0);
+  return x.getImageData(0, 0, c.width, c.height).data;
+}
+
+// pede a arte shiny de verdade de todo mundo e espera chegar (quem não tiver
+// PNG shiny simplesmente não aparece no store, e cai no filtro)
+for (const id of ids) Assets.monShiny(id);
+const t1 = Date.now();
+let ant2 = -1;
+while (Date.now() - t1 < 25000) {
+  const n = Object.keys(SpriteStore.pokemonShiny).length;
+  if (n === ant2 && Date.now() - t1 > 5000) break;
+  ant2 = n;
+  await new Promise((r) => setTimeout(r, 400));
+}
+
+const medidas = [];
+for (const id of ids) {
+  // o sprite COMO O JOGO DESENHA, não o arquivo cru: o SPINDA sai daqui já
+  // carimbado, e comparar o carimbado com o limpo daria uma diferença falsa
+  const img = SpriteStore.pokemon[id] && Assets.mon(id, 0);
+  if (!img) continue;
+  // o caminho de verdade: é isto que o jogo desenha pra um shiny
+  const sh = Assets.comCor(img, { species: id, shiny: true });
+  const a = pixels(img);
+  const dE = (outro) => {
+    const b = pixels(outro);
+    if (b.length !== a.length) return null;            // tamanhos diferentes: não dá pra comparar pixel a pixel
+    let soma = 0, n = 0;
+    for (let i = 0; i < a.length; i += 4) {
+      if (a[i + 3] < 128) continue;
+      const [l1, a1, b1] = lab(a[i], a[i + 1], a[i + 2]);
+      const [l2, a2, b2] = lab(b[i], b[i + 1], b[i + 2]);
+      soma += Math.hypot(l1 - l2, a1 - a2, b1 - b2); n++;
+    }
+    return n ? soma / n : null;
+  };
+  const dEreal = dE(sh);
+  if (dEreal === null) continue;
+  const dEfiltro = dE(Assets.shiny(img));
+  const soma = dEreal, n = 1;
+  const sp0 = DB.SPECIES[id];
+  medidas.push({ id, nome: sp0.name, dex: sp0.dex, arquivo: sp0.spriteDex || sp0.dex, dE: dEreal, dEfiltro, real: !!SpriteStore.pokemonShiny[id] });
+}
+medidas.sort((x, y) => x.dE - y.dE);
+
+const linhas = [];
+linhas.push(`<div class="obs">${medidas.length} espécies medidas de ${ids.length} (${ids.length - medidas.length} sem sprite carregado)</div>`);
+
+const tabela = (lista) => {
+  const t = ["<table>"];
+  for (const m of lista) {
+    t.push(`<tr><td><canvas data-id="${m.id}" width="56" height="56"></canvas></td>` +
+      `<td>#${String(m.dex).padStart(3, "0")}</td><td>${m.nome}</td>` +
+      `<td class="${m.dE < 12 ? "erro" : m.dE < 20 ? "alerta" : "ok"}">ΔE ${m.dE.toFixed(1)}</td>` +
+      `<td class="obs">${m.real ? `oficial (o filtro dava ΔE ${m.dEfiltro?.toFixed(1)})` : "filtro"}</td></tr>`);
+  }
+  return t.join("") + "</table>";
+};
+
+const invisiveis = medidas.filter((m) => m.dE < 12);
+const fracos = medidas.filter((m) => m.dE >= 12 && m.dE < 20);
+linhas.push(`<h2>SHINY QUASE IGUAL AO COMUM (ΔE &lt; 12) — ${invisiveis.length} espécies</h2>`);
+linhas.push(`<div class="obs">ΔE abaixo de ~12 é diferença que não se nota num sprite de 32px no mato. Estes não têm shiny na prática.</div>`);
+linhas.push(tabela(invisiveis.slice(0, 40)));
+linhas.push(`<h2>SHINY FRACO (ΔE 12 a 20) — ${fracos.length} espécies</h2>`);
+linhas.push(tabela(fracos.slice(0, 25)));
+linhas.push(`<h2>OS QUE MUDAM MAIS (pra comparar)</h2>`);
+linhas.push(tabela(medidas.slice(-10).reverse()));
+
+out.innerHTML = linhas.join("");
+// desenha comum | shiny lado a lado
+for (const cv of document.querySelectorAll("canvas[data-id]")) {
+  const img = SpriteStore.pokemon[cv.dataset.id];
+  const x = cv.getContext("2d");
+  x.imageSmoothingEnabled = false;
+  x.drawImage(img, 0, 0, 28, 28);
+  x.drawImage(Assets.shiny(img), 28, 0, 28, 28);
+}
+
+// a lista ordenada inteira: é dela que sai quem precisa de arte shiny de verdade
+const texto = [
+  `${medidas.length} espécies medidas`,
+  `com ARTE SHINY OFICIAL: ${medidas.filter((m) => m.real).length}   com filtro: ${medidas.filter((m) => !m.real).length}`,
+  `INVISÍVEIS (dE<12): ${invisiveis.length}   FRACOS (12-20): ${fracos.length}`,
+  `das 89 com arte oficial: ${medidas.filter((m) => m.real && m.dE > m.dEfiltro).length} ficaram mais distintas que com o filtro, ${medidas.filter((m) => m.real && m.dE <= m.dEfiltro).length} menos`,
+  `as que o shiny OFICIAL é sutil de verdade: ${medidas.filter((m) => m.real && m.dE < 12).map((m) => `${m.nome}(${m.dE.toFixed(1)})`).join(", ")}`,
+  "",
+  "posicao\tdE\tfonte\tdE-filtro\tid\tnome",
+  ...medidas.slice(0, 140).map((m, i) => `${i + 1}\t${m.dE.toFixed(1)}\t${m.real ? "oficial" : "filtro"}\t${m.dEfiltro == null ? "-" : m.dEfiltro.toFixed(1)}\t${m.id}\t${m.nome}`),
+].join("\n");
+try { await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "shiny", log: texto }) }); } catch (e) {}
+document.title = "pronto";
+</script>
+</body>
+</html>

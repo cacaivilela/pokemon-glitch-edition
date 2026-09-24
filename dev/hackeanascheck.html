@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem das FORMAS HACKEANAS</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+  #arte { display:flex; flex-wrap:wrap; gap:10px; margin-top:6px; }
+  #arte figure { margin:0; text-align:center; color:#89a; font-size:11px; }
+  #arte canvas, #arte img { image-rendering:pixelated; background:#191c22; width:96px; height:96px; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<div id="arte"></div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=9000">
+<script type="module">
+// AS FORMAS HACKEANAS: as vinte espécies, os seis números girados, a linha que
+// evolui e o sprite estragado em código. Sem jogo — só as peças
+// (src/data/hackeanas.js, src/core/sprites.js).
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+let falhas = 0;
+const ok = (t, c) => { if (!c) falhas++; p(`${t}: ${c ? "OK" : "FALHOU"}`, c ? "ok" : "erro"); };
+
+try {
+  const { DB } = await import("/src/data/index.js");
+  const { HACKEANAS, BASE_DE, EVO_HACKEANAS, GATILHO_DA_BASE, DIM_HACKEANAS, REGIAO_HACK }
+    = await import("/src/data/hackeanas.js");
+  const { corromperSprite } = await import("/src/core/sprites.js");
+  const { GEN1 } = await import("/src/data/gen1.js");
+
+  const CHAVES = ["hp", "atk", "def", "spa", "spd", "spe"];
+  const todas = Object.values(HACKEANAS);
+  const baseDe = (sp) => DB.SPECIES[BASE_DE[sp.id]];
+
+  h("AS ESPÉCIES");
+  ok("são 21 (as 20 da lista + o MEWTHREE)", todas.length === 21);
+  ok("todas entraram no DB.SPECIES", todas.every((sp) => DB.SPECIES[sp.id] === undefined || DB.SPECIES[sp.id].hack));
+  ok("o jogo conhece todas pelo id", todas.every((sp) => !!DB.SPECIES[sp.id]));
+  ok("toda base existe", todas.every((sp) => !!baseDe(sp)));
+  ok("nenhuma sobrescreveu a base", todas.every((sp) => sp.id !== BASE_DE[sp.id] && !!DB.SPECIES[BASE_DE[sp.id]]));
+  ok("o nome é BASE-HACK (fora o MEWTHREE)", todas.every((sp) => sp.id === "mewthree" || sp.name === `${baseDe(sp).name}-HACK`));
+  ok("a região delas é HACK", todas.every((sp) => DB.REGIAO[sp.id] === REGIAO_HACK));
+  ok("as regionais não foram atropeladas", DB.REGIAO.vulpixalola === "ALOLA" && DB.REGIAO.meowthgalar === "GALAR");
+  ok("toda uma tem frase própria", todas.every((sp) => DB.SPECIES[sp.id].lore && sp.dexText.length > 20));
+  ok("frases diferentes umas das outras", new Set(todas.map((sp) => sp.dexText)).size === todas.length);
+
+  h("O TIPO");
+  ok("toda forma é metade GLITCH", todas.every((sp) => sp.types.includes("GLITCH")));
+  const EXCECOES = { mewtwohack: "ELÉTRICO", mewthree: "ELÉTRICO" };   // ver o comentário no data
+  const seguemARegra = todas.filter((sp) => !EXCECOES[sp.id]);
+  ok("o outro tipo é um tipo do original (fora as exceções escritas)",
+    seguemARegra.every((sp) => sp.types.some((t) => t !== "GLITCH" && baseDe(sp).types.includes(t))));
+  ok("e as exceções são SÓ as que estão escritas",
+    todas.filter((sp) => !sp.types.some((t) => t !== "GLITCH" && baseDe(sp).types.includes(t)))
+      .every((sp) => !!EXCECOES[sp.id]));
+  ok("o MEWTWO-HACK é ELÉTRICO/GLITCH, e o MEWTWO continua PSÍQUICO",
+    DB.SPECIES.mewtwohack.types.join("/") === "ELÉTRICO/GLITCH"
+    && DB.SPECIES.mewtwo.types.join("/") === "PSÍQUICO");
+  ok("nenhuma é GLITCH puro", todas.every((sp) => sp.types.length === 2));
+  ok("elas servem pro GLITCHINIUM da última provação", (() => {
+    const glitch = DB.PROVACOES.find((x) => x.tipo === "GLITCH");
+    const st = { flags: { caughtMissingno: true }, items: {}, party: [{ species: "pikachuhack" }], npcState: {},
+      provacoes: Object.fromEntries(DB.PROVACOES.filter((x) => x.tipo !== "GLITCH").map((x) => [x.id, { feita: true }])) };
+    return DB.SPECIES.pikachuhack.types.includes(glitch.tipo) && !!glitch;
+  })());
+
+  h("OS SEIS NÚMEROS, EM OUTRA ORDEM");
+  ok("o total de status é idêntico ao da base", todas.every((sp) => sp.bst === baseDe(sp).bst));
+  ok("são os MESMOS seis números, só girados", todas.every((sp) => {
+    const meus = CHAVES.map((k) => sp.base[k]).sort((a, b) => a - b).join(",");
+    const dele = CHAVES.map((k) => baseDe(sp).base[k]).sort((a, b) => a - b).join(",");
+    return meus === dele;
+  }));
+  const giroDe = (sp) => {
+    const b = CHAVES.map((k) => baseDe(sp).base[k]);
+    const m = CHAVES.map((k) => sp.base[k]);
+    for (let g = 0; g < 6; g++) if (m.every((v, i) => v === b[(i + g) % 6])) return g;
+    return -1;
+  };
+  ok("cada uma é uma rotação exata (nada foi inventado)", todas.every((sp) => giroDe(sp) >= 0));
+  const LINHAS = [["rhydonhack", "rhyperiorhack"], ["porygonhack", "porygon2hack", "porygonzhack"],
+                  ["nidoranfhack", "nidorinahack", "nidoqueenhack"], ["pikachuhack", "raichuhack"],
+                  ["kadabrahack", "alakazamhack"], ["voltorbhack", "electrodehack"],
+                  ["mewtwohack", "mewthree"]];
+  ok("o erro é o MESMO ao longo de cada linha",
+    LINHAS.every((linha) => new Set(linha.map((id) => giroDe(HACKEANAS[id]))).size === 1));
+  for (const sp of todas) {
+    const b = baseDe(sp);
+    p(`${sp.name.padEnd(16)} ${sp.types.join("/").padEnd(18)} giro=${giroDe(sp)} ` +
+      `${CHAVES.map((k) => String(sp.base[k]).padStart(3)).join(" ")}  (base: ` +
+      `${CHAVES.map((k) => String(b.base[k]).padStart(3)).join(" ")})  bst=${sp.bst}`);
+  }
+
+  h("AS EVOLUÇÕES");
+  ok("toda regra sai de uma forma hackeana", Object.keys(EVO_HACKEANAS).every((id) => !!HACKEANAS[id]));
+  ok("e chega numa forma hackeana",
+    Object.values(EVO_HACKEANAS).every((rs) => rs.every((r) => !!HACKEANAS[r.to])));
+  ok("nenhuma evolui pra fora (num bicho de Kanto)",
+    Object.values(EVO_HACKEANAS).every((rs) => rs.every((r) => !GEN1[r.to])));
+  ok("o DB montou as linhas", Object.keys(EVO_HACKEANAS).every((id) => (DB.EVOLUTIONS[id] || []).length > 0));
+  // o teste que importa: o gatilho é o MESMO que a base tem HOJE
+  const mesmo = (a, b) => a.lvl === b.lvl && a.item === b.item && a.onde === b.onde;
+  const gatilhos = Object.entries(GATILHO_DA_BASE).map(([id, base]) => {
+    const minha = (DB.EVOLUTIONS[id] || [])[0];
+    // a regra da base que leva AO MESMO BICHO (o PIKACHU tem duas: o RAICHU
+    // comum e o RAICHU-ALOLA das SEVII — a nossa é irmã da primeira)
+    const dele = (DB.EVOLUTIONS[base] || []).find((r) => r.to === BASE_DE[minha?.to]);
+    const bate = minha && dele && mesmo(minha, dele);
+    p(`  ${id.padEnd(15)} ${JSON.stringify(minha)}  base: ${JSON.stringify(dele)}`, bate ? "" : "erro");
+    return bate;
+  });
+  ok("o gatilho de cada linha é o mesmo da base", gatilhos.every(Boolean));
+  ok("quem não tem evolução na base também não tem aqui",
+    ["dittohack", "mewhack", "gengarhack", "farfetchdhack", "mrmimehack"]
+      .every((id) => !(DB.EVOLUTIONS[id] || []).length));
+  ok("o MEWTWO-HACK vira MEWTHREE no 70 (e o MEWTWO comum continua sem evoluir)",
+    DB.EVOLUTIONS.mewtwohack?.[0]?.to === "mewthree" && DB.EVOLUTIONS.mewtwohack[0].lvl === 70
+    && !(DB.EVOLUTIONS.mewtwo || []).length);
+  ok("o MEWTHREE é a MEGA MEWTWO X girada, ELÉTRICO/GLITCH",
+    BASE_DE.mewthree === "megamewtwox" && DB.SPECIES.mewthree.types.join("/") === "ELÉTRICO/GLITCH");
+  ok("a pré-evolução foi montada ao contrário", DB.PRE_EVOLUCAO.alakazamhack === "kadabrahack");
+  ok("as pedras conhecem as formas", DB.EVO_ITEMS["pedra do trovão"]?.pikachuhack === "raichuhack");
+  ok("e a pedra do trovão continua fazendo o RAICHU comum",
+    DB.EVO_ITEMS["pedra do trovão"]?.pikachu === "raichu");
+
+  h("ONDE ELAS APARECEM");
+  const naFenda = Object.values(DIM_HACKEANAS).flat();
+  ok("as 20 entram na fenda", naFenda.length === 20);
+  ok("o MEWTHREE não (só por evolução)", !naFenda.some((e) => e.id === "mewthree"));
+  ok("cada uma nasce corrompida sempre", naFenda.every((e) => e.corrupt === true));
+  ok("são raras (peso <= 2)", naFenda.every((e) => e.w <= 2));
+  ok("elas estão mesmo nas tabelas do jogo",
+    ["terra", "ar"].every((t) => DB.DIM_ENCOUNTERS[t].some((e) => HACKEANAS[e.id])));
+  ok("nenhuma na grama de Kanto",
+    !Object.values(DB.MAPS).some((m) => (m.encounters || []).some((e) => HACKEANAS[e.id])));
+  const peso = (t) => DB.DIM_ENCOUNTERS[t].reduce((a, e) => a + e.w, 0);
+  const pesoHack = (t) => DB.DIM_ENCOUNTERS[t].filter((e) => HACKEANAS[e.id]).reduce((a, e) => a + e.w, 0);
+  for (const t of ["terra", "agua", "ar"]) {
+    p(`  ${t}: ${(100 * pesoHack(t) / peso(t)).toFixed(2)}% dos encontros da fenda são hackeanos`);
+  }
+
+  h("O SPRITE (a base lida errado)");
+  ok("nenhuma pede arte nova: o sprite é o número da base",
+    todas.every((sp) => sp.spriteDex === (baseDe(sp).spriteDex || baseDe(sp).dex)));
+  const carrega = (src) => new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
+  const base3 = (n) => String(n).padStart(3, "0");
+  const amostra = ["rhydonhack", "pikachuhack", "kadabrahack", "gengarhack", "porygonzhack", "mewtwohack", "mewthree"];
+  const arte = document.getElementById("arte");
+  let iguais = 0, medidas = 0;
+  for (const id of amostra) {
+    const sp = HACKEANAS[id];
+    const img = await carrega(`/assets/sprites/pokemon/${base3(sp.spriteDex)}.png`);
+    if (!img) { p(`  sem PNG pra ${sp.name} (rode tools/fetch_sprites.py)`, "erro"); continue; }
+    const quebrado = corromperSprite(img, 12345 + id.length);
+    medidas++;
+    if (quebrado.width === img.width && quebrado.height === img.height) iguais++;
+    const cv = document.createElement("canvas");
+    cv.width = img.width; cv.height = img.height;
+    cv.getContext("2d").drawImage(img, 0, 0);
+    const box = document.createElement("figure");
+    box.innerHTML = `<div style="display:flex;gap:4px"></div><figcaption>${sp.name}</figcaption>`;
+    box.firstChild.append(cv, quebrado);
+    arte.append(box);
+    // o estrago tem que MUDAR a imagem: se sair igual, a função não fez nada
+    const a = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+    const b = quebrado.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+    let dif = 0;
+    for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 3] !== b[i + 3]) dif++;
+    p(`  ${sp.name.padEnd(16)} ${(100 * dif / (a.length / 4)).toFixed(1)}% dos pixels mudaram`,
+      dif > 0 ? "" : "erro");
+    if (!dif) falhas++;
+  }
+  ok("o tamanho do sprite não muda", medidas > 0 && iguais === medidas);
+  ok("a mesma semente dá sempre o mesmo estrago", (() => {
+    const img = document.createElement("canvas");
+    img.width = 32; img.height = 32;
+    const c = img.getContext("2d");
+    c.fillStyle = "#c33"; c.fillRect(4, 4, 24, 24);
+    c.fillStyle = "#3c3"; c.fillRect(10, 10, 6, 18);
+    const px = (cv) => cv.getContext("2d").getImageData(0, 0, 32, 32).data.join(",");
+    return px(corromperSprite(img, 999)) === px(corromperSprite(img, 999))
+        && px(corromperSprite(img, 999)) !== px(corromperSprite(img, 1000));
+  })());
+
+  p(falhas ? `<br>${falhas} FALHA(S)` : "<br>tudo certo. (as duas imagens de cada par: a base e a hackeada)", falhas ? "erro" : "ok");
+} catch (e) {
+  p("EXPLODIU: " + (e?.stack || e), "erro");
+}
+out.innerHTML = linhas.join("");
+</script>
+</body>
+</html>

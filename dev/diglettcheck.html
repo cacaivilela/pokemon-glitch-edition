@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem do TOTEM DIGLETT</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+  canvas { image-rendering:pixelated; margin:6px 8px 0 0; vertical-align:top; background:#191c22; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<div id="arte"></div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=12000">
+<script type="module">
+// O TOTEM DIGLETT DE CORPO PRESENTE (src/core/diglettbombado.js): o desenho
+// sozinho e um quadro da batalha de verdade, desenhado na mão (o laço do jogo é
+// requestAnimationFrame e não roda em headless).
+const out = document.getElementById("out");
+const arte = document.getElementById("arte");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+let falhas = 0;
+const ok = (t, c) => { if (!c) falhas++; p(`${t}: ${c ? "OK" : "FALHOU"}`, c ? "ok" : "erro"); };
+const grande = (cv, k) => {
+  const b = document.createElement("canvas");
+  b.width = cv.width * k; b.height = cv.height * k;
+  const c = b.getContext("2d"); c.imageSmoothingEnabled = false;
+  c.drawImage(cv, 0, 0, b.width, b.height);
+  arte.append(b);
+};
+
+try {
+  const { corpoBombado, CORPO } = await import("/src/core/diglettbombado.js");
+  h("O DESENHO");
+  const a = corpoBombado(), b = corpoBombado();
+  ok("o tamanho é o combinado", a.rows.length === CORPO.h && a.rows.every((r) => r.length === CORPO.w));
+  ok("mesma entrada, mesmo desenho", a.rows.join() === b.rows.join());
+  ok("toda letra tem cor", a.rows.every((r) => [...r].every((ch) => ch === "." || a.paleta[ch])));
+
+  h("NA BATALHA");
+  const fr = document.createElement("iframe");
+  fr.width = 240; fr.height = 160; fr.style.opacity = "0.01";
+  fr.src = "/index.html?map=route11&starter=machamp:70&battle=diglett&lvl=61&perfil=diglett-teste";
+  document.body.appendChild(fr);
+  const espera = async (cond, ms = 9000) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) { try { if (cond()) return true; } catch {} await new Promise((r) => setTimeout(r, 50)); }
+    return false;
+  };
+  const subiu = await espera(() => fr.contentWindow?.game?.scenes?.top?.constructor?.name === "BattleScene");
+  ok("a batalha abriu", subiu);
+  if (subiu) {
+    const W = fr.contentWindow;
+    const cena = W.game.scenes.top;
+    const { Assets } = await W.eval('import("/src/core/assets.js")');
+    // vira TOTEM na mão, como montarTotem faria
+    cena.foe.totem = { tipo: "TERRA", aura: "spe", acorda: [] };
+    cena.totem = cena.foe.totem;
+    cena.showTrainer = false;
+    Object.assign(cena.sp.f, { alpha: 1, blink: 0, lunge: 0, dx: 0, dy: 0 });
+    Object.assign(cena.sp.p, { alpha: 1, blink: 0, lunge: 0, dx: 0, dy: 0 });
+    cena.dlg.queue.length = 0; cena.dlg.active = false; cena.menu = null;
+    // espera o PNG do DIGLETT chegar, pra não fotografar a arte provisória
+    await espera(() => W.eval('import("/src/core/sprites.js")').then(() => true), 3000);
+    const sprites = await W.eval('import("/src/core/sprites.js")');
+    const chegou = await espera(() => !!sprites.SpriteStore.pokemon.diglett, 6000);
+    ok("o sprite de sempre chegou", chegou);
+    const img = Assets.diglettBombado(sprites.SpriteStore.pokemon.diglett);
+    ok("a peça tem o corpo embaixo da cabeça", img && img.height > 64 && img.width === CORPO.w);
+    if (img) grande(img, 4);
+    const cv = document.createElement("canvas");
+    cv.width = 240; cv.height = 160;
+    const c = cv.getContext("2d"); c.imageSmoothingEnabled = false;
+    cena.render(c);
+    grande(cv, 3);
+    ok("o quadro da batalha foi desenhado", true);
+  }
+  p(falhas ? `<br>${falhas} FALHA(S)` : "<br>tudo certo.", falhas ? "erro" : "ok");
+} catch (e) {
+  p("EXPLODIU: " + (e?.stack || e), "erro");
+}
+out.innerHTML = linhas.join("");
+</script>
+</body>
+</html>
