@@ -1,0 +1,61 @@
+<!doctype html>
+<!-- MODO ISOMÉTRICO: abre o jogo em alguns mapas com ?iso=1, passa do título
+     sozinho e mostra um retrato de cada um. Uso: /dev/isocheck.html
+     (?mapas=pallet:6:8:left,viridian já muda a lista: mapa:x:y:direção) -->
+<meta charset="utf-8">
+<title>isocheck</title>
+<style>
+  body { background: #111; color: #ddd; font: 13px monospace; margin: 8px; }
+  figure { display: inline-block; margin: 4px; }
+  img { width: 480px; height: 320px; image-rendering: pixelated; display: block; }
+  iframe { position: absolute; left: -2000px; width: 240px; height: 160px; }
+</style>
+<div id="saida"></div>
+<script type="module">
+const q = new URLSearchParams(location.search);
+const mapas = (q.get("mapas") || "pallet,viridian,route1,lab").split(",");
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const saida = document.getElementById("saida");
+
+async function retrato(spec) {
+  const [map, x, y, dir] = spec.split(":");
+  const f = document.createElement("iframe");
+  const pos = (x ? `&x=${x}&y=${y}` : "") + (dir ? `&dir=${dir}` : "");
+  // perfil próprio: NUNCA gravar no save.json de quem joga
+  f.src = `../index.html?map=${map}${pos}&iso=${q.get("iso") ?? 1}&perfil=isocheck`;
+  document.body.appendChild(f);
+  // não espera o `load`: o live reload deixa a página "carregando" pra sempre
+  for (let i = 0; i < 50 && !f.contentDocument?.getElementById("screen"); i++) await espera(100);
+  await espera(2500);
+  // passa do título: A algumas vezes
+  for (let i = 0; i < 6; i++) {
+    await espera(400);
+    for (const type of ["keydown", "keyup"]) {
+      f.contentWindow.dispatchEvent(new f.contentWindow.KeyboardEvent(type, { code: "Enter", key: "Enter" }));
+    }
+  }
+  // de DIA: adianta o relógio do mundo (o do save, que o overworld reaplica
+  // a cada quadro) até o começo da próxima manhã — o escuro da noite esconde
+  // justamente o que se quer olhar aqui
+  try {
+    await f.contentWindow.eval(`import("/src/systems/ciclo.js").then((c) => {
+      const ciclo = 2 * c.minutosDaFase() * 60000;
+      window.game.state.relogio = (ciclo - (Date.now() % ciclo)) % ciclo + 1000;
+      return JSON.stringify(c.agora());
+    })`).then((r) => (spec += " " + r));
+  } catch (e) { spec += " sem ajustar o relógio: " + e; }
+  await espera(1500);
+  const tela = f.contentDocument.getElementById("screen");
+  const dataUrl = tela.toDataURL();
+  // o retrato também vai pro disco (dev/captures/iso_<mapa>.png)
+  fetch("/__capture", { method: "POST", body: JSON.stringify({ name: `iso_${map}${dir ? "_" + dir : ""}`, dataUrl, log: spec }) }).catch(() => {});
+  const fig = document.createElement("figure");
+  fig.innerHTML = `<img src="${dataUrl}"><figcaption>${spec}</figcaption>`;
+  saida.appendChild(fig);
+  f.remove();
+}
+for (const m of mapas) {
+  try { await retrato(m); } catch (e) { saida.append(`${m}: ${e}\n`); }
+}
+document.title = "isocheck pronto";
+</script>

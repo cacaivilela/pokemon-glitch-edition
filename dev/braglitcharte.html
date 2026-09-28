@@ -1,0 +1,48 @@
+<!doctype html>
+<!-- A ARTE DE BRAGLITCH: pinta alguns mapas com o pintor de verdade
+     (Assets.braglitchArt, src/core/assets.js) e mostra/grava cada um em
+     dev/captures/braga_<mapa>.png. Não abre o jogo nem mexe em save.
+     Uso: /dev/braglitcharte.html   (?mapas=sao_lucario,sampa muda a lista;
+     ?arquivo=/src/data/braglitch-sul.js pinta os lugares novos de um arquivo) -->
+<meta charset="utf-8">
+<title>arte de braglitch</title>
+<style>
+  body { background: #111; color: #ddd; font: 13px monospace; margin: 8px; }
+  figure { display: inline-block; margin: 6px; vertical-align: top; }
+  img { image-rendering: pixelated; display: block; }
+</style>
+<div id="saida">pintando...</div>
+<script type="module">
+const q = new URLSearchParams(location.search);
+const mapas = (q.get("mapas") || "sao_lucario,rota_br101,mata_do_saci,salvador,sampa,br324").split(",");
+const saida = document.getElementById("saida");
+saida.textContent = "";
+try {
+  const { Assets } = await import("/src/core/assets.js");
+  // ?arquivo=/src/data/braglitch-sul.js: pinta os LUGARES daquele arquivo
+  // (o formato de dev/LUGARES.md), antes de eles estarem no jogo
+  const arq = q.get("arquivo");
+  const GEOS = {};
+  if (arq) {
+    const { LUGARES } = await import(arq + "?t=" + Date.now());
+    for (const l of LUGARES) GEOS[l.id] = { planta: l.planta, tema: l.tema || "mata", w: 30, h: l.planta.length };
+  } else {
+    const { DB } = await import("/src/data/index.js");
+    for (const id of mapas) GEOS[id] = DB.KANTO[id];
+  }
+  for (const id of arq ? Object.keys(GEOS) : mapas) {
+    const geo = GEOS[id];
+    if (!geo?.planta) { saida.append(`${id}: não é mapa de Braglitch\n`); continue; }
+    const cv = Assets.braglitchArt(geo);
+    const dataUrl = cv.toDataURL();
+    await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: `braga_${id}`, dataUrl, log: `${id} ${cv.width}x${cv.height}` }) });
+    const fig = document.createElement("figure");
+    fig.innerHTML = `<img src="${dataUrl}" width="${cv.width * 2}"><figcaption>${id}</figcaption>`;
+    saida.appendChild(fig);
+  }
+} catch (e) {
+  saida.append("ERRO: " + e + "\n" + (e.stack || ""));
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "braga_erro", dataUrl: "", log: String(e) + "\n" + e.stack }) });
+}
+document.title = "arte pronta";
+</script>

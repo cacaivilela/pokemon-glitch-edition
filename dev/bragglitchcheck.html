@@ -1,0 +1,70 @@
+<!doctype html>
+<!-- O MISSINGNO CHEGA EM BRAGLITCH: abre o jogo na BR-101 (com save próprio,
+     ?perfil=bragglitchcheck), sorteia o mato ANTES (folclore: nenhum MISSINGNO),
+     dá as seis lendas, tira um retrato da fala e sorteia DEPOIS (tem que ter
+     MISSINGNO e corrompido). Uso: /dev/bragglitchcheck.html -->
+<meta charset="utf-8">
+<title>bragglitchcheck</title>
+<style>
+  body { background: #111; color: #ddd; font: 13px monospace; margin: 8px; }
+  img { width: 480px; height: 320px; image-rendering: pixelated; display: block; }
+  iframe { position: absolute; left: -2000px; width: 240px; height: 160px; }
+</style>
+<pre id="saida"></pre>
+<script type="module">
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const saida = document.getElementById("saida");
+const log = (s) => { saida.textContent += s + "\n"; };
+const f = document.createElement("iframe");
+f.src = "../index.html?map=rota_br101&perfil=bragglitchcheck";
+document.body.appendChild(f);
+for (let i = 0; i < 50 && !f.contentDocument?.getElementById("screen"); i++) await espera(100);
+await espera(2500);
+for (let i = 0; i < 6; i++) {
+  await espera(400);
+  for (const type of ["keydown", "keyup"]) {
+    f.contentWindow.dispatchEvent(new f.contentWindow.KeyboardEvent(type, { code: "Enter", key: "Enter" }));
+  }
+}
+await espera(1500);
+const w = f.contentWindow, g = w.game;
+const cena = () => g.scenes.top;
+const sorteio = (n = 400) => {
+  const c = { missingno: 0, corrompido: 0, total: 0 };
+  for (let i = 0; i < n; i++) {
+    const e = cena().sortearSelvagem(g.state.player.x, g.state.player.y);
+    if (!e?.mon) continue;
+    c.total++;
+    if (e.mon.species === "missingno") c.missingno++;
+    else if (e.mon.corrupt) c.corrompido++;
+  }
+  return JSON.stringify(c);
+};
+let ok = true;
+const confere = (cond, txt) => { log((cond ? "OK   " : "FALHA ") + txt); ok &&= cond; };
+try {
+  confere(cena().constructor.name === "OverworldScene", "cena: " + cena().constructor.name + " em " + g.state.player.map);
+  // com o mundo de Kanto quebrado, pra provar que em Braglitch ele vira folclore
+  g.state.flags.glitchWorld = true;
+  g.state.corruption = 60;
+  const antes = sorteio();
+  log("antes: " + antes);
+  confere(JSON.parse(antes).missingno === 0, "antes das seis lendas: nenhum MISSINGNO em Braglitch");
+  for (const l of ["amazonium", "destroium", "encontrium", "boitata", "iara", "curupira"]) {
+    g.state.caught[l] = true;
+  }
+  await espera(800);
+  confere(!!g.state.flags.bragGlitch, "flags.bragGlitch acendeu");
+  const tela = f.contentDocument.getElementById("screen").toDataURL();
+  fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "bragglitch_chegou", dataUrl: tela, log: "" }) }).catch(() => {});
+  const img = document.createElement("img"); img.src = tela; document.body.appendChild(img);
+  g.state.flags.glitchWorld = false;
+  g.state.corruption = 0;
+  const depois = sorteio();
+  log("depois: " + depois);
+  confere(JSON.parse(depois).missingno > 0, "depois: MISSINGNO no mato de Braglitch");
+  confere(JSON.parse(depois).corrompido > 0, "depois: corrompido no mato de Braglitch");
+} catch (e) { confere(false, "erro: " + e + "\n" + e.stack); }
+fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "bragglitch_log", dataUrl: "data:image/png;base64,", log: saida.textContent }) }).catch(() => {});
+document.title = ok ? "bragglitchcheck OK" : "bragglitchcheck FALHOU";
+</script>

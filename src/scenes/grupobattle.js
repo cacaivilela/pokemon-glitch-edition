@@ -34,10 +34,11 @@ import { venceu as venceuAmizade } from "../systems/creche.js";
 import { isFainted, gainXp, xpYieldFor, heal, createMon } from "../systems/mon.js";
 import {
   calcDamage, accuracyCheck, applyMoveEffects, statusTickDamage, effText,
-  newStages, effectiveStat,
+  newStages, effectiveStat, aoSerCurado, brasasNoOutro, aoApanhar, devolveu,
 } from "../systems/battle-engine.js";
 import { habilidadeDoMon, entrada as entradaDaHabilidade, contato as contatoDaHabilidade, curaDoTurno } from "../systems/habilidades.js";
 import { BattleScene } from "./battle.js";
+import { isoLigado, chaoDeBatalhaIso, plataformaIso, emPeIso } from "../core/isometrico.js";
 
 const W = 240, H = 160;
 
@@ -396,6 +397,8 @@ export class GrupoBattleScene {
     Audio2.heal();
     await this.syncHp();
     await this.say(`${mon.nickname} RECUPEROU 20 DE HP!`);
+    const doce = aoSerCurado(mon, this.lado.p[i]?.stages);
+    if (doce) await this.say(doce);
   }
 
   /** Pra quem o golpe vai. Golpe de um alvo cujo alvo já caiu procura outro do
@@ -459,7 +462,7 @@ export class GrupoBattleScene {
     }
 
     await this.cutscene(k, v, alvos[0], mv, ref.id);
-    let recuo = 0;
+    let recuo = 0, custo = 0, acertou = false;
     for (const [ko, vo] of alvos) {
       const alvo = this.monDe(ko, vo);
       if (!alvo || isFainted(alvo)) continue;
@@ -478,17 +481,26 @@ export class GrupoBattleScene {
         vo.sp.blink = Math.max(vo.sp.blink, 0.45);
         alvo.hp = Math.max(0, alvo.hp - dano);
         await this.syncHp();
+        const devolve = devolveu(user, v.stages, res);       // CONTRA-ATAQUE (o GINGÃO)
+        if (devolve) await this.say(devolve);
+        const guardou = aoApanhar(alvo, vo.stages, dano);
+        if (guardou) await this.say(guardou);
         if (res.mirror) { Glitch.hit(1.5); Audio2.glitch(); await this.say(`O DADO DE ${alvo.nickname} NÃO SUPORTA VER A SI MESMO!`); }
+        if (res.pegouAlma) { Audio2.glitch(); await this.say(`${user.nickname} PEGOU A ALMA DE ${alvo.nickname}!`); }
         if (res.crit) await this.say(espalhou ? `ACERTO CRÍTICO EM ${alvo.nickname}!` : "ACERTO CRÍTICO!");
         const et = effText(res.eff);
         if (et) await this.say(espalhou ? `${alvo.nickname}: ${et}` : et);
         if (mv.recoil) recuo += Math.max(1, Math.floor(dano * mv.recoil));
+        if (mv.custoHp) custo = mv.custoHp;            // o PEGA ALMA: uma vez por golpe, não por alvo
+        acertou = true;
       } else if (res.imune) {
         const T = DB.CLIMA_TEXTO;
         if (res.cura && alvo.hp < alvo.maxHp) {
           alvo.hp = Math.min(alvo.maxHp, alvo.hp + Math.ceil(alvo.maxHp * res.cura));
           await this.syncHp();
           await this.say(T.absorve.replace("{HAB}", res.imune.nome).replace("{MON}", alvo.nickname));
+          const doce = aoSerCurado(alvo, vo.stages);
+          if (doce) await this.say(doce);
         } else await this.say(T.imune.replace("{HAB}", res.imune.nome).replace("{MON}", alvo.nickname));
         continue;
       } else if (res.eff === 0) {
@@ -507,10 +519,26 @@ export class GrupoBattleScene {
       }
       if (isFainted(alvo)) await this.desmaiou(ko, vo);
     }
+    // MORDIDA DE FOGO: numa dupla, as brasas pegam quem NÃO foi mordido
+    if (acertou && mv.queimaOOutro && !espalhou) {
+      const ko = alvos[0][0];
+      for (const vo of this.vivas(ko)) {
+        if (alvos.some(([, a]) => a === vo)) continue;
+        const fala = brasasNoOutro(this.monDe(ko, vo));
+        if (fala) await this.say(fala);
+      }
+    }
     if (recuo && !isFainted(user)) {
       user.hp = Math.max(0, user.hp - recuo);
       await this.syncHp();
       await this.say(`${user.nickname} SOFREU O RECUO!`);
+      if (isFainted(user)) await this.desmaiou(k, v);
+    }
+    // o PREÇO do PEGA ALMA: 14 de HP de quem usou
+    if (custo && !isFainted(user)) {
+      user.hp = Math.max(0, user.hp - custo);
+      await this.syncHp();
+      await this.say(`${user.nickname} PERDEU ${custo} DE HP!`);
       if (isFainted(user)) await this.desmaiou(k, v);
     }
   }
@@ -538,6 +566,7 @@ export class GrupoBattleScene {
     if (!quem.length) return;
     await this.say(share ? `A EQUIPE GANHOU ${xp} DE EXP.!` : `${this.nomes(emCampo).join(" E ")} GANHARAM ${xp} DE EXP.!`);
     for (const mon of quem) {
+      if (mon.trunfo) await this.say(DB.TRUNFO_TEXTO.dobro.replace("{MON}", mon.nickname));
       for (const ev of gainXp(mon, xp)) {
         if (ev.type === "level") { Audio2.heal(); await this.say(`${mon.nickname} SUBIU PARA O NÍVEL ${ev.level}!`); }
         if (ev.type === "move") await this.say(`${mon.nickname} APRENDEU ${DB.MOVES[ev.id].name}!`);
@@ -565,6 +594,8 @@ export class GrupoBattleScene {
           mon.hp = Math.min(mon.maxHp, mon.hp + Math.max(1, Math.floor(mon.maxHp * f)));
           await this.syncHp();
           await this.say(DB.CLIMA_TEXTO.cura.replace("{HAB}", habilidadeDoMon(mon).nome).replace("{MON}", mon.nickname));
+          const doce = aoSerCurado(mon, v.stages);
+          if (doce) await this.say(doce);
         }
       }
     }
@@ -631,6 +662,23 @@ export class GrupoBattleScene {
       if (this.npcKey) (this.st.npcState[this.npcKey] ||= {}).defeated = true;
       await this.say(`VOCÊ DERROTOU ${this.trainer.name}!`);
       await this.say(`VOCÊ GANHOU $${prize}!`);
+      // AS INSÍGNIAS DE BRAGLITCH moram à parte (src/data/braglitch-mundo.js):
+      // a história de Kanto conta as oito dela e não pode contar estas
+      const bb = this.trainer.bragBadge;
+      if (bb && !(this.st.bragBadges ||= []).includes(bb)) {
+        this.st.bragBadges.push(bb);
+        const b = (DB.INSIGNIAS_BRAG || []).find((x) => x.id === bb);
+        Audio2.heal();
+        await this.say(DB.BRAGLITCH_TEXTO.insignia.replace("{NOME}", b ? b.name : "INSÍGNIA"));
+      }
+      // AS INSÍGNIAS SECRETAS (a do VOID, src/data/void.js) não contam pra
+      // história de lado nenhum: ficam numa flag, só de quem achou
+      const sec = this.trainer.insigniaSecreta;
+      if (sec && !this.st.flags[`insignia_${sec.id}`]) {
+        this.st.flags[`insignia_${sec.id}`] = true;
+        Audio2.heal();
+        await this.say(`VOCÊ RECEBEU A ${sec.nome}!`);
+      }
       if (this.trainer.badge && !this.st.badges.includes(this.trainer.badge)) {
         this.st.badges.push(this.trainer.badge);
         const b = DB.STORY.badges.find((x) => x.id === this.trainer.badge);
@@ -856,8 +904,17 @@ export class GrupoBattleScene {
     const pf = PALCO[this.n].f, pp = PALCO[this.n].p;
     const meio = (l) => (Math.min(...l.map((p) => p.cx)) + Math.max(...l.map((p) => p.cx))) / 2;
     const larg = (l) => (Math.max(...l.map((p) => p.cx)) - Math.min(...l.map((p) => p.cx))) / 2 + 34;
-    ctx.beginPath(); ctx.ellipse(meio(pf), 60, larg(pf), 11, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(meio(pp), 108, larg(pp), 13, 0, 0, Math.PI * 2); ctx.fill();
+    if (isoLigado()) {
+      // NO ISOMÉTRICO: piso de losangos e UM BLOCO POR POKÉMON — um losango do
+      // tamanho do grupo inteiro seria mais alto que a tela (src/core/isometrico.js)
+      chaoDeBatalhaIso(ctx, W, 50, 110, this.isGlitch ? ["#1d0e30", "#26123d"] : ["#b9e2a0", "#a8d68c"]);
+      const cor = this.isGlitch ? "#3a1d5c" : "#8fd06a";
+      for (const p of pf) plataformaIso(ctx, p.cx, 58, 24, cor, 5);
+      for (const p of pp) plataformaIso(ctx, p.cx, 106, 28, cor, 6);
+    } else {
+      ctx.beginPath(); ctx.ellipse(meio(pf), 60, larg(pf), 11, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(meio(pp), 108, larg(pp), 13, 0, 0, Math.PI * 2); ctx.fill();
+    }
 
     const bob = Math.sin(this.t * 2) * 1.5;
     const tart = this.showTrainer ? trainerArt(this.trainer?.sprite) : null;
@@ -919,7 +976,10 @@ export class GrupoBattleScene {
     const dir = k === "p" ? 1 : -1;
     const l = s.lunge > 0 ? Math.sin((0.3 - s.lunge) / 0.3 * Math.PI) * 10 * dir : 0;
     ctx.globalAlpha = s.alpha;
-    ctx.drawImage(arte, Math.round(p.cx - lado / 2 + s.dx + l), Math.round(p.pe - lado + s.dy + bob + pulo), lado, lado);
+    const dx = Math.round(p.cx - lado / 2 + s.dx + l), dy = Math.round(p.pe - lado + s.dy + bob + pulo);
+    // no ISOMÉTRICO: a plaquinha grossa em pé (src/core/isometrico.js)
+    if (isoLigado()) emPeIso(ctx, arte, dx, dy, lado, lado, 4);
+    else ctx.drawImage(arte, dx, dy, lado, lado);
     ctx.globalAlpha = 1;
   }
 

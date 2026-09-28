@@ -27,6 +27,10 @@ export const RIVAL = {
     bulbasaur: "squirtle",     // água perde pra planta
     charmander: "bulbasaur",   // planta perde pro fogo
     squirtle: "charmander",    // fogo perde pra água
+    // os de BRAGLITCH (src/data/braglitch.js), pela mesma conta errada
+    tronky: "tilapish",        // água perde pra planta
+    diggle: "tronky",          // planta perde pro fogo
+    tilapish: "diggle",        // fogo perde pra água
   },
 
   /** A linhagem de cada inicial, pra ele evoluir junto com o jogo. */
@@ -34,6 +38,9 @@ export const RIVAL = {
     bulbasaur: ["bulbasaur", "ivysaur", "venusaur"],
     charmander: ["charmander", "charmeleon", "charizard"],
     squirtle: ["squirtle", "wartortle", "blastoise"],
+    tronky: ["tronky", "troncudo", "paubrasilisco"],
+    diggle: ["diggle", "braseagle", "magmastim"],
+    tilapish: ["tilapish", "tilapisco", "tilapiracu"],
   },
 
   encontros: [

@@ -31,7 +31,7 @@ import { Assets } from "../core/assets.js";
 import { Online } from "../systems/online.js";
 import { Dialogue } from "../systems/dialogue.js";
 import {
-  newStages, effectiveStat, calcDamage, accuracyCheck, applyMoveEffects,
+  newStages, effectiveStat, calcDamage, accuracyCheck, applyMoveEffects, brasasNoOutro, aoApanhar, devolveu,
   statusTickDamage, effText,
 } from "../systems/battle-engine.js";
 import { isFainted, hpPct } from "../systems/mon.js";
@@ -259,6 +259,12 @@ export class LinkBattleScene {
     if (mv.power > 0) {
       const r = calcDamage(mon, alvoMon, ref.id, lado.stages, alvo.stages);
       alvoMon.hp = Math.max(0, alvoMon.hp - r.dmg);
+      for (const f of [devolveu(mon, lado.stages, r), aoApanhar(alvoMon, alvo.stages, r.dmg)]) if (f) falas.push(f);
+      if (r.pegouAlma) falas.push(`${mon.nickname} PEGOU A ALMA DE ${alvoMon.nickname}!`);
+      if (mv.custoHp && r.dmg > 0) {             // o preço do PEGA ALMA
+        mon.hp = Math.max(0, mon.hp - mv.custoHp);
+        falas.push(`${mon.nickname} PERDEU ${mv.custoHp} DE HP!`);
+      }
       if (r.crit) falas.push("ACERTO CRÍTICO!");
       if (r.mirror) falas.push("O DADO DELE ENTROU EM CONFLITO CONSIGO MESMO!");
       const e = effText(r.eff);
@@ -722,6 +728,7 @@ export class LinkBattleScene {
     }
     if (!alvos.length) return void falas.push("MAS NÃO TINHA NINGUÉM PRA ACERTAR!");
     const varios = alvos.length > 1;
+    let acertou = false;
     for (const [lo, j] of alvos) {
       const alvoMon = lo.time[lo.ativos[j]];
       if (!accuracyCheck(ref.id, l.stages[k], lo.stages[j])) {
@@ -732,12 +739,27 @@ export class LinkBattleScene {
         const r = calcDamage(mon, alvoMon, ref.id, l.stages[k], lo.stages[j]);
         const dano = r.dmg ? Math.max(1, Math.round(r.dmg * (varios ? (DB.FORCA_ESPALHADA ?? 0.75) : 1))) : 0;
         alvoMon.hp = Math.max(0, alvoMon.hp - dano);
+        for (const f of [devolveu(mon, l.stages[k], r), aoApanhar(alvoMon, lo.stages[j], dano)]) if (f) falas.push(f);
+        if (r.pegouAlma) falas.push(`${mon.nickname} PEGOU A ALMA DE ${alvoMon.nickname}!`);
+        if (mv.custoHp && dano > 0) {           // o preço do PEGA ALMA
+          mon.hp = Math.max(0, mon.hp - mv.custoHp);
+          falas.push(`${mon.nickname} PERDEU ${mv.custoHp} DE HP!`);
+        }
         if (r.crit) falas.push("ACERTO CRÍTICO!");
         const t = effText(r.eff);
         if (t) falas.push(varios ? `${alvoMon.nickname}: ${t}` : t);
       }
       for (const f of applyMoveEffects(mv, mon, alvoMon, l.stages[k], lo.stages[j]) || []) falas.push(f);
       if (isFainted(alvoMon)) { falas.push(`${alvoMon.nickname} DESMAIOU!`); Audio2.faint(); }
+      if (mv.power > 0) acertou = true;
+    }
+    // MORDIDA DE FOGO: numa dupla, as brasas pegam quem NÃO foi mordido
+    if (acertou && mv.queimaOOutro && !varios) {
+      for (const j2 of vivos(alvoLado)) {
+        if (alvos.some(([, j]) => j === j2)) continue;
+        const fala = brasasNoOutro(alvoLado.time[alvoLado.ativos[j2]]);
+        if (fala) falas.push(fala);
+      }
     }
   }
 

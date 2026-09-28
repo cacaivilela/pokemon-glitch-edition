@@ -133,15 +133,19 @@ function shapeFor(sp) {
   return SHAPE_BY_TYPE[sp.types[0]] || SHAPE_BY_TYPE[sp.types[1]] || "roedor";
 }
 
-export function buildSpecies(GEN1, TYPE_COLOR = {}) {
+/** `TEXTOS`: o texto de Pokédex de quem não trouxe o seu na própria tabela
+ *  (src/data/pokedex-textos.js). A frase escrita junto da espécie ganha. */
+export function buildSpecies(GEN1, TYPE_COLOR = {}, TEXTOS = {}) {
   const out = {};
   for (const [id, sp] of Object.entries(GEN1)) {
     const extra = FEATURED[id] || {};
+    const frase = extra.dexText || sp.dexText || TEXTOS[id];
     out[id] = {
       ...sp,
-      learnset: extra.learnset || sp.learnset || autoLearnset(sp.types),
-      dexText: extra.dexText || sp.dexText || `${sp.name}. DADOS DA POKÉDEX AINDA NÃO CARREGADOS.`,
-      lore: !!(extra.dexText || sp.dexText),   // tem frase própria (não é o texto genérico)
+      // `learnsetExtra`: golpes a mais, somados à lista (a escrita ou a automática)
+      learnset: [...(extra.learnset || sp.learnset || autoLearnset(sp.types)), ...(sp.learnsetExtra || [])],
+      dexText: frase || `${sp.name}. DADOS DA POKÉDEX AINDA NÃO CARREGADOS.`,
+      lore: !!frase,   // tem frase própria (não é o texto genérico)
       placeholder: sp.placeholder || { shape: shapeFor(sp), tint: TYPE_COLOR[sp.types[0]] },
     };
   }

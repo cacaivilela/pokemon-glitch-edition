@@ -153,6 +153,7 @@ export function elegivel(sp) {
   if (!sp?.id || !sp.types?.length) return false;
   if (LENDARIOS.has(sp.id)) return false;
   if (sp.megaDe || sp.crescimento) return false;
+  if (sp.braglitch) return false;          // os de BRAGLITCH só se acham lá
   if (DB.EH_BONE?.has(sp.id)) return false;
   return !(cfg().fora || []).includes(sp.id);
 }

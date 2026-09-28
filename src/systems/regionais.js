@@ -11,8 +11,9 @@
 //   "sevii"   as ILHAS SEVII, o pedaço de mundo deste jogo que não é Kanto e
 //             ainda assim é chão de verdade. É onde sai o RAICHU-ALOLA.
 //   "fenda"   dentro da 011GLITCHDIMENSION110, de onde as formas vazam.
-//   "fora"    qualquer lugar que não seja Kanto: as duas de cima, as três eras
-//             do CELEBI e o recife da tempestade.
+//   "braglitch" qualquer mapa de BRAGLITCH (a cuia do VICTREEBEL sai lá).
+//   "fora"    qualquer lugar que não seja Kanto: as de cima, as três eras
+//             do CELEBI, o recife da tempestade e BRAGLITCH.
 //
 // Regra sem `onde` vale em qualquer lugar — e é por isso que ela é sempre a
 // ÚLTIMA da lista de uma espécie: quem tem lugar é conferido primeiro, senão a
@@ -27,8 +28,23 @@ const SEVII = /^(one|two|three|four|five|six|seven)_island|^navel_rock|^mt_ember
 export const nasSevii = (mapa) => SEVII.test(mapa || "");
 export const naFenda = (mapa) => mapa === "glitchdim";
 export const naEra = (mapa) => (DB.ERAS || []).some((e) => e.mapa === mapa);
+/** BRAGLITCH: qualquer mapa de lá (src/data/braglitch.js marca a geometria). */
+export const emBraglitch = (mapa) => !!DB.KANTO?.[mapa]?.braglitch;
+/** EM BRAGLITCH O GLITCH VIRA FOLCLORE: o que escapa dos dados vira lenda
+ *  (SACI, BOITATÁ, IARA...), e não MISSINGNO. Até você pegar AS SEIS LENDAS
+ *  (DB.LENDAS_BRAG): aí não sobra lenda pra virar, o MISSINGNO chega
+ *  (`flags.bragGlitch`, src/scenes/overworld.js) e lá o glitch passa a ser
+ *  GLITCH — no mato e na tela, como em Kanto quebrado. */
+export const seisLendasPegas = (st) => {
+  const lendas = DB.LENDAS_BRAG || [];
+  return lendas.length > 0 && lendas.every((l) => st?.caught?.[l.id]);
+};
+/** Este mapa, agora, tem glitch de verdade? Em Braglitch só depois do
+ *  `bragGlitch`; no resto, quando o mundo de Kanto quebrou. */
+export const glitchDeVerdade = (st, mapa) =>
+  emBraglitch(mapa) ? !!st?.flags?.bragGlitch : !!st?.flags?.glitchWorld;
 export const foraDeKanto = (mapa) =>
-  nasSevii(mapa) || naFenda(mapa) || naEra(mapa) || mapa === "tempestade";
+  nasSevii(mapa) || naFenda(mapa) || naEra(mapa) || mapa === "tempestade" || emBraglitch(mapa);
 
 /** Esta regra de evolução vale NESTE mapa? */
 export function lugarBate(regra, mapa) {
@@ -37,6 +53,7 @@ export function lugarBate(regra, mapa) {
   if (onde === "sevii") return nasSevii(mapa);
   if (onde === "fenda") return naFenda(mapa);
   if (onde === "fora") return foraDeKanto(mapa);
+  if (onde === "braglitch") return emBraglitch(mapa);
   return onde === mapa;                   // um mapa escrito na mão também serve
 }
 

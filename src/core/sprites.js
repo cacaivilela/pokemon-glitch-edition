@@ -18,6 +18,7 @@ export const SpriteStore = {
   pokemonShinyBack: {},
   overworld: {},    // nome -> {down,up,left,right} com 4 frames cada
   trainers: {},     // nome -> retrato de batalha 64x64
+  estatuas: {},     // nome -> a figura de uma estátua (assets/sprites/estatuas/)
   tiles: {},        // char -> Image
   maps: {},         // id do mapa -> Image (assets/maps/<id>.png)
   loaded: 0,
@@ -84,16 +85,39 @@ function sliceActorSheet(img) {
 export function mapArt(id) {
   if (!(id in SpriteStore.maps)) {
     SpriteStore.maps[id] = null;
-    loadImage(url(`assets/maps/${id}.png`)).then((img) => {
+    // `arte`: o mapa usa o desenho de outro (os interiores de BRAGLITCH são
+    // os de Kanto com as portas trocadas — src/data/braglitch.js)
+    const arq = DB.KANTO?.[id]?.arte || id;
+    loadImage(url(`assets/maps/${arq}.png`)).then((img) => {
       SpriteStore.maps[id] = img;
-      if (!img) console.warn(`[mapa] assets/maps/${id}.png não encontrado — rode: python3 tools/fetch_maps.py`);
+      if (!img) console.warn(`[mapa] assets/maps/${arq}.png não encontrado — rode: python3 tools/fetch_maps.py`);
     });
-    loadImage(url(`assets/maps/${id}_over.png`)).then((img) => { SpriteStore.maps[id + "_over"] = img; });
+    loadImage(url(`assets/maps/${arq}_over.png`)).then((img) => { SpriteStore.maps[id + "_over"] = img; });
   }
   return SpriteStore.maps[id];
 }
 
 export const mapOverlay = (id) => SpriteStore.maps[id + "_over"] || null;
+
+/** O DESENHO INTEIRO do mapa: o chão com a camada de cima já colada nele. É o
+ *  que o ISOMÉTRICO usa pros blocos (src/core/isometrico.js): no FireRed o
+ *  telhado das casas e a copa das árvores moram na camada de cima, e o chão
+ *  debaixo deles é grama — sem colar, o teto de toda casa de Kanto saía verde.
+ *  Guardado por mapa; refeito se uma das duas camadas mudar. */
+const inteiras = new Map();
+export function mapArtInteira(id) {
+  const base = mapArt(id), over = mapOverlay(id);
+  if (!base || !over) return base;
+  const c = inteiras.get(id);
+  if (c && c.base === base && c.over === over) return c.cv;
+  const cv = document.createElement("canvas");
+  cv.width = base.width; cv.height = base.height;
+  const ctx = cv.getContext("2d");
+  ctx.drawImage(base, 0, 0);
+  ctx.drawImage(over, 0, 0);
+  inteiras.set(id, { base, over, cv });
+  return cv;
+}
 
 /** Retrato de batalha do treinador (assets/sprites/trainers/<nome>.png).
  *  O nome é o mesmo do sprite de overworld do NPC. Quem não tiver arquivo
@@ -107,6 +131,20 @@ export function trainerArt(name) {
     });
   }
   return SpriteStore.trainers[name];
+}
+
+/** A figura de uma ESTÁTUA (o ARCEUS REDENTOR de SAMPIKACHU): um PNG em
+ *  assets/sprites/estatuas/, ancorado pelo meio de baixo (a linha dos pés).
+ *  Sem o arquivo, a base fica sozinha — sem erro. */
+export function estatuaArt(name) {
+  if (!name) return null;
+  if (!(name in SpriteStore.estatuas)) {
+    SpriteStore.estatuas[name] = null;
+    loadImage(url(`assets/sprites/estatuas/${name}.png`)).then((img) => {
+      SpriteStore.estatuas[name] = img;
+    });
+  }
+  return SpriteStore.estatuas[name];
 }
 
 export const TILE_FILES = {

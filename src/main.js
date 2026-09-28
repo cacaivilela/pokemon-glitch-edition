@@ -24,7 +24,8 @@ import { TitleScene } from "./scenes/title.js";
 import { AberturaScene } from "./scenes/abertura.js";
 import { OverworldScene } from "./scenes/overworld.js";
 import { BattleScene } from "./scenes/battle.js";
-import { drawText } from "./core/gfx.js";
+import { drawText, painelEmBloco } from "./core/gfx.js";
+import { isoLigado } from "./core/isometrico.js";
 import { loadExternalSprites, adiantarDoMapa, adiantarOResto, mapArt, SpriteStore } from "./core/sprites.js";
 
 const W = 240, H = 160;
@@ -52,9 +53,18 @@ function renomearItens(st) {
   }
 }
 
-function newState() {
+/** Onde a jornada começa: KANTO (a casa de Pallet) ou BRAGLITCH (a casa de
+ *  São Lucario do Sul). Quem não escolheu nada começa em Kanto, como sempre. */
+function mapaInicial(regiao) {
+  const m = regiao === "braglitch" ? DB.BRAGLITCH?.inicio : null;
+  return m && DB.MAPS[m] && DB.KANTO[m] ? m : DB.START_MAP;
+}
+
+function newState(regiao) {
+  const inicio = mapaInicial(regiao);
   return {
-    player: { name: "VERMELHO", map: DB.START_MAP, ...DB.MAPS[DB.START_MAP].spawn },
+    regiao: inicio === DB.START_MAP ? "kanto" : "braglitch",
+    player: { name: "VERMELHO", map: inicio, ...DB.MAPS[inicio].spawn },
     party: [],
     box: [],
     items: { "poké bola": 5, "poção": 3 },
@@ -72,7 +82,7 @@ function newState() {
     // mato e acorda no último lugar seguro. Enche num Centro, na sua mãe ou
     // descansando na barraca — nos mesmos lugares que curam a equipe.
     vida: null,        // preenchido no primeiro quadro (ver `vidaMax` no config)
-    respawn: { map: DB.START_MAP, ...DB.MAPS[DB.START_MAP].spawn },
+    respawn: { map: inicio, ...DB.MAPS[inicio].spawn },
   };
 }
 
@@ -81,10 +91,9 @@ const game = {
   scenes: null,
   debug: false,
 
-  newGame() {
-    this.state = newState();
-    const spawn = DB.MAPS[DB.START_MAP].spawn;
-    Object.assign(this.state.player, { map: DB.START_MAP, ...spawn });
+  /** `regiao`: "kanto" ou "braglitch" (a escolha da tela de título). */
+  newGame(regiao) {
+    this.state = newState(regiao);
     Glitch.level = this.state.corruption;
     return this.state;
   },
@@ -293,7 +302,7 @@ if (stash?.state && !game.isValid(stash.state)) {
   // arquivo salvo.
   const busca = new URLSearchParams(location.search);   // o `q` do arquivo só nasce mais abaixo
   const atalhoDeDev = busca.has("map") || busca.has("battle") || busca.has("starter") || busca.has("era")
-    || busca.has("area") || busca.has("pokesave");
+    || busca.has("area") || busca.has("pokesave") || busca.has("lendasbrag");
   game.scenes.push(atalhoDeDev ? new TitleScene() : new AberturaScene());
 }
 
@@ -314,6 +323,9 @@ function addMons(state, spec) {
 // ?map=route1&rasgo=1 -> um rasgo aberto do seu lado (a GLITCH RAID)
 // ?era=fosseis | ?map=viridian_forest&x=21&y=23&eras=1 -> o pós-jogo do CELEBI
 const q = new URLSearchParams(location.search);
+// ?lendasbrag=1 -> A VERSÃO DE TESTE do MISSINGNO em Braglitch: jogo novo na
+// BR-101 com as seis lendas pegas (sem ?map, começa em rota_br101)
+if (q.has("lendasbrag") && !q.has("map")) q.set("map", "rota_br101");
 if (q.has("map") || q.has("battle") || q.has("era")) {
   game.newGame();
   {
@@ -396,6 +408,9 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
     game.state.items[DB.FUSAO.item] = 1;
     game.state.flags.decodificador = true;
   }
+  // as seis lendas de BRAGLITCH já pegas: parado num mapa de lá, o MISSINGNO
+  // chega (src/systems/regionais.js, `seisLendasPegas`)
+  if (q.get("lendasbrag")) for (const l of DB.LENDAS_BRAG || []) game.state.caught[l.id] = game.state.seen[l.id] = true;
   // AS TRÊS ERAS (pós-jogo). ?eras=1 põe o CELEBI na clareira da FLORESTA
   // VIRIDIAN (é como se MISSINGNO. já tivesse sido capturado); ?era=paradoxo
   // joga direto dentro daquela era, já com o caminho de volta guardado.
@@ -478,7 +493,7 @@ if (q.has("presente")) {
   const loadOrig2 = game.loadGame.bind(game);
   game.loadGame = () => { const st = loadOrig2(); entregar(st); return st; };
   const newOrig2 = game.newGame.bind(game);
-  game.newGame = () => { const st = newOrig2(); entregar(st); return st; };
+  game.newGame = (...a) => { const st = newOrig2(...a); entregar(st); return st; };
   if (game.scenes.top instanceof OverworldScene) entregar(game.state);
 }
 
@@ -521,7 +536,7 @@ if (q.has("give")) {
   const loadOrig = game.loadGame.bind(game);
   game.loadGame = () => { const st = loadOrig(); entregar(st); return st; };
   const newOrig = game.newGame.bind(game);
-  game.newGame = () => { const st = newOrig(); entregar(st); return st; };
+  game.newGame = (...a) => { const st = newOrig(...a); entregar(st); return st; };
   if (game.scenes.top instanceof OverworldScene) entregar(game.state);
 }
 
@@ -552,7 +567,7 @@ if (q.has("area")) {
   const loadOrig = game.loadGame.bind(game);
   game.loadGame = () => { const st = loadOrig(); entrar(st); return st; };
   const newOrig = game.newGame.bind(game);
-  game.newGame = () => { const st = newOrig(); entrar(st); return st; };
+  game.newGame = (...a) => { const st = newOrig(...a); entrar(st); return st; };
 }
 
 SpriteStore.maps.glitchdim = Assets.glitchRoom(DB.KANTO.glitchdim);
@@ -561,6 +576,11 @@ SpriteStore.maps.tempestade = Assets.stormArt(DB.KANTO.tempestade);
 // o do mapa, então a pintura sai igual toda vez que o jogo abre).
 for (const e of DB.ERAS || []) {
   if (DB.KANTO[e.mapa]) SpriteStore.maps[e.mapa] = Assets.eraArt(DB.KANTO[e.mapa], e.paleta, e.geo.seed);
+}
+// BRAGLITCH: os mapas abertos saem da planta (src/data/braglitch.js); os
+// interiores usam o desenho de um interior de Kanto (`arte`, ver mapArt)
+for (const [id, geo] of Object.entries(DB.KANTO)) {
+  if (geo.braglitch && geo.planta) SpriteStore.maps[id] = Assets.braglitchArt(geo);
 }
 // só desenha a ilha em código quando o mapa do decomp não foi importado
 if (ILHA_GERADA) SpriteStore.maps.birth_island = Assets.islandArt(DB.KANTO.birth_island);
@@ -659,7 +679,12 @@ function frame(now) {
 
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, W, H);
+  // NO ISOMÉTRICO toda a interface vira bloco: cada painel (fala, menu,
+  // objetivo, caixas da batalha, mochila...) ganha tampo e lateral no 2:1 dos
+  // blocos do mapa (src/core/gfx.js, `painelEmBloco`)
+  painelEmBloco(isoLigado() ? 6 : 0);
   game.scenes.render(ctx);
+  painelEmBloco(0);
   // gancho de diagnóstico: window.__camlog = [] grava a câmera quadro a quadro
   if (window.__camlog && game.scenes.top?.cam) window.__camlog.push(game.scenes.top.cam.y);
   if (game.debug) {

@@ -34,7 +34,8 @@ export const numeroNaDex = (id) => NUMERO_EXTRA[id] ?? DB.SPECIES[id]?.dex ?? 0;
  *  que são cópia de alguém. Quem decide isso é `listas`. */
 function temCaraDeForma(id, sp) {
   if (NUMERO_EXTRA[id]) return false;
-  return !!(sp.mega || sp.megaDe || sp.hack || sp.fusao || sp.crescimento
+  // `formaDe`: forma que troca e destroca (as do ROTOM, pelo catálogo)
+  return !!(sp.mega || sp.megaDe || sp.hack || sp.fusao || sp.crescimento || sp.formaDe
     || DB.EH_BONE?.has?.(id) || !(sp.dex >= 1));
 }
 
@@ -71,6 +72,9 @@ export function listas() {
   }
   const nacional = [...principais.entries()].sort((a, b) => a[0] - b[0]).map(([, id]) => id);
   nacional.push(...EXTRAS_DA_NACIONAL.map(([id]) => id).filter((id) => DB.SPECIES[id]));
+  // os de BRAGLITCH têm número depois dos três extras (1029 em diante): a
+  // lista volta pra ordem do número, senão eles apareciam antes do 1026
+  nacional.sort((a, b) => numeroNaDex(a) - numeroNaDex(b));
   const numero = (id) => DB.SPECIES[id]?.dex || 0;
   formas.sort((a, b) => numero(a) - numero(b) || String(DB.SPECIES[a].name).localeCompare(DB.SPECIES[b].name));
   cache = {

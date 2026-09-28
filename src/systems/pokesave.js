@@ -384,13 +384,16 @@ function espelhado(img) {
 /** O desenho no mapa. `x, y` é o canto do tile em pixels de tela; `k` é a
  *  fração do passo (0..1) pro pulinho; `dir` decide frente, costas ou espelho.
  *  Serve pra você e pros outros jogadores da sala (drawPeer). */
-export function desenharPokemon(ctx, ps, x, y, dir, k = 0, escala = 28) {
+export function desenharPokemon(ctx, ps, x, y, dir, k = 0, escala = 28, vista = null) {
   const fake = { species: ps.species, shiny: !!ps.shiny, luminoso: !!ps.luminoso };
   const seed = 7;
-  let img = dir === "up" ? Assets.monBack(ps.species, seed) : Assets.mon(ps.species, seed);
+  // `vista`: no isométrico quem diz frente/costas e espelho é a diagonal
+  // (src/core/isometrico.js, vistaIso); fora dele, a regra de sempre
+  const costas = vista ? vista.costas : dir === "up";
+  let img = costas ? Assets.monBack(ps.species, seed) : Assets.mon(ps.species, seed);
   if (!img) return;
-  img = Assets.comCor(img, fake, dir === "up");
-  if (dir === "right") img = espelhado(img);
+  img = Assets.comCor(img, fake, costas);
+  if (vista ? vista.espelha : dir === "right") img = espelhado(img);
   const pulo = k > 0 && k < 1 ? Math.abs(Math.sin(k * Math.PI)) * 2 : 0;
   const d = (escala - 16) / 2;
   ctx.drawImage(img, Math.round(x - d), Math.round(y - (escala - 16) - pulo), escala, escala);

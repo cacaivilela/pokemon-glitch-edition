@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, aniv, reg, zonas, ovos, decamark, hab, pesos, mina, mais, gopark, spinda, prov, hack, duplas, dex, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, aniv, reg, zonas, ovos, decamark, hab, pesos, mina, mais, gopark, spinda, prov, hack, duplas, dex, brag, textos, rotom, vazio, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -58,6 +58,10 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./hackeanas.js" + V),
   import("./duplas.js" + V),
   import("./pokedex.js" + V),
+  import("./braglitch.js" + V),
+  import("./pokedex-textos.js" + V),
+  import("./rotom.js" + V),
+  import("./void.js" + V),
   fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
 
@@ -180,6 +184,18 @@ function mergeMaps(kanto, authored) {
       trainer: { name: d.nome, prize: d.premio, dupla: true, sight: 4,
                  party: d.time.map(([id2, lvl]) => ({ id: id2, lvl })) },
     }];
+  }
+
+  // AS ARVOREZINHAS DO FIREED: as árvores cortáveis vêm do decomp como objeto
+  // (CUT_TREE), na posição de sempre. Só as que estão em chão de verdade — e só
+  // nos mapas de Kanto mesmo (os interiores de BRAGLITCH copiam a geometria de
+  // Kanto, objetos junto, e não herdam as árvores de lá).
+  for (const [id, geo] of Object.entries(kanto)) {
+    if (!out[id] || geo.braglitch || out[id].arvores) continue;
+    const livre = (x, y) => x >= 0 && y >= 0 && x < geo.w && y < geo.h
+      && [maps.TAG.FREE, maps.TAG.GRASS].includes(geo.tags.charCodeAt(y * geo.w + x) - 48);
+    const arv = (geo.objects || []).filter((o) => o.gfx === "CUT_TREE" && livre(o.x, o.y)).map((o) => `${o.x},${o.y}`);
+    if (arv.length) out[id].arvores = arv;
   }
 
   // O PC dos Centros Pokémon: mesma planta, mesma coordenada em Kanto inteira
@@ -416,6 +432,22 @@ function abrirCaminho(celulas, w, h, de, ate) {
 /** { era_fosseis: geo, era_paradoxo: geo, era_futuro: geo } */
 const MAPAS_ERAS = Object.fromEntries((eras.ERAS || []).map((e) => [e.mapa, eraMap(e)]));
 
+/** BRAGLITCH (src/data/braglitch.js): os mapas abertos saem da planta de lá;
+ *  os interiores são cópia dos de Kanto com as portas trocadas. Montado uma
+ *  vez aqui porque precisa do kanto.json já carregado. */
+const MAPAS_BRAGLITCH = kanto ? brag.montarBraglitch(kanto) : {};
+/** O GINÁSIO DO VOID (src/data/void.js): a porta no preto da MATA DO SACI e a
+ *  sala. Vem logo depois de Braglitch porque põe a porta na geometria de lá. */
+const MAPAS_VOID = kanto ? vazio.montarVoid(kanto, MAPAS_BRAGLITCH) : {};
+/** o texto das placas e das portas trancadas, colado por cima do conteúdo */
+const BRAG_MUNDO = kanto ? brag.conteudoDoMundo(MAPAS_BRAGLITCH) : {};
+const BRAG_PLACAS = brag.placasEPortas(MAPAS_BRAGLITCH, BRAG_MUNDO);
+const BRAG_CONTEUDO = Object.fromEntries(Object.entries({ ...brag.BRAGLITCH_MAPS, ...BRAG_MUNDO }).map(([id, { placas, ...m }]) => [id, {
+  ...m,
+  signs: { ...(BRAG_PLACAS[id]?.signs || {}), ...(m.signs || {}) },
+  lockedWarps: { ...(BRAG_PLACAS[id]?.lockedWarps || {}), ...(m.lockedWarps || {}) },
+}]));
+
 /** true quando a ilha está sendo desenhada aqui, e não veio do decomp */
 export const ILHA_GERADA = !kanto?.birth_island;
 
@@ -442,8 +474,8 @@ export function buildDB() {
     SPECIES: species.buildSpecies(
       { ...gen1.GEN1, ...extra.EXTRA, ...reg.REGIONAIS, ...eras.ERAS_ESPECIES,
         ...iniciais.INICIAIS_ESPECIES, ...bones.BONES_ESPECIES, ...decamark.DECAMARK_ESPECIE, ...mais.MAIS,
-        ...hack.HACKEANAS, ...mega.MEGA_FORMS },
-      types.TYPE_COLOR),
+        ...hack.HACKEANAS, ...brag.BRAGLITCH_ESPECIES, ...rotom.ROTOM_FORMAS, ...mega.MEGA_FORMS },
+      types.TYPE_COLOR, textos.DEX_TEXTOS),
     EXTRA: extra.EXTRA,
     // as formas regionais entram na fenda junto com o resto que vaza pra lá
     // ...e AS QUE FALTAVAM (src/data/mais.js) também, com o mesmo peso TOTAL da
@@ -456,7 +488,7 @@ export function buildDB() {
     REGIONAIS: reg.REGIONAIS,
     // AS FORMAS HACKEANAS entram no mesmo rótulo de região das regionais: pra
     // quem lê a Pokédex, "HACK" é de onde aquele bicho veio (src/data/hackeanas.js)
-    REGIAO: { ...reg.REGIAO, ...hack.REGIAO_HACKEANAS },
+    REGIAO: { ...reg.REGIAO, ...hack.REGIAO_HACKEANAS, ...brag.REGIAO_ESPECIES },
     HACKEANAS: hack.HACKEANAS,
     HACK_BASE_DE: hack.BASE_DE,
     PEDRA_GELO: reg.PEDRA_GELO,
@@ -514,8 +546,8 @@ export function buildDB() {
     STONES: evo.STONES,
     FIELD_MOVES: field.FIELD_MOVES,
     FIELD_LEARNERS: field.FIELD_LEARNERS,
-    FLY_SPOTS: field.FLY_SPOTS,
-    MUSIC: music.MUSIC,
+    FLY_SPOTS: { ...field.FLY_SPOTS, ...brag.VOO_BRAGLITCH },
+    MUSIC: { ...music.MUSIC, ...brag.BRAGLITCH_MUSIC },
     MUSIC_ALIAS: music.MUSIC_ALIAS,
     ITEM_LORE: { ...loot.ITEM_LORE, ...mega.PEDRA_LORE, ...bolas.BOLA_LORE, ...ovos.OVO_LORE, ...decamark.DECAMARK_LORE,
                  [dex.AMULETO.item]: dex.AMULETO.lore },
@@ -561,10 +593,33 @@ export function buildDB() {
     GIFT_CODES: gifts.GIFT_CODES,
     GIFT_TEXTO: gifts.GIFT_TEXTO,
     MAPS: mergeMaps({ ...kanto, ...ilhaFallback, glitchdim: dimensionMap(story.STORY),
-                     tempestade: stormMap(story.STORY), ...MAPAS_ERAS }, maps.MAPS),
+                     tempestade: stormMap(story.STORY), ...MAPAS_ERAS, ...MAPAS_BRAGLITCH, ...MAPAS_VOID },
+                    { ...maps.MAPS, ...BRAG_CONTEUDO, ...vazio.CONTEUDO_VOID }),
     STORY: story.STORY,
+    TRUNFO_TEXTO: story.TRUNFO_TEXTO,
     KANTO: { ...(kanto || {}), ...ilhaFallback, glitchdim: dimensionMap(story.STORY),
-             tempestade: stormMap(story.STORY), ...MAPAS_ERAS },
+             tempestade: stormMap(story.STORY), ...MAPAS_ERAS, ...MAPAS_BRAGLITCH, ...MAPAS_VOID },
+    GINASIO_VOID: vazio.GINASIO_VOID,
+    LENDAS_VOID: vazio.LENDAS_VOID,
+    GUIA_VOID: vazio.GUIA_VOID,
+    // BRAGLITCH: a região, a história e o barco (src/data/braglitch.js)
+    BRAGLITCH: brag.BRAGLITCH,
+    BRAGLITCH_TEXTO: brag.BRAGLITCH_TEXTO,
+    BONDINHO: brag.BONDINHO,
+    REDEMOINHOS: brag.REDEMOINHOS,
+    SACI_NA_MATA: brag.SACI_NA_MATA,
+    INSIGNIAS_BRAG: brag.INSIGNIAS_BRAG,
+    LENDAS_BRAG: brag.LENDAS,
+    MAPA_REGIAO: brag.MAPA_REGIAO,
+    PANDEIRO_TEXTO: brag.PANDEIRO_TEXTO,
+    BARCO: brag.BARCO,
+    CUIA: brag.CUIA,
+    CATALOGO_ROTOM: rotom.CATALOGO,
+    MONTARIAS: brag.MONTARIAS,
+    PANDEIROS: brag.PANDEIROS,
+    PANDEIRO_GANHOU: brag.PANDEIRO_GANHOU,
+    ENCONTROS_PROFS: brag.ENCONTROS_PROFS,
+    PROFS: brag.PROFS,
     TAG: maps.TAG,
     LEDGE_DIR: maps.LEDGE_DIR,
     START_MAP: maps.START_MAP,

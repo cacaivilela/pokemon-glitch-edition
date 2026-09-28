@@ -5,7 +5,8 @@ export const MOVES = {
   investida:     { name: "INVESTIDA",     type: "NORMAL",     power: 40, acc: 100, pp: 35, category: "fisico" },
   arranhao:      { name: "ARRANHÃO",      type: "NORMAL",     power: 40, acc: 100, pp: 35, category: "fisico" },
   ataquerapido:  { name: "ATAQUE RÁPIDO", type: "NORMAL",     power: 40, acc: 100, pp: 30, category: "fisico", priority: 1 },
-  mordida:       { name: "MORDIDA",       type: "NORMAL",     power: 60, acc: 100, pp: 25, category: "fisico" },
+  // `mordida`: é golpe de MORDER (o DOCE DE POKÉMON do BRIGADEIRINHO cai na hora)
+  mordida:       { name: "MORDIDA",       type: "NORMAL",     power: 60, acc: 100, pp: 25, category: "fisico", mordida: true },
   cabecada:      { name: "CABEÇADA",      type: "NORMAL",     power: 70, acc: 100, pp: 15, category: "fisico" },
   grito:         { name: "GRITO",         type: "NORMAL",     power: 0,  acc: 100, pp: 40, category: "status", stat: { target: "foe", key: "atk", delta: -1 } },
   encarar:       { name: "ENCARAR",       type: "NORMAL",     power: 0,  acc: 100, pp: 30, category: "status", stat: { target: "foe", key: "def", delta: -1 } },
@@ -55,6 +56,15 @@ export const MOVES = {
   garrademetal:  { name: "GARRA DE METAL",type: "AÇO",        power: 50, acc: 95,  pp: 35, category: "fisico" },
   // --- assinatura da GLITCH EDITION (só aparecem com o MISSINGNO.) ---
   corrompida:    { name: "CORROMPIDA",    type: "GLITCH",     power: 60, acc: 90,  pp: 15, category: "especial", corrupt: 12 },
+  // MORDIDA DE FOGO (o BRASEAGLE, no nível 19): 60 de poder, e numa batalha
+  // DUPLA as brasas pegam o adversário que NÃO foi mordido — ele fica queimado
+  // (`queimaOOutro`, nas cenas de grupo). É mordida: come o BRIGADEIRINHO.
+  mordidadefogo: { name: "MORDIDA DE FOGO", type: "FOGO",      power: 60, acc: 100, pp: 15, category: "fisico", mordida: true, queimaOOutro: true },
+  // PEGA ALMA (o do SACI, no nível 24): Pokémon FANTASMA cai num golpe só,
+  // não importa o HP — o saci pega a alma dele pelo gorro. Nos outros é um
+  // golpe SOMBRIO comum. E custa: quem usa perde 14 de HP, acertando ou não
+  // um fantasma (ver `pegaAlma` em calcDamage e `custoHp` nas cenas de batalha)
+  pegaalma:      { name: "PEGA ALMA",     type: "SOMBRIO",    power: 50, acc: 100, pp: 5,  category: "especial", pegaAlma: true, custoHp: 14 },
   sobrescrever:  { name: "SOBRESCREVER",  type: "GLITCH",     power: 90, acc: 75,  pp: 5,  category: "especial", corrupt: 25, recoil: 0.25 },
   ruidobranco:   { name: "RUÍDO BRANCO",  type: "GLITCH",     power: 0,  acc: 100, pp: 20, category: "status", stat: { target: "foe", key: "spe", delta: -2 }, corrupt: 8 },
 };

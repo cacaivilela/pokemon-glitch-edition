@@ -25,6 +25,7 @@ export function poolDoOvo() {
   return Object.values(DB.SPECIES).filter((sp) =>
     !sp.mega && !sp.fusao && !sp.megaDe && !sp.crescimento
     && !(sp.types || []).includes("GLITCH")
+    && !sp.braglitch            // os de BRAGLITCH só nascem do lado de lá (src/data/braglitch.js)
     && (O.pool !== "kanto" || kanto.has(sp.id)));
 }
 

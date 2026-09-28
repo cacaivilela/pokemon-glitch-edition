@@ -14,10 +14,31 @@ export const PAL = {
 };
 
 /** Caixa de janela estilo Pokemon. */
+/** PAINEL EM BLOCO (a interface inteira no ISOMÉTRICO): enquanto ligado, cada
+ *  painel ganha espessura — um tampo e uma lateral recuando pra cima e pra
+ *  direita no mesmo 2:1 dos blocos do mapa. O texto continua reto: texto
+ *  torto em 240x160 deixa de ser lido. Quem liga e desliga é o laço de
+ *  desenho de src/main.js, em volta da cena. */
+let emBloco = 0;
+export function painelEmBloco(prof) { emBloco = prof || 0; }
+
 export function panel(ctx, x, y, w, h, opts = {}) {
   const fill = opts.fill || PAL.paper;
   const edge = opts.edge || PAL.frame;
   const inner = opts.inner || PAL.frameHi;
+  if (emBloco) {
+    const D = emBloco, d = D / 2;
+    const poli = (pts, cor) => {
+      ctx.fillStyle = cor;
+      ctx.beginPath();
+      pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+      ctx.closePath(); ctx.fill();
+    };
+    const tampo = [[x + 1, y], [x + 1 + D, y - d], [x + w - 1 + D, y - d], [x + w - 1, y]];
+    const lado = [[x + w, y + 1], [x + w + D, y + 1 - d], [x + w + D, y + h - 1 - d], [x + w, y + h - 1]];
+    poli(tampo, inner); poli(tampo, "rgba(255,255,255,.18)");
+    poli(lado, edge); poli(lado, "rgba(8,10,24,.35)");
+  }
   ctx.fillStyle = edge;
   ctx.fillRect(x + 1, y, w - 2, h);
   ctx.fillRect(x, y + 1, w, h - 2);
@@ -30,6 +51,13 @@ export function panel(ctx, x, y, w, h, opts = {}) {
 }
 
 export function bar(ctx, x, y, w, h, pct, color) {
+  if (emBloco) {
+    // a barra também é bloco: uma lateral fininha no mesmo ângulo
+    ctx.fillStyle = "#3a3f4a";
+    ctx.beginPath();
+    ctx.moveTo(x + w + 1, y - 1); ctx.lineTo(x + w + 3, y - 2); ctx.lineTo(x + w + 3, y + h - 1); ctx.lineTo(x + w + 1, y + h + 1);
+    ctx.closePath(); ctx.fill();
+  }
   ctx.fillStyle = PAL.ink;
   ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
   ctx.fillStyle = "#7c8496";

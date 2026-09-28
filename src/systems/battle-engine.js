@@ -26,6 +26,16 @@ export function calcDamage(atk, def, moveId, aStages, dStages, clima = null) {
   const eff = DB.effectiveness(mv.type, def.types);
   if (mv.category === "status" || mv.power === 0) return { dmg: 0, eff: 1, crit: false, mv };
   if (eff === 0) return { dmg: 0, eff: 0, crit: false, mv };
+  // DOCE DE POKÉMON: golpe de morder come o BRIGADEIRINHO de uma vez
+  const hd = habilidadeDoMon(def);
+  if (mv.mordida && hd?.mordidaMata) {
+    return { dmg: Math.max(1, def.hp), eff: 1, crit: false, mv, hab: hd,
+             anuncia: `${hd.nome}! ${def.nickname} FOI COMIDO NUMA MORDIDA SÓ!` };
+  }
+  // PEGA ALMA: em FANTASMA, derruba num golpe só (nem habilidade segura)
+  if (mv.pegaAlma && def.types.includes("FANTASMA")) {
+    return { dmg: Math.max(1, def.hp), eff: 1, crit: false, mv, pegouAlma: true };
+  }
   // AS HABILIDADES E O CLIMA (src/systems/habilidades.js): imunidade (LEVITAR,
   // PARA-RAIOS...), o multiplicador dos dois lados e a fala de quem anuncia
   const hab = efeitoNoGolpe(mv, atk, def, clima);
@@ -39,7 +49,12 @@ export function calcDamage(atk, def, moveId, aStages, dStages, clima = null) {
   const rand = randRange(85, 100) / 100;
 
   let dmg = Math.floor(Math.floor((Math.floor((2 * atk.level) / 5 + 2) * mv.power * A) / D) / 50) + 2;
-  dmg = Math.floor(dmg * stab * eff * rand * (crit ? 2 : 1) * hab.mult) + (hab.extra || 0);
+  // CONTRA-ATAQUE (o GINGÃO): o dano que ele guardou volta como bônus — o
+  // equivalente ao HP máximo dele dobra o golpe. Quem zera a conta é a cena,
+  // depois que o golpe acerta (a IA também chama isto só pra estimar).
+  const ha = habilidadeDoMon(atk);
+  const contra = ha?.contraAtaque && aStages?.acumulado > 0 ? Math.min(1, aStages.acumulado / atk.maxHp) : 0;
+  dmg = Math.floor(dmg * stab * eff * rand * (crit ? 2 : 1) * hab.mult * (1 + contra)) + (hab.extra || 0);
   if (atk.corrupt) dmg = Math.floor(dmg * 1.2);
 
   // Espelho: bater num Pokémon corrompido usando a MESMA espécie faz o dado
@@ -47,7 +62,7 @@ export function calcDamage(atk, def, moveId, aStages, dStages, clima = null) {
   const mirror = !!def.corrupt && atk.species === def.species;
   if (mirror) dmg *= 8;
 
-  return { dmg: Math.max(1, dmg), eff, crit, mv, mirror, anuncia: hab.anuncia, hab: hab.hab };
+  return { dmg: Math.max(1, dmg), eff, crit, mv, mirror, anuncia: hab.anuncia, hab: hab.hab, contra: contra > 0 };
 }
 
 export function accuracyCheck(moveId, aStages, dStages) {
@@ -55,6 +70,43 @@ export function accuracyCheck(moveId, aStages, dStages) {
   if (mv.acc >= 100) return true;
   const mod = STAGE_MULT[clamp((aStages.acc || 0) - (dStages.eva || 0) + 6, 0, 12)];
   return chance((mv.acc * mod) / 100);
+}
+
+/** DOCE DE POKÉMON (o BRIGADEIRINHO): toda vez que recupera HP na batalha, os
+ *  cinco atributos sobem `aoCurar` (até +6). Devolve a fala, ou null. Quem cura
+ *  chama isto logo depois de curar, com os estágios daquele lado. */
+export function aoSerCurado(mon, stages) {
+  const h = habilidadeDoMon(mon);
+  if (!h?.aoCurar || !stages || isFainted(mon)) return null;
+  for (const k of ["atk", "def", "spa", "spd", "spe"]) stages[k] = clamp((stages[k] || 0) + h.aoCurar, -6, 6);
+  return `${h.nome}! OS ATRIBUTOS DE ${mon.nickname} SUBIRAM DRASTICAMENTE!`;
+}
+
+/** CONTRA-ATAQUE, os dois lados: `aoApanhar` guarda o dano que ele levou e sobe
+ *  a DEFESA; `devolveu` zera a conta depois que o golpe dele acertou com o
+ *  bônus. Os dois devolvem a fala, ou null. */
+export function aoApanhar(mon, stages, dano) {
+  if (!habilidadeDoMon(mon)?.contraAtaque || !stages || dano <= 0 || isFainted(mon)) return null;
+  stages.acumulado = (stages.acumulado || 0) + dano;
+  const antes = stages.def || 0;
+  stages.def = clamp(antes + 1, -6, 6);
+  return stages.def > antes
+    ? `CONTRA-ATAQUE! ${mon.nickname} GUARDOU O GOLPE. A DEFESA SUBIU!`
+    : `CONTRA-ATAQUE! ${mon.nickname} GUARDOU O GOLPE.`;
+}
+export function devolveu(user, stages, res) {
+  if (!res?.contra || !stages) return null;
+  stages.acumulado = 0;
+  return `${user.nickname} DEVOLVEU TUDO O QUE APANHOU!`;
+}
+
+/** MORDIDA DE FOGO numa batalha dupla: o adversário que NÃO foi mordido pega
+ *  as brasas e fica queimado — se pode (sem status, não é de FOGO, e nenhuma
+ *  habilidade segura). Devolve a fala, ou null. */
+export function brasasNoOutro(outro) {
+  if (!outro || isFainted(outro) || outro.status || outro.types.includes("FOGO") || semStatus(outro)) return null;
+  outro.status = "queimadura";
+  return `AS BRASAS ESPALHARAM! ${outro.nickname} SE QUEIMOU!`;
 }
 
 export function applyMoveEffects(mv, user, target, uStages, tStages) {
@@ -66,7 +118,9 @@ export function applyMoveEffects(mv, user, target, uStages, tStages) {
     const s = mv.stat.target === "self" ? uStages : tStages;
     const who = mv.stat.target === "self" ? user : target;
     const before = s[mv.stat.key] || 0;
-    s[mv.stat.key] = clamp(before + mv.stat.delta, -6, 6);
+    // o TRUNFO sobe o dobro quando o golpe é pra subir os atributos DELE
+    const delta = mv.stat.delta > 0 && who.trunfo ? mv.stat.delta * 2 : mv.stat.delta;
+    s[mv.stat.key] = clamp(before + delta, -6, 6);
     const label = { atk: "ATAQUE", def: "DEFESA", spa: "ESP.", spd: "ESP.DEF", spe: "VELOCIDADE" }[mv.stat.key];
     msgs.push(s[mv.stat.key] === before
       ? `${who.nickname} NÃO PODE ${mv.stat.delta > 0 ? "SUBIR" : "CAIR"} MAIS!`
@@ -110,6 +164,17 @@ export function chooseAiMove(foe, player, fStages, pStages, clima = null) {
     if (score > bestScore) { bestScore = score; best = m; }
   }
   return best;
+}
+
+/** A chance de a bola prender, de 0 a 1 — a mesma conta de `catchAttempt`,
+ *  sem sorteio: as quatro chacoalhadas têm que passar. */
+export function chanceDeCaptura(mon, ballBonus = 1) {
+  const rate = DB.SPECIES[mon.species].catchRate;
+  const statusBonus = mon.status ? 1.5 : 1;
+  const a = ((3 * mon.maxHp - 2 * mon.hp) / (3 * mon.maxHp)) * rate * ballBonus * statusBonus;
+  if (a >= 255) return 1;
+  const b = Math.floor(1048560 / Math.floor(Math.sqrt(Math.floor(Math.sqrt(Math.floor(16711680 / a))))));
+  return Math.min(1, b / 65536) ** 4;
 }
 
 /** Formula de captura simplificada (Gen 3). Retorna nº de chacoalhadas 0..4. */

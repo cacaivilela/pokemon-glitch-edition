@@ -2,6 +2,16 @@
 // A cada insígnia o Prof. Carvalho chama o jogador no laboratório e conta mais
 // um pedaço. Com as 8, MISSINGNO. atravessa e o mundo buga — aí o objetivo vira
 // capturá-lo. Tudo aqui tem hot-swap: dá pra reescrever com o jogo aberto.
+/** O POKÉMON TRUNFO (a EQUIPE, Z no Pokémon): as falas. */
+export const TRUNFO_TEXTO = {
+  pergunta: "FAZER {MON} O SEU TRUNFO?",
+  virou: "{MON} AGORA É O SEU TRUNFO!",
+  explica: "O TRUNFO GANHA O DOBRO DE EXP., O DOBRO DE ATRIBUTO A CADA NÍVEL E SOBE O DOBRO NA BATALHA. SÓ PODE TER UM.",
+  tirar: "{MON} JÁ É O SEU TRUNFO. TIRAR O TÍTULO DELE?",
+  tirou: "{MON} NÃO É MAIS O TRUNFO. O QUE ELE GANHOU, CONTINUA DELE.",
+  dobro: "{MON} É O SEU TRUNFO: GANHOU O DOBRO!",
+};
+
 export const STORY = {
   // A CRECHE DA ROTA 5 (src/systems/creche.js): o senhor na frente da casa
   creche: {
@@ -544,7 +554,7 @@ export const STORY = {
     ],
     zarpou: "A BALSA ZARPA. O CONTINENTE VAI FICANDO PARA TRÁS.",
     chegou: "VOCÊ CHEGOU EM {ONDE}.",
-    fala: ["EU FAÇO A LINHA DAS SETE ILHAS. SOBE AÍ."],
+    fala: ["EU FAÇO A LINHA DAS SETE ILHAS — E A DE BRAGLITCH, LÁ NO SUL. SOBE AÍ."],
   },
 
   /** A DISTORÇÃO ESPAÇO-TEMPO da FLORESTA VIRIDIAN (missão DISTORÇÕES BIZARRAS). */

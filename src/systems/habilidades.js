@@ -73,6 +73,24 @@ export const semStatus = (mon) => !!habilidadeDoMon(mon)?.semStatus;
 export const semQueda = (mon) => !!habilidadeDoMon(mon)?.semQueda;
 export const fatorVelocidade = (mon, clima) => habilidadeDoMon(mon)?.velocidade?.(clima) ?? 1;
 
+/** Quanto o FICA! soma na chance de captura: 25% do nível de quem está em
+ *  campo (nível 40 = 0,10). Zero pra quem não tem a habilidade ou desmaiou. */
+export function bonusFica(mon) {
+  const h = habilidadeDoMon(mon);
+  if (!h?.fica || !mon || mon.hp <= 0) return 0;
+  return Math.min(1, (mon.level * h.fica) / 100);
+}
+
+/** O FICA! na hora da bola: `pBola` é a chance que a bola tinha sozinha. O
+ *  bônus SOMA nela (30% + 10% = 40%). Como ele só é sorteado quando a bola já
+ *  falhou, o sorteio usa bônus / (1 - pBola) — que dá exatamente a soma. */
+export function ficaNaBola(mon, pBola = 0) {
+  const e = bonusFica(mon);
+  if (!e) return false;
+  if (pBola >= 1) return true;
+  return Math.random() < Math.min(1, e / (1 - pBola));
+}
+
 /** o que a habilidade faz ao entrar em campo: { clima } e/ou { intimidar } */
 export const entrada = (mon) => habilidadeDoMon(mon)?.entrada || null;
 

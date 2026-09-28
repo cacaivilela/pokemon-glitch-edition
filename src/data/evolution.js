@@ -12,6 +12,7 @@ import { EVO_REGIONAIS } from "./regionais.js";
 import { EVO_BONES } from "./bones.js";
 import { EVO_MAIS } from "./mais.js";
 import { EVO_HACKEANAS } from "./hackeanas.js";
+import { EVO_BRAGLITCH } from "./braglitch.js";
 
 export const EVOLUTIONS = {
   // OS INICIAIS DAS OUTRAS REGIÕES. As regras saem de src/data/iniciais.js,
@@ -189,6 +190,12 @@ for (const [id, regras] of Object.entries(EVO_REGIONAIS)) {
 // mochila enxergar o PIKACHU-HACK. Uma linha de evolução que o jogo conhece mas
 // que nenhum item alcança é uma linha que não existe pra quem joga.
 for (const [id, regras] of Object.entries(EVO_HACKEANAS)) {
+  EVOLUTIONS[id] = [...regras, ...(EVOLUTIONS[id] || [])];
+}
+
+// AS FORMAS BRAGLITCHIANAS (src/data/braglitch.js): só existem do lado de lá
+// do mar, e evoluem dentro da forma, com o gatilho da base.
+for (const [id, regras] of Object.entries(EVO_BRAGLITCH)) {
   EVOLUTIONS[id] = [...regras, ...(EVOLUTIONS[id] || [])];
 }
 

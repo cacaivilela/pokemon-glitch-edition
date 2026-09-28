@@ -14,6 +14,10 @@ export const FIELD_MOVES = {
     pergunta: "ESTE MATO DÁ PRA CORTAR. USAR CORTE?",
     usando: "{MON} USOU CORTE! O MATO FOI APARADO.",
     semNinguem: "O MATO ESTÁ ALTO DEMAIS. ALGUÉM COM CORTE RESOLVERIA.",
+    // a ARVOREZINHA: a árvore fina que fecha passagem (a do FireRed)
+    perguntaArvore: "UMA ARVOREZINHA FINA FECHA O CAMINHO. USAR CORTE?",
+    usandoArvore: "{MON} USOU CORTE! A ARVOREZINHA CAIU.",
+    semArvore: "UMA ARVOREZINHA FINA FECHA O CAMINHO. ALGUÉM COM CORTE DERRUBARIA.",
   },
   quebrarocha: {
     onde: "pedra",

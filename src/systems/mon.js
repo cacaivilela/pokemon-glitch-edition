@@ -93,6 +93,13 @@ export function recalc(mon) {
     spd: Math.floor(statValue(base.spd, mon.ivs.spd, mon.level) * f),
     spe: Math.floor(statValue(base.spe, mon.ivs.spe, mon.level) * f),
   };
+  // O TRUNFO: o que ele ganhou a mais subindo de nível (ver `gainXp`) é dele
+  // pra sempre — soma por cima da conta, mesmo depois de evoluir
+  const t = mon.trunfoExtra;
+  if (t) {
+    mon.maxHp += t.hp || 0;
+    for (const k of ["atk", "def", "spa", "spd", "spe"]) mon.stats[k] += t[k] || 0;
+  }
   mon.types = sp.types;
   mon.name = sp.name;
   return mon;
@@ -109,17 +116,31 @@ export function heal(mon) {
 }
 
 /** Retorna eventos: [{type:'level', level}, {type:'move', id}] */
-export function gainXp(mon, amount) {
+/** O POKÉMON TRUNFO (um só, escolhido na EQUIPE — `mon.trunfo`): ganha o dobro
+ *  de XP, o dobro do que cada atributo sobe a cada nível (guardado em
+ *  `trunfoExtra`, somado pelo `recalc`), o dobro de amizade ao subir de nível,
+ *  e — na batalha — o dobro quando um golpe sobe os atributos dele.
+ *  `semTrunfo`: XP que não dobra (o DOCE RARO, que é "um nível", não XP). */
+export function gainXp(mon, amount, { semTrunfo = false } = {}) {
   const events = [];
-  mon.xp += amount;
+  const trunfo = !!mon.trunfo && !semTrunfo;
+  mon.xp += trunfo ? amount * 2 : amount;
   while (mon.level < 100 && mon.xp >= xpForLevel(mon.level + 1)) {
     mon.level++;
     const before = mon.maxHp;
+    const antes = { hp: mon.maxHp, ...mon.stats };
     recalc(mon);
+    if (mon.trunfo) {                            // o que subiu, sobe de novo
+      mon.trunfoExtra ||= {};
+      const ganho = { hp: mon.maxHp - antes.hp };
+      for (const k of ["atk", "def", "spa", "spd", "spe"]) ganho[k] = mon.stats[k] - antes[k];
+      for (const [k, v] of Object.entries(ganho)) mon.trunfoExtra[k] = (mon.trunfoExtra[k] || 0) + Math.max(0, v);
+      recalc(mon);
+    }
     // quem está desmaiado continua desmaiado: subir de nível não é reviver
     if (mon.hp > 0) mon.hp += mon.maxHp - before;
     events.push({ type: "level", level: mon.level });
-    mon.amizade = Math.min(255, (mon.amizade || 0) + 3);   // subir de nível aproxima
+    mon.amizade = Math.min(255, (mon.amizade || 0) + (mon.trunfo ? 6 : 3));   // subir de nível aproxima
     const sp = DB.SPECIES[mon.species];
     for (const [lvl, id] of sp.learnset) {
       if (lvl === mon.level && !mon.moves.some((m) => m.id === id)) {

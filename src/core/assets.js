@@ -685,6 +685,17 @@ export const Assets = {
       ".kwwwwk.",
       "..kkkk..",
     ], { k: "#1c2030", r: "#e0524a", w: "#f4f4f4" });
+    // a ARVOREZINHA que o CORTE derruba (a do FireRed, e as de Braglitch)
+    this.arvorezinha = spriteFromRows([
+      "..kkkk..",
+      ".kgGGgk.",
+      "kgGGgGgk",
+      "kGgGGggk",
+      ".kgggGk.",
+      "..kttk..",
+      "...tt...",
+      "..kttk..",
+    ], { k: "#1f4a26", g: "#3f8f3a", G: "#62b64f", t: "#7a5330" });
     this.rocha = spriteFromRows([
       "..cccc..",
       ".cddddc.",
@@ -1057,6 +1068,592 @@ export const Assets = {
       ctx.globalAlpha = 1;
     }
     return cv;
+  },
+
+  /** BRAGLITCH (src/data/braglitch.js), desenhada em runtime a partir da
+   *  PLANTA do mapa — um caractere por tile. O chão sai tile por tile; os
+   *  prédios saem inteiros (cada bloco de uma letra é um prédio), porque um
+   *  telhado pintado de dezesseis em dezesseis pixels vira xadrez.
+   *
+   *  O jeito é o de lá: terra vermelha no caminho, casario de cor diferente
+   *  uma do lado da outra, telha de barro, igrejinha branca, coreto na praça,
+   *  coqueiro na areia e um barquinho pintado no píer. E, espalhado, o que o
+   *  APAGÃO deixou: um pixel ou outro que não voltou da cor certa. */
+  braglitchArt(geo, seed = 5501) {
+    const r = makeRng(seed);
+    const planta = geo.planta || [];
+    const th = planta.length, tw = planta[0]?.length || 0;
+    const { cv, ctx } = makeCanvas(tw * 16, th * 16);
+    const at = (x, y) => planta[y]?.[x] ?? "#";
+    // o chão muda com o lugar: sertão seco, cerrado amarelado, mata e litoral verdes
+    const tema = geo.tema || "mata";
+    const GRAMA = {
+      serra: ["#5d9a5a", "#66a562", "#548f52", "#70ad6a"],
+      sertao: ["#b9a95a", "#c4b465", "#ad9d50", "#cdbd72"],
+      cerrado: ["#93a84a", "#9db352", "#879c42", "#a8bd5d"],
+    }[tema] || ["#5fae4a", "#67b852", "#58a444", "#6fbf58"];
+    const COPA = tema === "sertao" ? ["#7a6a55", "#8f7f66", "#a39478"]
+      : tema === "cerrado" ? ["#4f7a2c", "#5e8f36", "#74a445"] : ["#1f5e2a", "#2c7a36", "#3f9446"];
+    const TERRA = ["#c07a48", "#b86f3e", "#c98553", "#ae683a"];
+    const AREIA = ["#efdca6", "#e8d397", "#f4e4b4", "#e2cb8c"];
+    const AGUA = ["#2f7fc0", "#3689cc", "#2a74b2", "#3c93d6"];
+    const salpica = (x, y, pal, passo = 4) => {
+      for (let py = 0; py < 16; py += passo) {
+        for (let px2 = 0; px2 < 16; px2 += passo) {
+          ctx.fillStyle = r.pick(pal);
+          ctx.fillRect(x * 16 + px2, y * 16 + py, passo, passo);
+        }
+      }
+    };
+    const PREDIO = "HhLCMIKGA";
+
+    // O CHÃO. Antes era tudo salpicado de quadradinhos de 4px sorteados, e de
+    // longe parecia chuvisco de TV. Agora é como no FireRed: cor lisa, e o
+    // detalhe vai em poucos pixels que querem dizer alguma coisa — o tufo de
+    // grama, a pedrinha no caminho, o grão de areia.
+    const liso = (x, y, cor) => { ctx.fillStyle = cor; ctx.fillRect(x * 16, y * 16, 16, 16); };
+    const px1 = (x, y, cor) => { ctx.fillStyle = cor; ctx.fillRect(x, y, 1, 1); };
+    const grama = (x, y) => {
+      liso(x, y, GRAMA[0]);
+      const X = x * 16, Y = y * 16;
+      if (r.chance(0.18)) {                       // uma mancha de grama mais escura
+        ctx.fillStyle = GRAMA[2];
+        const mx = X + r.int(8), my = Y + r.int(9);
+        ctx.fillRect(mx + 1, my, 5, 1); ctx.fillRect(mx, my + 1, 7, 3); ctx.fillRect(mx + 1, my + 4, 5, 1);
+      }
+      for (let k = 0; k < 3; k++) {               // os tufos: dois fiozinhos e o miolo
+        if (!r.chance(0.6)) continue;
+        const tx = X + 1 + r.int(12), ty = Y + 2 + r.int(11);
+        px1(tx, ty + 1, GRAMA[2]); px1(tx + 1, ty + 2, GRAMA[2]); px1(tx + 2, ty + 1, GRAMA[2]);
+        px1(tx, ty, GRAMA[3]); px1(tx + 2, ty, GRAMA[3]);
+      }
+      if (r.chance(0.07)) {                       // um trevo
+        const tx = X + 2 + r.int(11), ty = Y + 2 + r.int(11);
+        px1(tx, ty, GRAMA[3]); px1(tx + 1, ty, GRAMA[1]); px1(tx, ty + 1, GRAMA[1]); px1(tx + 1, ty + 1, GRAMA[2]);
+      }
+      if (r.chance(0.06)) {                       // uma florzinha perdida
+        const tx = X + 2 + r.int(12), ty = Y + 2 + r.int(12);
+        const cor = r.pick(["#ffffff", "#ffe066", "#ff9ec7"]);
+        px1(tx, ty - 1, cor); px1(tx - 1, ty, cor); px1(tx + 1, ty, cor); px1(tx, ty + 1, cor);
+        px1(tx, ty, "#e8a23a");
+      }
+      // a SOMBRA de quem está em cima: a árvore e o coqueiro fazem sombra no
+      // chão logo abaixo deles (a luz vem de cima-esquerda)
+      if ("#Y".includes(at(x, y - 1))) {
+        ctx.fillStyle = "rgba(10,40,20,0.22)";
+        ctx.fillRect(X, Y, 16, 2);
+        ctx.fillRect(X + 2, Y + 2, 12, 1);
+      }
+      if (at(x - 1, y) === "#") {
+        ctx.fillStyle = "rgba(10,40,20,0.12)";
+        ctx.fillRect(X, Y, 2, 16);
+      }
+    };
+    const areia = (x, y) => {
+      liso(x, y, AREIA[0]);
+      const X = x * 16, Y = y * 16;
+      for (let k = 0; k < 5; k++) px1(X + r.int(16), Y + r.int(16), r.chance(0.5) ? AREIA[3] : AREIA[2]);
+      if (r.chance(0.12)) { px1(X + 4 + r.int(8), Y + 4 + r.int(8), "#fff7dc"); }   // uma conchinha
+    };
+    // o CAMINHO de terra: borda escura onde encosta na grama, a beirada da
+    // grama roendo a terra de leve, cantos arredondados e umas pedrinhas
+    const ehCaminho = (x, y) => "PD".includes(at(x, y));
+    const ehChao = (x, y) => ".,F1234567890o".includes(at(x, y));
+    const TERRA_BORDA = "#96582f", TERRA_LUZ = "#d8966a";
+    const terra = (x, y) => {
+      liso(x, y, TERRA[0]);
+      const X = x * 16, Y = y * 16;
+      for (let k = 0; k < 3; k++) {               // pedrinhas: um pixel de luz em cima de um de sombra
+        if (!r.chance(0.55)) continue;
+        const sx = X + 2 + r.int(12), sy = Y + 2 + r.int(12);
+        px1(sx, sy, TERRA_LUZ); px1(sx, sy + 1, TERRA_BORDA);
+      }
+      const n = !ehCaminho(x, y - 1), s = !ehCaminho(x, y + 1), o = !ehCaminho(x - 1, y), l = !ehCaminho(x + 1, y);
+      // a beirada: a linha escura inteira, e a grama avançando um pixel pra
+      // dentro aqui e ali (irregular, sem padrão — senão vira pontilhado)
+      const beira = (ax, ay, bx, by, dx, dy, grama) => {
+        let avanca = 0;
+        for (let k = 0; k < 16; k++) {
+          const xx = X + ax * k + bx, yy = Y + ay * k + by;
+          if (grama && avanca <= 0 && r.chance(0.12)) avanca = 2 + r.int(3);
+          if (avanca-- > 0) { px1(xx, yy, GRAMA[0]); px1(xx + dx, yy + dy, TERRA_BORDA); }
+          else px1(xx, yy, TERRA_BORDA);
+        }
+      };
+      if (n) beira(1, 0, 0, 0, 0, 1, ehChao(x, y - 1));
+      if (s) beira(1, 0, 0, 15, 0, -1, ehChao(x, y + 1));
+      if (o) beira(0, 1, 0, 0, 1, 0, ehChao(x - 1, y));
+      if (l) beira(0, 1, 15, 0, -1, 0, ehChao(x + 1, y));
+      // cantos de fora arredondados: tira a quina e põe a borda na diagonal
+      const canto = (cx, cy, dx, dy) => {
+        ctx.fillStyle = GRAMA[0];
+        ctx.fillRect(cx, cy, 1, 1); ctx.fillRect(cx + dx, cy, 1, 1); ctx.fillRect(cx, cy + dy, 1, 1);
+        px1(cx + dx, cy + dy, TERRA_BORDA);
+      };
+      if (n && o && ehChao(x - 1, y - 1)) canto(X, Y, 1, 1);
+      if (n && l && ehChao(x + 1, y - 1)) canto(X + 15, Y, -1, 1);
+      if (s && o && ehChao(x - 1, y + 1)) canto(X, Y + 15, 1, -1);
+      if (s && l && ehChao(x + 1, y + 1)) canto(X + 15, Y + 15, -1, -1);
+      // a sombrinha que a beirada de grama faz na terra, embaixo dela
+      if (n) { ctx.fillStyle = "rgba(60,25,5,0.16)"; ctx.fillRect(X + (o ? 1 : 0), Y + 1, 16 - (o ? 1 : 0) - (l ? 1 : 0), 1); }
+      // o meio do caminho, mais pisado: mais claro
+      ctx.fillStyle = "rgba(255,235,205,0.10)";
+      if (o && l && !n && !s) ctx.fillRect(X + 5, Y, 6, 16);        // caminho em pé
+      else if (n && s && !o && !l) ctx.fillRect(X, Y + 5, 16, 6);   // caminho deitado
+    };
+
+    // 1. O CHÃO de todo tile (os prédios e as árvores vão por cima)
+    for (let y = 0; y < th; y++) {
+      for (let x = 0; x < tw; x++) {
+        const c = at(x, y);
+        if (c === "~" || c === "B") {
+          salpica(x, y, AGUA);
+          if (r.chance(0.3)) {                      // crista de onda
+            ctx.fillStyle = "#9fd4f5";
+            ctx.fillRect(x * 16 + r.int(10), y * 16 + r.int(14), 4 + r.int(4), 1);
+          }
+          if (at(x - 1, y) === "R" || at(x + 1, y) === "R") {   // cachoeira: a água caindo no paredão
+            ctx.fillStyle = "#dff1ff";
+            for (let k = 0; k < 4; k++) ctx.fillRect(x * 16 + 2 + k * 4, y * 16, 1, 16);
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(x * 16, y * 16 + 14, 16, 2);
+          }
+          if ("a=".includes(at(x, y - 1)) || "aY".includes(at(x, y - 1))) {   // espuma na beira
+            ctx.fillStyle = "#e9f6ff";
+            ctx.fillRect(x * 16, y * 16, 16, 2);
+            ctx.fillRect(x * 16 + r.int(8), y * 16 + 2, 6, 1);
+          }
+        } else if (c === "a" || (c === "Y" && [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].includes("a"))) areia(x, y);
+        // na serra o chão vai ficando de pedra conforme sobe: embaixo é grama,
+        // no alto é campo de altitude cinzento
+        else if (tema === "serra" && ".,v^12".includes(c) && y < th * 0.66) {
+          salpica(x, y, y < th * 0.33 ? ["#8a9c80", "#94a689", "#7f9176", "#9db191"] : ["#6f9a66", "#79a46f", "#66905e", "#82ad78"]);
+          if (r.chance(y < th * 0.33 ? 0.35 : 0.15)) {       // lascas de pedra no chão
+            ctx.fillStyle = r.pick(["#9d9890", "#b3aea4", "#86817a"]);
+            ctx.fillRect(x * 16 + r.int(12), y * 16 + r.int(12), 3 + r.int(3), 2);
+          }
+        }
+        // placa e pedra ficam no chão de quem está do lado: na praia, areia
+        else if (/[1-9o]/.test(c) && [at(x - 1, y), at(x + 1, y), at(x, y + 1)].includes("a")) areia(x, y);
+        else if (c === "P" || c === "D") terra(x, y);
+        else if (c === "R" || c === "e") salpica(x, y, ["#8d8a84", "#97948d", "#827f79", "#a09c94"]);
+        else if (c === "=") {
+          salpica(x, y, AGUA);
+          ctx.fillStyle = "#8a5a32";
+          ctx.fillRect(x * 16, y * 16, 16, 16);
+          for (let k = 0; k < 4; k++) {             // as tábuas, com a fresta
+            ctx.fillStyle = k % 2 ? "#a06c3e" : "#98653a";
+            ctx.fillRect(x * 16, y * 16 + k * 4, 16, 3);
+          }
+          ctx.fillStyle = "#5c3a20";
+          ctx.fillRect(x * 16 + (at(x - 1, y) === "=" ? 15 : 0), y * 16, 1, 16);
+        } else grama(x, y);
+      }
+    }
+
+    // 2. O QUE FICA EM CIMA DO CHÃO, tile por tile
+    for (let y = 0; y < th; y++) {
+      for (let x = 0; x < tw; x++) {
+        const c = at(x, y), X = x * 16, Y = y * 16;
+        if (c === ",") {                            // mato alto
+          ctx.fillStyle = "#2f7a2c";
+          ctx.fillRect(X, Y + 7, 16, 9);
+          for (let k = 0; k < 12; k++) {
+            const bx = X + r.int(15), topo = Y + 1 + r.int(8);
+            ctx.fillStyle = r.pick(["#3f9a36", "#4fb044", "#2f8a2a", "#6cc45a"]);
+            ctx.fillRect(bx, topo, 1, Y + 16 - topo);
+          }
+        } else if (c === "F") {                     // canteiro de flor
+          for (let k = 0; k < 7; k++) {
+            ctx.fillStyle = r.pick(["#ffd23f", "#ff5a5f", "#c36bff", "#ffffff", "#ff9f1c"]);
+            const fx = X + 1 + r.int(13), fy = Y + 1 + r.int(13);
+            ctx.fillRect(fx, fy, 2, 2);
+            ctx.fillStyle = "#3e8d34";
+            ctx.fillRect(fx, fy + 2, 1, 2);
+          }
+        } else if (c === "o") {                     // pedra
+          ctx.fillStyle = "#7d776c";
+          ctx.fillRect(X + 2, Y + 4, 12, 11);
+          ctx.fillStyle = "#a39c8e";
+          ctx.fillRect(X + 3, Y + 4, 9, 3);
+          ctx.fillStyle = "#57524a";
+          ctx.fillRect(X + 2, Y + 13, 12, 2);
+        } else if (/[1-9]/.test(c)) {               // placa
+          ctx.fillStyle = "#6b4526";
+          ctx.fillRect(X + 7, Y + 8, 2, 8);
+          ctx.fillStyle = "#b0804a";
+          ctx.fillRect(X + 2, Y + 2, 12, 8);
+          ctx.fillStyle = "#6b4526";
+          ctx.fillRect(X + 2, Y + 9, 12, 1);
+          ctx.fillStyle = "#f4e4c0";
+          ctx.fillRect(X + 4, Y + 4, 8, 1);
+          ctx.fillRect(X + 4, Y + 6, 6, 1);
+        } else if (c === "Y") {                     // coqueiro
+          ctx.fillStyle = "#8a6a3e";
+          for (let k = 0; k < 7; k++) ctx.fillRect(X + 7 + (k > 3 ? 1 : 0), Y + 4 + k * 2, 3, 2);
+          ctx.fillStyle = "#2f8a3a";
+          for (const [dx, dy, w] of [[-6, 0, 8], [6, 0, 8], [-4, -3, 6], [4, -3, 6], [0, -5, 4]]) {
+            ctx.fillRect(X + 6 + dx, Y + 3 + dy, w, 2);
+          }
+          ctx.fillStyle = "#6b4a22";
+          ctx.fillRect(X + 6, Y + 5, 2, 2);
+          ctx.fillRect(X + 9, Y + 5, 2, 2);
+        } else if (c === "R") {                     // paredão da serra: pedra em camadas
+          ctx.fillStyle = "#77736c";
+          ctx.fillRect(X, Y, 16, 16);
+          for (let k = 0; k < 4; k++) {
+            ctx.fillStyle = k % 2 ? "#6a665f" : "#8a857d";
+            ctx.fillRect(X, Y + k * 4, 16, 2);
+            ctx.fillStyle = "#5a5650";
+            ctx.fillRect(X + ((x * 5 + k * 7) % 13), Y + k * 4 + 2, 3, 2);
+          }
+          ctx.fillStyle = "#4e4a45";                // a sombra na base do paredão
+          ctx.fillRect(X, Y + 14, 16, 2);
+          ctx.fillStyle = "rgba(20,30,20,0.28)";    // e a que ele joga no chão de baixo
+          ctx.fillRect(X, Y + 16, 16, 5);
+          if (at(x, y - 1) !== "R") { ctx.fillStyle = "#b3aea4"; ctx.fillRect(X, Y, 16, 2); }
+        } else if (c === "e") {                     // escadaria de pedra
+          for (let k = 0; k < 4; k++) {
+            ctx.fillStyle = "#b8b3a8";
+            ctx.fillRect(X + 1, Y + k * 4, 14, 3);
+            ctx.fillStyle = "#6f6b64";
+            ctx.fillRect(X + 1, Y + k * 4 + 3, 14, 1);
+          }
+        } else if (c === "v") {                     // barranco: grama com a beirada caindo
+          ctx.fillStyle = "#4d7f45";
+          ctx.fillRect(X, Y + 10, 16, 3);
+          ctx.fillStyle = "#7a5a38";
+          ctx.fillRect(X, Y + 13, 16, 3);
+          ctx.fillStyle = "#8fbf7f";
+          ctx.fillRect(X, Y + 9, 16, 1);
+        } else if (c === "^") {                     // barranco virado: a beirada cai pra cima
+          ctx.fillStyle = "#4d7f45";
+          ctx.fillRect(X, Y + 3, 16, 3);
+          ctx.fillStyle = "#7a5a38";
+          ctx.fillRect(X, Y, 16, 3);
+          ctx.fillStyle = "#8fbf7f";
+          ctx.fillRect(X, Y + 6, 16, 1);
+        } else if (c === "#" && tema === "serra") { // araucária: tronco reto e a copa em taça
+          ctx.fillStyle = "#5a3a20";
+          ctx.fillRect(X + 7, Y + 5, 2, 11);
+          ctx.fillStyle = "#1f4f2c";
+          ctx.fillRect(X, Y + 1, 16, 4);
+          ctx.fillRect(X + 2, Y + 5, 12, 2);
+          ctx.fillStyle = "#2e6b3a";
+          ctx.fillRect(X + 1, Y, 3, 2);
+          ctx.fillRect(X + 12, Y, 3, 2);
+          ctx.fillRect(X + 6, Y, 4, 2);
+        } else if (c === "#") {                     // árvore de mata: copa redonda
+          ctx.fillStyle = "#5a3a20";
+          ctx.fillRect(X + 6, Y + 10, 4, 6);
+          ctx.fillStyle = COPA[0];
+          ctx.fillRect(X, Y + 2, 16, 11);
+          ctx.fillRect(X + 2, Y, 12, 14);
+          ctx.fillStyle = COPA[1];
+          ctx.fillRect(X + 2, Y + 2, 10, 7);
+          ctx.fillStyle = COPA[2];
+          ctx.fillRect(X + 3, Y + 2, 5, 3);
+          if (r.chance(0.12)) {                     // um ipê florido aqui e ali
+            ctx.fillStyle = r.chance(0.5) ? "#ffd23f" : "#e27bd0";
+            for (let k = 0; k < 5; k++) ctx.fillRect(X + 1 + r.int(13), Y + 1 + r.int(10), 2, 2);
+          }
+        }
+      }
+    }
+
+    // 3. OS PRÉDIOS: cada bloco de letra igual, inteiro
+    const visto = new Set();
+    const CASARIO = ["#f2c14e", "#5fa8d3", "#f28ab2", "#7cc48a", "#f08a4b", "#b99be0"];
+    let n = 0;
+    for (let y = 0; y < th; y++) {
+      for (let x = 0; x < tw; x++) {
+        const c = at(x, y);
+        if (!PREDIO.includes(c) || visto.has(`${x},${y}`)) continue;
+        // o retângulo: anda pra direita e pra baixo enquanto for a mesma letra
+        let x1 = x, y1 = y;
+        while (at(x1 + 1, y) === c) x1++;
+        while (at(x, y1 + 1) === c) y1++;
+        for (let yy = y; yy <= y1; yy++) for (let xx = x; xx <= x1; xx++) visto.add(`${xx},${yy}`);
+        const portas = [];
+        for (let xx = x; xx <= x1; xx++) if (at(xx, y1 + 1) === "D") portas.push(xx);
+        this._predio(ctx, c, x * 16, y * 16, (x1 - x + 1) * 16, (y1 - y + 1) * 16,
+                     portas.map((xx) => xx * 16), CASARIO[n++ % CASARIO.length], r);
+      }
+    }
+
+    // 4. OS BARQUINHOS: cada bloco de B encostado é um barco (um porto pode
+    // ter vários — as jangadas de Fortaleza, os barcos do Rio Negro)
+    const barcos = [], noBarco = new Set();
+    planta.forEach((l, y) => [...l].forEach((c, x) => {
+      if (c !== "B" || noBarco.has(`${x},${y}`)) return;
+      const bloco = [[x, y]];
+      noBarco.add(`${x},${y}`);
+      for (let i = 0; i < bloco.length; i++) {
+        const [bx, by] = bloco[i];
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const k = `${bx + dx},${by + dy}`;
+          if (at(bx + dx, by + dy) === "B" && !noBarco.has(k)) { noBarco.add(k); bloco.push([bx + dx, by + dy]); }
+        }
+      }
+      barcos.push(bloco);
+    }));
+    barcos.forEach((barco, n) => {
+      const bx = Math.min(...barco.map((b) => b[0])) * 16, by = Math.min(...barco.map((b) => b[1])) * 16;
+      const bw = (Math.max(...barco.map((b) => b[0])) + 1) * 16 - bx;
+      const bh = (Math.max(...barco.map((b) => b[1])) + 1) * 16 - by;
+      const faixa = ["#2a9d8f", "#e76f51", "#3a86ff", "#8338ec"][n % 4];   // cada um pintado de um jeito
+      ctx.fillStyle = "#1e5a8c";                    // sombra na água
+      ctx.fillRect(bx + 3, by + bh - 4, bw - 4, 3);
+      ctx.fillStyle = "#f4f1e8";                    // casco branco
+      ctx.fillRect(bx + 2, by + 6, bw - 4, bh - 10);
+      ctx.fillStyle = faixa;                        // a faixa colorida
+      ctx.fillRect(bx + 2, by + bh - 10, bw - 4, 3);
+      ctx.fillStyle = "#e9c46a";                    // e a amarela
+      ctx.fillRect(bx + 2, by + bh - 7, bw - 4, 2);
+      ctx.fillStyle = "#8a5a32";                    // o banco
+      ctx.fillRect(bx + 6, by + 10, Math.max(2, bw - 12), 3);
+      ctx.fillStyle = "#c0392b";                    // bandeirinha no mastro
+      ctx.fillRect(bx + bw / 2, by, 1, 10);
+      ctx.fillRect(bx + bw / 2 + 1, by, 5, 3);
+      ctx.fillStyle = "#264653";                    // o nome pintado na proa
+      ctx.fillRect(bx + 5, by + bh - 14, 8, 1);
+    });
+
+    // 5. A NEBLINA DA SERRA: faixas brancas soltas, mais grossas lá em cima
+    if (tema === "serra") {
+      for (let i = 0; i < 26; i++) {
+        const y0 = r.int(cv.height), alt = 3 + r.int(6);
+        const peso = 1 - y0 / cv.height;              // em cima, mais neblina
+        ctx.globalAlpha = 0.08 + peso * 0.18;
+        ctx.fillStyle = "#f2f5f8";
+        ctx.fillRect(r.int(cv.width) - 60, y0, 80 + r.int(160), alt);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // 6. O QUE O APAGÃO DEIXOU: poucos, e só no chão aberto
+    for (let i = 0; i < Math.round(tw * th * 0.012); i++) {
+      const x = r.int(tw), y = r.int(th);
+      if (!".P,a".includes(at(x, y))) continue;
+      ctx.fillStyle = r.pick(["#b455ff", "#00ffcc", "#ff0066"]);
+      ctx.fillRect(x * 16 + r.int(12), y * 16 + r.int(14), 2 + r.int(4), 1);
+    }
+    return cv;
+  },
+
+  /** A BASE do ARCEUS REDENTOR de RIO DE JANEEVEE (src/data/braglitch-mundo.js):
+   *  o pedestal de pedra clara em degraus, ocupando o bloco inteiro (10x5
+   *  tiles). O ARCEUS em si não é pintado aqui: ele tem nove blocos de altura
+   *  e é desenhado por cima de tudo, em pé, pela cena (`drawEstatua`), pra quem
+   *  passar atrás dele sumir atrás dele. */
+  _arceusRedentor(ctx, X, Y, W, H) {
+    const px = (x, y, w, h, cor) => { ctx.fillStyle = cor; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
+    ctx.fillStyle = "rgba(0,0,0,0.22)";                     // a sombra no chão
+    ctx.fillRect(X + 2, Y + H - 3, W - 4, 3);
+    // três degraus, cada um mais estreito e mais pra trás
+    const degraus = [[0, 0, H], [8, 10, H - 18], [16, 20, H - 34]];
+    degraus.forEach(([rec, topo, alt], i) => {
+      const x = X + rec, w = W - rec * 2, y = Y + topo;
+      px(x, y, w, alt, i % 2 ? "#dcdad0" : "#d0cec4");
+      px(x, y, w, 2, "#efede5");                            // a quina iluminada
+      px(x, y + alt - 1, w, 1, "#7d7b73");                  // a quina de baixo
+      px(x, y, 1, alt, "#e6e4db");
+      px(x + w - 1, y, 1, alt, "#a9a79e");
+      for (let k = x + 6; k < x + w - 6; k += 12) px(k, y + alt - 5, 6, 1, "#bdbbb1");   // juntas das pedras
+    });
+    // a placa de bronze na frente do degrau de baixo
+    px(X + W / 2 - 14, Y + H - 12, 28, 7, "#b89b4e");
+    px(X + W / 2 - 12, Y + H - 10, 24, 1, "#6e5a26");
+    px(X + W / 2 - 12, Y + H - 8, 18, 1, "#6e5a26");
+  },
+
+  /** Um prédio de Braglitch, inteiro. `c` é a letra da planta. */
+  _predio(ctx, c, X, Y, W, H, portas, cor, r) {
+    const sombra = (x, y, w, h) => { ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(x, y, w, h); };
+    if (c === "A") return this._arceusRedentor(ctx, X, Y, W, H);
+    if (c === "K") {                               // o CORETO: cúpula e colunas
+      const cx = X + W / 2;
+      ctx.fillStyle = "#e8e2d0";
+      ctx.fillRect(X + 2, Y + H - 8, W - 4, 6);     // o piso de cima
+      ctx.fillStyle = "#ffffff";
+      for (let k = 0; k < 4; k++) ctx.fillRect(X + 4 + k * ((W - 10) / 3), Y + 12, 2, H - 18);
+      ctx.fillStyle = "#2e8b57";                    // cúpula verde de chapa
+      ctx.beginPath();
+      ctx.ellipse(cx, Y + 12, W / 2 - 1, 10, 0, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = "#c0392b";
+      ctx.fillRect(X + 1, Y + 11, W - 2, 3);        // o friso
+      ctx.fillStyle = "#ffd23f";
+      ctx.fillRect(cx - 1, Y, 2, 4);                // o pináculo
+      return;
+    }
+    const telhado = c === "C" ? "#d64040" : c === "M" ? "#3a7bd5" : c === "L" ? "#8a9bb0"
+      : c === "G" ? "#2f7d4f" : "#b5532e";
+    const parede = c === "L" || c === "C" || c === "M" || c === "I" ? "#f4f1ea" : c === "G" ? "#f2d45c" : cor;
+    const casario = c === "H" || c === "h";        // as casas: janela com veneziana e chaminé
+    const alturaParede = Math.min(26, Math.round(H * 0.5));
+    const yParede = Y + H - alturaParede;
+    const topo = Y + (c === "I" ? 10 : 2);
+    const tom = (hex, f) => {                      // a mesma cor, mais escura (f<1) ou mais clara (f>1)
+      const n = parseInt(hex.slice(1), 16);
+      const ch = (v) => Math.max(0, Math.min(255, Math.round(f > 1 ? v + (255 - v) * (f - 1) : v * f)));
+      return `rgb(${ch(n >> 16)},${ch((n >> 8) & 255)},${ch(n & 255)})`;
+    };
+    const ret = (x, y, w, h, cor) => { ctx.fillStyle = cor; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
+
+    // a SOMBRA do prédio no chão: pra direita e pra baixo (a luz vem de cima-esquerda)
+    ctx.fillStyle = "rgba(20,30,20,0.22)";
+    ctx.fillRect(X + W, topo + 4, 3, H - (topo - Y) - 4);
+    ctx.fillRect(X + 3, Y + H, W, 2);
+
+    // A PAREDE: a cor, o rodapé mais escuro e a sombra do beiral em cima
+    ret(X + 1, yParede, W - 2, alturaParede, parede);
+    ret(X + 1, Y + H - 3, W - 2, 3, tom(parede, 0.78));
+    ret(X + 1, yParede, 1, alturaParede, tom(parede, 1.25));            // a quina iluminada
+    ret(X + W - 3, yParede, 2, alturaParede, tom(parede, 0.82));        // a quina na sombra
+    if (casario) {
+      // O CASARIO COLONIAL: parede colorida emoldurada de branco — os cunhais
+      // nas quinas e a cimalha embaixo do beiral
+      ret(X + 1, yParede, 3, alturaParede - 3, "#f7f3e8");
+      ret(X + W - 4, yParede, 3, alturaParede - 3, "#e4ddcc");
+      ret(X + 1, yParede, W - 2, 3, "#f7f3e8");
+      ret(X + 1, yParede + 3, W - 2, 1, tom(parede, 0.75));
+    }
+    if (c === "C") ret(X + 1, yParede + 3, W - 2, 2, "#d64040");        // a faixa vermelha do Centro
+    ret(X + 1, yParede, W - 2, 2, "rgba(0,0,0,0.22)");                  // a sombra do beiral
+
+    // O TELHADO: sai 1px pra fora da parede dos dois lados (o beiral), telha
+    // em escamas, cumeeira clara em cima e o beiral escuro embaixo
+    const tx = X - 1, tw = W + 2, th = yParede + 1 - topo;
+    ret(tx, topo, tw, th, telhado);
+    for (let yy = topo + 4, fila = 0; yy < yParede - 1; yy += 4, fila++) {
+      for (let xx = tx + (fila % 2 ? 3 : 0); xx < tx + tw - 3; xx += 6) {
+        ret(xx, yy, Math.min(5, tx + tw - 3 - xx), 1, tom(telhado, 0.72));   // a borda de baixo da telha
+        ret(xx, yy - 3, 1, 3, tom(telhado, 0.85));                     // a junta
+        ret(xx + 1, yy - 3, 2, 1, tom(telhado, 1.2));                  // o brilho da telha
+      }
+    }
+    ret(tx, topo, tw, 2, tom(telhado, 1.3));                           // a cumeeira
+    ret(tx, topo + 2, tw, 1, tom(telhado, 0.8));
+    ret(tx, topo, 2, th, tom(telhado, 1.12));                          // o oitão, na luz
+    ret(tx + tw - 3, topo, 3, th, tom(telhado, 0.78));                 // e na sombra
+    ret(tx, yParede - 1, tw, 2, tom(telhado, 0.6));                    // o beiral
+    if (casario && W >= 48) {                      // a chaminé de tijolo
+      const cx = X + W - 14;
+      ret(cx, topo - 5, 6, 9, "#8a4b32");
+      ret(cx, topo - 5, 6, 2, "#b0694a");
+      ret(cx + 1, topo - 1, 1, 1, "#6a3522"); ret(cx + 4, topo + 1, 1, 1, "#6a3522");
+    }
+
+    // AS JANELAS (menos onde tem porta): moldura branca, vidro com reflexo,
+    // peitoril embaixo e, nas casas, a veneziana de madeira dos dois lados
+    const vidro = c === "L" ? "#9fd3f5" : "#3a6ea5";
+    const veneziana = tom(cor === parede ? "#2e7d4f" : "#2e7d4f", 1);
+    for (let xx = X + 6; xx + 12 < X + W - 2; xx += 16) {
+      if (portas.some((p) => xx + 12 > p && xx < p + 16)) continue;
+      const wy = yParede + 6;
+      if (casario) { ret(xx - 3, wy, 3, 10, veneziana); ret(xx + 12, wy, 3, 10, veneziana);
+                     ret(xx - 3, wy + 3, 3, 1, tom(veneziana, 0.7)); ret(xx + 12, wy + 3, 3, 1, tom(veneziana, 0.7));
+                     ret(xx - 3, wy + 6, 3, 1, tom(veneziana, 0.7)); ret(xx + 12, wy + 6, 3, 1, tom(veneziana, 0.7)); }
+      ret(xx, wy, 12, 10, "#ffffff");
+      ret(xx + 1, wy + 1, 10, 8, vidro);
+      ret(xx + 2, wy + 2, 2, 1, "#d8efff"); ret(xx + 2, wy + 3, 1, 1, "#d8efff");   // o reflexo
+      ret(xx + 6, wy + 1, 1, 8, "#ffffff");                                        // o caixilho
+      ret(xx - 1, wy + 10, 14, 1, tom(parede, 0.7));                               // o peitoril
+      if (casario && r.chance(0.55)) {             // a floreira debaixo da janela
+        ret(xx, wy + 11, 12, 3, "#7a4a2a");
+        ret(xx, wy + 11, 12, 1, "#9a6238");
+        for (let k = 0; k < 6; k++) {
+          const fx = xx + 1 + k * 2;
+          ret(fx, wy + 10, 1, 1, "#3e8d34");
+          ret(fx, wy + 9 + (k % 2), 1, 1, r.pick(["#ff5a5f", "#ffd23f", "#ff9ec7", "#ffffff"]));
+        }
+      }
+    }
+
+    // AS PORTAS (em cima do tile D, que fica logo abaixo): batente, a porta de
+    // madeira com duas almofadas, a maçaneta e o degrau de pedra
+    // a cor da porta: nas casas, cada uma pinta a sua
+    const corPorta = c === "I" ? "#2f6db5" : casario ? r.pick(["#6b3f1f", "#2e7d4f", "#2f5d9e", "#7a2331"]) : "#6b3f1f";
+    for (const px of portas) {
+      const dy = yParede + alturaParede - 15;
+      if (c === "G") {                             // o GINÁSIO: duas colunas em volta da porta
+        for (const cx of [px - 2, px + 15]) {
+          ret(cx, dy - 5, 3, 20, "#f4f1ea"); ret(cx + 2, dy - 5, 1, 20, "#cfc8b6");
+          ret(cx - 1, dy - 6, 5, 2, "#ffffff"); ret(cx - 1, dy + 13, 5, 2, "#cfc8b6");
+        }
+      }
+      if (c === "M") {                             // a LOJA: o toldo listrado em cima da porta
+        for (let k = 0; k < 18; k += 2) ret(px - 1 + k, dy - 6, 2, 4, (k / 2) % 2 ? "#ffffff" : "#3a7bd5");
+        for (let k = 0; k < 18; k += 2) ret(px - 1 + k, dy - 2, 1, 1, (k / 2) % 2 ? "#ffffff" : "#3a7bd5");
+        ret(px - 1, dy - 7, 18, 1, "#255aa8");
+      }
+      ret(px + 2, dy - 1, 12, 16, c === "I" ? "#e8e2d0" : tom(parede, 1.35));      // o batente
+      ret(px + 3, dy, 10, 14, corPorta);
+      const alm = tom(corPorta, 0.75);
+      ret(px + 4, dy + 2, 3, 4, alm); ret(px + 9, dy + 2, 3, 4, alm);
+      ret(px + 4, dy + 8, 3, 4, alm); ret(px + 9, dy + 8, 3, 4, alm);
+      ret(px + 8, dy + 7, 1, 2, "#ffd23f");                                          // a maçaneta
+      ret(px + 1, dy + 14, 14, 2, "#a19d93"); ret(px + 1, dy + 14, 14, 1, "#c9c5ba"); // o degrau
+      if (casario && r.chance(0.5)) {              // o lampião do lado da porta
+        ret(px + 15, dy + 1, 2, 1, "#2b2b2b");
+        ret(px + 16, dy + 2, 3, 5, "#2b2b2b");
+        ret(px + 17, dy + 3, 1, 3, "#ffd86b");
+      }
+      if (c === "I") {                             // porta em arco
+        ret(px + 3, dy, 2, 2, parede); ret(px + 11, dy, 2, 2, parede);
+      }
+    }
+    // o que diz o que cada um é
+    if (c === "C") {                               // a bola do Centro
+      const cx = X + W / 2, cy = Y + 10;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(cx - 5, cy - 5, 10, 10);
+      ctx.fillStyle = "#d64040";
+      ctx.fillRect(cx - 5, cy - 5, 10, 4);
+      ctx.fillStyle = "#222";
+      ctx.fillRect(cx - 5, cy - 1, 10, 1);
+      ctx.fillRect(cx - 1, cy - 2, 2, 3);
+    } else if (c === "G") {                        // o GINÁSIO: faixa verde-amarela e a bola no alto
+      ctx.fillStyle = "#1f5fbf";
+      ctx.fillRect(X, yParede - 3, W, 3);
+      const cx = X + W / 2, cy = Y + 9;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(cx - 7, cy - 6, 14, 12);
+      ctx.fillStyle = "#1f5fbf";
+      ctx.fillRect(cx - 7, cy - 6, 14, 5);
+      ctx.fillStyle = "#222";
+      ctx.fillRect(cx - 7, cy - 1, 14, 1);
+      ctx.fillRect(cx - 2, cy - 2, 4, 3);
+      ctx.fillStyle = "#ffd23f";                   // as estrelas das insígnias
+      ctx.fillRect(X + 4, Y + 6, 2, 2);
+      ctx.fillRect(X + W - 6, Y + 6, 2, 2);
+    } else if (c === "M") {                        // a placa da loja
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(X + W / 2 - 8, Y + 6, 16, 7);
+      ctx.fillStyle = "#3a7bd5";
+      ctx.fillRect(X + W / 2 - 6, Y + 8, 12, 3);
+    } else if (c === "L") {                        // a antena do laboratório
+      ctx.fillStyle = "#555";
+      ctx.fillRect(X + W - 12, Y - 6, 1, 10);
+      ctx.fillStyle = "#ff5a5f";
+      ctx.fillRect(X + W - 13, Y - 7, 3, 2);
+      ctx.fillStyle = "#e9c46a";                   // placas solares
+      ctx.fillRect(X + 6, Y + 6, 18, 6);
+      ctx.fillStyle = "#26547c";
+      ctx.fillRect(X + 7, Y + 7, 16, 4);
+    } else if (c === "I") {                        // a torre da igrejinha, com a cruz
+      const cx = X + W / 2;
+      ctx.fillStyle = "#f4f1ea";
+      ctx.fillRect(cx - 7, Y + 2, 14, 12);
+      ctx.fillStyle = "#b5532e";
+      ctx.fillRect(cx - 8, Y, 16, 3);
+      ctx.fillStyle = "#6b3f1f";
+      ctx.fillRect(cx - 2, Y + 5, 4, 5);           // o sino
+      ctx.fillStyle = "#ffd23f";
+      ctx.fillRect(cx - 1, Y - 8, 2, 8);
+      ctx.fillRect(cx - 3, Y - 6, 6, 2);
+    }
   },
 
   glitchRoom(geo, seed = 4242) {

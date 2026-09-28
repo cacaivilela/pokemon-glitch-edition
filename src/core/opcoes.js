@@ -9,6 +9,11 @@ const CHAVE = "pge.opcoes";
 const PADRAO = {
   idioma: "pt",
   velocidade: 1,        // multiplicador: 0.5 devagar, 1 normal, 2 rápido...
+  // A FALA (src/systems/dialogue.js): o jeito de ler é de quem lê
+  falaEstilo: "caixa",  // "caixa" (a de baixo, do GBA) ou "balao" (em cima de quem fala)
+  falaVel: 1,           // índice em FALA_VELOCIDADES: 0 lenta ... 3 na hora
+  falaSom: true,        // o tique das letras aparecendo
+  falaAuto: false,      // a página vira sozinha depois de dar tempo de ler
 };
 
 let atual = null;

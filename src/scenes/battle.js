@@ -1,6 +1,7 @@
 // Cena de batalha por turnos. O fluxo usa async/await: cada `await this.say()`
 // espera o jogador apertar Z, o que deixa a logica linear e facil de estender.
 import { DB } from "../data/index.js";
+import { emBraglitch } from "../systems/regionais.js";
 import { bolaPorItem, jogou as jogouBola } from "../data/bolas.js";
 import { Assets } from "../core/assets.js";
 import { trainerArt, adiantarMons } from "../core/sprites.js";
@@ -21,12 +22,14 @@ import { GLITCHBOOSTER } from "../data/glitch.js";
 import { hpPct, isFainted, gainXp, xpYieldFor, xpForLevel, heal, createMon } from "../systems/mon.js";
 import {
   calcDamage, accuracyCheck, applyMoveEffects, statusTickDamage, effText,
-  chooseAiMove, catchAttempt, catchGlitchball, canFlee, newStages, effectiveStat,
+  chooseAiMove, catchAttempt, catchGlitchball, chanceDeCaptura, canFlee, newStages, effectiveStat,
+  aoSerCurado, aoApanhar, devolveu,
 } from "../systems/battle-engine.js";
-import { habilidadeDoMon, entrada as entradaDaHabilidade, contato as contatoDaHabilidade, curaDoTurno } from "../systems/habilidades.js";
+import { habilidadeDoMon, entrada as entradaDaHabilidade, contato as contatoDaHabilidade, curaDoTurno, ficaNaBola } from "../systems/habilidades.js";
 import { opcoesMega, megaEvoluir, reverterMega, reverterTudo } from "../systems/mega.js";
 import { venceu as venceuAmizade } from "../systems/creche.js";
 import { reduzido } from "../core/reduzir.js";
+import { isoLigado, chaoDeBatalhaIso, plataformaIso, emPeIso } from "../core/isometrico.js";
 
 const W = 240, H = 160;
 
@@ -37,6 +40,7 @@ export class BattleScene {
     this.npcKey = args.npcKey || null;
     this.isGlitch = !!args.glitch;
     this.boss = !!args.boss;
+    this.falaCaptura = args.falaCaptura || null;   // o SACI tem a dele
     this.foeParty = this.trainer
       ? this.trainer.party.map((p) => createMon(p.id, p.lvl, { corrupt: !!p.corrupt }))
       : [args.foe];
@@ -414,6 +418,8 @@ export class BattleScene {
     await this.say(texto);
     if (d.id === "soneca") {
       this.mine.hp = Math.min(this.mine.maxHp, this.mine.hp + Math.ceil(this.mine.maxHp * 0.12));
+      const doce = aoSerCurado(this.mine, this.pStages);
+      if (doce) await this.say(doce);
       return inimigoBate();
     }
     if (d.id === "recusa") return inimigoBate();
@@ -608,6 +614,12 @@ export class BattleScene {
       }
       target.hp = Math.max(0, target.hp - dano);
       await this.syncHp();
+      // CONTRA-ATAQUE (o GINGÃO): quem bateu com o dano guardado zera a conta;
+      // quem apanhou guarda o golpe e sobe a defesa
+      const devolve = devolveu(user, uStages, res);
+      if (devolve) await this.say(devolve);
+      const guardou = aoApanhar(target, tStages, dano);
+      if (guardou) await this.say(guardou);
       if (res.mirror) {
         Glitch.hit(1.5);
         Audio2.glitch();
@@ -643,14 +655,21 @@ export class BattleScene {
           await this.say(G.comeu.replace("{NOME}", target.nickname).replace("{N}", r.bonus));
         }
       }
+      if (res.pegouAlma) { Audio2.glitch(); await this.say(`${user.nickname} PEGOU A ALMA DE ${target.nickname}!`); }
       if (res.crit) await this.say("ACERTO CRÍTICO!");
       const et = effText(res.eff);
-      if (et) await this.say(et);
+      if (et && !res.pegouAlma) await this.say(et);
       if (mv.recoil) {
         const rec = Math.max(1, Math.floor(dano * mv.recoil));
         user.hp = Math.max(0, user.hp - rec);
         await this.syncHp();
         await this.say(`${user.nickname} SOFREU O RECUO!`);
+      }
+      // o PREÇO do golpe (o PEGA ALMA): HP fixo, pegando alma ou não
+      if (mv.custoHp) {
+        user.hp = Math.max(0, user.hp - mv.custoHp);
+        await this.syncHp();
+        await this.say(`${user.nickname} PERDEU ${mv.custoHp} DE HP!`);
       }
     } else if (res.imune) {
       // LEVITAR, PARA-RAIOS, ESPONJA, CHAMA VIVA: a habilidade segurou o golpe
@@ -659,6 +678,8 @@ export class BattleScene {
         target.hp = Math.min(target.maxHp, target.hp + Math.ceil(target.maxHp * res.cura));
         await this.syncHp();
         await this.say(T.absorve.replace("{HAB}", res.imune.nome).replace("{MON}", target.nickname));
+        const doce = aoSerCurado(target, who === "p" ? this.fStages : this.pStages);
+        if (doce) await this.say(doce);
       } else await this.say(T.imune.replace("{HAB}", res.imune.nome).replace("{MON}", target.nickname));
       return;
     } else if (res.eff === 0) {
@@ -694,6 +715,8 @@ export class BattleScene {
         mon.hp = Math.min(mon.maxHp, mon.hp + Math.max(1, Math.floor(mon.maxHp * f)));
         await this.syncHp();
         await this.say(DB.CLIMA_TEXTO.cura.replace("{HAB}", habilidadeDoMon(mon).nome).replace("{MON}", mon.nickname));
+        const doce = aoSerCurado(mon, mon === this.mine ? this.pStages : this.fStages);
+        if (doce) await this.say(doce);
       }
     }
     // o clima conta os turnos dele (a TEMPESTADE tem Infinity: não acaba)
@@ -761,6 +784,23 @@ export class BattleScene {
       if (this.npcKey) (this.st.npcState[this.npcKey] ||= {}).defeated = true;
       await this.say(`VOCÊ DERROTOU ${this.trainer.name}!`);
       await this.say(`VOCÊ GANHOU $${prize}!`);
+      // AS INSÍGNIAS DE BRAGLITCH moram à parte (src/data/braglitch-mundo.js):
+      // a história de Kanto conta as oito dela e não pode contar estas
+      const bb = this.trainer.bragBadge;
+      if (bb && !(this.st.bragBadges ||= []).includes(bb)) {
+        this.st.bragBadges.push(bb);
+        const b = (DB.INSIGNIAS_BRAG || []).find((x) => x.id === bb);
+        Audio2.heal();
+        await this.say(DB.BRAGLITCH_TEXTO.insignia.replace("{NOME}", b ? b.name : "INSÍGNIA"));
+      }
+      // AS INSÍGNIAS SECRETAS (a do VOID, src/data/void.js) não contam pra
+      // história de lado nenhum: ficam numa flag, só de quem achou
+      const sec = this.trainer.insigniaSecreta;
+      if (sec && !this.st.flags[`insignia_${sec.id}`]) {
+        this.st.flags[`insignia_${sec.id}`] = true;
+        Audio2.heal();
+        await this.say(`VOCÊ RECEBEU A ${sec.nome}!`);
+      }
       if (this.trainer.badge && !this.st.badges.includes(this.trainer.badge)) {
         this.st.badges.push(this.trainer.badge);
         const b = DB.STORY.badges.find((x) => x.id === this.trainer.badge);
@@ -906,7 +946,14 @@ export class BattleScene {
     this.ballAnim = { t: 0, shakes: 0 };
     // o bônus da bola entra na mesma fórmula de sempre (`catchAttempt`): 1 na
     // comum, 1,5 na GREAT e 2 na ULTRA, como no jogo original
-    const shakes = ehGlitch ? catchGlitchball(this.foe) : catchAttempt(this.foe, bola?.bonus || 1);
+    let shakes = ehGlitch ? catchGlitchball(this.foe) : catchAttempt(this.foe, bola?.bonus || 1);
+    // FICA! (a linha do DIGGLE, se for ele que está em campo): a bola ia abrir,
+    // ele late o comando e o selvagem fica lá dentro. O bônus é 25% do nível,
+    // SOMADO à chance da bola (ver `ficaNaBola`).
+    let ficou = false;
+    if (!ehGlitch && shakes < 4 && ficaNaBola(this.mine, chanceDeCaptura(this.foe, bola?.bonus || 1))) {
+      shakes = 4; ficou = true;
+    }
     await this.wait(0.7);
     for (let i = 0; i < Math.min(3, shakes); i++) {
       this.ballAnim.shakes = i + 1;
@@ -916,6 +963,8 @@ export class BattleScene {
     if (shakes >= 4) {
       Audio2.heal();
       this.ballAnim.caught = true;
+      if (ficou) await this.say(DB.CLIMA_TEXTO?.fica?.replace("{MON}", this.mine.nickname).replace("{FOE}", this.foe.nickname)
+        || `${this.mine.nickname}: FICA! E ${this.foe.nickname} FICOU NA BOLA.`);
       await this.say(`GOTCHA! ${this.foe.nickname} FOI CAPTURADO!`);
       // dentro da bola ninguém fica megado: o que entra na equipe é a espécie
       // de verdade (e é ela que conta pra Pokédex e pro fim do arco)
@@ -968,6 +1017,7 @@ export class BattleScene {
       await this.say(`${ativo ? "O RESTO DA EQUIPE TAMBÉM GANHOU" : "A EQUIPE GANHOU"} ${xp} DE EXP.!`);
     }
     for (const mon of winners) {
+      if (mon.trunfo) await this.say(DB.TRUNFO_TEXTO.dobro.replace("{MON}", mon.nickname));
       for (const ev of gainXp(mon, xp)) {
         if (ev.type === "level") {
           Audio2.heal();
@@ -1037,8 +1087,13 @@ export class BattleScene {
       await this.say(`${this.foe.nickname} FOI ENVIADO AO PC.`);
       this.st.box.push(this.foe);
     }
-    if (this.boss) await this.say(DB.STORY.dimension.caught);
-    if (this.foe.species === "missingno") {
+    if (this.boss) await this.say(this.falaCaptura || DB.STORY.dimension.caught);
+    if (this.foe.species === "missingno" && emBraglitch(this.st.player.map)) {
+      // em BRAGLITCH ele é só mais um glitch solto: não conserta Kanto
+      // (src/systems/regionais.js, `glitchDeVerdade`)
+      const T = DB.BRAGLITCH_TEXTO?.missingnoPego;
+      if (T) await this.say(T.replace("{MON}", this.foe.nickname));
+    } else if (this.foe.species === "missingno") {
       // fim do arco: o mundo volta ao normal
       this.st.flags.caughtMissingno = true;
       this.st.flags.glitchWorld = false;
@@ -1105,6 +1160,8 @@ export class BattleScene {
     Audio2.heal();
     await this.syncHp();
     await this.say(`${this.mine.nickname} RECUPEROU 20 DE HP!`);
+    const doce = aoSerCurado(this.mine, this.pStages);
+    if (doce) await this.say(doce);
     const fMove = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages, this.clima?.tipo);
     if (fMove) await this.useMove("f", fMove);
     await this.checkFaints();
@@ -1346,9 +1403,17 @@ export class BattleScene {
       ctx.fillStyle = "rgba(255,210,80,0.22)";
       ctx.fillRect(-8, 0, W + 16, 110);
     }
-    ctx.fillStyle = this.isGlitch ? "#3a1d5c" : "#8fd06a";
-    ctx.beginPath(); ctx.ellipse(178, 66, 46, 12, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(48, 106, 54, 14, 0, 0, Math.PI * 2); ctx.fill();
+    if (isoLigado()) {
+      // NO ISOMÉTRICO: piso de losangos e plataformas em bloco (src/core/isometrico.js)
+      chaoDeBatalhaIso(ctx, W, 52, 110, this.isGlitch ? ["#1d0e30", "#26123d"] : ["#b9e2a0", "#a8d68c"]);
+      const cor = this.isGlitch ? "#3a1d5c" : "#8fd06a";
+      plataformaIso(ctx, 178, 64, 46, cor);
+      plataformaIso(ctx, 48, 104, 56, cor, 8);
+    } else {
+      ctx.fillStyle = this.isGlitch ? "#3a1d5c" : "#8fd06a";
+      ctx.beginPath(); ctx.ellipse(178, 66, 46, 12, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(48, 106, 54, 14, 0, 0, Math.PI * 2); ctx.fill();
+    }
 
     // sprites em 64x64 (tamanho nativo dos de batalha do FireRed), com animação
     const bob = Math.sin(this.t * 2) * 1.5;
@@ -1361,8 +1426,10 @@ export class BattleScene {
       const e = sp.escala ?? 1;
       const lado = 64 * e;
       ctx.globalAlpha = sp.alpha;
-      ctx.drawImage(img, Math.round(x + sp.dx + l + (64 - lado) / 2),
-                    Math.round(y + sp.dy + (64 - lado)), lado, lado);
+      const dx = Math.round(x + sp.dx + l + (64 - lado) / 2), dy = Math.round(y + sp.dy + (64 - lado));
+      // no ISOMÉTRICO o Pokémon é a plaquinha grossa em pé, como os do mapa
+      if (isoLigado()) emPeIso(ctx, img, dx, dy, lado, lado);
+      else ctx.drawImage(img, dx, dy, lado, lado);
       ctx.globalAlpha = 1;
     };
     const tart = this.showTrainer ? trainerArt(this.trainer?.sprite) : null;

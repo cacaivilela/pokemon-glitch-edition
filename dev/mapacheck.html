@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- O MAPA DA REGIÃO (Braglitch no formato do Brasil): desenha a tela do menu
+     sem abrir o jogo, com o cursor em alguns lugares, e grava cada retrato em
+     dev/captures/mapa_<lugar>.png. Uso: /dev/mapacheck.html -->
+<meta charset="utf-8">
+<title>mapa da região</title>
+<style> body { background:#111; color:#ddd; font:13px monospace; } canvas { image-rendering: pixelated; width: 720px; } </style>
+<div id="saida"></div>
+<script type="module">
+const saida = document.getElementById("saida");
+try {
+  const { DB } = await import("/src/data/index.js");
+  const { OverworldScene } = await import("/src/scenes/overworld.js");
+  const P = OverworldScene.prototype;
+  for (const [aqui, sel] of [["sao_lucario", "sao_lucario"], ["recife", "natal"], ["brasilia", "chapada"], ["sampa_pokemon_center_1f", "larvanjal"]]) {
+    const cv = document.createElement("canvas"); cv.width = 240; cv.height = 160;
+    const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+    const cena = Object.create(P);
+    Object.defineProperty(cena, "geo", { value: DB.KANTO[aqui] });
+    Object.defineProperty(cena, "st", { value: { player: { map: aqui } } });
+    cena.drawMapaRegiao(ctx, { type: "mapaRegiao", sel });
+    const dataUrl = cv.toDataURL();
+    await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: `mapa_${sel}`, dataUrl, log: `${aqui} -> ${sel}` }) });
+    saida.appendChild(cv);
+  }
+} catch (e) {
+  saida.append("ERRO: " + e + "\n" + e.stack);
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "mapa_erro", dataUrl: "", log: String(e) + "\n" + e.stack }) });
+}
+document.title = "mapa pronto";
+</script>

@@ -1,4 +1,4 @@
-# Pokémon Glitch Edition — Vol. 4
+# Pokémon Glitch Edition — Vol. 5
 
 Fangame 2D de Pokémon FireRed em **Kanto**, com **só os 151 da primeira geração**.
 Boilerplate próprio + live update: roda direto no navegador com ES modules
@@ -114,6 +114,166 @@ aprender golpe, troca de Pokémon, item e captura com a fórmula de chacoalhada.
 deslizando, avanço no golpe, piscada ao levar dano, queda ao desmaiar, barra de
 HP animada, tufo de grama ao pisar na grama alta, caminhada de 4 quadros e Poké
 Bola chacoalhando na captura.
+
+## BRAGLITCH: a outra região
+
+**JOGO NOVO** pergunta onde a jornada começa: **KANTO** (a de sempre) ou
+**BRAGLITCH**, uma região ao sul do mar, inspirada no Brasil, com história
+própria. Quem começa lá acorda em **SÃO LUCARIO DO SUL**: casario colorido,
+igrejinha, coreto na praça, praia com coqueiro e um píer com um barquinho.
+
+- **Os iniciais** são da mesa da **PROFA. IPÊ** (o professor de Kanto se chama
+  Carvalho; aqui também é nome de árvore): **TRONKY** (muda de pau-brasil,
+  PLANTA/SOMBRIO), **DIGGLE** (beagle cavador, FOGO/TERRA) e **TILAPISH**
+  (tilápia, ÁGUA). São espécies novas, com sprite desenhado em código.
+- **O APAGÃO**: a luz caiu no meio de uma gravação e os dados de Braglitch
+  voltaram fora de ordem. Três **REDEMOINHOS** na **BR-101** trocam bicho de
+  lugar; desfazer os três abre o caminho pro **SACI** (SOMBRIO/GLITCH), na
+  **MATA DO SACI**. Vencido sem captura, ele some num redemoinho e volta.
+- **63 Pokémon novos, inspirados no Brasil**, todos desenhados em código
+  (`tools/braglitch_desenhos/`), como as evoluções dos iniciais (TRONCUDO →
+  PAUBRASILISCO, BRASEAGLE → MAGMASTIM, TILAPISCO → TILAPIRAÇU), a fauna
+  (CAPIVARINHA, TUCANAÇU, TATUBOLA, SAUVINHA, PIRANHITA, PIRARUCU, BOTINHO →
+  ENCANTADO, LOBISOMEM, BANTEVY → BANGVEET, o papagaio LOROSÉ, o beagle fantasma ZEROGLE, o SANDBASH...), a cultura (FOGUEIRINHA, BALÃOZINHO, BRIGADEIRINHO,
+  PLUMÁRIO, ORELHÃO, GATONET, GAMBIARRA, CHUVISCO, CONCRETÃO...) e as lendas
+  (SACI, BOITATÁ, IARA e CURUPIRA).
+- **E 22 formas braglitchianas**, que continuam no mato junto com os novos:
+  SANDSHREW-BRAG (tatu-bola), SPEAROW-BRAG (carcará), AIPOM-BRAG
+  (mico-leão-dourado), MEOWTH-BRAG (onça-pintada), FINIZEN-BRAG (boto)... Nada
+  de Braglitch aparece no mato de Kanto, na fenda, em ovo ou em presente de
+  aniversário.
+- **Os dois professores se encontram** quatro vezes na história, e a conversa
+  começa falando com qualquer um deles: a IPÊ visita o laboratório do CARVALHO
+  (depois de você conhecer os dois), o CARVALHO vem a Braglitch ver o SACI, a
+  IPÊ volta a Kanto quando a última trava da fenda cede, e os dois esperam na
+  porta do ginásio de BASCULINHA depois da oitava insígnia de lá.
+- **Em Braglitch não se usa golpe fora de batalha.** SURFAR, CORTE,
+  QUEBRA-ROCHA, FORÇA e VOAR não funcionam do lado de lá; quem faz isso são as
+  **MONTARIAS**, e quem chama a montaria é um dos cinco **PANDEIROS DA TERRA**,
+  que a PROFA. IPÊ vai achando conforme a história anda (ela avisa pela Pokédex
+  e o pandeiro cai na mochila). Em Kanto vale o golpe (que tem a vez) ou o
+  pandeiro. As montarias também existem soltas, raríssimas, pra capturar.
+
+  | Pandeiro | Quando a IPÊ acha | Montaria | Ação |
+  |---|---|---|---|
+  | DO MATO | depois de pegar o SACI | ROÇADOR (PLANTA/AÇO) | Corte |
+  | DO MAR | 2ª insígnia de Braglitch | SUBMARINUM (ÁGUA/AÇO) | Surfar |
+  | DO SERTÃO | 4ª insígnia | TRATORÃO (TERRA/AÇO) | Força |
+  | DO CÉU | 5ª insígnia | CATORBIS (VOADOR/AÇO), o 14-Bis | Voar |
+  | DA SERRA | 6ª insígnia | BRITADEIRO (PEDRA/AÇO) | Quebra-Rocha |
+
+- **A linha do DIGGLE tem a habilidade FICA!** (DIGGLE, BRASEAGLE e
+  MAGMASTIM): com ele em campo, ele late "FICA!" e o selvagem fica na Poké Bola.
+  Soma 25% do nível dele na chance de captura: nível 40 = +10%, então uma bola
+  que tinha 30% passa a ter 40%.
+- **O VICTREEBEL de Braglitch é uma cuia**, com duas formas: **CHIMARRÃO**
+  (PLANTA/FOGO) e **TERERÊ** (PLANTA/GELO). O WEEPINBELL vira ele com PEDRA DA
+  FOLHA do lado de lá do mar (em Kanto continua o VICTREEBEL de sempre), e a
+  **CUIA TÉRMICA**, que o gaúcho de São Lucario do Sul dá, troca uma forma pela
+  outra quantas vezes quiser.
+- **Oito cidades e oito ginásios**, subindo da MATA DO SACI pela
+  MATA ATLÂNTICA até a capital. As insígnias de Braglitch são contadas à parte
+  das de Kanto (o menu de INSÍGNIAS mostra as da região em que você está), e o
+  VOAR também só lista as cidades da região atual:
+
+  | Cidade | Líder | Tipo | Insígnia |
+  |---|---|---|---|
+  | BELÉM DO PARASECT | JACIRA | PLANTA | SAMAÚMA |
+  | RECIFEEBAS | CHICO MANGUE | ÁGUA | MANGUE |
+  | SALVADITTO | MESTRE GINGA | LUTADOR | BERIMBAU |
+  | CARUARU DO MAGMAR | ZEFA DA FOGUEIRA | FOGO | FOGUEIRA |
+  | SAMPIKACHU | GAMBI | ELÉTRICO | TOMADA |
+  | OURO GASTLY | LUZIA DAS ALMAS | FANTASMA | LAMPIÃO |
+  | RIO DE JANEEVEE | RAINHA LUA | FADA | TAMBORIM |
+  | BASCULINHA | ENGENHEIRA NIEMA | GLITCH | CÚPULA |
+
+  Entre a ESTRADA REAL e o RIO DE JANEEVEE fica o **MONTE SERRA**: a subida é
+  em terraços de pedra ligados por escadarias em zigue-zague, com um riacho que
+  desce em cachoeira, araucárias e neblina. Os barrancos no meio de cada
+  paredão só se pulam pra baixo: são o atalho da volta.
+
+  **O MAPA DO BRASIL.** Braglitch tem o formato do Brasil: cada lugar tem uma
+  posição no desenho e liga nos vizinhos pelos quatro lados (`LAYOUT` em
+  `src/data/braglitch-mundo.js`), e o menu ganha **MAPA** quando você está lá —
+  o contorno do país, as rotas, as cidades, as praias e um VOCÊ ESTÁ AQUI
+  piscando (`dev/mapacheck.html` desenha a tela sem abrir o jogo). A ordem da
+  história é a mesma; as rotas que agora correm de leste a oeste (BR-232,
+  BR-324, FERNÃO DIAS, BR-040) são geradas deitadas, e o MONTE SERRA ficou de
+  cabeça pra baixo (a ESTRADA REAL desce de OURO GASTLY pro RIO).
+
+  **Os lugares novos** (sem ginásio, com Centro e loja nas cidades), cada região
+  no seu arquivo, no formato de `dev/LUGARES.md` e conferidos por
+  `gjs -m dev/checalugares.js src/data/braglitch-<região>.js`:
+
+  | Onde | Lugar | O que tem |
+  |---|---|---|
+  | Sul | CURITYRANITAR | araucárias, a estufa do Jardim Botânico |
+  | Sul | FLORIPACHIRISU | a ilha, a ponte Hercílio Luz, a Lagoa da Conceição |
+  | Sul | CARVORIÚ (praia) | os prédios na beira-mar, CARVANHA no mato |
+  | Sul | PRAIA DO LARVANJAL | a lagoa, o píer, o doce de Pelotas e o **APPLIN-BRAG** |
+  | Nordeste | NATALTAIR | dunas, o Forte dos Reis Magos, o cajueiro |
+  | Nordeste | FORTALEZARD | a beira-mar e as jangadas |
+  | Norte | MANAUSQUIRTLE | o Rio Negro, o porto e o Teatro Amazonas (pós-jogo) |
+  | Centro-Oeste | PANTANAL (rota) | a planície alagada e as passarelas |
+  | Centro-Oeste | CUIABULBA | a cidade mais quente do Brasil |
+  | Centro-Oeste | CHAPADA DOS VEADEIROS (rota) | cânions e cachoeiras, entre a capital e a floresta |
+
+  O **APPLIN-BRAG** (PLANTA/ÁGUA) é o Applin de Braglitch: em vez de maçã, mora
+  num COCO VERDE com canudinho (sprite em `tools/braglitch_desenhos/lote_14.py`).
+
+  **Beeem ao norte**, saindo por cima da CHAPADA, fica a **FLORESTA AMAZÔNICA**:
+  o fim de Braglitch. É o dobro de uma estrada, mata fechada com lagoa por todo
+  lado, bichos da Amazônia no nível 50-56 (PIRARUCU, VITÓRIA-RÉGIA, TUCANAÇU,
+  PIRANHORDA...) e fechada em cima — depois dela não tem mais nada.
+
+  **O TRIO LENDÁRIO**: depois da oitava insígnia acordam o **AMAZONIUM**
+  (PLANTA/FADA, a árvore da floresta, na FLORESTA AMAZÔNICA) e o **DESTROIUM**
+  (SOMBRIO/AÇO, a máquina de destruição que saiu do servidor, na BR-040). Com os
+  dois pegos, sobe na lagoa da FLORESTA AMAZÔNICA o **ENCONTRIUM** (ÁGUA/DRAGÃO), o
+  Encontro das Águas: o rio que corre entre a mata e a máquina sem escolher lado.
+
+  Depois da oitava, BOITATÁ (BR-324), IARA (ESTRADA REAL) e CURUPIRA
+  (MATA ATLÂNTICA) aparecem nas estradas, nível 60.
+- **O barco**: o barqueiro do píer de São Lucario e o marinheiro da balsa das
+  SEVII fazem a mesma linha, com três pontas: **KANTO** (cais de Vermilion),
+  **BRAGLITCH** e as **ILHAS SEVII**. As ilhas continuam pedindo três
+  insígnias; entre Kanto e Braglitch o barco leva sempre, pra ninguém ficar
+  preso numa região só.
+
+Os mapas abertos são desenhados em código a partir de uma planta de texto
+(`src/data/braglitch.js` e `src/data/braglitch-mundo.js`, que gera as estradas
+por semente; o pintor é `Assets.braglitchArt`). Os interiores
+reusam a geometria e o desenho dos de Kanto, com as portas apontando pra cá. A
+trilha (a bossa de São Lucario e o baião da BR-101) é original, como o resto.
+
+```bash
+python3 tools/braglitch_sprites.py    # redesenha os sprites de Braglitch
+```
+
+A checagem é `dev/braglitchcheck.html`.
+
+**Todo Pokémon tem texto na Pokédex.** Os que não traziam frase própria (a
+maior parte da nacional) ganharam uma em `src/data/pokedex-textos.js`, escrita
+pra este jogo — não são as entradas oficiais.
+
+**O OBJETIVO.** Parado por um segundo, aparece no canto de cima o próximo
+passo da história da região em que você está ("PRÓXIMO GINÁSIO: RECIFEEBAS",
+"DESFAÇA OS REDEMOINHOS DA BR-101 (1/3)"...). Andou, ele some. A frase é lida
+do estado da partida (`src/systems/objetivo.js`), nunca gravada.
+
+**O CATÁLOGO ROTOM.** Um técnico no Centro Pokémon de SÃO LUCARIO DO SUL dá
+o catálogo. Usado num ROTOM (pela mochila), ele escolhe um aparelho e vira a
+forma: FORNO (ROTOM-CALOR, ELÉTRICO/FOGO), MÁQUINA DE LAVAR (LAVAGEM, ÁGUA),
+GELADEIRA (GELO), VENTILADOR (VOADOR) ou CORTADOR DE GRAMA (CORTE, PLANTA) — e
+volta ao normal quando quiser. Não se gasta. As formas estão em
+`src/data/rotom.js`, com os sprites oficiais (`fetch_sprites.py --only
+10008,10009,10010,10011,10012`).
+
+**AS ARVOREZINHAS.** As árvores finas que o CORTE derruba voltaram pra Kanto,
+nas mesmas posições do FireRed (entrada do ginásio de VERMILION, a ROTA 9,
+o ginásio de CELADON...). Em Braglitch, duas fecham a saída norte da MATA DO
+SACI: é o ROÇADOR, do PANDEIRO DO MATO, que abre o caminho pras cidades.
+Derrubada, fica derrubada.
 
 ## A cor: comum, shiny e LUMINOSO
 
@@ -357,8 +517,37 @@ qualquer partida):
 - **BATALHA DUPLA** — ON faz todo treinador com 2+ Pokémon lutar em dupla
   (ver **BATALHAS EM GRUPO**). Essa fica no **save**, não no navegador: é regra
   da partida, não preferência de quem está na tela.
+- **ISOMÉTRICO** — o mundo visto de quina (`src/core/isometrico.js`), em Kanto
+  e em BRAGLITCH, por fora, dentro das casas e nas cavernas. O
+  chão gira 45° e vira losango, e cada tile tem uma **altura**:
+  - a **água** fica um pouco abaixo da margem, e os andares de verdade do
+    FireRed (VICTORY ROAD, pontes) sobem um degrau por nível — é a elevação
+    original de cada tile, que `python3 tools/fetch_alturas.py` tira do decomp
+    pra `assets/maps/alturas.json` (sem mexer no `kanto.json`);
+  - **barranco** que separa duas partes do mapa põe a de cima num patamar mais
+    alto (Rota 22, Rota 4...); barrancos em círculo não têm resposta certa, então
+    o mais comprido manda e o que contradiz vira só um ressalto;
+  - **prédio** (casa, laboratório, CENTRO POKÉMON, loja, ginásio — a parede que
+    tem porta e fecha em si mesma) tem **dois blocos de altura** e telhado reto.
+    O teto é a fileira de cima do desenho dele (a beira do telhado) repetida por
+    cima inteiro, e a parede da frente mostra as duas fileiras de baixo — a
+    placa e a porta — do tamanho certo, sem esticar;
+  - as **outras paredes** (árvore, cerca, paredão) sobem um degrau a mais por
+    tile de distância do caminho: bosque fechado vira morro.
 
-As duas ficam no navegador (`localStorage`), não no save: são de quem está na
+  Os **bonecos e os Pokémon** sobem junto com o chão, ganham sombra e olham na
+  **diagonal** em que andam na tela: os sprites de batalha já são 3/4 (a frente
+  olha ↙, as costas ↗), e as outras duas diagonais são eles espelhados; herói,
+  NPCs e o dono usam a mesma regra com os quadros de frente e de costas. E cada
+  um é uma **plaquinha grossa** em pé, inclinada no mesmo ângulo das paredes
+  dos blocos (quem olha ↙/↗ fica no plano da face sul, quem olha ↘/↖ no da face
+  leste), com 5 pixels de espessura escurecida pra trás.
+  **Só o desenho muda**: colisão, passos, setas e encontros continuam
+  sendo os da grade de sempre. `?iso=1` / `?iso=0` na URL força; o
+  `dev/isocheck.html` tira um retrato de alguns mapas (com save próprio, o
+  `?perfil=isocheck`).
+
+Velocidade, idioma e isométrico ficam no navegador (`localStorage`), não no save: são de quem está na
 frente da tela. Apagar a partida não muda o idioma, e o idioma escolhido na tela
 de título já vale antes de existir save nenhum.
 

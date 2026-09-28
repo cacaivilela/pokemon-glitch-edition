@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem de BRAGLITCH</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  h2 { color:#b455ff; font-size:13px; margin:10px 0 2px; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<img id="hold" alt="" width="1" height="1" src="/__delay?ms=12000">
+<script type="module">
+// BRAGLITCH (src/data/braglitch.js): a região nova, o começo por lá, o barco
+// que liga KANTO, BRAGLITCH e as SEVII, e o arco do APAGÃO.
+const out = document.getElementById("out");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+const h = (t) => linhas.push(`<h2>${t}</h2>`);
+let falhas = 0;
+const ok = (t, c, extra = "") => { if (!c) falhas++; p(`${t}: ${c ? "OK" : "FALHOU " + extra}`, c ? "ok" : "erro"); };
+let arte = "";
+try {
+  const { DB } = await import("/src/data/index.js");
+  const MAPAS = ["sao_lucario", "rota_br101", "mata_do_saci", "bra_casa", "bra_lab", "sao_lucario_pokemon_center_1f", "bra_loja"];
+  const tag = (id, x, y) => { const g = DB.KANTO[id]; return (x < 0 || y < 0 || x >= g.w || y >= g.h) ? 1 : g.tags.charCodeAt(y * g.w + x) - 48; };
+  const anda = (id, x, y) => [DB.TAG.FREE, DB.TAG.GRASS].includes(tag(id, x, y));
+
+  h("OS MAPAS");
+  for (const id of MAPAS) ok(`${id} existe (geometria e conteúdo)`, !!DB.KANTO[id] && !!DB.MAPS[id]);
+  for (const id of MAPAS) {
+    const g = DB.KANTO[id], m = DB.MAPS[id];
+    ok(`${id}: tags do tamanho certo`, g.tags.length === g.w * g.h);
+    ok(`${id}: spawn em chão`, anda(id, m.spawn.x, m.spawn.y), JSON.stringify(m.spawn));
+    for (const w of g.warps) {
+      if (!w.to) { ok(`${id}: porta trancada em ${w.x},${w.y} tem mensagem`, !!m.lockedWarps?.[`${w.x},${w.y}`]); continue; }
+      const d = DB.KANTO[w.to]?.warps?.[w.toWarp];
+      ok(`${id} (${w.x},${w.y}) -> ${w.to}[${w.toWarp}] existe`, !!d);
+    }
+    for (const c of g.connections) {
+      const d = DB.KANTO[c.to];
+      ok(`${id} liga ${c.dir} em ${c.to}, mesma largura`, !!d && d.w === g.w);
+    }
+    for (const n of m.npcs || []) {
+      if (n.sprite === "ball") continue;
+      ok(`${id}: ${n.id} em pé em chão, fora de porta`, anda(id, n.x, n.y) && !g.warps.some((w) => w.x === n.x && w.y === n.y), `${n.x},${n.y}`);
+    }
+  }
+  // quem sai de um interior cai na porta do prédio certo
+  const saida = (id) => { const w = DB.KANTO[id].warps[0]; return DB.KANTO[w.to].warps[w.toWarp]; };
+  ok("sair de casa cai na porta da casa (4,11)", saida("bra_casa").x === 4 && saida("bra_casa").y === 11);
+  ok("sair do lab cai na porta do lab (24,6)", saida("bra_lab").x === 24 && saida("bra_lab").y === 6);
+  ok("sair do Centro cai na porta do Centro (21,11)", saida("sao_lucario_pokemon_center_1f").x === 21);
+  ok("o Centro tem PC", (DB.MAPS.sao_lucario_pokemon_center_1f.pc || []).length > 0);
+  ok("o interior usa o desenho de Kanto", DB.KANTO.bra_lab.arte === "lab");
+  const P = DB.BRAGLITCH.porto;
+  ok("o barqueiro fica no píer", anda(P.mapa, P.barqueiro.x, P.barqueiro.y));
+  ok("o barco te deixa no píer", anda(P.mapa, P.chegada.x, P.chegada.y));
+  for (const r of DB.REDEMOINHOS) ok(`redemoinho ${r.id} em chão (${r.x},${r.y})`, anda(r.mapa, r.x, r.y));
+  ok("o SACI em chão", anda(DB.SACI_NA_MATA.mapa, DB.SACI_NA_MATA.x, DB.SACI_NA_MATA.y));
+
+  h("O MUNDO DE CIMA: CIDADES, ESTRADAS E GINÁSIOS");
+  const mundo = await import("/src/data/braglitch-mundo.js");
+  // BFS pelo chão (livre, mato e porta). NPC parado é PAREDE: um guia no único
+  // corredor do ginásio trancava o líder (RECIFEEBAS) e o teste não via.
+  const alcanca = (id, de) => {
+    const g = DB.KANTO[id], visto = new Set([`${de.x},${de.y}`]), fila = [de];
+    const parados = new Set((DB.MAPS[id].npcs || []).filter((n) => !n.wander).map((n) => `${n.x},${n.y}`));
+    while (fila.length) {
+      const { x, y } = fila.shift();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy, k = `${nx},${ny}`;
+        if (visto.has(k) || !anda(id, nx, ny) || parados.has(k)) continue;
+        visto.add(k); fila.push({ x: nx, y: ny });
+      }
+    }
+    return visto;
+  };
+  const vizinho = (vistos, p) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => vistos.has(`${p.x + dx},${p.y + dy}`));
+  for (let i = 0; i < mundo.CADEIA.length; i++) {
+    const id = mundo.CADEIA[i], g = DB.KANTO[id], m = DB.MAPS[id];
+    if (!g || !m) { ok(`${id} existe`, false); continue; }
+    const cima = g.connections.find((c) => c.dir === "up"), baixo = g.connections.find((c) => c.dir === "down");
+    if (i < mundo.CADEIA.length - 1) ok(`${id} sobe pra ${mundo.CADEIA[i + 1]}`, cima?.to === mundo.CADEIA[i + 1] && DB.KANTO[cima.to].connections.some((c) => c.dir === "down" && c.to === id));
+    // entra por baixo e alcança: a saída de cima, todas as portas, os NPCs
+    const vistos = alcanca(id, { x: 14, y: g.h - 1 });
+    if (cima) ok(`${id}: dá pra atravessar de baixo até em cima`, vistos.has("14,0") || vistos.has("15,0"));
+    const portas = g.warps.filter((w) => w.to);
+    ok(`${id}: toda porta alcançável (${portas.length})`, portas.every((w) => vistos.has(`${w.x},${w.y}`)));
+    const npcs = (m.npcs || []).filter((n) => n.sprite !== "ball");
+    ok(`${id}: todo NPC em chão e alcançável`, npcs.every((n) => anda(id, n.x, n.y) && vizinho(vistos, n)),
+       npcs.filter((n) => !(anda(id, n.x, n.y) && vizinho(vistos, n))).map((n) => `${n.id}@${n.x},${n.y}`).join());
+  }
+  ok("o MONTE SERRA fica entre a ESTRADA REAL e o RIO", mundo.CADEIA.indexOf("monte_serra") === mundo.CADEIA.indexOf("estrada_real") + 1
+     && mundo.CADEIA[mundo.CADEIA.indexOf("monte_serra") + 1] === "rio");
+  ok("a serra tem barranco (só se pula pra baixo)", DB.KANTO.monte_serra.tags.includes(String(DB.TAG.LEDGE_S)));
+  for (const c of mundo.CIDADES) {
+    const gin = `${c.id}_ginasio`, g = DB.KANTO[gin], m = DB.MAPS[gin];
+    ok(`${c.nome}: ginásio, Centro e loja`, !!g && !!DB.MAPS[`${c.id}_pokemon_center_1f`] && !!DB.MAPS[`${c.id}_loja`]);
+    if (!g) continue;
+    const entrada = g.warps[0];
+    const vistos = alcanca(gin, { x: entrada.x, y: entrada.y });
+    const lider = m.npcs.find((n) => n.id === "lider");
+    ok(`${c.nome}: o líder ${c.lider.nome} é alcançável e dá a ${c.insignia.nome}`, !!lider && vizinho(vistos, lider) && lider.trainer.bragBadge === c.insignia.id);
+    ok(`${c.nome}: todo mundo do ginásio em chão`, m.npcs.every((n) => anda(gin, n.x, n.y) && vizinho(vistos, n)),
+       m.npcs.filter((n) => !(anda(gin, n.x, n.y) && vizinho(vistos, n))).map((n) => `${n.id}@${n.x},${n.y}`).join());
+    const sai = DB.KANTO[entrada.to]?.warps?.[entrada.toWarp];
+    ok(`${c.nome}: sair do ginásio cai na porta dele`, sai && DB.KANTO[c.id].planta[sai.y - 1][sai.x] === "G");
+  }
+  const timesOk = Object.values(DB.MAPS).flatMap((m) => m.npcs || []).filter((n) => n.trainer?.party)
+    .every((n) => n.trainer.party.every((p) => DB.SPECIES[p.id]));
+  ok("todo time de treinador só tem espécie que existe", timesOk);
+  const matos = mundo.ESTRADAS.flatMap((e) => DB.MAPS[e.id].encounters);
+  ok("o mato das estradas só tem espécie que existe", matos.every((e) => DB.SPECIES[e.id]), matos.filter((e) => !DB.SPECIES[e.id]).map((e) => e.id).join());
+  ok("e mistura bicho novo com forma -BRAG", matos.some((e) => DB.SPECIES[e.id].dex >= 1029) && matos.some((e) => DB.SPECIES[e.id].spriteDex > 21000));
+  for (const l of DB.LENDAS_BRAG) ok(`a lenda ${l.id} em chão alcançável (${l.mapa} ${l.x},${l.y})`, anda(l.mapa, l.x, l.y) && vizinho(alcanca(l.mapa, { x: 14, y: DB.KANTO[l.mapa].h - 1 }), l));
+  ok("8 insígnias de Braglitch", DB.INSIGNIAS_BRAG.length === 8);
+  const semSprite = [];
+  for (const sp of Object.values(DB.SPECIES).filter((x) => x.braglitch)) {
+    const n = sp.spriteDex || sp.dex;
+    const im = await new Promise((r) => { const i = new Image(); i.onload = () => r(true); i.onerror = () => r(false); i.src = `/assets/sprites/pokemon/${n}.png`; });
+    const co = await new Promise((r) => { const i = new Image(); i.onload = () => r(true); i.onerror = () => r(false); i.src = `/assets/sprites/pokemon/back/${n}.png`; });
+    if (!im || !co) semSprite.push(sp.id);
+  }
+  ok("todo bicho de Braglitch tem sprite de frente e de costas", !semSprite.length, semSprite.join());
+
+  h("A POKÉDEX");
+  const semTexto = Object.values(DB.SPECIES).filter((sp) => !sp.lore && !sp.mega && !sp.megaDe && !sp.fusao);
+  ok("todo Pokémon tem texto de Pokédex", !semTexto.length, semTexto.map((s) => s.id).slice(0, 20).join());
+  ok("BANTEVY: faz um barulho baixinho", DB.SPECIES.bantevy.dexText === "FAZ UM BARULHO BAIXINHO AO PIAR.");
+  ok("BANGVEET: o estrondo de 1 km, e evolui do BANTEVY", DB.SPECIES.bangveet.dexText === "FAZ UM ESTRONDO QUE DÁ PRA OUVIR POR 1 KM." && DB.EVOLUTIONS.bantevy?.[0]?.to === "bangveet");
+  ok("LOROSÉ existe", !!DB.SPECIES.lorose);
+
+  h("A HABILIDADE FICA!");
+  const hab = await import("/src/systems/habilidades.js");
+  ok("DIGGLE, BRASEAGLE e MAGMASTIM têm FICA!", ["diggle", "braseagle", "magmastim"].every((id) => hab.habilidadeDe(id)?.id === "fica"));
+  ok("e o TRONKY não", hab.habilidadeDe("tronky")?.id !== "fica");
+  // a conta de verdade: a bola sozinha + o FICA! por cima, e o total tem que ser a SOMA
+  const total = (lvl, p, n = 40000) => { const m = { species: "magmastim", level: lvl, hp: 10 }; let k = 0;
+    for (let i = 0; i < n; i++) if (Math.random() < p || hab.ficaNaBola(m, p)) k++; return k / n; };
+  const t1 = total(40, 0.3), t2 = total(100, 0.5), t3 = total(40, 0.95);
+  ok(`bola 30% + nível 40 (+10%) = 40% (${(t1 * 100).toFixed(1)}%)`, Math.abs(t1 - 0.40) < 0.012);
+  ok(`bola 50% + nível 100 (+25%) = 75% (${(t2 * 100).toFixed(1)}%)`, Math.abs(t2 - 0.75) < 0.012);
+  ok(`bola 95% + 10% não passa de 100% (${(t3 * 100).toFixed(1)}%)`, t3 > 0.99);
+  ok("desmaiado não late", !hab.ficaNaBola({ species: "diggle", level: 100, hp: 0 }, 0.2));
+  ok("e quem não tem FICA! nunca", !hab.ficaNaBola({ species: "tronky", level: 100, hp: 10 }, 0.2));
+
+  h("OS BICHOS");
+  const brag = Object.values(DB.SPECIES).filter((sp) => sp.braglitch);
+  ok("22 formas + 63 novas + as duas cuias", brag.length === 87, brag.length);
+  ok("SANDSLASH-BRAG evolui pro SANDBASH", DB.EVOLUTIONS.sandslashbrag?.some((r) => r.to === "sandbash"));
+  for (const id of ["diggle", "tilapish", "tronky", "saci"]) ok(`${id} existe`, !!DB.SPECIES[id]);
+  ok("DIGGLE é FOGO/TERRA", DB.SPECIES.diggle.types.join("/") === "FOGO/TERRA");
+  ok("TILAPISH é ÁGUA", DB.SPECIES.tilapish.types.join("/") === "ÁGUA");
+  ok("TRONKY é PLANTA/SOMBRIO", DB.SPECIES.tronky.types.join("/") === "PLANTA/SOMBRIO");
+  ok("todo tipo existe", brag.every((sp) => sp.types.every((t) => DB.TYPES.includes(t))),
+     brag.filter((sp) => !sp.types.every((t) => DB.TYPES.includes(t))).map((s) => s.id).join());
+  ok("todo mundo tem golpe pra aprender", brag.every((sp) => (sp.learnset || []).length > 0));
+  ok("todo mundo tem texto de Pokédex", brag.every((sp) => sp.lore));
+  const alvos = Object.entries(DB.EVOLUTIONS).filter(([id]) => DB.SPECIES[id]?.braglitch).flatMap(([, r]) => r.map((x) => x.to));
+  ok("as evoluções levam pra espécies que existem", alvos.every((t) => DB.SPECIES[t]?.braglitch), alvos.join());
+  const vazou = Object.entries(DB.MAPS).filter(([id, m]) => !DB.KANTO[id]?.braglitch && (m.encounters || []).some((e) => DB.SPECIES[e.id]?.braglitch));
+  ok("nenhum mato fora de Braglitch tem bicho de Braglitch", vazou.length === 0, vazou.map(([id]) => id).join());
+  const naFenda = Object.values(DB.DIM_ENCOUNTERS).flat().some((e) => DB.SPECIES[e.id]?.braglitch);
+  ok("e a fenda também não", !naFenda);
+  const { poolDoOvo } = await import("/src/systems/ovos.js");
+  ok("nem ovo", !poolDoOvo().some((sp) => sp.braglitch));
+  const tabelas = ["rota_br101", "mata_do_saci"].flatMap((id) => DB.MAPS[id].encounters);
+  ok("o mato de lá só tem espécie que existe", tabelas.every((e) => DB.SPECIES[e.id]));
+  const { listas, numeroNaDex } = await import("/src/systems/pokedex.js");
+  const nac = listas().NACIONAL;
+  ok("DIGGLE na NACIONAL, com o nº 1029", nac.includes("diggle") && numeroNaDex("diggle") === 1029);
+  ok("e a NACIONAL em ordem", nac.every((id, i) => i === 0 || numeroNaDex(nac[i - 1]) <= numeroNaDex(id)));
+  ok("SANDSHREW-BRAG é FORMA", listas().FORMAS.includes("sandshrewbrag"));
+  const img = await new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = "/assets/sprites/pokemon/1029.png"; });
+  ok("o sprite do DIGGLE está lá", !!img && img.width === 64);
+  const img2 = await new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = "/assets/sprites/pokemon/back/21014.png"; });
+  ok("o das costas da MEOWTH-BRAG também", !!img2);
+
+  h("DENTRO DO JOGO");
+  const fr = document.createElement("iframe");
+  fr.width = 240; fr.height = 160; fr.style.opacity = "0.01";
+  fr.src = "/index.html?map=bra_lab&x=9&y=5&dir=up&perfil=braglitch-teste";
+  document.body.appendChild(fr);
+  const espera = async (cond, ms = 9000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (cond()) return true; } catch {} await new Promise((r) => setTimeout(r, 40)); } return false; };
+  const subiu = await espera(() => fr.contentWindow?.game?.scenes?.top?.dlg);
+  ok("a partida abriu no lab da IPÊ", subiu);
+  if (subiu) {
+    const w = fr.contentWindow, g = w.game, sc = () => g.scenes.top, st = () => g.state;
+    g.autosave = () => {}; g.save = async () => "ok";
+    const passa = () => { const s = sc(); for (let i = 0; i < 120 && s.dlg.active && !s.dlg.choice; i++) { s.dlg.chars = 1e9; s.dlg.next(); } };
+    const responde = (i) => { const d = sc().dlg, c = d.choice; d.choice = null; d.active = false; d.lines = []; c.cb(i); };
+    const limpa = () => { const d = sc().dlg; d.queue.length = 0; d.active = false; d.choice = null; d.lines = []; };
+    const fx = () => { const f = sc().fx; sc().fx = null; f?.cb?.(); };
+    sc().transition = (cb) => cb();
+
+    // o começo: sem nada na mão
+    st().party = []; st().flags = {};
+    const bola = sc().npcsHere().find((n) => n.starter === "diggle");
+    ok("a bola do DIGGLE está na mesa", !!bola);
+    sc().talkTo(bola); passa();
+    ok("pergunta se leva", !!sc().dlg.choice);
+    responde(0); passa();
+    ok("DIGGLE na equipe", st().party[0]?.species === "diggle");
+    ok("com a Pokédex", !!st().flags.pokedex);
+    ok("e a missão dos redemoinhos", !!st().flags.bragMissao);
+    limpa();
+
+    // sai do lab
+    const saidaLab = DB.KANTO.bra_lab.warps[0];
+    sc().useWarp(saidaLab);
+    ok("sair do lab cai em SÃO LUCARIO", st().player.map === "sao_lucario" && st().player.x === 24 && st().player.y === 6);
+    limpa();
+
+    // o barqueiro
+    Object.assign(st().player, { map: "sao_lucario", x: 14, y: 25, dir: "right" });
+    const barq = sc().npcsHere().find((n) => n.balsa);
+    ok("o barqueiro está no píer", !!barq && barq.x === 15 && barq.y === 25);
+    sc().talkTo(barq); passa();
+    const opts = sc().dlg.choice?.options || [];
+    ok("ele oferece KANTO e as ILHAS (e não BRAGLITCH, que é aqui)", opts.includes("KANTO") && opts.includes("ILHAS SEVII") && !opts.includes("BRAGLITCH"), opts.join("|"));
+    responde(opts.indexOf("KANTO")); passa(); fx(); passa();
+    ok("atravessou pra VERMILION", st().player.map === "vermilion_city");
+    limpa();
+    const mar = sc().npcsHere().find((n) => n.balsa);
+    sc().talkTo(mar); passa();
+    const opts2 = sc().dlg.choice?.options || [];
+    ok("o marinheiro de VERMILION leva pra BRAGLITCH", opts2.includes("BRAGLITCH") && !opts2.includes("KANTO"), opts2.join("|"));
+    responde(opts2.indexOf("ILHAS SEVII")); passa();
+    ok("sem 3 insígnias as ilhas continuam trancadas", !sc().dlg.choice && st().player.map === "vermilion_city");
+    limpa();
+    sc().talkTo(mar); passa();
+    responde((sc().dlg.choice?.options || []).indexOf("BRAGLITCH")); passa(); fx(); passa();
+    ok("e voltou pro píer", st().player.map === "sao_lucario" && st().player.x === 14 && st().player.y === 24);
+    limpa();
+
+    // uma foto do píer, desenhada à mão (o headless não roda o loop do jogo)
+    const foto = async (nome, cena) => {
+      const cv = w.document.createElement("canvas"); cv.width = 240; cv.height = 160;
+      const c = cv.getContext("2d"); c.imageSmoothingEnabled = false;
+      await new Promise((r) => setTimeout(r, 900));     // os sprites terminam de chegar
+      cena.snapCamera?.(); cena.render(c);
+      try { await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: nome, dataUrl: cv.toDataURL("image/png"), log: "" }) }); } catch {}
+    };
+    Object.assign(st().player, { map: "sao_lucario", x: 14, y: 24, dir: "right" });
+    await foto("braglitch_pier", sc());
+
+    // os redemoinhos
+    Object.assign(st().player, { map: "rota_br101", x: 9, y: 18, dir: "up" });
+    await foto("braglitch_redemoinho", sc());
+    const rs = sc().npcsHere().filter((n) => n.redemoinho);
+    ok("três redemoinhos na BR-101", rs.length === 3);
+    sc().talkTo(rs[0]); passa();
+    ok("encostar num começa a batalha", typeof sc().fx?.cb === "function");
+    sc().fx = null; limpa();
+    for (const r of DB.REDEMOINHOS) (st().npcState[`${r.mapa}.redemoinho_${r.id}`] ||= {}).defeated = true;
+    sc().conferirBraglitch(); passa();
+    ok("contou os três", st().flags.bragRedemoinhos === 3);
+    ok("e eles sumiram", !sc().npcsHere().some((n) => n.redemoinho));
+    limpa();
+    Object.assign(st().player, { map: "mata_do_saci", x: 15, y: 9, dir: "up" });
+    ok("o SACI apareceu na clareira", sc().npcsHere().some((n) => n.saci));
+    await foto("braglitch_saci", sc());
+    // apanhou e fugiu: ele volta
+    st().npcState["mata_do_saci.saci"] = { defeated: true };
+    sc().conferirBraglitch(); passa(); limpa();
+    ok("vencido sem captura, ele volta", sc().npcsHere().some((n) => n.saci));
+    st().caught.saci = true;
+    ok("capturado, ele some", !sc().npcsHere().some((n) => n.saci));
+
+    // insígnia de Braglitch não conta como de Kanto
+    st().badges = []; st().bragBadges = mundo.INSIGNIAS_BRAG.map((b) => b.id);
+    Object.assign(st().player, { map: "br324", x: 14, y: DB.KANTO.br324.h - 2, dir: "up" });
+    ok("com as 8 de Braglitch, o BOITATÁ aparece na BR-324", sc().npcsHere().some((n) => n.lenda?.id === "boitata"));
+    Object.assign(st().player, { map: "br040", x: 14, y: DB.KANTO.br040.h - 2, dir: "up" });
+    ok("e o DESTROIUM na BR-040", sc().npcsHere().some((n) => n.lenda?.id === "destroium"));
+    Object.assign(st().player, { map: "transamazonica", x: 14, y: DB.KANTO.transamazonica.h - 2, dir: "up" });
+    ok("o ENCONTRIUM ainda não (espera os outros dois)", !sc().npcsHere().some((n) => n.lenda?.id === "encontrium"));
+    st().caught.amazonium = true; st().caught.destroium = true;
+    ok("pegos os dois, o ENCONTRIUM sobe na lagoa", sc().npcsHere().some((n) => n.lenda?.id === "encontrium"));
+    delete st().caught.amazonium; delete st().caught.destroium;
+    ok("e o AMAZONIUM na TRANSAMAZÔNICA, longe do CURUPIRA", sc().npcsHere().some((n) => n.lenda?.id === "amazonium")
+       && new Set(sc().npcsHere().filter((n) => n.lenda).map((n) => `${n.x},${n.y}`)).size === sc().npcsHere().filter((n) => n.lenda).length);
+    ok("e o Kanto continua com zero insígnias", st().badges.length === 0);
+    Object.assign(st().player, { map: "belem", x: 14, y: 16, dir: "up" });
+    await foto("braglitch_belem", sc());
+    Object.assign(st().player, { map: "belem_ginasio", x: 6, y: 17, dir: "up" });
+    await foto("braglitch_ginasio", sc());
+    Object.assign(st().player, { map: "br324", x: 14, y: 20, dir: "up" });
+    await foto("braglitch_sertao", sc());
+
+    // a CUIA: o VICTREEBEL de Braglitch troca de forma
+    const { alvoDaPedra } = await w.eval(`import("/src/systems/regionais.js")`);
+    ok("WEEPINBELL + PEDRA DA FOLHA em Braglitch vira a cuia", alvoDaPedra("pedra da folha", "weepinbell", "sao_lucario") === "victreebelchimarrao");
+    ok("e em Kanto continua o VICTREEBEL de sempre", alvoDaPedra("pedra da folha", "weepinbell", "route1") === "victreebel");
+    const { createMon } = await w.eval(`import("/src/systems/mon.js")`);
+    const cuia = createMon("victreebelchimarrao", 30);
+    st().party = [cuia]; st().items["cuia térmica"] = 1;
+    sc().usarCuia(cuia); passa(); limpa();
+    ok("a CUIA TÉRMICA vira TERERÊ (PLANTA/GELO)", cuia.species === "victreebelterere" && DB.SPECIES[cuia.species].types.join("/") === "PLANTA/GELO");
+    sc().usarCuia(cuia); passa(); limpa();
+    ok("e volta pra CHIMARRÃO (PLANTA/FOGO), sem gastar a cuia", cuia.species === "victreebelchimarrao" && DB.SPECIES[cuia.species].types.join("/") === "PLANTA/FOGO" && st().items["cuia térmica"] === 1);
+    ok("o gaúcho de São Lucario dá a cuia", DB.MAPS.sao_lucario.npcs.some((n) => n.gift?.item === "cuia térmica"));
+
+    // OS DOIS PROFESSORES
+    const tag2 = (id, x, y) => { const g = DB.KANTO[id]; return g.tags.charCodeAt(y * g.w + x) - 48; };
+    for (const e of DB.ENCONTROS_PROFS) for (const v of e.visita) ok(`encontro ${e.id}: ${v.quem} em chão (${e.mapa} ${v.x},${v.y})`, tag2(e.mapa, v.x, v.y) === 0);
+    st().flags = { starterChosen: true, bragMissao: true, pokedex: true, decodificador: true };
+    Object.assign(st().player, { map: "lab", x: 7, y: 4, dir: "up" });
+    const ipeK = sc().npcsHere().find((n) => n.profVisita === "ipe");
+    ok("a IPÊ aparece no lab do CARVALHO", !!ipeK);
+    const pedras = st().items["pedra da folha"] || 0;
+    sc().talkTo(sc().npcsHere().find((n) => n.id === "carvalho")); passa(); limpa();
+    ok("falar com o CARVALHO abre a conversa dos dois e dá a pedra", !!st().flags.profs_visita_kanto && (st().items["pedra da folha"] || 0) === pedras + 1);
+    ok("ela continua lá até você sair", sc().npcsHere().some((n) => n.profVisita === "ipe"));
+    sc().useWarp(DB.KANTO.lab.warps[0]); limpa();
+    Object.assign(st().player, { map: "lab", x: 7, y: 4, dir: "up" });
+    ok("e some quando você volta", !sc().npcsHere().some((n) => n.profVisita === "ipe"));
+    st().caught.saci = true;
+    Object.assign(st().player, { map: "bra_lab", x: 7, y: 4, dir: "up" });
+    ok("com o SACI pego, o CARVALHO visita a IPÊ", sc().npcsHere().some((n) => n.profVisita === "carvalho"));
+    await foto("braglitch_profs", sc());
+    limpa();
+
+    // o 011GIVEGLITCH110 no computador da IPÊ
+    Object.assign(st().player, { map: "bra_lab", x: 2, y: 2, dir: "up" });
+    ok("o PC da IPÊ está marcado", (DB.MAPS.bra_lab.profPC || []).includes("2,1"));
+    delete st().flags.pcGlitchIpe;
+    sc().usePC(); passa();
+    ok("abre o 011GIVEGLITCH110 no lab da IPÊ", sc().menu?.type === "give" && sc().menu.lista.some((x) => x.id === "sandbash"));
+    // a prévia do bicho escolhido, com um de Kanto (o CHARIZARD), pra ver o olho
+    limpa();
+    sc().menu.index = sc().menu.lista.findIndex((x) => x.id === "charizard");
+    await foto("braglitch_giveglitch", sc());
+    sc().menu = null; limpa();
+
+    // AS MONTARIAS: em Braglitch golpe de campo não vale; o PANDEIRO chama a montaria
+    const surfista = createMon("lapras", 50);
+    surfista.moves = [{ id: "surfar", pp: 15, maxPp: 15 }];
+    st().party = [surfista, createMon("submarinum", 30)];
+    delete st().items["pandeiro do mar"];
+    Object.assign(st().player, { map: "sao_lucario", x: 14, y: 20, dir: "down" });
+    ok("em Braglitch, LAPRAS com SURFAR não surfa", !sc().quemSabe("surfar"));
+    ok("nem um SUBMARINUM na equipe, sem o pandeiro", !sc().quemSabe("surfar"));
+    st().items["pandeiro do mar"] = 1;
+    ok("com o PANDEIRO DO MAR, o SUBMARINUM vem", sc().quemSabe("surfar")?.species === "submarinum");
+    ok("e a fala é a da montaria", sc().campo("surfar").usando.includes("CABINE"));
+    Object.assign(st().player, { map: "vermilion_city", x: 22, y: 30, dir: "down" });
+    ok("em Kanto, quem sabe SURFAR tem a vez", sc().quemSabe("surfar") === surfista);
+    st().party = [createMon("rattata", 10)];
+    ok("mas em Kanto o pandeiro também serve", sc().quemSabe("surfar")?.species === "submarinum" && sc().campo("surfar").usando.includes("CABINE"));
+    delete st().items["pandeiro do mar"];
+    ok("e sem nenhum dos dois, não surfa", !sc().quemSabe("surfar"));
+    ok("todas as cinco montarias existem, cada uma com o seu pandeiro", Object.values(DB.MONTARIAS).every((m) => DB.SPECIES[m.especie] && DB.PANDEIROS.some((p) => p.item === m.pandeiro)));
+    // a IPÊ manda os pandeiros conforme a história
+    for (const pd of DB.PANDEIROS) { delete st().flags[`pandeiro_${pd.id}`]; delete st().items[pd.item]; }
+    st().caught.saci = true; st().bragBadges = ["samauma"];
+    limpa(); sc().conferirPandeiros(); passa(); limpa();
+    ok("pego o SACI, a IPÊ manda o PANDEIRO DO MATO", st().items["pandeiro do mato"] === 1 && !st().items["pandeiro do mar"]);
+    st().bragBadges = ["samauma", "mangue"];
+    sc().conferirPandeiros(); passa(); limpa();
+    ok("com 2 insígnias, o PANDEIRO DO MAR", st().items["pandeiro do mar"] === 1 && !st().items["pandeiro do sertão"]);
+    st().bragBadges = mundo.INSIGNIAS_BRAG.map((b) => b.id);
+    for (let i = 0; i < 5; i++) { sc().conferirPandeiros(); passa(); limpa(); }
+    ok("com as 8, os cinco pandeiros", DB.PANDEIROS.every((pd) => st().items[pd.item] === 1));
+
+    // O CATÁLOGO ROTOM
+    ok("o técnico do Centro de São Lucario dá o catálogo", DB.MAPS.sao_lucario_pokemon_center_1f.npcs.some((n) => n.gift?.item === "catálogo rotom"));
+    const rot = createMon("rotom", 30);
+    st().party = [rot]; st().items["catálogo rotom"] = 1;
+    sc().usarCatalogo(rot); passa();
+    const opcoesR = sc().dlg.choice?.options || [];
+    ok("o catálogo mostra os cinco aparelhos", ["FORNO", "MÁQUINA DE LAVAR", "GELADEIRA", "VENTILADOR", "CORTADOR DE GRAMA"].every((o) => opcoesR.includes(o)), opcoesR.join("|"));
+    responde(opcoesR.indexOf("MÁQUINA DE LAVAR")); passa(); limpa();
+    ok("MÁQUINA DE LAVAR: ROTOM-LAVAGEM, ELÉTRICO/ÁGUA", rot.species === "rotomlavagem" && DB.SPECIES.rotomlavagem.types.join("/") === "ELÉTRICO/ÁGUA");
+    sc().usarCatalogo(rot); passa(); responde(0); passa(); limpa();
+    ok("e volta pro ROTOM normal, sem gastar o catálogo", rot.species === "rotom" && st().items["catálogo rotom"] === 1);
+    const rb = createMon("rotombrag", 30);
+    st().party = [rb];
+    sc().usarCatalogo(rb); passa();
+    const opcoesB = sc().dlg.choice?.options || [];
+    ok("o ROTOM-BRAG também entra no catálogo", opcoesB.includes("GELADEIRA") && opcoesB[0] === "ROTOM-BRAG NORMAL", opcoesB.join("|"));
+    responde(opcoesB.indexOf("GELADEIRA")); passa(); limpa();
+    ok("vira ROTOM-GELO", rb.species === "rotomgelo");
+    sc().usarCatalogo(rb); passa(); responde(0); passa(); limpa();
+    ok("e volta pro ROTOM-BRAG (não pro ROTOM comum)", rb.species === "rotombrag");
+    const { listas: listasDex } = await w.eval(`import("/src/systems/pokedex.js")`);
+    ok("as formas vão pra aba FORMAS da Pokédex", listasDex().FORMAS.includes("rotomcalor") && listasDex().NACIONAL.includes("rotom"));
+
+    // AS ARVOREZINHAS
+    const comArvore = Object.entries(DB.MAPS).filter(([, m]) => (m.arvores || []).length);
+    ok(`Kanto tem as arvorezinhas do FireRed (${comArvore.length} mapas)`, comArvore.length >= 15 && (DB.MAPS.vermilion_city.arvores || []).includes("19,24"));
+    ok("nenhum interior de Braglitch herdou árvore de Kanto", !Object.entries(DB.MAPS).some(([id, m]) => DB.KANTO[id]?.arte && (m.arvores || []).length));
+    st().items = {}; st().party = [createMon("diggle", 20)];
+    for (const pd of DB.PANDEIROS) st().flags[`pandeiro_${pd.id}`] = true;   // sem pandeiro chegando no meio do teste
+    delete st().arvoresCortadas;
+    Object.assign(st().player, { map: "mata_do_saci", x: 14, y: 3, dir: "up" });
+    ok("as duas arvorezinhas fecham a saída norte da MATA DO SACI", sc().blocked(14, 2) && sc().blocked(15, 2));
+    sc().interact?.(); passa();
+    ok("sem o PANDEIRO DO MATO não corta", sc().blocked(14, 2));
+    limpa();
+    st().items["pandeiro do mato"] = 1;
+    sc().pedirCorteArvore(sc().obstaculoEm(14, 2)); passa();
+    ok("com o pandeiro, pergunta", !!sc().dlg.choice);
+    responde(0); passa(); limpa();
+    ok("e o ROÇADOR derruba", !sc().blocked(14, 2) && sc().blocked(15, 2));
+
+    // O OBJETIVO
+    const { objetivoAtual } = await w.eval(`import("/src/systems/objetivo.js")`);
+    const salvo = JSON.parse(JSON.stringify({ flags: st().flags, caught: st().caught, bragBadges: st().bragBadges, badges: st().badges, npcState: st().npcState }));
+    st().flags = {}; st().npcState = {}; st().caught = {}; st().bragBadges = []; st().badges = [];
+    ok("sem inicial em Braglitch: vá à IPÊ", /IPÊ/.test(objetivoAtual(st(), true)));
+    ok("sem inicial em Kanto: vá ao CARVALHO", /CARVALHO/.test(objetivoAtual(st(), false)));
+    st().flags = { starterChosen: true, bragMissao: true };
+    ok("com a missão: os redemoinhos (0/3)", objetivoAtual(st(), true).includes("0/3"));
+    for (const r of DB.REDEMOINHOS) st().npcState[`${r.mapa}.redemoinho_${r.id}`] = { defeated: true };
+    ok("desfeitos os três: o SACI na mata", /MATA DO SACI/.test(objetivoAtual(st(), true)));
+    st().caught.saci = true; st().flags.bragFim = true; st().bragBadges = ["samauma"];
+    ok("com 1 insígnia: o ginásio de RECIFEEBAS", objetivoAtual(st(), true).includes("RECIFEEBAS"));
+    ok("e em Kanto, sem insígnia de lá: PEWTER", objetivoAtual(st(), false).includes("PEWTER"));
+    Object.assign(st().player, { map: "sao_lucario", x: 14, y: 13, dir: "down" });
+    limpa(); sc().menu = null; sc().move = null; sc().banner = 0; sc().fadeA = 0; sc().paradoT = 2;
+    await foto("braglitch_objetivo", sc());
+    Object.assign(st(), salvo);
+
+    // o começo pela tela de título
+    g.newGame("braglitch");
+    ok("jogo novo em BRAGLITCH começa em casa, em São Lucario", g.state.player.map === "bra_casa" && g.state.respawn.map === "bra_casa");
+    g.newGame("kanto");
+    ok("e em KANTO, na casa de Pallet", g.state.player.map === "home");
+    g.newGame();
+    ok("sem escolha, Kanto (como sempre)", g.state.player.map === "home");
+    const { TitleScene } = await w.eval(`import("/src/scenes/title.js")`);
+    const t = new TitleScene(); t.game = g; t.enter(); t.tela = "regiao"; t.regiaoIdx = 1;
+    await foto("braglitch_titulo", t);
+    t.exit?.();
+
+    // a arte da cidade, pra conferir de olho
+    const { Assets } = await import("/src/core/assets.js");
+    arte = Assets.braglitchArt(DB.KANTO.sao_lucario).toDataURL("image/png");
+    const arte2 = Assets.braglitchArt(DB.KANTO.recife).toDataURL("image/png");
+    const arte3 = Assets.braglitchArt(DB.KANTO.monte_serra).toDataURL("image/png");
+    try { await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "braglitch_br324", dataUrl: arte3, log: "" }) }); } catch {}
+    try { await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "braglitch_cidade", dataUrl: arte2, log: "" }) }); } catch {}
+  }
+} catch (e) { falhas++; p("EXPLODIU: " + (e?.stack || e), "erro"); }
+p(falhas ? `${falhas} FALHA(S)` : "TUDO OK", falhas ? "erro" : "ok");
+out.innerHTML = linhas.join("");
+const texto = linhas.join("\n").replace(/<h2>/g, "\n").replace(/<[^>]+>/g, "");
+try { await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "braglitch", dataUrl: arte, log: texto }) }); } catch (e) {}
+document.title = "pronto";
+</script>
+</body>
+</html>

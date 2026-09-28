@@ -22,6 +22,12 @@
 //   semStatus, semCrit, semQueda  imune a status / a crítico / a queda de atributo
 //   gosta: clima                  a IA abre com o golpe daquele clima quando tem ele
 //   extra(mv, user, target, clima) dano SOMADO no fim da conta (o PAPA-MOSCA pesa o alvo)
+//   aoCurar: n                    toda vez que recupera HP na batalha, os 5 atributos sobem n
+//   contraAtaque                  guarda o dano que leva (DEFESA +1 a cada pancada) e
+//                                 devolve no próximo golpe dele: até 2x, e zera
+//   mordidaMata                   golpe de morder (mv.mordida) derruba ele na hora
+import { effectiveness } from "./types.js";
+
 const fraco = (mon) => mon.hp <= mon.maxHp / 3;
 
 export const HABILIDADES = {
@@ -57,6 +63,23 @@ export const HABILIDADES = {
                  semStatus: true, semCrit: true },
 
   // ------------------------------------------------ as escritas à mão
+  // O BRIGADEIRINHO é doce: quem cuida dele deixa ele fortíssimo — e quem morde,
+  // come. "Drasticamente" é +3, como nos jogos.
+  // O SACI apronta com quem é de FADA: o golpe dele não respeita a resistência
+  // do alvo (SOMBRIO em FADA, que era 0,5x, sai 1,5x) e ainda bate 1,5x a mais;
+  // e golpe de FADA nele pega só metade. É o nó na crina, feito em Pokémon.
+  travessura:  { nome: "TRAVESSURA",
+                 texto: "APRONTA COM QUEM É DE FADA: BATE 1,5X NELES, SEM RESISTÊNCIA, E LEVA METADE DOS GOLPES DE FADA.",
+                 dano: (mv, u, t) => (t.types.includes("FADA") ? 1.5 / Math.min(1, effectiveness(mv.type, t.types) || 1) : 1),
+                 defesa: (mv) => (mv.type === "FADA" ? 0.5 : 1) },
+  // O GINGÃO não foge da pancada: ele GUARDA. Cada golpe que leva sobe a defesa
+  // dele e fica acumulado; no próximo golpe dele, volta tudo de uma vez.
+  contraataque: { nome: "CONTRA-ATAQUE",
+                 texto: "GUARDA O DANO QUE LEVA E DEVOLVE NO PRÓXIMO GOLPE. CADA PANCADA SOBE A DEFESA.",
+                 contraAtaque: true },
+  docedepokemon: { nome: "DOCE DE POKÉMON",
+                 texto: "CURADO, TODOS OS ATRIBUTOS SOBEM DRASTICAMENTE. MAS UMA MORDIDA DERRUBA ELE NA HORA.",
+                 aoCurar: 3, mordidaMata: true },
   chuvadelava: { nome: "CHUVA DE LAVA", texto: "NA CHUVA, OS GOLPES DE FOGO DELE BATEM 3X.", gosta: "chuva",
                  dano: (mv, u, t, clima) => (mv.type === "FOGO" && clima === "chuva" ? 3 : 1),
                  anuncia: (mv, clima) => (mv.type === "FOGO" && clima === "chuva" ? "A CHUVA VIRA LAVA!" : null) },
@@ -76,6 +99,13 @@ export const HABILIDADES = {
   papamosca:   { nome: "PAPA-MOSCA", texto: "GOLPES EM INSETO DÃO +5 DE DANO A CADA MEIO QUILO DO ALVO.",
                  extra: (mv, u, t, clima, peso) => (t.types.includes("INSETO") ? Math.floor(peso / 0.5) * 5 : 0),
                  anuncia: (mv, clima, t) => (t?.types.includes("INSETO") ? "PAPA-MOSCA: ELE MEDE O INSETO... E ABRE A BOCA." : null) },
+  // O "FICA!" da linha do DIGGLE (src/data/braglitch.js): o comando que todo
+  // beagle conhece, gritado pro selvagem que está querendo sair da bola. Se a
+  // captura falhou, ele late e o bicho fica lá dentro. O bônus é 25% do nível
+  // de quem está em campo, SOMADO à chance da bola: nível 40 = +10%, então uma
+  // bola de 30% vira 40%.
+  fica:        { nome: "FICA!", texto: "SOMA 25% DO NÍVEL NA CHANCE DE CAPTURA: O SELVAGEM FICA NA BOLA.",
+                 fica: 0.25 },
   mareaalta:   { nome: "MARÉ ALTA", texto: "NA CHUVA, OS GOLPES DE ÁGUA DELE BATEM 2X (EM VEZ DE 1,5X).", gosta: "chuva",
                  dano: (mv, u, t, clima) => (mv.type === "ÁGUA" && clima === "chuva" ? 2 / 1.5 : 1) },
 };
@@ -91,6 +121,10 @@ export const HABILIDADE_POR_TIPO = {
 
 /** quem tem habilidade própria */
 export const HABILIDADE_DE = {
+  diggle: "fica", braseagle: "fica", magmastim: "fica",
+  brigadeirinho: "docedepokemon",
+  gingao: "contraataque",
+  saci: "travessura",
   meltan: "ima", melmetal: "ima",
   litwick: "chuvadelava", lampent: "chuvadelava", chandelure: "chuvadelava",
   kyogre: "garoa", poliwrath: "garoa", politoed: "garoa", tentacruel: "garoa",
@@ -121,6 +155,8 @@ export const GOLPES_DE_CLIMA = {
 };
 
 export const CLIMA_TEXTO = {
+  // o FICA! prendendo o selvagem na bola (src/scenes/battle.js)
+  fica: "{MON} LATIU: FICA! E {FOE} FICOU NA BOLA.",
   chuva: { comeca: "COMEÇOU A CHOVER!", continua: "CONTINUA CHOVENDO.", para: "A CHUVA PAROU." },
   sol:   { comeca: "O SOL ABRIU FORTE!", continua: "O SOL ESTÁ FORTE.", para: "O SOL SE ESCONDEU." },
   turnos: 5,

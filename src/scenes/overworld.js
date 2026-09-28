@@ -3,13 +3,13 @@
 // assets/maps/. Os diálogos, encontros e regras vêm de src/data/maps.js.
 import { DB } from "../data/index.js";
 import { Assets, TILE } from "../core/assets.js";
-import { mapArt, mapOverlay, adiantarDoMapa } from "../core/sprites.js";
+import { mapArt, mapArtInteira, mapOverlay, adiantarDoMapa, estatuaArt } from "../core/sprites.js";
 import { Input, Texto } from "../core/input.js";
 import { Audio2 } from "../core/audio.js";
 import { Save } from "../core/save.js";
 import { Opcoes } from "../core/opcoes.js";
 import { panel, drawText, cursor, bar, hpColor, fade, sinal, PAL, LINE_H, moeda } from "../core/gfx.js";
-import { Dialogue } from "../systems/dialogue.js";
+import { Dialogue, FALA_VELOCIDADES } from "../systems/dialogue.js";
 import { Online } from "../systems/online.js";
 import { OnlineMenuScene } from "./online.js";
 import { TradeScene } from "./trade.js";
@@ -17,11 +17,13 @@ import { LinkBattleScene } from "./linkbattle.js";
 import { GrupoBattleScene } from "./grupobattle.js";
 import { PokedexScene } from "./pokedex.js";
 import { temPokedex, fatorAmuleto } from "../systems/pokedex.js";
+import { objetivoAtual } from "../systems/objetivo.js";
+import { wrapText } from "../core/font.js";
 import { Glitch } from "../systems/glitchfx.js";
 import { randRange } from "../core/rng.js";
 import { rollEncounter, rollDimEncounter, rollFlores } from "../systems/encounters.js";
 import {
-  heal, hpPct, gainXp, xpForLevel, createMon, evolutionFor, learnableMoves,
+  heal, hpPct, gainXp, xpForLevel, createMon, evolutionFor, learnableMoves, recalc,
 } from "../systems/mon.js";
 import { scatterDimLoot } from "../systems/loot.js";
 import { chocar as chocarOvo } from "../systems/ovos.js";
@@ -43,7 +45,7 @@ import { estaNaHora, marcarFeita, fracas, apagarDoCodigo } from "../systems/faxi
 // O aniversário entra como namespace de propósito: ele exporta `partes` e
 // `formata`, que são nomes que a fusão e o leilão também usam aqui dentro.
 import * as Aniv from "../systems/aniversario.js";
-import { alvoDaPedra } from "../systems/regionais.js";
+import { alvoDaPedra, emBraglitch, seisLendasPegas, glitchDeVerdade } from "../systems/regionais.js";
 import { guardar as guardarNoBox, cheio as boxCheio } from "../systems/box.js";
 import { veu, temCeu, agora as horaDoMundo, ajustarRelogio } from "../systems/ciclo.js";
 import { escuridaoDoLugar, ehCaverna, acesa, camadaDeLuz, brilho, RAIO } from "../systems/lanterna.js";
@@ -74,10 +76,17 @@ import { FusionScene } from "./fusion.js";
 import { FusaoEditorScene } from "./fusaoeditor.js";
 import { ConcursoScene } from "./concurso.js";
 import { reduzido } from "../core/reduzir.js";
+import { isoLigado, alternarIso, origem, naTela, noChao, coluna, tilesVisiveis, relevo, chaoEm, vistaIso, espelhar, sombra, comEspessura, fontesDoTeto } from "../core/isometrico.js";
 
 const W = 240, H = 160;
 /** Linhas visíveis na lista do GO PARK (a box inteira cabe nela, rolando). */
 const GO_LISTA_VIS = 6;
+const rumoDoSelvagem = new WeakMap();   // selvagem -> { x, y, dir } do último passo (isométrico)
+const PRETO_MAX = 30;          // até onde dá pra andar no preto de fora do mapa (técnica secreta)
+const ESTATUA_BASE = 16;       // no isométrico, a base da estátua tem um bloco de altura
+const GLITCH_BRAG = 60;        // a corrupção de Braglitch depois que o MISSINGNO chega (a do finale de Kanto)
+const ISO_PE = 5;              // no isométrico o pé fica um pouco acima da ponta de baixo do losango
+const ISO_ESPESSURA = 5;       // quantos pixels de "grossura" tem a plaquinha dos bonecos
 // tempos do FireRed, contados em quadros (o loop roda fixo em 60fps):
 // 16 quadros por tile andando, 8 correndo, 6 pra virar no lugar.
 const WALK = 16, RUN = 8, TURN = 6, HOP = 20;
@@ -238,7 +247,8 @@ export class OverworldScene {
    *  GLITCH ZONE só — lá, parede é parte da coisa (ver glitchzones.js). */
   desencalhar() {
     const p = this.st.player;
-    if (p.map === ZONA || this.st.surfando || this.st.voando) return;
+    // no preto (a técnica secreta) estar dentro da parede é de propósito
+    if (p.map === ZONA || this.st.surfando || this.st.voando || this.st.noPreto) return;
     if (this.tagAt(p.x, p.y) !== DB.TAG.BLOCK) return;
     const livre = (x, y) => [DB.TAG.FREE, DB.TAG.GRASS].includes(this.tagAt(x, y)) && !this.warpAt(x, y);
     // chão livre com pelo menos dois vizinhos livres: um tile isolado é outra
@@ -285,6 +295,8 @@ export class OverworldScene {
     this.conferirProvacao();          // derrubou o totem: a marca se apaga e paga
     adiantarDoMapa(this.st);          // os bichos deste mapa, antes de aparecerem
     this.checkMissionDone();
+    this.conferirBraglitch();         // um redemoinho se desfez? o saci fugiu?
+    this.conferirPandeiros();         // a IPÊ achou um PANDEIRO DA TERRA?
   }
 
   /** Convites que chegam da sala aparecem aqui, no mapa: é a única cena que
@@ -406,9 +418,16 @@ export class OverworldScene {
     });
   }
 
+  /** arvorezinhas que ainda não foram cortadas neste mapa */
+  arvoresAqui() {
+    const cortadas = this.st.arvoresCortadas?.[this.st.player.map] || [];
+    return (this.map.arvores || []).filter((k) => !cortadas.includes(k));
+  }
+
   obstaculoEm(x, y) {
     const k = `${x},${y}`;
     if (this.pedrasAqui().includes(k)) return { tipo: "pedra", id: k, x, y };
+    if (this.arvoresAqui().includes(k)) return { tipo: "arvore", id: k, x, y };
     const b = this.blocosAqui().find((o) => o.x === x && o.y === y);
     return b ? { tipo: "bloco", ...b } : null;
   }
@@ -459,6 +478,14 @@ export class OverworldScene {
     if (dist) extra.push(dist);
     const balsa = this.marinheiroSevii();
     if (balsa) extra.push(balsa);
+    extra.push(...this.braglitchNpcs());
+    // a estação do BONDINHO (CARVORIÚ ⇄ PRAIA DO LARVANJAL, src/data/braglitch.js)
+    const est = DB.BONDINHO?.estacoes.find((e) => e.mapa === mapa);
+    if (est) extra.push({ id: "bondinho", x: est.x, y: est.y, dir: "down", sprite: "bondinho", bondinho: est, lines: ["..."] });
+    // a canalizadora da TORRE POKÉMON que tem medo do preto (src/data/void.js)
+    const G = DB.GUIA_VOID;
+    if (G && mapa === G.mapa) extra.push({ ...G.npc, guiaVoid: true, lines: ["..."] });
+    extra.push(...this.profsVisitando());
     const cristal = this.cristalNoCume();
     if (cristal) extra.push(cristal);
     extra.push(...this.cristaisNoChao());
@@ -655,6 +682,11 @@ export class OverworldScene {
     const S = DB.SEVII;
     if (!S) return null;
     const aqui = this.st.player.map;
+    // o BARQUEIRO de São Lucario: mesma linha, outro barco (src/data/braglitch.js)
+    const P = DB.BRAGLITCH?.porto;
+    if (P && aqui === P.mapa) {
+      return { id: "balsa", ...P.barqueiro, sprite: "marinheiro", balsa: true, lines: DB.BARCO.fala };
+    }
     if (aqui === S.embarque.mapa) {
       return { id: "balsa", x: S.embarque.x, y: S.embarque.y, dir: "right",
                sprite: "marinheiro", balsa: true, lines: DB.STORY.sevii.fala };
@@ -666,13 +698,44 @@ export class OverworldScene {
     return null;
   }
 
-  /** O menu da balsa: pra onde dá pra ir daqui. A ilha em que você já está não
-   *  entra na lista — oferecer o lugar onde a pessoa está é ocupar uma linha
-   *  da caixa pra não fazer nada. */
+  /** O menu do barco: pra onde dá pra ir daqui. A linha tem três pontas —
+   *  KANTO (o cais de VERMILION), BRAGLITCH (o píer de SÃO LUCARIO) e as ILHAS
+   *  SEVII —, e o mesmo menu vale no cais, no píer e em qualquer porto de ilha.
+   *  O lugar em que você já está não entra na lista: oferecer o lugar onde a
+   *  pessoa está é ocupar uma linha da caixa pra não fazer nada.
+   *
+   *  São dois passos (a ponta, depois a ilha) porque as oito ilhas mais as duas
+   *  regiões não cabem numa caixa de escolha só. */
   pegarBalsa() {
-    const S = DB.SEVII, T = DB.STORY.sevii;
+    const S = DB.SEVII, T = DB.STORY.sevii, B = DB.BARCO || {};
     const st = this.st;
-    if ((st.badges || []).length < (S.requer?.insignias ?? 0)) {
+    const aqui = st.player.map;
+    const P = DB.BRAGLITCH?.porto;
+    const pontas = [];
+    if (aqui !== S.embarque.mapa) {
+      pontas.push({ nome: B.kanto || "KANTO", ir: () => this.zarparPara({
+        nome: S.embarque.nome, porto: S.embarque.mapa, x: S.embarque.x + 1, y: S.embarque.y + 1,
+        chegou: B.chegouKanto }) });
+    }
+    if (P && aqui !== P.mapa && DB.KANTO[P.mapa]) {
+      pontas.push({ nome: B.braglitch || "BRAGLITCH", ir: () => this.zarparPara({
+        nome: "SÃO LUCARIO DO SUL", porto: P.mapa, x: P.chegada.x, y: P.chegada.y,
+        chegou: B.chegouBraglitch }) });
+    }
+    pontas.push({ nome: B.sevii || "ILHAS SEVII", ir: () => this.escolherIlha() });
+    this.dlg.ask(B.pergunta || T.pergunta, [...pontas.map((p) => p.nome), T.aquiNao], (i) => pontas[i]?.ir());
+  }
+
+  /** As ilhas. A TRAVA DAS TRÊS INSÍGNIAS é só aqui: pra ir e voltar entre
+   *  KANTO e BRAGLITCH o barco sempre leva — quem começou em Braglitch não tem
+   *  insígnia nenhuma, e um barco que não sai do píer prende a pessoa numa
+   *  região só. */
+  escolherIlha() {
+    const S = DB.SEVII, T = DB.STORY.sevii, B = DB.BARCO || {};
+    const st = this.st;
+    // as insígnias das duas regiões contam: quem começou em Braglitch também chega
+    const n = (st.badges || []).length + (st.bragBadges || []).length;
+    if (n < (S.requer?.insignias ?? 0)) {
       return void this.dlg.say(T.travado);
     }
     const aqui = st.player.map;
@@ -688,16 +751,8 @@ export class OverworldScene {
     const destinos = S.ilhas
       .filter((i) => i.porto !== aqui)
       .filter((i) => !i.pedeBone || temBone);
-    const rotulos = destinos.map((i) => i.nome);
-    const voltar = aqui !== S.embarque.mapa;
-    if (voltar) rotulos.push(T.voltar);
-    rotulos.push(T.aquiNao);
-    this.dlg.ask(T.pergunta, rotulos, (i) => {
-      if (i < destinos.length) return this.zarparPara(destinos[i]);
-      if (voltar && i === destinos.length) {
-        return this.zarparPara({ nome: S.embarque.nome, porto: S.embarque.mapa,
-                                 x: S.embarque.x + 1, y: S.embarque.y + 1 });
-      }
+    this.dlg.ask(B.qualIlha || T.pergunta, [...destinos.map((i) => i.nome), T.aquiNao], (i) => {
+      if (i < destinos.length) this.zarparPara(destinos[i]);
     });
   }
 
@@ -707,7 +762,9 @@ export class OverworldScene {
     const S = DB.SEVII, T = DB.STORY.sevii;
     const st = this.st;
     Audio2.tone(392, 0.14, "triangle", 0.5);
-    this.dlg.say(T.zarpou, () => {
+    // saindo do píer de São Lucario é o barquinho, não a balsa
+    const saindoDoPier = st.player.map === DB.BRAGLITCH?.porto?.mapa;
+    this.dlg.say(saindoDoPier ? DB.BARCO.zarpou : T.zarpou, () => {
       this.fx = { t: 0, cb: () => {
         Object.assign(st.player, {
           map: destino.porto,
@@ -720,7 +777,7 @@ export class OverworldScene {
         this.justWarped = true;
         this.afterTravel();
         this.game.autosave?.(true);
-        this.dlg.say(T.chegou.replace("{ONDE}", destino.nome));
+        this.dlg.say(destino.chegou || T.chegou.replace("{ONDE}", destino.nome));
       } };
     });
   }
@@ -842,6 +899,10 @@ export class OverworldScene {
     });
   }
   blocked(x, y) {
+    // ATRAVESSANDO (a técnica secreta, ver `tentarAtravessar`): a beirada e o
+    // preto de fora do mapa não seguram ninguém
+    if (this.st.noPreto && this.predioNoPreto(x, y)) return true;
+    if (this.st.noPreto && this.naBeirada(x, y)) return !!this.npcAt(x, y);
     const t = this.tagAt(x, y);
     if (t < 0 || t === DB.TAG.BLOCK || t >= 4) return true;
     // água só passa surfando; e surfando só dá pra sair pra chão firme
@@ -883,9 +944,130 @@ export class OverworldScene {
 
   /** primeiro da equipe que sabe o golpe (e ainda está de pé) */
   quemSabe(golpe) {
-    // num POKÉSAVE o que você é conta: de VOADOR voa, de ÁGUA nada (euSei)
-    return this.st.party.find((m) => m.hp > 0 && m.moves.some((mv) => mv.id === golpe)) || euSei(this.st, golpe);
+    // EM BRAGLITCH golpe de campo não funciona: quem resolve é a MONTARIA, e
+    // quem chama ela é o PANDEIRO DA TERRA daquela ação (src/data/braglitch.js)
+    if (this.geo?.braglitch) return this.montariaNaEquipe(golpe);
+    // num POKÉSAVE o que você é conta: de VOADOR voa, de ÁGUA nada (euSei).
+    // EM KANTO vale os dois: quem sabe o golpe, ou a montaria de Braglitch que
+    // veio de barco com você — o golpe tem a vez, a montaria é o reserva.
+    return this.st.party.find((m) => m.hp > 0 && m.moves.some((mv) => mv.id === golpe)) || euSei(this.st, golpe)
+      || this.montariaNaEquipe(golpe);
   }
+
+  /** A montaria que o pandeiro chama: não é um Pokémon da sua equipe, é quem
+   *  vem quando você toca. Devolve um "Pokémon" só com o que os golpes de campo
+   *  leem (a espécie, pro desenho, e o nome, pra fala). */
+  montariaNaEquipe(golpe) {
+    const m = DB.MONTARIAS?.[golpe];
+    if (!m || !(this.st.items?.[m.pandeiro] > 0)) return null;
+    const sp = DB.SPECIES[m.especie];
+    return sp ? { species: m.especie, nickname: sp.name, hp: 1, moves: [], montaria: true } : null;
+  }
+
+  /** OS PANDEIROS DA TERRA: a IPÊ acha um quando a história chega no ponto
+   *  dele, avisa pela Pokédex e manda. Um por vez, quando não tem conversa na
+   *  tela (chamado depois de batalha e ao trocar de mapa). */
+  conferirPandeiros() {
+    if (this.dlg.active || this.menu) return false;
+    const st = this.st;
+    for (const pd of DB.PANDEIROS || []) {
+      if (st.flags[`pandeiro_${pd.id}`]) continue;
+      const r = pd.requer || {};
+      const ok = (r.pegos || []).every((id) => st.caught?.[id]) && (st.bragBadges || []).length >= (r.braglitch || 0);
+      if (!ok) continue;
+      st.flags[`pandeiro_${pd.id}`] = true;
+      st.items[pd.item] = 1;
+      Audio2.tone(660, 0.06); Audio2.tone(990, 0.1);
+      this.game.autosave?.(true);
+      this.dlg.say(pd.fala, () => {
+        Audio2.heal();
+        this.dlg.say(DB.PANDEIRO_GANHOU.replace("{ITEM}", pd.item.toUpperCase()));
+      });
+      return true;
+    }
+    return false;
+  }
+
+  /** O texto de um golpe de campo AQUI: em Braglitch é sempre o da montaria;
+   *  em Kanto, o da montaria só quando é ela que vai fazer o serviço. */
+  campo(golpe) {
+    const base = DB.FIELD_MOVES[golpe];
+    const M = DB.MONTARIAS?.[golpe];
+    if (!M) return base;
+    if (this.geo?.braglitch) return { ...base, ...M };
+    const quem = this.quemSabe(golpe);
+    const eMontaria = !!quem?.montaria;
+    // em Kanto a falta de alguém continua com a fala de sempre (golpe OU montaria)
+    return eMontaria ? { ...base, ...M, semNinguem: base.semNinguem } : base;
+  }
+  // ------------------------------------------------ A TÉCNICA SECRETA
+  //
+  // ATRAVESSAR PRO PRETO. Segure CORRER e esbarre CINCO vezes seguidas na
+  // mesma parede da beirada do mapa: na quinta você passa por dentro dela. Dali
+  // em diante a beirada (as árvores da cerca, a parede de fora da casa) e o
+  // preto do lado de fora do mapa não seguram mais: dá pra andar por fora do
+  // desenho, no escuro, até PRETO_MAX tiles longe. Pisar de novo num chão de
+  // verdade dentro do mapa desliga a técnica.
+  //
+  // Ninguém no jogo conta isto. Só vale na BEIRADA (até 3 tiles da borda) pra
+  // não virar atalho: a parede do meio do mapa continua segurando, então não
+  // dá pra pular portão, ginásio nem porta trancada com ela.
+
+  /** Esbarrou numa parede: é a técnica? Devolve true quando atravessou. */
+  tentarAtravessar(x, y, dx, dy) {
+    if (!Input.held("run") || !this.naBeirada(x, y) || this.st.voando) { this.atravessa = null; return false; }
+    if (this.bumpCd) return false;                 // um esbarrão de cada vez
+    const a = this.atravessa;
+    const mesmo = a && a.x === x && a.y === y && a.dx === dx && a.dy === dy;
+    this.atravessa = { x, y, dx, dy, n: mesmo ? a.n + 1 : 1 };
+    // o SINAL: do segundo esbarrão certo em diante o mundo pisca, cada vez
+    // mais — quem está no caminho certo tem que sentir que tem algo ali (o
+    // livro de SALVADITTO avisa: "REPARE QUANDO O MUNDO PISCAR")
+    if (this.atravessa.n >= 2 && this.atravessa.n < 5) Glitch.hit(0.15 * this.atravessa.n);
+    if (this.atravessa.n < 5) return false;
+    this.atravessa = null;
+    this.st.noPreto = true;
+    Glitch.hit(1.2);
+    Audio2.glitch();
+    this.move = { dx, dy, n: 0, total: passo(WALK) };
+    return true;
+  }
+
+  /** Um prédio que mora no preto (o GINÁSIO DO VOID) ocupa este tile? */
+  predioNoPreto(x, y) {
+    for (const v of this.geo?.vazio || []) {
+      if (v.solidos.includes(`${x - v.x},${y - v.y}`)) return true;
+    }
+    return false;
+  }
+
+  /** O prédio no preto: recortado do desenho do mapa de onde ele veio, e
+   *  piscando — de vez em quando uma faixa dele escorrega pro lado, como uma
+   *  imagem que o jogo não terminou de carregar. `cx, cy` como no chão. */
+  desenharPredioNoPreto(ctx, cx, cy) {
+    for (const v of this.geo?.vazio || []) {
+      const art = mapArt(v.de);
+      if (!art) continue;
+      const x = (v.x + v.dx0) * TILE - cx, y = (v.y + v.dy0) * TILE - cy;
+      const w = v.w * TILE, h = v.h * TILE;
+      ctx.drawImage(art, v.sx * TILE, v.sy * TILE, w, h, x, y, w, h);
+      const t = performance.now();
+      if (Math.floor(t / 90) % 23 === 0) {
+        const fy = ((t / 7) | 0) % h, fh = 3 + (((t / 13) | 0) % 6);
+        ctx.drawImage(art, v.sx * TILE, v.sy * TILE + fy, w, fh, x + ((t / 5) % 2 ? 3 : -3), y + fy, w, fh);
+      }
+    }
+  }
+
+  /** A beirada do mapa (até 3 tiles da borda) e o preto de fora, até PRETO_MAX */
+  naBeirada(x, y) {
+    const g = this.geo;
+    if (!g) return false;
+    const fora = Math.max(-x, -y, x - (g.w - 1), y - (g.h - 1));
+    if (fora > 0) return fora <= PRETO_MAX;
+    return Math.min(x, y, g.w - 1 - x, g.h - 1 - y) < 3;
+  }
+
   warpAt(x, y) { return (this.geo?.warps || []).find((w) => w.x === x && w.y === y); }
   facing() {
     const p = this.st.player;
@@ -912,6 +1094,13 @@ export class OverworldScene {
     if (!g) return;
     const { px, py } = this.playerPixel();
     const mw = g.w * TILE, mh = g.h * TILE;
+    // no preto a câmera vai atrás de você: presa no mapa, ela te deixaria
+    // sair da tela
+    if (this.st.noPreto) {
+      this.cam.x = Math.round(px + TILE / 2 - W / 2);
+      this.cam.y = Math.round(py + TILE / 2 - H / 2);
+      return;
+    }
     // sempre inteira: câmera fracionária faz a tela tremer ao rolar
     this.cam.x = Math.round(mw <= W ? (mw - W) / 2 : Math.max(0, Math.min(mw - W, px + TILE / 2 - W / 2)));
     this.cam.y = Math.round(mh <= H ? (mh - H) / 2 : Math.max(0, Math.min(mh - H, py + TILE / 2 - H / 2)));
@@ -919,13 +1108,31 @@ export class OverworldScene {
 
   // -------------------------------------------------------------- update
   update(dt) {
+    // conversa nenhuma na tela: ninguém está falando (um talkTo que abriu loja
+    // ou batalha sem dizer nada não pode deixar o NPC dono da próxima fala)
+    if (!this.dlg.active && !this.dlg.choice) this.dlg.falante = null;
+    // no BONDINHO não se anda nem se abre menu: a cabine vai sozinha
+    if (this.viagemBondinho) return this.andarDeBondinho(dt);
     this.banner = Math.max(0, this.banner - dt);
+    // O OBJETIVO aparece depois de 1 s parado: sem passo, sem conversa, sem menu
+    const parado = !this.move && !this.dlg.active && !this.menu && !this.fx && !(this.fadeA > 0) && !(this.banner > 0);
+    this.paradoT = parado ? (this.paradoT || 0) + dt : 0;
     this.invuln = Math.max(0, (this.invuln || 0) - dt);
     this.tremor = Math.max(0, (this.tremor || 0) - dt * 3);
     this.clarao = Math.max(0, (this.clarao || 0) - dt * 2.4);
     if (this.aviso) { this.aviso.t -= dt; if (this.aviso.t <= 0) this.aviso = null; }
     if (this.olhando) this.olhando.t += dt;
     Glitch.level = this.st.corruption;
+    // BRAGLITCH VIROU GLITCH (`flags.bragGlitch`): lá a tela suja como a de
+    // Kanto quebrado. Voltando pra Kanto, o `forced` sai das fontes de lá.
+    if (emBraglitch(this.st.player.map) && this.st.flags?.bragGlitch) {
+      Glitch.forced = true;
+      Glitch.level = Math.max(Glitch.level, GLITCH_BRAG);
+      this.bragForcou = true;
+    } else if (this.bragForcou) {
+      this.bragForcou = false;
+      Glitch.forced = !!(this.st.flags?.glitchWorld || this.st.mission);
+    }
     // O RASGO suja a tela inteira enquanto estiver aberto neste mapa: seis
     // vezes o normal, e ligado à força mesmo com o glitchMode desligado. É o
     // único aviso de que um abriu — não tem texto nem seta, você vê a tela
@@ -1008,6 +1215,8 @@ export class OverworldScene {
       return;
     }
 
+    if (this.entregarLendas()) return;          // lenda vencida esperando pra entrar no time
+    if (this.glitchChegaEmBraglitch()) return;  // a sexta lenda entrou: o MISSINGNO chega
     if (Input.consume("b")) return this.openMenu();
     // NA BOLA (capturado): quem anda é o dono, e ele anda sozinho, caçando.
     // Você só olha — e abre o menu pra sair.
@@ -1044,8 +1253,9 @@ export class OverworldScene {
       if (standing && this.blocked(nx, ny)) return this.useWarp(standing);
     }
 
-    // borda do mapa: conexão com o mapa vizinho (vila <-> rota <-> cidade)
-    if (this.tagAt(nx, ny) === -1) {
+    // borda do mapa: conexão com o mapa vizinho (vila <-> rota <-> cidade).
+    // Atravessando, a borda não leva a lugar nenhum: leva pro preto.
+    if (this.tagAt(nx, ny) === -1 && !this.st.noPreto) {
       const conn = (this.geo.connections || []).find((c) => c.dir === dir && c.to);
       if (conn) return this.useConnection(conn, dir);
     }
@@ -1088,6 +1298,7 @@ export class OverworldScene {
       // NA GLITCH ZONE a parede não é de verdade: insista e ela cede. A borda
       // do mapa (tag -1) não — do outro lado dela não tem nada pra ceder.
       if (naZona(this.st) && !alvo && this.tagAt(nx, ny) >= 0) return this.esbarrarNaZona(nx, ny);
+      if (!alvo && this.tentarAtravessar(nx, ny, dx, dy)) return;
       if (!this.bumpCd) { Audio2.bump(); this.bumpCd = 0.35; }
       return;
     }
@@ -1096,6 +1307,10 @@ export class OverworldScene {
 
   onArrive() {
     const p = this.st.player;
+    // voltou do preto: pisou num chão de verdade, dentro do mapa
+    if (this.st.noPreto && this.tagAt(p.x, p.y) >= 0 && this.tagAt(p.x, p.y) !== DB.TAG.BLOCK) {
+      this.st.noPreto = false;
+    }
     if (this.st.voando) return;              // no ar, o chão não te alcança
     if (this.st.capturado?.naBola) {         // na bola, quem chegou foi o dono
       // ...e se ele estava indo pra porta, ele entra (sai) por ela
@@ -1272,6 +1487,13 @@ export class OverworldScene {
    *  cada um tem a sua tabela e o seu lendário. */
   sortearSelvagem(x, y) {
     const st = this.st;
+    // o primeiro que nasce depois do MISSINGNO chegar em Braglitch é ele: a
+    // fala acabou de dizer isso, o mato tem que mostrar
+    if (this.primeiroMissingno && emBraglitch(st.player.map)) {
+      this.primeiroMissingno = false;
+      const enc = rollFlores();
+      if (enc) return enc;
+    }
     if (st.player.map !== "glitchdim") {
       // a cor do bicho pode ser reescrita por um DLC — a SHINY ZONE. O gancho
       // devolve outra `sorte` (número) ou a cor pronta ({ shiny, luminoso })
@@ -1282,7 +1504,11 @@ export class OverworldScene {
         if (typeof r === "number") sorte = r;
         else if (r && typeof r === "object") brilho = r;
       }
-      return rollEncounter(st.player.map, st.corruption, !!st.flags.glitchWorld, sorte, brilho);
+      // em Braglitch o glitch vira folclore até o MISSINGNO chegar lá; depois
+      // disso o mato de lá é o de Kanto quebrado (src/systems/regionais.js)
+      const brag = emBraglitch(st.player.map) && st.flags.bragGlitch;
+      return rollEncounter(st.player.map, brag ? Math.max(st.corruption, GLITCH_BRAG) : st.corruption,
+                           glitchDeVerdade(st, st.player.map), sorte, brilho);
     }
     const solo = this.geo?.terrain?.[y * this.geo.w + x];
     return rollDimEncounter(solo === "a" ? "ar" : solo === "g" ? "agua" : "terra", st);
@@ -1508,7 +1734,10 @@ export class OverworldScene {
       p.dir = DB.MAPS[w.to].interior ? "up" : "down";
       this.afterTravel();
       // primeira saída de casa: a mãe corre atrás com os doces
-      if (fromMap === "home" && w.to === "pallet" && !this.st.flags.momGift) {
+      // (a de São Lucario também: mãe é mãe dos dois lados do mar)
+      const saiuDeCasa = (fromMap === "home" && w.to === "pallet")
+        || (fromMap === DB.BRAGLITCH?.inicio && w.to === DB.BRAGLITCH?.porto?.mapa);
+      if (saiuDeCasa && !this.st.flags.momGift) {
         this.st.flags.momGift = true;
         const g = DB.STORY.momGift;
         this.dlg.say(g.lines, () => {
@@ -1651,6 +1880,14 @@ export class OverworldScene {
   }
 
   afterTravel() {
+    // trocou de mapa: o preto ficou pra trás — menos quando a porta de onde você
+    // saiu fica NO preto (o GINÁSIO DO VOID, src/data/void.js)
+    {
+      const p = this.st.player, g = DB.KANTO[p.map];
+      this.st.noPreto = !!g && (p.x < 0 || p.y < 0 || p.x >= g.w || p.y >= g.h);
+    }
+    this.profsFica = null;            // quem veio de visita foi embora
+    this.conferirPandeiros();
     // CAPTURADO: saiu do Centro enquanto ele dorme lá em cima — isso é fugir
     const cap = this.st.capturado;
     if (cap?.dormindo && this.st.player.map !== cap.dormindo.mapa) {
@@ -1911,6 +2148,7 @@ export class OverworldScene {
 
     const obst = this.obstaculoEm(f.x, f.y);
     if (obst?.tipo === "pedra") return this.pedirQuebra(obst);
+    if (obst?.tipo === "arvore") return this.pedirCorteArvore(obst);
     if (obst?.tipo === "bloco") return this.pedirForca(obst, ...DIRS[p.dir]);
 
     const t = this.tagAt(f.x, f.y);
@@ -1922,6 +2160,9 @@ export class OverworldScene {
     const key = `${this.st.player.map}.${npc.id}`;
     const state = (this.st.npcState[key] ||= {});
     if (npc.sprite !== "ball") npc.dir = OPPOSITE[this.st.player.dir];
+    // QUEM FALA é este: no estilo BALÃO (OPÇÕES → FALA) a fala sai da cabeça
+    // dele. Bola no chão e item escondido não falam — o texto deles é do jogo.
+    if (!npc.invisivel && npc.sprite !== "ball" && !npc.loot) this.dlg.falante = () => this.cabecaNaTela(npc);
 
     if (npc.loot) return this.takeLoot(npc.loot);
     if (npc.sprite === "ball" && npc.gift) return this.pegarItemBall(npc, state, key);
@@ -1949,7 +2190,18 @@ export class OverworldScene {
     if (npc.raidPortal) return this.entrarNoRasgo();
     if (npc.portal) return this.usePortal();
     if (npc.fragment) return this.useFragment();
+    if (npc.guiaVoid) return this.falarGuiaDoVoid(state);
+    if (npc.bondinho) return this.pegarBondinho(npc.bondinho);
+    // os dois professores juntos: quem está no encontro puxa a conversa antes
+    // de qualquer outra coisa (inclusive o professor da casa)
+    const enc = this.encontroProfsAqui();
+    if (enc && (npc.profVisita || npc.id === "carvalho" || npc.id === "ipe")) return this.conversaDosProfs(enc, npc);
     if (npc.id === "carvalho") return this.talkOak(npc, state);
+    if (npc.id === "ipe") return this.talkIpe(npc, state);
+    if (npc.redemoinho) return this.entrarNoRedemoinho(npc);
+    if (npc.saci) return this.enfrentarSaci(npc);
+    if (npc.lenda) return this.enfrentarLenda(npc);
+    if (npc.livroLendas) return this.lerLivroDasLendas();
     if (npc.concurso) return this.talkConcurso(npc, state);
     if (npc.celebi) return this.talkCelebi();
     if (npc.voltaTempo) return this.voltarDoTempo();
@@ -1977,7 +2229,8 @@ export class OverworldScene {
 
     if (npc.trainer && !state.defeated) {
       if (!this.st.party.length) {
-        return void this.dlg.say("VOCÊ NÃO TEM POKÉMON! FALE COM O PROF. CARVALHO PRIMEIRO.");
+        return void this.dlg.say(this.geo?.braglitch ? DB.BRAGLITCH_TEXTO.semPokemon
+          : "VOCÊ NÃO TEM POKÉMON! FALE COM O PROF. CARVALHO PRIMEIRO.");
       }
       return this.offerBattle(npc, key, state);
     }
@@ -2074,7 +2327,7 @@ export class OverworldScene {
       this.fx = {
         t: 0,
         cb: () => this.game.scenes.push(new BattleScene(), {
-          foe, glitch: true, boss: true, npcKey: chave,
+          foe, glitch: true, boss: true, npcKey: chave, falaCaptura: npc.falaCaptura,
         }),
       };
     });
@@ -2367,7 +2620,7 @@ export class OverworldScene {
   // ------------------------------------------------- golpes fora da batalha
   /** água na frente: alguém sabe SURFAR? */
   pedirSurf(alvo) {
-    const info = DB.FIELD_MOVES.surfar;
+    const info = this.campo("surfar");
     const mon = this.quemSabe("surfar");
     if (!mon) return void this.dlg.say(info.semNinguem);
     this.dlg.ask(info.pergunta, ["SIM", "NÃO"], (i) => {
@@ -2385,7 +2638,7 @@ export class OverworldScene {
 
   /** mato alto na frente: alguém sabe CORTE? */
   pedirCorte(alvo) {
-    const info = DB.FIELD_MOVES.corte;
+    const info = this.campo("corte");
     const mon = this.quemSabe("corte");
     if (!mon) return void this.dlg.say("GRAMA ALTA. ALGUMA COISA SE MEXEU LÁ DENTRO.");
     this.dlg.ask(info.pergunta, ["SIM", "NÃO"], (i) => {
@@ -2400,9 +2653,26 @@ export class OverworldScene {
     });
   }
 
+  /** ARVOREZINHA: o CORTE derruba (em Braglitch, o ROÇADOR do PANDEIRO DO
+   *  MATO). Fica derrubada de vez — nada de crescer de novo a cada visita. */
+  pedirCorteArvore(obst) {
+    const info = this.campo("corte");
+    const mon = this.quemSabe("corte");
+    if (!mon) return void this.dlg.say(info.semArvore);
+    this.dlg.ask(info.perguntaArvore, ["SIM", "NÃO"], (i) => {
+      if (i !== 0) return;
+      this.st.arvoresCortadas ||= {};
+      (this.st.arvoresCortadas[this.st.player.map] ||= []).push(obst.id);
+      Audio2.hit();
+      this.rustle = { x: obst.x, y: obst.y, t: 0 };
+      this.game.autosave?.();
+      this.dlg.say(info.usandoArvore.replace("{MON}", mon.nickname));
+    });
+  }
+
   /** pedra rachada: QUEBRA-ROCHA some com ela de vez */
   pedirQuebra(obst) {
-    const info = DB.FIELD_MOVES.quebrarocha;
+    const info = this.campo("quebrarocha");
     const mon = this.quemSabe("quebrarocha");
     if (!mon) return void this.dlg.say(info.semNinguem);
     this.dlg.ask(info.pergunta, ["SIM", "NÃO"], (i) => {
@@ -2419,7 +2689,7 @@ export class OverworldScene {
 
   /** bloco: FORÇA libera o empurrão; depois é só andar contra ele */
   pedirForca(obst, dx, dy) {
-    const info = DB.FIELD_MOVES.forca;
+    const info = this.campo("forca");
     const mon = this.quemSabe("forca");
     if (!mon) return void this.dlg.say(info.semNinguem);
     if (this.st.forcaOn) return this.empurrar(obst, dx, dy);
@@ -2494,14 +2764,18 @@ export class OverworldScene {
 
   /** VOAR: lista das cidades onde você já pisou */
   abrirVoo() {
-    const info = DB.FIELD_MOVES.voar;
+    const info = this.campo("voar");
     const mon = this.quemSabe("voar");
     if (!mon) return void this.dlg.say(info.semNinguem);
     if (this.map.interior || this.st.surfando) {
       return void this.dlg.say("AQUI DENTRO NÃO DÁ PRA LEVANTAR VOO.");
     }
+    // só as cidades da região em que você está: Kanto e Braglitch se ligam
+    // por barco, não por asa (e as duas listas juntas não cabem na caixa)
+    const aqui = !!this.geo?.braglitch;
     const destinos = Object.entries(DB.FLY_SPOTS)
-      .filter(([id]) => this.st.visitado?.[id] && id !== this.st.player.map && DB.MAPS[id]);
+      .filter(([id]) => this.st.visitado?.[id] && id !== this.st.player.map && DB.MAPS[id]
+        && !!DB.KANTO[id]?.braglitch === aqui);
     if (!destinos.length) return void this.dlg.say("VOCÊ AINDA NÃO CONHECE OUTRA CIDADE PRA VOAR.");
     this.menu = { type: "voo", index: 0, destinos, mon };
   }
@@ -2510,8 +2784,9 @@ export class OverworldScene {
    *  cidade de Kanto — inclusive nas que você ainda não conhece — e ninguém da
    *  equipe precisa saber voar. */
   abrirVooBilhete(item, t) {
+    // o avião de papel é de Kanto: pousa nas cidades de lá
     const destinos = Object.entries(DB.FLY_SPOTS)
-      .filter(([id]) => id !== this.st.player.map && DB.MAPS[id]);
+      .filter(([id]) => id !== this.st.player.map && DB.MAPS[id] && !DB.KANTO[id]?.braglitch);
     if (!destinos.length) return void this.dlg.say(DB.STORY.bilhete.semDestino);
     this.menu = { type: "voo", index: 0, destinos, bilhete: item, titulo: t.pergunta };
   }
@@ -2522,7 +2797,7 @@ export class OverworldScene {
     this.menu = null;
     const spawn = DB.MAPS[id].spawn;
     const abertura = t ? DB.STORY.bilhete.voandoKanto
-                       : DB.FIELD_MOVES.voar.usando.replace("{MON}", mon.nickname);
+                       : this.campo("voar").usando.replace("{MON}", mon.nickname);
     this.dlg.say(abertura, () => {
       Audio2.tone(784, 0.06); Audio2.tone(988, 0.12);
       this.transition(() => {
@@ -2544,11 +2819,15 @@ export class OverworldScene {
    *  Lista todo Pokémon que existe no jogo e baixa um pro seu save. */
   usePC() {
     const g = DB.STORY.giveglitch;
-    const primeira = !this.st.flags.pcGlitch;
-    this.st.flags.pcGlitch = true;
+    // no laboratório da IPÊ a primeira vez tem fala própria (src/data/braglitch.js)
+    const ipe = !!this.map.labBraglitch;
+    const flag = ipe ? "pcGlitchIpe" : "pcGlitch";
+    const primeira = !this.st.flags[flag];
+    this.st.flags[flag] = true;
     Audio2.glitch();
     Glitch.hit(1.4);
-    this.dlg.say(primeira ? g.first : g.again, () => this.openGive());
+    const fala = primeira ? (ipe ? DB.BRAGLITCH_TEXTO.pc : g.first) : g.again;
+    this.dlg.say(fala, () => this.openGive());
   }
 
   openGive() {
@@ -2638,7 +2917,9 @@ export class OverworldScene {
    *  não estão indo a lugar nenhum), e quem está na sala online também carrega
    *  a dele — do outro lado é gente no mesmo mapa, não enfeite. */
   luzesDoMapa(cx, cy) {
-    const meio = (x, y) => ({ x: x - cx + TILE / 2, y: y - cy + TILE / 2 });
+    const meio = (x, y) => this._iso
+      ? (({ x: qx, y: qy }) => ({ x: qx, y: qy - ISO_PE - 6 - this.zIso(x / TILE, y / TILE) }))(naTela(this._iso, x + TILE / 2, y + TILE / 2))
+      : { x: x - cx + TILE / 2, y: y - cy + TILE / 2 };
     const { px, py } = this.playerPixel(true);
     const luzes = [{ ...meio(px, py), raio: RAIO.borda }];
     for (const n of this.npcsHere()) {
@@ -3858,12 +4139,574 @@ export class OverworldScene {
     this.st.flags.starterChosen = true;
     this.st.flags.meuInicial = id;             // o AZUL escolhe a partir disto
     Audio2.heal();
+    // no laboratório da PROFA. IPÊ a conversa é outra: a Pokédex sai da mão
+    // dela, e em vez do "siga pela ROTA 1" vem o APAGÃO
+    if (this.map.labBraglitch) {
+      return void this.dlg.say([`VOCÊ RECEBEU ${mon.nickname}!`], () =>
+        (temPokedex(this.st) ? this.darMissaoIpe() : this.darPokedexIpe(() => this.darMissaoIpe())));
+    }
     // o inicial, depois a POKÉDEX, depois o DECODIFICADOR — e só então o
     // "siga pela ROTA 1", que é o fim da conversa
     const fim = () => this.dlg.say(DB.POKEDEX_TEXTO?.fim || []);
     const decodificador = () => (this.st.flags.decodificador ? fim() : this.darDecodificador(null, state, fim));
     this.dlg.say([`VOCÊ RECEBEU ${mon.nickname}!`], () =>
       (temPokedex(this.st) && this.st.flags.pokedex ? decodificador() : this.darPokedex(decodificador)));
+  }
+
+  // ------------------------------------------------------------- BRAGLITCH
+  // O arco do APAGÃO (src/data/braglitch.js): a PROFA. IPÊ, os três
+  // REDEMOINHOS da BR-101 e o SACI na mata. Tudo montado em runtime, como o
+  // AZUL e o DEOXYS: o redemoinho existe até ser desfeito, o SACI existe até
+  // ser pego.
+
+  /** A PROFA. IPÊ. A ordem é a do laboratório de Kanto — inicial, Pokédex —
+   *  e depois a história daqui. Quem veio de Kanto já com inicial e Pokédex
+   *  cai direto na missão. */
+  talkIpe(npc, state) {
+    const st = this.st, T = DB.BRAGLITCH_TEXTO;
+    if (!st.flags.starterChosen) return void this.dlg.say(npc.lines);
+    if (!temPokedex(st)) return this.darPokedexIpe(() => this.talkIpe(npc, state));
+    if (!st.flags.bragMissao) return this.darMissaoIpe();
+    if (st.caught?.saci) {
+      const n = (st.bragBadges || []).length;
+      if (st.flags.bragFim && n >= 8) return void this.dlg.say(T.campeao);
+      if (st.flags.bragFim) return void this.dlg.say(T.depois.map((l) => l.replace("{N}", n)));
+      st.flags.bragFim = true;
+      return void this.dlg.say(T.fim, () => {
+        const p = T.premio;
+        st.items[p.item] = Math.min(999, (st.items[p.item] || 0) + p.qty);
+        Audio2.heal();
+        this.game.autosave?.(true);
+        this.dlg.say(T.ganhou);
+      });
+    }
+    const faltam = (DB.REDEMOINHOS || []).length - this.redemoinhosDesfeitos();
+    if (faltam > 0) return void this.dlg.say(T.faltam.replace("{N}", faltam));
+    this.dlg.say(T.todos);
+  }
+
+  darPokedexIpe(depois) {
+    const P = DB.POKEDEX_TEXTO;
+    this.st.flags.pokedex = true;
+    this.dlg.say(DB.BRAGLITCH_TEXTO.pokedex, () => {
+      Audio2.heal();
+      this.game.autosave?.(true);
+      this.dlg.say([P.ganhou, P.explica[0]], () => depois?.());
+    });
+  }
+
+  darMissaoIpe() {
+    this.st.flags.bragMissao = true;
+    this.game.autosave?.(true);
+    this.dlg.say(DB.BRAGLITCH_TEXTO.missao);
+  }
+
+  /** O ENCONTRO DOS DOIS PROFESSORES neste mapa (src/data/braglitch.js):
+   *  o primeiro da lista cujas condições batem e que ainda não aconteceu. */
+  encontroProfsAqui() {
+    const st = this.st, aqui = st.player.map;
+    const bate = (r = {}) =>
+      (r.flags || []).every((f) => st.flags[f]) && !(r.semFlags || []).some((f) => st.flags[f])
+      && (r.pegos || []).every((id) => st.caught?.[id])
+      && (st.badges || []).length >= (r.kanto || 0) && (st.bragBadges || []).length >= (r.braglitch || 0);
+    return (DB.ENCONTROS_PROFS || []).find((e) => e.mapa === aqui && !st.flags[`profs_${e.id}`] && bate(e.requer)) || null;
+  }
+
+  /** Quem veio de visita: durante o encontro, e depois dele até você sair do
+   *  mapa (quem conversou não evapora na sua frente). */
+  profsVisitando() {
+    const aqui = this.st.player.map;
+    const enc = this.encontroProfsAqui()
+      || (this.profsFica?.mapa === aqui ? (DB.ENCONTROS_PROFS || []).find((e) => e.id === this.profsFica.id) : null);
+    if (!enc) return [];
+    return enc.visita.map((v) => ({
+      id: v.id, x: v.x, y: v.y, dir: v.dir, sprite: DB.PROFS[v.quem].sprite,
+      profVisita: v.quem, lines: enc.depois,
+    }));
+  }
+
+  /** A conversa dos dois. Os dois se viram pra você, falam, e o prêmio sai no fim. */
+  conversaDosProfs(enc, npc) {
+    const st = this.st;
+    st.flags[`profs_${enc.id}`] = true;
+    this.profsFica = { id: enc.id, mapa: st.player.map };
+    this.dlg.say(enc.conversa, () => {
+      const p = enc.premio;
+      if (p) {
+        st.items[p.item] = Math.min(999, (st.items[p.item] || 0) + p.qty);
+        Audio2.heal();
+      }
+      this.game.autosave?.(true);
+      if (p) this.dlg.say(`VOCÊ RECEBEU ${p.qty} ${p.item.toUpperCase()}!`);
+    });
+  }
+
+  redemoinhosDesfeitos() {
+    return (DB.REDEMOINHOS || []).filter((r) => this.st.npcState[`${r.mapa}.redemoinho_${r.id}`]?.defeated).length;
+  }
+
+  /** Os redemoinhos que ainda giram neste mapa, e o SACI, se for a hora. */
+  braglitchNpcs() {
+    const st = this.st, aqui = st.player.map, out = [];
+    for (const r of DB.REDEMOINHOS || []) {
+      if (r.mapa !== aqui || st.npcState[`${r.mapa}.redemoinho_${r.id}`]?.defeated) continue;
+      out.push({ id: `redemoinho_${r.id}`, x: r.x, y: r.y, dir: "down", sprite: "redemoinho", redemoinho: r });
+    }
+    const S = DB.SACI_NA_MATA;
+    if (S && S.mapa === aqui && !st.caught?.saci
+        && this.redemoinhosDesfeitos() >= (DB.REDEMOINHOS || []).length) {
+      out.push({ id: "saci", x: S.x, y: S.y, dir: "down", sprite: "mon:saci", saci: true });
+    }
+    // AS TRÊS LENDAS: soltas depois da oitava insígnia de Braglitch, cada uma
+    // na sua estrada, até serem pegas
+    if ((st.bragBadges || []).length >= 8) {
+      for (const l of DB.LENDAS_BRAG || []) {
+        if (l.mapa !== aqui || st.caught?.[l.id] || st.flags[`lenda_sumiu_${l.id}`]) continue;
+        if (st.npcState[`${l.mapa}.lenda_${l.id}`]?.defeated) continue;   // vencida: já é sua
+        if ((l.requer?.pegos || []).some((id) => !st.caught?.[id])) continue;   // o ENCONTRIUM espera os outros dois
+        out.push({ id: `lenda_${l.id}`, x: l.x, y: l.y, dir: "down", sprite: `mon:${l.id}`, lenda: l });
+      }
+    }
+    // AS LENDAS DO VOID (src/data/void.js): no preto do mapa, sem esperar insígnia
+    for (const l of DB.LENDAS_VOID || []) {
+      if (l.mapa !== aqui || st.caught?.[l.id] || st.flags[`lenda_sumiu_${l.id}`] || !DB.SPECIES[l.id]) continue;
+      if (st.npcState[`${l.mapa}.lenda_${l.id}`]?.defeated) continue;
+      out.push({ id: `lenda_${l.id}`, x: l.x, y: l.y, dir: "down", sprite: `mon:${l.id}`, lenda: l });
+    }
+    return out;
+  }
+
+  entrarNoRedemoinho(npc) {
+    const T = DB.BRAGLITCH_TEXTO;
+    if (!this.st.flags.bragMissao) return void this.dlg.say(T.semMissao);
+    if (!this.st.party.some((m) => m.hp > 0)) return void this.dlg.say(T.semPokemon);
+    const r = npc.redemoinho;
+    this.startBossBattle({ id: npc.id, lines: T.redemoinho, boss: { id: r.bicho, lvl: r.lvl, corrupt: true } });
+  }
+
+  enfrentarSaci(npc) {
+    const T = DB.BRAGLITCH_TEXTO;
+    if (!this.st.party.some((m) => m.hp > 0)) return void this.dlg.say(T.semPokemon);
+    this.startBossBattle({ id: npc.id, lines: T.saci, falaCaptura: T.saciPego,
+                           boss: { id: "saci", lvl: DB.SACI_NA_MATA.lvl } });
+  }
+
+  enfrentarLenda(npc) {
+    const T = DB.BRAGLITCH_TEXTO, l = npc.lenda;
+    if (!this.st.party.some((m) => m.hp > 0)) return void this.dlg.say(T.semPokemon);
+    const nome = DB.SPECIES[l.id]?.name || l.id.toUpperCase();
+    this.startBossBattle({ id: npc.id, lines: l.fala, falaCaptura: T.lenda.replace("{MON}", nome),
+                           boss: { id: l.id, lvl: l.lvl } });
+  }
+
+  /** O LIVRO DAS COORDENADAS DA LENDA, no chão de SALVADITTO: onde cada lenda
+   *  de Braglitch aparece (mapa, X e Y), e o que já aconteceu com ela. Ler o
+   *  livro também ensina a contar: dali em diante, nas estradas onde mora uma
+   *  lenda, o canto da tela mostra o seu X e Y (ver `drawCoordenadas`). */
+  lerLivroDasLendas() {
+    const st = this.st, L = DB.BRAGLITCH_TEXTO.livro;
+    st.flags.leuLivroLendas = true;
+    const paginas = [...L.abre];
+    if ((st.bragBadges || []).length < 8) paginas.push(L.dorme);
+    for (const l of this.todasAsLendas()) {
+      if (l === (DB.LENDAS_VOID || [])[0]) paginas.push(...[].concat(L.void));
+      const nome = DB.SPECIES[l.id]?.name || l.id.toUpperCase();
+      const lugar = DB.MAPS[l.mapa]?.name || l.mapa;
+      const molde = st.caught?.[l.id] ? L.pego : st.flags[`lenda_sumiu_${l.id}`] ? L.sumiu : L.linha;
+      paginas.push(molde.replace("{MON}", nome).replace("{LUGAR}", lugar).replace("{X}", l.x).replace("{Y}", l.y));
+    }
+    paginas.push(L.fecha);
+    Audio2.select();
+    this.dlg.say(paginas);
+  }
+
+  /** As lendas de Braglitch: as das estradas e as do VOID (no preto) */
+  todasAsLendas() {
+    return [...(DB.LENDAS_BRAG || []), ...(DB.LENDAS_VOID || []).filter((l) => DB.SPECIES[l.id])];
+  }
+
+  /** O X e o Y de onde você está, no canto de baixo — só depois do livro e só
+   *  nas estradas onde mora uma lenda (em qualquer lugar seria ruído). */
+  drawCoordenadas(ctx) {
+    const st = this.st, p = st.player;
+    if (!st.flags.leuLivroLendas || !this.todasAsLendas().some((l) => l.mapa === p.map)) return;
+    const txt = `X ${p.x} Y ${p.y}`;
+    const w = txt.length * 6 + 10;
+    panel(ctx, W - w - 4, H - 22, w, 18);
+    drawText(ctx, txt, W - w + 1, H - 17, PAL.ink);
+  }
+
+  /** Depois da batalha: conta o redemoinho que se desfez, e devolve o SACI
+   *  pra clareira se ele só apanhou (ele volta — é o SACI). */
+  conferirBraglitch() {
+    const st = this.st, T = DB.BRAGLITCH_TEXTO;
+    if (!T || this.dlg.active) return;
+    const feitos = this.redemoinhosDesfeitos();
+    if (feitos > (st.flags.bragRedemoinhos || 0)) {
+      st.flags.bragRedemoinhos = feitos;
+      Audio2.glitch();
+      return void this.dlg.say(T.desfez.replace("{N}", feitos));
+    }
+    const S = DB.SACI_NA_MATA;
+    const chave = S && `${S.mapa}.saci`;
+    if (chave && st.npcState[chave]?.defeated && !st.caught?.saci) {
+      delete st.npcState[chave];
+      this.dlg.say(T.saciFugiu);
+    }
+    this.entregarLendas();
+  }
+
+  /** LENDA VENCIDA É LENDA CAPTURADA: quem derruba uma lenda ganha ela na hora
+   *  — ela vem pra equipe (ou pra box, com a equipe cheia), inteira e no nível
+   *  em que lutou. O livro de SALVADITTO passa a dizer "CAPTURADO". Roda na
+   *  volta da batalha E a cada quadro parado (ver `update`): na volta pode ter
+   *  outra fala na tela, e aí a entrega espera ela acabar em vez de se perder.
+   *  Devolve true quando entregou. */
+  entregarLendas() {
+    const st = this.st, T = DB.BRAGLITCH_TEXTO;
+    if (!T || this.dlg.active || this.menu || this.fx) return false;
+    for (const l of this.todasAsLendas()) {
+      const k = `${l.mapa}.lenda_${l.id}`;
+      if (st.npcState[k]?.defeated && !st.caught?.[l.id] && DB.SPECIES[l.id]) {
+        const mon = createMon(l.id, l.lvl);
+        const msgs = [T.lendaCapturada.replace("{MON}", mon.nickname)];
+        if (st.party.length < 6) { st.party.push(mon); msgs.push(T.lendaEquipe.replace("{MON}", mon.nickname)); }
+        else { guardarNoBox(st, mon); msgs.push(T.lendaBox.replace("{MON}", mon.nickname)); }
+        st.seen[l.id] = true;
+        st.caught[l.id] = true;
+        delete st.flags[`lenda_sumiu_${l.id}`];
+        Audio2.heal();
+        this.game.autosave?.(true);
+        this.dlg.say(msgs);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** O MISSINGNO CHEGA EM BRAGLITCH: com as seis lendas pegas, na primeira
+   *  vez que você está parado num mapa de lá. Daí em diante o mato e a tela de
+   *  Braglitch são de glitch de verdade (ver `sortearSelvagem` e `update`).
+   *  Devolve true quando tomou conta do quadro. */
+  glitchChegaEmBraglitch() {
+    const st = this.st, T = DB.BRAGLITCH_TEXTO;
+    if (!T?.glitchChegou || st.flags.bragGlitch || this.dlg.active || this.menu || this.fx) return false;
+    if (!emBraglitch(st.player.map) || !seisLendasPegas(st)) return false;
+    st.flags.bragGlitch = true;
+    this.selvagens = [];            // o mato de antes era folclore: nasce de novo, já glitch
+    this.primeiroMissingno = true;
+    Glitch.forced = true;
+    Glitch.hit(2.5);
+    Audio2.glitch();
+    this.tremor = 1;
+    this.game.autosave?.(true);
+    this.dlg.say(T.glitchChegou);
+    return true;
+  }
+
+  /** O BONDINHO (src/data/braglitch.js): a estação pergunta, e o SIM começa a
+   *  viagem — a cabine atravessa o mar numa tela desenhada (`drawBondinho`) e
+   *  desce na estação da outra ponta. */
+  pegarBondinho(de) {
+    const B = DB.BONDINHO;
+    const para = B.estacoes.find((e) => e !== de);
+    if (!para || !DB.MAPS[para.mapa]) return;
+    this.dlg.ask(B.pergunta.replace("{AQUI}", de.nome).replace("{LA}", para.nome), B.opcoes, (i) => {
+      if (i !== 0) return;
+      this.dlg.say(B.partiu, () => {
+        Audio2.tone(523, 0.1, "triangle", 0.4);
+        Audio2.tone(659, 0.14, "triangle", 0.4);
+        // da esquerda pra direita saindo de Carvoriú, e o contrário na volta
+        this.viagemBondinho = { t: 0, total: 5, de, para, ida: de === B.estacoes[0] };
+      });
+    });
+  }
+
+  /** O CABO DO BONDINHO no mapa: do alto do poste da estação até a borda do
+   *  mapa do lado do mar, por cima de tudo (é fio no ar). No isométrico ele
+   *  vai na mesma altura do poste, projetado como o resto. */
+  drawCaboDoBondinho(ctx, cx, cy, iso) {
+    const est = DB.BONDINHO?.estacoes.find((e) => e.mapa === this.st.player.map);
+    if (!est || !this.geo) return;
+    const ALTO = 18;                                     // o alto do poste, acima do tile
+    const px = est.x * TILE + 4, py = est.y * TILE;      // o pé do poste, no mapa
+    const ex = px + 24, ey = est.cabo === "down" ? this.geo.h * TILE + TILE : -TILE;
+    let a, b;
+    if (iso) {
+      const z0 = this.zIso(est.x, est.y);
+      const pa = naTela(iso, px, py + TILE / 2), pb = naTela(iso, ex, ey);
+      a = { x: pa.x, y: pa.y - z0 - ALTO - ISO_PE }; b = { x: pb.x, y: pb.y - z0 - ALTO - ISO_PE };
+    } else {
+      a = { x: px - cx, y: py - cy - ALTO }; b = { x: ex - cx, y: ey - cy - ALTO };
+    }
+    ctx.strokeStyle = "#2a2d33";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(Math.round(a.x) + 0.5, Math.round(a.y) + 0.5); ctx.lineTo(Math.round(b.x) + 0.5, Math.round(b.y) + 0.5); ctx.stroke();
+  }
+
+  andarDeBondinho(dt) {
+    const v = this.viagemBondinho;
+    v.t += dt;
+    if (v.t < v.total) return;
+    const st = this.st, B = DB.BONDINHO;
+    Object.assign(st.player, { map: v.para.mapa, x: v.para.chegada.x, y: v.para.chegada.y, dir: "down" });
+    st.surfando = null;
+    this.compa = null;
+    this.selvagens = [];
+    this.justWarped = true;
+    this.viagemBondinho = null;
+    this.afterTravel();
+    this.game.autosave?.(true);
+    Audio2.heal();
+    this.dlg.say(B.chegou.replace("{LA}", v.para.nome));
+  }
+
+  /** A VIAGEM: céu, mar mexendo embaixo, a cidade de onde se saiu ficando pra
+   *  trás, o cabo com a curva do peso, e a cabine indo por ele, balançando. */
+  drawBondinho(ctx) {
+    if (isoLigado()) return this.drawBondinhoIso(ctx);
+    const v = this.viagemBondinho, B = DB.BONDINHO;
+    const k = Math.min(1, v.t / v.total);
+    const p = k * k * (3 - 2 * k);                       // sai devagar, chega devagar
+    const agora = performance.now() / 1000;
+    // o céu
+    const ceu = ctx.createLinearGradient(0, 0, 0, H);
+    ceu.addColorStop(0, "#6fb9ec"); ceu.addColorStop(1, "#d6f1ff");
+    ctx.fillStyle = ceu; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#fff4b0";
+    ctx.beginPath(); ctx.arc(196, 26, 10, 0, Math.PI * 2); ctx.fill();
+    // as margens: os prédios de CARVORIÚ numa ponta, a praia baixa do LARVANJAL
+    // na outra (a de Carvoriú fica à esquerda na ida e à direita na volta)
+    const margem = (x0, larg, predios) => {
+      ctx.fillStyle = "#e8d49a"; ctx.fillRect(x0, 104, larg, 10);
+      if (!predios) {
+        ctx.fillStyle = "#4f9a4a";
+        for (let i = 0; i < larg; i += 9) ctx.fillRect(x0 + i, 96 + ((i * 7) % 5), 7, 9);
+        return;
+      }
+      for (let i = 0; i < larg; i += 11) {
+        const alto = 34 + ((i * 37) % 30);
+        ctx.fillStyle = (i / 11) % 2 ? "#8c96a8" : "#a9b3c4";
+        ctx.fillRect(x0 + i, 104 - alto, 10, alto);
+        ctx.fillStyle = "#e6f4ff";
+        for (let j = 6; j < alto - 4; j += 6) ctx.fillRect(x0 + i + 2, 104 - alto + j, 2, 2), ctx.fillRect(x0 + i + 6, 104 - alto + j, 2, 2);
+      }
+    };
+    margem(0, 44, v.ida);
+    margem(W - 44, 44, !v.ida);
+    // o mar, com as ondas correndo
+    ctx.fillStyle = "#2b7fc2"; ctx.fillRect(0, 112, W, H - 112);
+    ctx.fillStyle = "#63aee6";
+    for (let y = 118; y < H; y += 8) {
+      for (let x = -16; x < W; x += 24) {
+        const dx = ((agora * 12 + y * 3) % 24);
+        ctx.fillRect(Math.round(x + dx), y, 8, 1);
+      }
+    }
+    // o cabo: de torre a torre, com a barriga do peso
+    const A = { x: 30, y: 44 }, Z = { x: W - 30, y: 34 }, C = { x: W / 2, y: 62 };
+    const ponto = (u) => ({
+      x: (1 - u) * (1 - u) * A.x + 2 * (1 - u) * u * C.x + u * u * Z.x,
+      y: (1 - u) * (1 - u) * A.y + 2 * (1 - u) * u * C.y + u * u * Z.y,
+    });
+    ctx.fillStyle = "#4a4f59";
+    ctx.fillRect(A.x - 2, A.y, 4, 104 - A.y);
+    ctx.fillRect(Z.x - 2, Z.y, 4, 104 - Z.y);
+    ctx.strokeStyle = "#2a2d33"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.quadraticCurveTo(C.x, C.y, Z.x, Z.y); ctx.stroke();
+    // a cabine
+    const c = ponto(v.ida ? p : 1 - p);
+    const bal = Math.sin(agora * 2.4) * 2 * Math.sin(Math.PI * p);
+    const cx = Math.round(c.x + bal), cy = Math.round(c.y);
+    ctx.fillStyle = "#2a2d33";
+    ctx.fillRect(cx - 3, cy - 2, 6, 3);                   // as rodinhas no cabo
+    ctx.fillRect(Math.round(c.x), cy, 1, 8);              // o braço
+    ctx.fillStyle = "#d8322e"; ctx.fillRect(cx - 19, cy + 8, 38, 26);
+    ctx.fillStyle = "#8f1f1c"; ctx.fillRect(cx - 19, cy + 32, 38, 2);
+    // AS DUAS JANELAS: você numa, e o Pokémon que te segue na outra. Você vai
+    // na da frente (a do lado pra onde a cabine anda); ele, atrás de você.
+    const frente = v.ida ? cx + 2 : cx - 16, tras = v.ida ? cx - 16 : cx + 2;
+    const janela = (jx, desenhar) => {
+      ctx.fillStyle = "#bfe6ff";
+      ctx.fillRect(jx, cy + 11, 14, 14);
+      ctx.save();
+      ctx.beginPath(); ctx.rect(jx, cy + 11, 14, 14); ctx.clip();
+      desenhar(jx, cy + 11);
+      ctx.restore();
+      ctx.fillStyle = "rgba(255,255,255,.35)";          // o reflexo do vidro
+      ctx.fillRect(jx + 1, cy + 12, 3, 1);
+    };
+    janela(frente, (jx, jy) => {
+      const sets = Assets.actor("hero");
+      const img = (v.ida ? sets?.right || sets?.down : sets?.left || sets?.down)?.[0] || sets?.down?.[0];
+      // o quadro do herói tem 32 de altura e o boneco ocupa só os ~20 de baixo:
+      // encostar o topo do quadro na janela mostrava o vazio em cima da cabeça
+      if (img) ctx.drawImage(img, jx + ((14 - img.width) >> 1), jy + 1 - Math.max(0, img.height - 20));
+    });
+    const mon = this.quemSegue();
+    if (mon) {
+      janela(tras, (jx, jy) => {
+        // o desenho de frente olha pra esquerda: na ida (pra direita) ele vira
+        const base = Assets.mon(mon.species, mon.seed);
+        const img = base && (v.ida ? espelhar(base) : base);
+        if (img) ctx.drawImage(reduzido(img, 20), jx - 3, jy - 1 + Math.round(Math.sin(agora * 5) * 0.8), 20, 20);
+      });
+    } else {
+      ctx.fillStyle = "#bfe6ff"; ctx.fillRect(tras, cy + 11, 14, 14);
+    }
+    const rotulo = B.ceu.replace("{LA}", v.para.nome);
+    panel(ctx, 4, 4, rotulo.length * 6 + 12, 18);
+    drawText(ctx, rotulo, 9, 9, PAL.ink);
+  }
+
+  /** A VIAGEM NO ISOMÉTRICO: a mesma travessia, vista de quina como o resto
+   *  do mundo. A cena é uma faixa comprida no eixo x do "mapa" (CARVORIÚ no
+   *  começo, a PRAIA DO LARVANJAL no fim), com o mar deitado em losango, os
+   *  prédios e as árvores em blocos, as duas torres, o cabo com a barriga do
+   *  peso e a cabine em caixa — você e o seu Pokémon nas janelas da face sul. */
+  drawBondinhoIso(ctx) {
+    const v = this.viagemBondinho, B = DB.BONDINHO;
+    const k = Math.min(1, v.t / v.total);
+    const p = k * k * (3 - 2 * k);
+    const agora = performance.now() / 1000;
+    const L = 280, D = 64, S = 0.68;                     // comprimento, largura, escala
+    const TA = 44, TB = L - 44, ALTO = 62, BARRIGA = 14; // as torres e o cabo
+    const o = { x: W / 2 - ((L / 2 - D / 2) * S), y: H / 2 - ((L / 2 + D / 2) / 2) * S + 26 };
+    const P = (x, y, z = 0) => ({ x: o.x + (x - y) * S, y: o.y + ((x + y) / 2 - z) * S });
+    const quad = (pts, cor) => {
+      ctx.fillStyle = cor;
+      ctx.beginPath();
+      pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+      ctx.closePath(); ctx.fill();
+    };
+    // uma caixa: tampo, face sul (y1, desce pra esquerda) e face leste (x1)
+    const caixa = (x0, x1, y0, y1, z0, z1, topo, sul, leste) => {
+      quad([P(x0, y1, z1), P(x1, y1, z1), P(x1, y1, z0), P(x0, y1, z0)], sul);
+      quad([P(x1, y0, z1), P(x1, y1, z1), P(x1, y1, z0), P(x1, y0, z0)], leste);
+      quad([P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1)], topo);
+    };
+    // o céu
+    const ceu = ctx.createLinearGradient(0, 0, 0, H);
+    ceu.addColorStop(0, "#6fb9ec"); ceu.addColorStop(1, "#d6f1ff");
+    ctx.fillStyle = ceu; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#fff4b0";
+    ctx.beginPath(); ctx.arc(212, 22, 9, 0, Math.PI * 2); ctx.fill();
+    // o mar, deitado, com as ondas correndo ao longo dele
+    quad([P(-40, -40), P(L + 40, -40), P(L + 40, D + 40), P(-40, D + 40)], "#2b7fc2");
+    ctx.fillStyle = "#63aee6";
+    for (let i = 0; i < 26; i++) {
+      const wx = ((i * 53 + agora * 14) % (L + 60)) - 30, wy = (i * 37) % (D + 60) - 30;
+      const a = P(wx, wy), b = P(wx + 10, wy);
+      ctx.fillRect(Math.round(a.x), Math.round(a.y), Math.max(1, Math.round(b.x - a.x)), 1);
+    }
+    // CARVORIÚ: a areia e a parede de prédios (do fundo pra frente)
+    caixa(-40, 30, -40, D + 40, 0, 4, "#e8d49a", "#c9b27a", "#b39c66");
+    const predios = [[-36, -14, -36, -6, 70], [-36, -14, 0, 22, 54], [-10, 12, -36, -6, 58],
+                     [-36, -14, 28, 50, 80], [-10, 12, 0, 22, 44], [-10, 12, 28, 50, 64]];
+    for (const [x0, x1, y0, y1, alt] of predios) {
+      caixa(x0, x1, y0, y1, 4, alt, "#c5cedb", "#a9b3c4", "#8c96a8");
+      // as janelas da face sul
+      ctx.fillStyle = "#e6f4ff";
+      for (let z = 12; z < alt - 6; z += 9) {
+        for (let x = x0 + 3; x < x1 - 3; x += 7) {
+          const q = P(x, y1, z);
+          ctx.fillRect(Math.round(q.x), Math.round(q.y), 2, 2);
+        }
+      }
+    }
+    // O LARVANJAL: praia baixa e as árvores do mato
+    caixa(L - 30, L + 40, -40, D + 40, 0, 4, "#e8d49a", "#c9b27a", "#b39c66");
+    for (const [x, y] of [[L - 20, -20], [L - 4, 4], [L + 14, -10], [L - 18, 30], [L + 6, 44], [L + 22, 20]]) {
+      caixa(x, x + 2, y, y + 2, 4, 14, "#6b4a2a", "#5a3d22", "#4a3019");
+      caixa(x - 6, x + 8, y - 6, y + 8, 14, 26, "#5fb35a", "#4f9a4a", "#3f8039");
+    }
+    // as torres
+    const torre = (x) => caixa(x - 2, x + 2, D / 2 - 2, D / 2 + 2, 4, ALTO, "#6a707c", "#5a5f6a", "#4a4f59");
+    torre(TA);
+    // o cabo: da torre A à B, no meio da faixa, com a barriga do peso
+    const cabo = (u) => ({ x: TA + (TB - TA) * u, z: ALTO - BARRIGA * Math.sin(Math.PI * u) });
+    ctx.strokeStyle = "#2a2d33"; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i <= 24; i++) {
+      const c = cabo(i / 24), q = P(c.x, D / 2, c.z);
+      i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y);
+    }
+    ctx.stroke();
+    // a cabine, pendurada no cabo e balançando pra frente e pra trás
+    const c = cabo(v.ida ? p : 1 - p);
+    const bal = Math.sin(agora * 2.4) * 2 * Math.sin(Math.PI * p);
+    const cx = c.x + bal, zc = c.z;
+    const braco = [P(c.x, D / 2, zc), P(cx, D / 2, zc - 8)];
+    ctx.beginPath(); ctx.moveTo(braco[0].x, braco[0].y); ctx.lineTo(braco[1].x, braco[1].y); ctx.stroke();
+    const x0 = cx - 13, x1 = cx + 13, y0 = D / 2 - 8, y1 = D / 2 + 8, z1 = zc - 8, z0 = z1 - 24;
+    caixa(x0, x1, y0, y1, z0, z1, "#b82a26", "#d8322e", "#a8241f");
+    quad([P(x0, y1, z0 + 2), P(x1, y1, z0 + 2), P(x1, y1, z0), P(x0, y1, z0)], "#8f1f1c");
+    // AS JANELAS na face sul: você na da frente, o Pokémon na de trás
+    const janela = (jx0, desenhar) => {
+      const pts = [P(jx0, y1, z1 - 4), P(jx0 + 10, y1, z1 - 4), P(jx0 + 10, y1, z1 - 18), P(jx0, y1, z1 - 18)];
+      quad(pts, "#bfe6ff");
+      ctx.save();
+      ctx.beginPath();
+      pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+      ctx.closePath(); ctx.clip();
+      const meio = P(jx0 + 5, y1, z1 - 11);
+      desenhar(Math.round(meio.x), Math.round(meio.y));
+      ctx.restore();
+    };
+    const frente = v.ida ? x1 - 12 : x0 + 2, tras = v.ida ? x0 + 2 : x1 - 12;
+    // quem anda pra +x no isométrico olha ↘, e na volta ↖ — a mesma regra dos
+    // bonecos do mapa (`vistaIso` em src/core/isometrico.js)
+    const vista = vistaIso(v.ida ? "right" : "left");
+    janela(frente, (mx, my) => {
+      const sets = Assets.actor("hero");
+      const quadro = (vista.costas ? sets?.up : sets?.down)?.[0] || sets?.down?.[0];
+      const img = quadro && (vista.espelha ? espelhar(quadro) : quadro);
+      if (img) ctx.drawImage(img, mx - (img.width >> 1), my - 6 - Math.max(0, img.height - 20));
+    });
+    const mon = this.quemSegue();
+    if (mon) {
+      janela(tras, (mx, my) => {
+        const base = vista.costas ? Assets.monBack(mon.species, mon.seed) : Assets.mon(mon.species, mon.seed);
+        const img = base && (vista.espelha ? espelhar(base) : base);
+        if (img) ctx.drawImage(reduzido(img, 18), mx - 9, my - 9 + Math.round(Math.sin(agora * 5) * 0.8), 18, 18);
+      });
+    } else janela(tras, () => {});
+    // a torre B por último: ela fica na frente da cabine quando a cabine chega
+    torre(TB);
+    const rotulo = B.ceu.replace("{LA}", v.para.nome);
+    panel(ctx, 4, 4, rotulo.length * 6 + 12, 18);
+    drawText(ctx, rotulo, 9, 9, PAL.ink);
+  }
+
+  /** Onde está a cabeça de um NPC na tela agora (o BALÃO de fala sai dali):
+   *  no meio do tile dele, uns pixels acima do topo do boneco. */
+  cabecaNaTela(n) {
+    const ax = n.fx ?? n.x, ay = n.fy ?? n.y;
+    if (this._iso) {
+      const p = naTela(this._iso, ax * TILE + TILE / 2, ay * TILE + TILE / 2);
+      return { x: p.x, y: p.y - ISO_PE - this.zIso(ax, ay) - 22 };
+    }
+    return { x: ax * TILE - Math.round(this.cam.x) + TILE / 2, y: ay * TILE - Math.round(this.cam.y) - 8 };
+  }
+
+  /** O GUIA DO VOID (src/data/void.js): a canalizadora quer luz no preto do
+   *  mapa. Com um Pokémon de FOGO na equipe, ela dá o guia — uma vez. */
+  falarGuiaDoVoid(state) {
+    const G = DB.GUIA_VOID;
+    const fogo = this.st.party.find((m) => !m.eu && (m.types || DB.SPECIES[m.species]?.types || []).includes("FOGO"));
+    if (state.deuGuia) {
+      return void this.dlg.say(fogo ? G.depois.replace("{MON}", fogo.nickname) : G.depoisSemNome);
+    }
+    this.dlg.say(G.pede, () => {
+      if (!fogo) return void this.dlg.say(G.semFogo);
+      this.dlg.say(G.comFogo.map((l) => l.replace("{MON}", fogo.nickname)), () => {
+        state.deuGuia = true;
+        this.st.items[G.item] = 1;
+        Audio2.heal();
+        this.game.autosave?.(true);
+        this.dlg.say(G.ganhou);
+      });
+    });
   }
 
   /** A POKÉDEX sai da mão do professor (src/data/pokedex.js). */
@@ -4017,6 +4860,7 @@ export class OverworldScene {
     // ACAMPAR só aparece quando dá: com barraca na mochila e chão de fora. Menu
     // que oferece o que não funciona é menu que mente.
     if (podeAcampar(this.st, this.map).ok) base.push("ACAMPAR");
+    if (this.geo?.braglitch && DB.MAPA_REGIAO) base.push("MAPA");   // o mapa do Brasil (Braglitch)
     if (diario(this.st).length) base.push(DB.MISSAO_TEXTO.titulo);   // só depois do primeiro pedido
     base.push(DB.STORY.fusao.atualizar);   // baixa as fusões publicadas no mundo
     // VOAR LIVRE é do pokésave de VOADOR: levanta e fica no ar até pousar. Pra
@@ -4205,6 +5049,8 @@ export class OverworldScene {
     const have = this.st.items[item] || 0;
     const n = Math.max(1, Math.min(qty, have));
     if (DB.EVO_ITEMS?.[item]) return this.useEvoItem(item, mon);
+    if (item === DB.CUIA?.item) return this.usarCuia(mon);
+    if (item === DB.CATALOGO_ROTOM?.item) return this.usarCatalogo(mon);
     if (item === "poção") {
       if (mon.hp <= 0) return void this.dlg.say(`${mon.nickname} ESTÁ DESMAIADO. POÇÃO NÃO RESOLVE.`);
       const missing = mon.maxHp - mon.hp;
@@ -4216,6 +5062,64 @@ export class OverworldScene {
       return void this.dlg.say(`${mon.nickname} RECUPEROU ${Math.min(missing, used * 20)} DE HP! (${used} POÇÃO)`);
     }
     return this.useCandy(mon, n);
+  }
+
+  /** A CUIA TÉRMICA: o VICTREEBEL de Braglitch troca de CHIMARRÃO pra TERERÊ
+   *  e de volta. É troca de forma, não evolução: mesmo nível, mesmos golpes,
+   *  só o tipo e os números mudam. A cuia não se gasta. */
+  usarCuia(mon) {
+    const C = DB.CUIA;
+    const nova = C.troca[mon.species];
+    if (!nova || !DB.SPECIES[nova]) {
+      Audio2.cancel();
+      return void this.dlg.say(C.nada.replace("{MON}", mon.nickname));
+    }
+    const nomeVelho = DB.SPECIES[mon.species].name;
+    const hpAntes = mon.maxHp ? mon.hp / mon.maxHp : 1;
+    mon.species = nova;
+    if (mon.nickname === nomeVelho) mon.nickname = DB.SPECIES[nova].name;   // apelido não se mexe
+    recalc(mon);
+    mon.hp = Math.max(mon.hp > 0 ? 1 : 0, Math.round(mon.maxHp * hpAntes));
+    this.st.seen[nova] = true;
+    this.st.caught[nova] = true;
+    Audio2.heal();
+    this.game.autosave?.(true);
+    this.dlg.say(C.virou[nova].replace("{MON}", mon.nickname));
+  }
+
+  /** O CATÁLOGO ROTOM (src/data/rotom.js): o ROTOM escolhe um aparelho e vira
+   *  aquela forma, ou volta ao normal. Mesmo nível, mesmos golpes; o catálogo
+   *  não se gasta. */
+  usarCatalogo(mon) {
+    const C = DB.CATALOGO_ROTOM;
+    if (!C.aceita.includes(mon.species)) {
+      Audio2.cancel();
+      return void this.dlg.say(C.nada.replace("{MON}", mon.nickname));
+    }
+    // a forma "normal" é a de onde ele veio: ROTOM ou ROTOM-BRAG (fica no mon)
+    const base = C.bases.includes(mon.species) ? mon.species : (mon.rotomBase || "rotom");
+    const opcoes = C.opcoes.filter(([id]) => DB.SPECIES[id])
+      .map(([id, nome]) => (id === "rotom" ? [base, `${DB.SPECIES[base].name} NORMAL`] : [id, nome]));
+    this.dlg.ask(C.pergunta.replace("{MON}", mon.nickname), [...opcoes.map(([, nome]) => nome), "VOLTAR"], (i) => {
+      const escolha = opcoes[i];
+      if (!escolha) return;
+      const [nova, nome] = escolha;
+      if (nova === mon.species) return void this.dlg.say(C.jaE.replace("{MON}", mon.nickname));
+      const nomeVelho = DB.SPECIES[mon.species].name;
+      const hpAntes = mon.maxHp ? mon.hp / mon.maxHp : 1;
+      if (C.bases.includes(mon.species)) mon.rotomBase = mon.species;
+      mon.species = nova;
+      if (mon.nickname === nomeVelho) mon.nickname = DB.SPECIES[nova].name;
+      recalc(mon);
+      mon.hp = Math.max(mon.hp > 0 ? 1 : 0, Math.round(mon.maxHp * hpAntes));
+      this.st.seen[nova] = true;
+      this.st.caught[nova] = true;
+      Audio2.tone(880, 0.05); Audio2.tone(1320, 0.1);
+      Glitch.hit(0.6);
+      this.game.autosave?.(true);
+      this.dlg.say(C.bases.includes(nova) ? C.saiu.replace("{MON}", mon.nickname)
+        : C.virou.replace("{MON}", mon.nickname).replace("{FORMA}", nome));
+    });
   }
 
   spend(item, n) {
@@ -4264,7 +5168,7 @@ export class OverworldScene {
     const used = Math.min(qty, 100 - mon.level);
     const learned = [];
     for (let i = 0; i < used; i++) {
-      for (const ev of gainXp(mon, xpForLevel(mon.level + 1) - mon.xp)) {
+      for (const ev of gainXp(mon, xpForLevel(mon.level + 1) - mon.xp, { semTrunfo: true })) {
         if (ev.type === "move") learned.push(DB.MOVES[ev.id].name);
       }
     }
@@ -4305,6 +5209,7 @@ export class OverworldScene {
         else if (pick === "BOX") this.menu = { type: "box", lado: "box", index: 0, top: 0 };
         else if (pick === "MOCHILA") this.menu = { type: "bag", index: 0 };
         else if (pick === "INSÍGNIAS") this.menu = { type: "badges", index: 0 };
+        else if (pick === "MAPA") this.menu = { type: "mapaRegiao", sel: this.ondeNoMapa() };
         else if (pick === DB.MISSAO_TEXTO.titulo) this.menu = { type: "missoes", index: 0, top: 0 };
         else if (pick === DB.STORY.fusao.atualizar) { this.menu = null; return void this.baixarDoMundo(); }
         else if (pick === "SALVAR") {
@@ -4327,7 +5232,8 @@ export class OverworldScene {
         else if (Input.consume("a")) { Audio2.select(); m.escolher(m.index); }
         return;
       }
-      if (Input.consume("b") || Input.consume("a")) { this.menu = { type: "main", index: 0 }; Audio2.cancel(); }
+      if (Input.consume("b")) { this.menu = { type: "main", index: 0 }; Audio2.cancel(); }
+      else if (Input.consume("a") && this.st.party[m.index]) { Audio2.select(); this.escolherTrunfo(this.st.party[m.index]); }
       return;
     }
     if (m.type === "goLista") {
@@ -4408,6 +5314,10 @@ export class OverworldScene {
           const base = DB.SPECIES[forma?.megaDe];
           return void this.dlg.say(DB.STORY.mega.olhaPedra.replace("{ESPECIE}", base?.name || "?"));
         }
+        if (item === DB.GUIA_VOID?.item && owned > 0) {
+          Audio2.select();                       // item-chave: só se lê
+          return void this.dlg.say(DB.GUIA_VOID.texto);
+        }
         if (item === "picareta" && owned > 0) {
           Audio2.select();                       // item-chave: cava onde estiver
           this.menu = null;
@@ -4425,7 +5335,19 @@ export class OverworldScene {
           Audio2.select();                       // OVO DA CRECHE: idem, espécie certa
           return void this.racharOvoDaCreche(item);
         }
-        if (DB.EVO_ITEMS?.[item] && owned > 0 && this.st.party.length) {
+        // OS PANDEIROS DA TERRA também tocam da MOCHILA: o do CÉU chama o
+        // CATORBIS e abre a lista de cidades; os outros dizem onde tocar (eles
+        // funcionam de frente pro obstáculo, com Z)
+        const pandeiro = (DB.PANDEIROS || []).find((pd) => pd.item === item);
+        if (pandeiro && owned > 0) {
+          if (!this.geo?.braglitch) { Audio2.cancel(); return void this.dlg.say(DB.PANDEIRO_TEXTO.foraDeBraglitch); }
+          Audio2.select();
+          if (pandeiro.golpe === "voar") { this.menu = null; return void this.abrirVoo(); }
+          return void this.dlg.say(DB.PANDEIRO_TEXTO.onde[pandeiro.golpe] || DB.PANDEIRO_TEXTO.ondeGeral);
+        }
+        // a CUIA TÉRMICA e o CATÁLOGO ROTOM também escolhem um bicho
+        const cuia = item === DB.CUIA?.item || item === DB.CATALOGO_ROTOM?.item;
+        if ((DB.EVO_ITEMS?.[item] || cuia) && owned > 0 && this.st.party.length) {
           Audio2.select();                       // item de evolução: um por vez
           this.menu = { type: "useItem", index: 0, item, qty: 1 };
           return;
@@ -4754,8 +5676,21 @@ export class OverworldScene {
       if (Input.consume("a")) { Audio2.select(); this.formaDoPresente(m.lista[m.index]); }
       return;
     }
+    if (m.type === "mapaRegiao") {
+      if (Input.consume("b") || Input.consume("a")) {
+        this.menu = { type: "main", index: this.itensMenu().indexOf("MAPA") };
+        return void Audio2.cancel();
+      }
+      for (const d of ["up", "down", "left", "right"]) {
+        if (!Input.consume(d)) continue;
+        const prox = this.vizinhoNoMapa(m.sel, d);
+        if (prox) { m.sel = prox; Audio2.blip(); }
+      }
+      return;
+    }
+    if (m.type === "optsFala") return this.menuFala(m);
     if (m.type === "opts") {
-      const n = 7;
+      const n = 9;
       if (Input.consume("up")) m.index = (m.index + n - 1) % n;
       if (Input.consume("down")) m.index = (m.index + 1) % n;
       if (Input.consume("b")) {
@@ -4766,6 +5701,7 @@ export class OverworldScene {
       const lado = Input.consume("right") ? 1 : Input.consume("left") ? -1 : 0;
       if (lado && m.index === 2) this.mudaVelocidade(lado);
       if (lado && m.index === 3) this.mudaIdioma(lado);
+      if (lado && m.index === 6) this.mudaIso();
       if (Input.consume("a")) {
         Audio2.select();
         if (m.index === 0) Glitch.scanlines = !Glitch.scanlines;
@@ -4775,9 +5711,39 @@ export class OverworldScene {
         else if (m.index === 4) this.abrirDataAniversario("opts");
         // BATALHA DUPLA: todo treinador com 2+ luta em dupla (é do save)
         else if (m.index === 5) this.st.flags.todasDuplas = !this.st.flags.todasDuplas;
+        else if (m.index === 6) this.mudaIso();
+        else if (m.index === 7) this.menu = { type: "optsFala", index: 0 };
         else { Save.clear(); this.menu = null; this.dlg.say("SAVE APAGADO. RECARREGUE A PÁGINA."); }
       }
     }
+  }
+
+  /** OPÇÕES → FALA (src/systems/dialogue.js lê daqui, via src/core/opcoes.js).
+   *  Cada linha anda pros dois lados com ←/→ e pra frente com Z. */
+  linhasDaFala() {
+    const vel = FALA_VELOCIDADES[Opcoes.get("falaVel")] || FALA_VELOCIDADES[1];
+    return [
+      ["ESTILO", Opcoes.get("falaEstilo") === "balao" ? "BALÃO" : "CAIXA", "BALÃO: A FALA SAI DA CABEÇA DE QUEM FALA."],
+      ["VELOCIDADE", vel.nome, "QUÃO RÁPIDO AS LETRAS APARECEM."],
+      ["SOM DAS LETRAS", Opcoes.get("falaSom") !== false ? "ON" : "OFF", "O TIQUE DE CADA LETRA APARECENDO."],
+      ["AVANÇO", Opcoes.get("falaAuto") ? "SOZINHO" : "APERTANDO Z", "SOZINHO: A PÁGINA VIRA DEPOIS DE DAR TEMPO DE LER."],
+    ];
+  }
+
+  menuFala(m) {
+    const n = 4;
+    if (Input.consume("up")) m.index = (m.index + n - 1) % n;
+    if (Input.consume("down")) m.index = (m.index + 1) % n;
+    if (Input.consume("b")) { Audio2.cancel(); this.menu = { type: "opts", index: 7 }; return; }
+    const lado = Input.consume("right") ? 1 : Input.consume("left") ? -1 : Input.consume("a") ? 1 : 0;
+    if (!lado) return;
+    Audio2.select();
+    if (m.index === 0) Opcoes.set("falaEstilo", Opcoes.get("falaEstilo") === "balao" ? "caixa" : "balao");
+    else if (m.index === 1) {
+      const k = FALA_VELOCIDADES.length;
+      Opcoes.set("falaVel", ((Opcoes.get("falaVel") ?? 1) + lado + k) % k);
+    } else if (m.index === 2) Opcoes.set("falaSom", Opcoes.get("falaSom") === false);
+    else Opcoes.set("falaAuto", !Opcoes.get("falaAuto"));
   }
 
   // -------------------------------------------------------------- render
@@ -4797,77 +5763,119 @@ export class OverworldScene {
     const cx = Math.round(this.cam.x), cy = Math.round(this.cam.y);
 
     const art = mapArt(this.st.player.map);
-    if (art) ctx.drawImage(art, -cx, -cy);
-    else drawText(ctx, "CARREGANDO MAPA...", 60, 76, "#f4f4f4");
+    // MODO ISOMÉTRICO (src/core/isometrico.js): o chão gira e as paredes sobem.
+    // Tudo que é "do chão" abaixo recebe (cx, cy) = (0, 0) e é desenhado no
+    // plano do mapa já projetado; o resto do render continua igual.
+    const { px: ipx, py: ipy } = this.playerPixel();
+    const iso = this._iso = art && isoLigado()
+      ? origem(W, H, ipx + TILE / 2, ipy + TILE / 2, this.zIso(ipx / TILE, ipy / TILE)) : null;
+    const chao = (f) => iso ? noChao(ctx, iso, () => f(0, 0)) : f(cx, cy);
 
-    // o que abriu durante o jogo (barreira, portas do quiz) some do desenho:
-    // cada tile aberto é coberto por um tile de chão limpo do próprio mapa
-    if (art) {
-      for (const [k, piso] of this.tilesAbertos()) {
-        if (!piso) continue;
-        const [fx, fy] = piso.split(",").map(Number);
-        const [tx, ty] = k.split(",").map(Number);
-        ctx.drawImage(art, fx * TILE, fy * TILE, TILE, TILE,
-                      tx * TILE - cx, ty * TILE - cy, TILE, TILE);
-      }
-    }
+    chao((cx, cy) => {
+      if (art) ctx.drawImage(art, -cx, -cy);
+      else drawText(ctx, "CARREGANDO MAPA...", 60, 76, "#f4f4f4");
 
-    // as paredes da GLITCH ZONE que cederam: um quadrado que parou de ser desenhado
-    if (naZona(this.st)) {
-      for (const k of this.st.zona.cedidos || []) {
-        const [tx, ty] = k.split(",").map(Number);
-        ctx.drawImage(tileCedido(), tx * TILE - cx, ty * TILE - cy);
+      // o que abriu durante o jogo (barreira, portas do quiz) some do desenho:
+      // cada tile aberto é coberto por um tile de chão limpo do próprio mapa
+      if (art) {
+        for (const [k, piso] of this.tilesAbertos()) {
+          if (!piso) continue;
+          const [fx, fy] = piso.split(",").map(Number);
+          const [tx, ty] = k.split(",").map(Number);
+          ctx.drawImage(art, fx * TILE, fy * TILE, TILE, TILE,
+                        tx * TILE - cx, ty * TILE - cy, TILE, TILE);
+        }
       }
-    }
-    // OS VÃOS: as entradas das GLITCH ZONES em Kanto, e a saída dentro de uma.
-    // Ficam por baixo dos atores: é uma porta, e se passa por dentro dela.
-    const relogio = performance.now() / 1000;
-    const vaos = naZona(this.st) ? [vaoDaZona(this.st)].filter(Boolean)
-                                 : entradasDoMapa(this.st, this.st.player.map);
-    for (const v of vaos) desenharVao(ctx, v.x * TILE - cx, v.y * TILE - cy, relogio);
+
+      // as paredes da GLITCH ZONE que cederam: um quadrado que parou de ser desenhado
+      if (naZona(this.st)) {
+        for (const k of this.st.zona.cedidos || []) {
+          const [tx, ty] = k.split(",").map(Number);
+          ctx.drawImage(tileCedido(), tx * TILE - cx, ty * TILE - cy);
+        }
+      }
+      // OS VÃOS: as entradas das GLITCH ZONES em Kanto, e a saída dentro de uma.
+      // Ficam por baixo dos atores: é uma porta, e se passa por dentro dela.
+      const relogio = performance.now() / 1000;
+      const vaos = naZona(this.st) ? [vaoDaZona(this.st)].filter(Boolean)
+                                   : entradasDoMapa(this.st, this.st.player.map);
+      for (const v of vaos) desenharVao(ctx, v.x * TILE - cx, v.y * TILE - cy, relogio);
+      this.desenharPredioNoPreto(ctx, cx, cy);
+
+    });
 
     const actors = [];
     for (const n of this.npcsHere()) {
       // `invisivel` nasce sem sprite (item escondido); `hidden` some depois de pego
       if (n.invisivel || this.st.npcState[`${this.st.player.map}.${n.id}`]?.hidden) continue;
-      actors.push({ y: n.y + (n.tamanho || 1) - 1, draw: () => this.drawNpc(ctx, n, cx, cy) });
+      const t = (n.tamanho || 1) - 1;
+      actors.push({ x: (n.fx ?? n.x) + t, y: n.y + t, ax: n.fx ?? n.x, ay: n.fy ?? n.y, dir: n.dir || "down",
+                    draw: (c = ctx) => this.drawNpc(c, n, cx, cy) });
     }
     // OS SELVAGENS À VISTA e o COMPANHEIRO entram na MESMA lista de atores que
     // o resto: assim eles passam por trás e pela frente das coisas na ordem
     // certa, em vez de flutuarem por cima do mundo.
     for (const b of this.selvagens || []) {
-      actors.push({ y: b.y, draw: () => this.drawSelvagem(ctx, b, cx, cy) });
+      actors.push({ x: b.x, y: b.y, dir: this.rumoDoSelvagem(b), draw: (c = ctx) => this.drawSelvagem(c, b, cx, cy) });
     }
     const segue = this.quemSegue();
+    // onde o companheiro (ou o dono) está DESENHADO: no meio do passo, como você
+    const kc = this.move ? this.move.n / this.move.total : 1;
+    const ondeCompa = () => {
+      const c = this.compa;
+      const ax = c.de.x + (c.x - c.de.x) * kc, ay = c.de.y + (c.y - c.de.y) * kc;
+      return { x: ax, ax, ay, d: ax + ay, dir: c.dir || "down" };
+    };
     // (dormindo ele está lá em cima: ninguém te segue até de manhã)
     if (this.st.capturado && !this.st.capturado.naBola && !this.st.capturado.dormindo
         && this.compa && !this.st.surfando && !this.st.voando) {
       // CAPTURADO: quem te segue é o seu dono, com a bola na mão
-      actors.push({ y: this.compa.y, draw: () => this.drawDono(ctx, cx, cy) });
+      actors.push({ ...ondeCompa(), y: this.compa.y, draw: (c = ctx) => this.drawDono(c, cx, cy) });
     } else if (segue && this.compa && !this.st.surfando) {
-      actors.push({ y: this.compa.y, draw: () => this.drawCompanheiro(ctx, segue, cx, cy) });
+      actors.push({ ...ondeCompa(), y: this.compa.y, draw: (c = ctx) => this.drawCompanheiro(c, segue, cx, cy) });
+    }
+    for (const o of this.arvoresAqui()) {
+      const [ox, oy] = o.split(",").map(Number);
+      actors.push({ x: ox, y: oy, semSombra: true, draw: (c = ctx) => c.drawImage(Assets.arvorezinha, ox * TILE - cx, oy * TILE - cy, TILE, TILE) });
     }
     for (const o of this.pedrasAqui()) {
       const [ox, oy] = o.split(",").map(Number);
-      actors.push({ y: oy, draw: () => ctx.drawImage(Assets.rocha, ox * TILE - cx, oy * TILE - cy, TILE, TILE) });
+      actors.push({ x: ox, y: oy, semSombra: true, draw: (c = ctx) => c.drawImage(Assets.rocha, ox * TILE - cx, oy * TILE - cy, TILE, TILE) });
     }
     for (const b of this.blocosAqui()) {
-      actors.push({ y: b.y, draw: () => ctx.drawImage(Assets.bloco, b.x * TILE - cx, b.y * TILE - cy, TILE, TILE) });
+      actors.push({ x: b.x, y: b.y, semSombra: true, draw: (c = ctx) => c.drawImage(Assets.bloco, b.x * TILE - cx, b.y * TILE - cy, TILE, TILE) });
+    }
+    // A ESTÁTUA (o ARCEUS REDENTOR de RIO DE JANEEVEE): nove blocos de altura em pé
+    // em cima da base, na mesma fila dos atores — quem anda atrás dela some
+    // atrás dela. Fica na fileira de baixo da base; no isométrico, no meio
+    // dela e em cima do pedestal.
+    const est = this.geo?.estatua;
+    if (est) {
+      const ax = est.x + (est.w - 1) / 2, ay = est.y + (est.h - 1) / 2;
+      actors.push({ x: est.x + est.w - 1, y: est.y + est.h - 1, ax, ay, d: est.x + est.w - 1 + est.y + est.h - 1 + 0.5,
+                    sobe: ESTATUA_BASE, semSombra: true, dir: "down",
+                    draw: (c = ctx) => this.drawEstatua(c, est, ax, ay, cx, cy) });
     }
     // os outros jogadores da sala entram na MESMA lista de atores, então eles
     // passam por trás e pela frente das coisas como qualquer NPC
     for (const outro of Online.noMapa(this.st.player.map)) {
-      actors.push({ y: outro.y, draw: () => this.drawPeer(ctx, outro, cx, cy) });
+      actors.push({ x: outro.x, y: outro.y, ax: outro.px / TILE, ay: outro.py / TILE, dir: outro.dir || "down",
+                    draw: (c = ctx) => this.drawPeer(c, outro, cx, cy) });
     }
     const { px, py } = this.playerPixel(true);
-    actors.push({ y: this.st.player.y, draw: () => this.drawPlayer(ctx, px - cx, py - cy) });
-    actors.sort((a, b) => a.y - b.y).forEach((a) => a.draw());
+    actors.push({ x: this.st.player.x, y: this.st.player.y, ax: ipx / TILE, ay: ipy / TILE, dir: this.st.player.dir,
+                  draw: (c = ctx) => this.drawPlayer(c, px - cx, py - cy) });
+    if (iso) this.desenharIso(ctx, iso, art, actors, cx, cy);
+    else actors.sort((a, b) => a.y - b.y).forEach((a) => a.draw());
+
+    this.drawCaboDoBondinho(ctx, cx, cy, iso);
 
     // camada de cima: o jogador passa POR TRÁS de copa de árvore, telhado, batente
-    const over = mapOverlay(this.st.player.map);
+    // (no isométrico quem esconde o jogador são os próprios blocos)
+    const over = !iso && mapOverlay(this.st.player.map);
     if (over) ctx.drawImage(over, -cx, -cy);
 
-    if (this.rustle) {
+    if (this.rustle && !iso) {
       const f = Math.min(2, Math.floor(this.rustle.t / 0.12));
       ctx.drawImage(Assets.rustle[f], this.rustle.x * TILE - cx, this.rustle.y * TILE - cy);
     }
@@ -4901,7 +5909,12 @@ export class OverworldScene {
     if (this.aviso) this.drawAviso(ctx);
 
     // balões e nomes vão POR CIMA do telhado: senão o nome some dentro de casa
-    for (const outro of Online.noMapa(this.st.player.map)) this.drawPeerTag(ctx, outro, cx, cy);
+    for (const outro of Online.noMapa(this.st.player.map)) {
+      if (!iso) { this.drawPeerTag(ctx, outro, cx, cy); continue; }
+      const p = naTela(iso, outro.px + TILE / 2, outro.py + TILE / 2);
+      const z = this.zIso(outro.px / TILE, outro.py / TILE);
+      this.drawPeerTag(ctx, outro, outro.px + TILE / 2 - p.x, outro.py + TILE / 2 - p.y + ISO_PE + z);
+    }
     if (Online.aviso) this.drawAvisoOnline(ctx);
     this.drawSinal(ctx);
 
@@ -4912,14 +5925,284 @@ export class OverworldScene {
       ctx.fillStyle = "rgba(30,30,40,.5)"; ctx.fillRect(0, H / 2 - 2, W, 4);
     }
     this.drawVida(ctx);
+    this.drawCoordenadas(ctx);
     // o HUD dos DLCs (o medidor da SHINY ZONE): por cima do mapa, por baixo
     // do menu e das falas
     for (const f of DB.GANCHOS?.hud || []) f(ctx, this.st, { panel, drawText, bar, PAL, W, H });
     if (this.banner > 0) this.drawBanner(ctx);
+    else if ((this.paradoT || 0) > 1) this.drawObjetivo(ctx);
+    if (this.viagemBondinho) this.drawBondinho(ctx);
     if (this.menu) this.drawMenu(ctx);
     this.dlg.render(ctx);
     if (this.fadeA > 0) fade(ctx, this.fadeA);
     if (this.fx) this.drawBattleFx(ctx);
+  }
+
+  /** O MUNDO NO ISOMÉTRICO: as paredes sobem em blocos e os atores ficam em pé
+   *  entre elas, todos na mesma fila de trás pra frente (profundidade x + y).
+   *  Um ator é desenhado pela função de sempre, só que com a tela deslocada
+   *  pra que o tile dele caia no losango certo. */
+  desenharIso(ctx, iso, art, actors, cx, cy) {
+    // os blocos saem do desenho INTEIRO (chão + camada de cima): o telhado e a
+    // copa das árvores de Kanto moram na camada de cima (src/core/sprites.js)
+    art = mapArtInteira(this.st.player.map) || art;
+    const g = this.geo, B = DB.TAG.BLOCK;
+    const r = relevo(this.st.player.map, g);
+    // a altura de um tile AGORA: parede que abriu no meio do jogo (árvore
+    // cortada, barreira, parede da GLITCH ZONE que cedeu) desce pro chão
+    const alt = (x, y) => {
+      if (x < 0 || y < 0 || x >= g.w || y >= g.h) return 0;
+      const k = y * g.w + x;
+      return r.parede[k] && this.tagAt(x, y) !== B ? r.base[k] : r.topo[k];
+    };
+    const fila = actors.map((a) => ({ a, d: a.d ?? (a.x ?? 0) + a.y }))
+      .sort((p, q) => p.d - q.d);
+    let i = 0;
+    const emPe = ({ a }) => {
+      const ax = a.ax ?? a.x ?? 0, ay = a.ay ?? a.y;
+      const p = naTela(iso, ax * TILE + TILE / 2, ay * TILE + TILE / 2);
+      const z = chaoEm(r, ax, ay) + (a.sobe || 0);
+      if (!a.semSombra) sombra(ctx, p.x, p.y - z);
+      ctx.save();
+      ctx.translate(Math.round(p.x - (ax * TILE - cx + TILE / 2)),
+                    Math.round(p.y - (ay * TILE - cy + TILE / 2) - ISO_PE - z));
+      if (!a.dir) { a.draw(); ctx.restore(); return; }
+      // A PLAQUINHA: o sprite vai num plano em pé, inclinado como as paredes
+      // dos blocos. Quem olha ↙ ou ↗ (baixo/cima no mapa) fica de frente pra
+      // face sul, que desce pra direita; quem olha ↘ ou ↖ (direita/esquerda)
+      // fica na face leste, que sobe pra direita. O pé é o eixo: ele fica no
+      // lugar e o resto do corpo inclina em volta dele.
+      const sul = a.dir === "down" || a.dir === "up";
+      const px = ax * TILE - cx + TILE / 2, py = ay * TILE - cy + TILE;
+      ctx.translate(px, py);
+      ctx.transform(1, sul ? 0.5 : -0.5, 0, 1, 0, 0);
+      ctx.translate(-px, -py);
+      // ...e não é papel: tem ESPESSURA, que vai pra longe da câmera (pra
+      // trás da face sul é o norte do mapa, ↗; pra trás da face leste, o oeste, ↖)
+      const m = ctx.getTransform();
+      ctx.restore();
+      comEspessura(ctx, m, (c) => a.draw(c), sul ? 1 : -1, -0.5, ISO_ESPESSURA);
+    };
+    for (const t of tilesVisiveis(iso, W, H, TILE, g.w, g.h)) {
+      while (i < fila.length && fila[i].d < t.d) emPe(fila[i++]);
+      const z = alt(t.x, t.y), sul = alt(t.x, t.y + 1), leste = alt(t.x + 1, t.y);
+      // no nível zero o tampo já está no chão desenhado; só falta a face se o
+      // vizinho da frente for mais baixo (a margem de um rio)
+      if (z !== 0 || sul < 0 || leste < 0) {
+        coluna(ctx, iso, art, TILE, t.x, t.y, z, sul, leste, z !== 0, this.fontePredio(r, t.x, t.y, z));
+      }
+      // o mato balança no tampo do tile, por baixo de quem está nele
+      if (this.rustle && this.rustle.x === t.x && this.rustle.y === t.y) {
+        const f = Math.min(2, Math.floor(this.rustle.t / 0.12));
+        noChao(ctx, iso, (c) => c.drawImage(Assets.rustle[f], t.x * TILE, t.y * TILE), z);
+      }
+    }
+    while (i < fila.length) emPe(fila[i++]);
+  }
+
+  /** OS BONECOS NO ISOMÉTRICO olham na diagonal (src/core/isometrico.js):
+   *  de frente ou de costas, espelhados pro lado certo. Fora dele, o de sempre.
+   *  `sets` é o que Assets.actor devolve (um conjunto de quadros por direção). */
+  olhar(sets, dir) {
+    if (!this._iso) return { set: sets?.[dir] || sets?.down, espelha: false };
+    const v = vistaIso(dir);
+    return { set: sets?.[v.costas ? "up" : "down"] || sets?.down, espelha: v.espelha };
+  }
+  quadro(img, espelha) { return espelha ? espelhar(img) : img; }
+
+  /** A figura da ESTÁTUA, com os pés no meio da base (`ax, ay`, em tiles):
+   *  ancorada pelo meio de baixo, com a altura do próprio PNG (o do ARCEUS
+   *  REDENTOR tem 144px, nove blocos). */
+  drawEstatua(ctx, est, ax, ay, cx, cy) {
+    const img = estatuaArt(est.arte);
+    if (!img) return;
+    const x = Math.round(ax * TILE + TILE / 2 - cx - img.width / 2);
+    const y = Math.round(ay * TILE + TILE / 2 - cy - img.height + 4);
+    ctx.drawImage(img, x, y);
+    // O RELEVO DA CARA: fatias do mesmo tamanho da estátua, uma por cima da
+    // outra, cada uma um passo mais pra frente — as de baixo são a lateral de
+    // pedra, a de cima é a cara (tools/estatua_camadas.py)
+    const c = est.cara;
+    for (let k = 1; c && k <= c.camadas + (c.olhos ? 1 : 0); k++) {
+      const f = estatuaArt(`${est.arte}_cara_${k}`);
+      const nivel = k > c.camadas ? c.olhos : k;          // os olhos vão na altura deles
+      if (f) ctx.drawImage(f, x + c.passo[0] * nivel, y + c.passo[1] * nivel);
+    }
+  }
+
+  /** Pra onde o selvagem olha: ele não guarda direção, então ela sai do último
+   *  passo que ele deu (parado desde que nasceu: de frente, ↙). */
+  rumoDoSelvagem(b) {
+    const rumo = rumoDoSelvagem.get(b) || { x: b.x, y: b.y, dir: "down" };
+    if (rumo.x !== b.x || rumo.y !== b.y) {
+      rumo.dir = b.x > rumo.x ? "right" : b.x < rumo.x ? "left" : b.y > rumo.y ? "down" : "up";
+      rumo.x = b.x; rumo.y = b.y;
+    }
+    rumoDoSelvagem.set(b, rumo);
+    return rumo.dir;
+  }
+
+  /** O Pokémon do mapa (companheiro, o da prancha, NPC-Pokémon) na diagonal */
+  monNaVista(especie, seed, dir) {
+    const v = this.vistaMon(dir);
+    if (!v) return Assets.mon(especie, seed);
+    const img = v.costas ? Assets.monBack(especie, seed) : Assets.mon(especie, seed);
+    return v.espelha ? espelhar(img) : img;
+  }
+  vistaMon(dir) { return this._iso ? vistaIso(dir) : null; }
+
+  /** O desenho de um PRÉDIO no isométrico (src/core/isometrico.js): o teto é
+   *  a fileira de cima dele repetida — menos os enfeites (a Poké Ball do
+   *  CENTRO, a placa da loja), que ficam uma vez só, no lugar deles —, e a
+   *  parede da frente (2 blocos de altura)
+   *  mostra as duas fileiras de baixo do desenho — a da placa e a da porta, no
+   *  CENTRO POKÉMON — sem esticar nada. `null`: não é prédio (ou já abriu). */
+  fontePredio(r, x, y, z) {
+    const i = y * r.w + x, t = r.teto[i];
+    if (t < 0 || z !== r.topo[i]) return null;
+    const f = fontesDoTeto(r, mapArtInteira(this.st.player.map), TILE)[i];
+    // uma fileira do desenho por bloco de altura (dois nos prédios comuns, sete
+    // na TORRE POKÉMON), sem passar da fileira de cima do prédio
+    const blocos = Math.max(1, Math.round((r.topo[i] - r.base[i]) / TILE));
+    const de = Math.max(r.cimaY[i], y - blocos + 1);
+    const altura = (y - de + 1) * TILE;
+    return {
+      tampo: [(f % r.w) * TILE, Math.floor(f / r.w) * TILE],
+      sul: [x * TILE, de * TILE, altura],
+      leste: [x * TILE, de * TILE, altura],
+    };
+  }
+
+  /** Altura do chão em (x, y) — em tiles, pode ser fracionário — no isométrico.
+   *  Fora dele é sempre zero. */
+  zIso(x, y) {
+    if (!this.geo || !isoLigado()) return 0;
+    return chaoEm(relevo(this.st.player.map, this.geo), x, y);
+  }
+
+  /** ISOMÉTRICO liga/desliga (é do aparelho, como a velocidade) */
+  mudaIso() {
+    alternarIso();
+    Audio2.blip();
+  }
+
+  // ------------------------------------------------- O MAPA DA REGIÃO
+  // Braglitch no formato do Brasil (DB.MAPA_REGIAO, de src/data/braglitch-mundo.js):
+  // o contorno do país, as rotas ligando os lugares, as cidades, as praias e
+  // um VOCÊ ESTÁ AQUI piscando. As setas andam de lugar em lugar.
+
+  /** O lugar do mapa onde você está: o próprio mapa, ou — dentro de um Centro,
+   *  loja, casa ou ginásio — a cidade de onde a porta sai. */
+  ondeNoMapa() {
+    const L = DB.MAPA_REGIAO?.layout || {};
+    const aqui = this.st.player.map;
+    if (L[aqui]) return aqui;
+    const fora = (DB.KANTO[aqui]?.warps || []).map((w) => w.to).find((to) => L[to]);
+    return fora || Object.keys(L)[0];
+  }
+
+  /** O lugar mais perto na direção da seta (cone de ~60°). */
+  vizinhoNoMapa(de, dir) {
+    const L = DB.MAPA_REGIAO.layout;
+    const [x0, y0] = L[de].pos;
+    const [dx, dy] = DIRS[dir];
+    let melhor = null, nota = Infinity;
+    for (const [id, l] of Object.entries(L)) {
+      if (id === de || !DB.MAPS[id]) continue;
+      const vx = l.pos[0] - x0, vy = l.pos[1] - y0;
+      const ao = vx * dx + vy * dy, lado = Math.abs(vx * dy - vy * dx);
+      if (ao <= 0 || lado > ao * 1.7) continue;
+      const n = ao + lado * 2;
+      if (n < nota) { nota = n; melhor = id; }
+    }
+    return melhor;
+  }
+
+  drawMapaRegiao(ctx, m) {
+    const R = DB.MAPA_REGIAO, L = R.layout;
+    const X = (x) => Math.round(52 + x * 1.36), Y = (y) => Math.round(8 + y * 1.26);
+    ctx.fillStyle = "#1f5f99";                      // o mar
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#2a70ad";
+    for (let y = 3; y < H; y += 6) for (let x = (y * 7) % 11; x < W; x += 11) ctx.fillRect(x, y, 3, 1);
+    // os vizinhos (o resto da América do Sul), em cinza, pra o Brasil não flutuar
+    ctx.fillStyle = "#6b7a6a";
+    ctx.beginPath();
+    ctx.moveTo(0, Y(8)); ctx.lineTo(X(12), Y(10)); ctx.lineTo(X(1), Y(31)); ctx.lineTo(X(11), Y(41)); ctx.lineTo(X(34), Y(47));
+    ctx.lineTo(X(40), Y(64)); ctx.lineTo(X(46), Y(70)); ctx.lineTo(X(48), Y(78)); ctx.lineTo(X(45), Y(85)); ctx.lineTo(X(41), Y(90));
+    ctx.lineTo(X(47), Y(92)); ctx.lineTo(X(52), Y(99)); ctx.lineTo(X(44), H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+    // O BRASIL: o contorno cheio de verde, com a borda escura
+    const contorno = () => {
+      ctx.beginPath();
+      R.contorno.forEach(([x, y], i) => (i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y))));
+      ctx.closePath();
+    };
+    ctx.fillStyle = "#4f9e45"; contorno(); ctx.fill();
+    ctx.save(); contorno(); ctx.clip();               // a Amazônia, mais escura, lá em cima à esquerda
+    ctx.fillStyle = "#3a8238"; ctx.beginPath(); ctx.ellipse(X(28), Y(24), 34, 22, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#b9a95a"; ctx.beginPath(); ctx.ellipse(X(80), Y(38), 12, 11, 0, 0, Math.PI * 2); ctx.fill();   // o sertão
+    ctx.restore();
+    ctx.strokeStyle = "#1d3b1a"; ctx.lineWidth = 1; contorno(); ctx.stroke();
+    // AS ROTAS: uma linha entre cada par ligado (com as curvas de quem tem `via`)
+    ctx.strokeStyle = "#e3b36a";
+    for (const [id, l] of Object.entries(L)) {
+      if (!DB.MAPS[id]) continue;
+      for (const [lado, para] of Object.entries(l.liga)) {
+        if (!DB.MAPS[para] || para < id) continue;    // cada ligação uma vez só
+        const volta = Object.entries(L[para].liga).find(([, v]) => v === id)?.[0];
+        const pontos = [l.pos, ...(l.via?.[lado] || []), ...[...(L[para].via?.[volta] || [])].reverse(), L[para].pos];
+        ctx.beginPath();
+        pontos.forEach(([x, y], i) => (i ? ctx.lineTo(X(x) + 0.5, Y(y) + 0.5) : ctx.moveTo(X(x) + 0.5, Y(y) + 0.5)));
+        ctx.stroke();
+      }
+    }
+    // OS LUGARES: cidade é quadrado branco; praia, amarelo; rota, pontinho de terra
+    const aqui = this.ondeNoMapa();
+    const pisca = Math.floor(performance.now() / 300) % 2 === 0;
+    for (const [id, l] of Object.entries(L)) {
+      if (!DB.MAPS[id]) continue;
+      const x = X(l.pos[0]), y = Y(l.pos[1]), tipo = R.tipos[id];
+      if (tipo === "cidade") { ctx.fillStyle = "#1a1a1a"; ctx.fillRect(x - 3, y - 3, 7, 7); ctx.fillStyle = "#f4f1e8"; ctx.fillRect(x - 2, y - 2, 5, 5); }
+      else if (tipo === "praia") { ctx.fillStyle = "#1a1a1a"; ctx.fillRect(x - 2, y - 2, 5, 5); ctx.fillStyle = "#ffd23f"; ctx.fillRect(x - 1, y - 1, 3, 3); }
+      else { ctx.fillStyle = "#7a4a22"; ctx.fillRect(x - 1, y - 1, 3, 3); }
+      if (id === aqui && pisca) { ctx.fillStyle = "#e0524a"; ctx.fillRect(x - 2, y - 2, 5, 5); }
+    }
+    // o cursor: um quadradinho piscando em volta do lugar escolhido
+    const s = L[m.sel];
+    if (s) {
+      const x = X(s.pos[0]), y = Y(s.pos[1]);
+      ctx.strokeStyle = "#ffffff"; ctx.strokeRect(x - 5.5, y - 5.5, 12, 12);
+      ctx.strokeStyle = "#1a1a1a"; ctx.strokeRect(x - 6.5, y - 6.5, 14, 14);
+    }
+    // o título e a faixa de baixo com o nome
+    panel(ctx, 4, 4, 70, 18);
+    drawText(ctx, "BRAGLITCH", 10, 9, PAL.glitch);
+    panel(ctx, 4, H - 24, W - 8, 20);
+    const nome = DB.MAPS[m.sel]?.name || m.sel;
+    const tipo = { cidade: "CIDADE", praia: "PRAIA", rota: "ROTA" }[R.tipos[m.sel]] || "";
+    drawText(ctx, nome.slice(0, 26), 10, H - 18, PAL.ink);
+    drawText(ctx, m.sel === aqui ? "VOCÊ" : tipo, W - 50, H - 18, m.sel === aqui ? "#e0524a" : PAL.ink2);
+  }
+
+  /** O POKÉMON TRUNFO (ver `gainXp` em src/systems/mon.js): um só, pra equipe
+   *  e a box inteira. Escolher outro tira o título do anterior; escolher o
+   *  mesmo pergunta se é pra tirar. */
+  escolherTrunfo(mon) {
+    const T = DB.TRUNFO_TEXTO;
+    if (mon.trunfo) {
+      return void this.dlg.ask(T.tirar.replace("{MON}", mon.nickname), ["SIM", "NÃO"], (i) => {
+        if (i !== 0) return;
+        mon.trunfo = false;
+        this.dlg.say(T.tirou.replace("{MON}", mon.nickname));
+      });
+    }
+    this.dlg.ask(T.pergunta.replace("{MON}", mon.nickname), ["SIM", "NÃO"], (i) => {
+      if (i !== 0) return;
+      for (const m of [...this.st.party, ...(this.st.box || [])]) if (m) m.trunfo = false;
+      mon.trunfo = true;
+      Audio2.heal();
+      this.dlg.say([T.virou.replace("{MON}", mon.nickname), T.explica]);
+    });
   }
 
   /** Entrada de batalha: três flashes e as barras fechando. */
@@ -4943,8 +6226,8 @@ export class OverworldScene {
     // Nadando também: um Pokémon não precisa de outro pra atravessar.
     if (this.st.capturado?.naBola) {
       // dentro da bola: no mapa anda o dono, com você no cinto
-      const set = Assets.actor("cacador")?.[this.st.player.dir] || Assets.actor("hero")[this.st.player.dir];
-      const img = this.move ? set[this.stepParity ? 1 : 3] : set[0];
+      const { set, espelha } = this.olhar(Assets.actor("cacador") || Assets.actor("hero"), this.st.player.dir);
+      const img = this.quadro(this.move ? set[this.stepParity ? 1 : 3] : set[0], espelha);
       return void ctx.drawImage(img, Math.round(x), Math.round(y) + TILE - img.height);
     }
     if (this.st.pokesave) {
@@ -4957,16 +6240,16 @@ export class OverworldScene {
         ctx.beginPath(); ctx.ellipse(Math.round(x) + 8, Math.round(y) + 14, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
         bob = -12 + Math.sin(performance.now() / 320) * 2;
       }
-      return desenharPokemon(ctx, this.st.pokesave, x, y + bob, this.st.player.dir, k);
+      return desenharPokemon(ctx, this.st.pokesave, x, y + bob, this.st.player.dir, k, 28, this.vistaMon(this.st.player.dir));
     }
-    const set = Assets.actor("hero")[this.st.player.dir];
+    const { set, espelha } = this.olhar(Assets.actor("hero"), this.st.player.dir);
     // andando: um quadro de passo por tile, alternando a perna (o ciclo do GBA).
     // nadando: quadro parado sempre — quem se mexe é o Pokémon, o herói só vira.
-    const img = this.move && !nadando ? set[this.stepParity ? 1 : 3] : set[0];
+    const img = this.quadro(this.move && !nadando ? set[this.stepParity ? 1 : 3] : set[0], espelha);
     ctx.drawImage(img, Math.round(x), Math.round(y) + TILE - img.height);
     if (nadando) {
       // o Pokémon vem POR CIMA, cobrindo o herói da cintura pra baixo
-      const mon = Assets.mon(this.st.surfando, 7);
+      const mon = this.monNaVista(this.st.surfando, 7, this.st.player.dir);
       const bob = Math.sin(performance.now() / 260) * 1.2;    // sobe e desce na água
       ctx.drawImage(reduzido(mon, 26), Math.round(x) - 5, Math.round(y + 4 + bob), 26, 26);
     }
@@ -4976,9 +6259,10 @@ export class OverworldScene {
   drawPeer(ctx, p, cx, cy) {
     const x = Math.round(p.px - cx), y = Math.round(p.py - cy);
     const ps = pokesaveDoSprite(p.sprite);     // o outro jogador é um Pokémon?
-    if (ps) return desenharPokemon(ctx, ps, x, y, p.dir || "down", p.passo > 0 ? (p.passo % 1) : 0);
-    const set = Assets.actor(p.sprite || "hero")[p.dir || "down"] || Assets.actor("hero").down;
-    const img = p.passo > 0 ? set[(p.passo | 0) % 2 ? 1 : 3] : set[0];
+    if (ps) return desenharPokemon(ctx, ps, x, y, p.dir || "down", p.passo > 0 ? (p.passo % 1) : 0, 28, this.vistaMon(p.dir || "down"));
+    const { set: s0, espelha } = this.olhar(Assets.actor(p.sprite || "hero"), p.dir || "down");
+    const set = s0 || Assets.actor("hero").down;
+    const img = this.quadro(p.passo > 0 ? set[(p.passo | 0) % 2 ? 1 : 3] : set[0], espelha);
     ctx.drawImage(img, x, y + TILE - img.height);
   }
 
@@ -5032,7 +6316,11 @@ export class OverworldScene {
     // shiny no mato aparece shiny, e luminoso aparece luminoso: o brilho é a
     // informação que faz alguém atravessar a rota correndo, e escondê-la até a
     // batalha seria escondê-la
-    const img = Assets.comCor(bruto, b.mon);
+    // no isométrico ele olha pra onde anda: o selvagem não guarda direção,
+    // então ela sai do último passo que ele deu (parado desde sempre: ↙)
+    const v = this._iso ? vistaIso(this.rumoDoSelvagem(b)) : null;
+    const cru = v?.costas ? (Assets.monBack(b.mon.species, b.mon.seed) || bruto) : bruto;
+    const img = v?.espelha ? espelhar(Assets.comCor(cru, b.mon, !!v?.costas)) : Assets.comCor(cru, b.mon, !!v?.costas);
     const caca = cacando(b, this.st.player);
     const corre = !caca && fugindo(b, this.st.player);
     // quem está caçando pula mais rápido e mais alto: o bicho parece afobado
@@ -5061,13 +6349,13 @@ export class OverworldScene {
     const k = this.move ? this.move.n / this.move.total : 1;
     const x = (c.de.x + (c.x - c.de.x) * k) * TILE - cx;
     const y = (c.de.y + (c.y - c.de.y) * k) * TILE - cy;
-    const set = Assets.actor("cacador")?.[c.dir || "down"] || Assets.actor("hero")[c.dir || "down"];
-    const img = this.move ? set[this.stepParity ? 1 : 3] : set[0];
+    const { set, espelha } = this.olhar(Assets.actor("cacador") || Assets.actor("hero"), c.dir || "down");
+    const img = this.quadro(this.move ? set[this.stepParity ? 1 : 3] : set[0], espelha);
     ctx.drawImage(img, Math.round(x), Math.round(y) + TILE - img.height);
   }
 
   drawCompanheiro(ctx, mon, cx, cy) {
-    const img = Assets.mon(mon.species, mon.seed);
+    const img = this.monNaVista(mon.species, mon.seed, this.compa?.dir || "down");
     if (!img) return;
     const c = this.compa;
     const k = this.move ? this.move.n / this.move.total : 1;
@@ -5082,6 +6370,16 @@ export class OverworldScene {
     // (o caçador do pokésave); os outros ficam parados no tile deles
     const x = (n.fx ?? n.x) * TILE - cx, y = (n.fy ?? n.y) * TILE - cy;
     if (n.sprite === "ball") return void ctx.drawImage(Assets.ball, x + 4, y + 4);
+    if (n.sprite === "livro") {
+      // um livro aberto largado no chão: capa marrom, duas páginas, linhas
+      ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.fillRect(x + 2, y + 12, 13, 2);
+      ctx.fillStyle = "#5a3418"; ctx.fillRect(x + 1, y + 5, 14, 8);
+      ctx.fillStyle = "#f2ead2"; ctx.fillRect(x + 2, y + 4, 5, 8); ctx.fillRect(x + 9, y + 4, 5, 8);
+      ctx.fillStyle = "#8f8672";
+      for (let i = 0; i < 3; i++) { ctx.fillRect(x + 3, y + 6 + i * 2, 3, 1); ctx.fillRect(x + 10, y + 6 + i * 2, 3, 1); }
+      ctx.fillStyle = "#3a200e"; ctx.fillRect(x + 7, y + 4, 2, 9);
+      return;
+    }
     if (n.sprite === "portal") {
       const t = performance.now() / 200;
       for (let i = 0; i < 4; i++) {
@@ -5158,13 +6456,48 @@ export class OverworldScene {
       }
       return;
     }
+    // O REDEMOINHO de Braglitch: poeira girando em faixas que alargam pra
+    // cima, cada uma no seu passo — e de vez em quando uma faixa escorrega de
+    // cor, que é o que diferencia ele de vento comum.
+    // A ESTAÇÃO DO BONDINHO: o poste com o cabo subindo pro mar e a cabine
+    // vermelha parada na plataforma, balançando de leve
+    if (n.sprite === "bondinho") {
+      const t = performance.now() / 500;
+      ctx.fillStyle = "#5a5f6a";
+      ctx.fillRect(x + 2, y - 18, 3, 34);                 // o poste
+      ctx.fillRect(x, y - 19, 9, 2);                      // a cruzeta (o cabo sai dela: `drawCaboDoBondinho`)
+      const bal = Math.round(Math.sin(t) * 1);
+      ctx.fillStyle = "#2a2d33";
+      ctx.fillRect(x + 10 + bal, y - 14, 1, 5);           // o braço da cabine
+      ctx.fillStyle = "#d8322e";
+      ctx.fillRect(x + 6 + bal, y - 9, 10, 9);            // a cabine
+      ctx.fillStyle = "#bfe6ff";
+      ctx.fillRect(x + 8 + bal, y - 7, 6, 3);             // a janela
+      ctx.fillStyle = "#8f1f1c";
+      ctx.fillRect(x + 6 + bal, y - 1, 10, 1);
+      return;
+    }
+    if (n.sprite === "redemoinho") {
+      const t = performance.now() / 160;
+      const meio = x + 8;
+      for (let i = 0; i < 10; i++) {
+        const larg = 4 + i * 2.2;
+        const dx = Math.round(Math.sin(t * 0.9 + i * 0.8) * (2 + i * 0.35));
+        const glitch = (i + Math.floor(t / 3)) % 7 === 0;
+        ctx.fillStyle = glitch ? ["#b455ff", "#00ffcc", "#ff0066"][i % 3] : i % 2 ? "#d9c7a0" : "#b89c6e";
+        ctx.fillRect(Math.round(meio - larg / 2 + dx), y + 14 - i * 3, Math.round(larg), 2);
+      }
+      ctx.fillStyle = "rgba(0,0,0,0.2)";
+      ctx.fillRect(x + 3, y + 14, 10, 2);
+      return;
+    }
     if (n.sprite.startsWith("mon:")) {
-      const img = Assets.mon(n.sprite.slice(4), 7);
+      const img = this.monNaVista(n.sprite.slice(4), 7, n.dir || "down");
       return void ctx.drawImage(reduzido(img, 40), x - 12, y - 24, 40, 40);
     }
-    const set = Assets.actor(n.sprite)[n.dir || "down"];
+    const { set, espelha } = this.olhar(Assets.actor(n.sprite), n.dir || "down");
     // andando, alterna a perna como o jogador (a paridade sai da posição)
-    const img = n.andando ? set[Math.floor((n.fx + n.fy) * 2) % 2 ? 1 : 3] : set[0];
+    const img = this.quadro(n.andando ? set[Math.floor((n.fx + n.fy) * 2) % 2 ? 1 : 3] : set[0], espelha);
     // GRANDE (o caçador com dez mil de raiva): o bloco 2x2 inteiro, o sprite
     // esticado pra cobrir ele, e um tremor — ele não para quieto
     if ((n.tamanho || 1) > 1) {
@@ -5207,6 +6540,20 @@ export class OverworldScene {
     ctx.globalAlpha = 1;
   }
 
+  /** O OBJETIVO: o próximo passo da história da região em que você está
+   *  (src/systems/objetivo.js), no canto de cima, depois de 1 s parado. */
+  drawObjetivo(ctx) {
+    const texto = objetivoAtual(this.st, !!this.geo?.braglitch);
+    if (!texto) return;
+    const linhas = wrapText(texto, 24).slice(0, 4);
+    ctx.globalAlpha = Math.min(1, (this.paradoT - 1) / 0.25);
+    const w = Math.max(...linhas.map((l) => l.length), 8) * 6 + 16;
+    panel(ctx, 4, 4, w, 20 + linhas.length * 11);
+    drawText(ctx, "OBJETIVO", 12, 9, PAL.glitch);
+    linhas.forEach((l, i) => drawText(ctx, l, 12, 21 + i * 11, PAL.ink));
+    ctx.globalAlpha = 1;
+  }
+
   drawBanner(ctx) {
     ctx.globalAlpha = Math.min(1, this.banner / 0.4);
     panel(ctx, 4, 4, this.map.name.length * 6 + 16, 20);
@@ -5234,6 +6581,7 @@ export class OverworldScene {
 
   drawMenu(ctx) {
     const m = this.menu;
+    if (m.type === "mapaRegiao") return this.drawMapaRegiao(ctx, m);
     if (m.type === "main") {
       const items = this.itensMenu();
       const w = 84, x = W - w - 4, y = 4;
@@ -5260,7 +6608,16 @@ export class OverworldScene {
         if (hab) drawText(ctx, hab.nome, 46, y + 11, PAL.ink2, { maxChars: 13 });
         if (mon.corrupt) drawText(ctx, "!", 200, y + 2, PAL.glitch);
         if (mon.alfa) drawText(ctx, "ALFA", 182, y + 11, "#e0242a");
+        if (mon.trunfo) {                            // o TRUNFO: a estrelinha dourada
+          const sx = 196, sy = y + 1;
+          ctx.fillStyle = "#6b4a00";
+          ctx.fillRect(sx + 2, sy, 3, 7); ctx.fillRect(sx, sy + 2, 7, 3);
+          ctx.fillStyle = "#ffd23f";
+          ctx.fillRect(sx + 3, sy + 1, 1, 5); ctx.fillRect(sx + 1, sy + 3, 5, 1);
+          ctx.fillRect(sx + 2, sy + 2, 3, 3);
+        }
       });
+      drawText(ctx, "Z: TRUNFO", 12, H - 20, PAL.ink2);
       drawText(ctx, "X VOLTA", 180, H - 20, PAL.ink2);
       return;
     }
@@ -5487,10 +6844,14 @@ export class OverworldScene {
       return;
     }
     if (m.type === "badges") {
+      // em Braglitch, as insígnias de lá; em qualquer outro lugar, as de Kanto
+      const brag = !!this.geo?.braglitch;
+      const lista = brag ? DB.INSIGNIAS_BRAG || [] : DB.STORY.badges || [];
+      const tem = brag ? this.st.bragBadges || [] : this.st.badges;
       panel(ctx, 4, 4, W - 8, H - 8);
-      drawText(ctx, `INSÍGNIAS  ${this.st.badges.length}/8`, 12, 10, PAL.ink);
-      (DB.STORY.badges || []).forEach((b, i) => {
-        const got = this.st.badges.includes(b.id);
+      drawText(ctx, `INSÍGNIAS ${brag ? "DE BRAGLITCH" : "DE KANTO"}  ${tem.length}/8`, 12, 10, PAL.ink);
+      lista.forEach((b, i) => {
+        const got = tem.includes(b.id);
         const x = 14 + (i % 2) * 112, y = 30 + Math.floor(i / 2) * 24;
         ctx.fillStyle = got ? "#f0c419" : "#9aa0aa";
         ctx.fillRect(x, y, 12, 12);
@@ -5635,7 +6996,9 @@ export class OverworldScene {
       panel(ctx, 2, 124, 236, 34);
       const sel = (m.lado === "box" ? box : this.st.party)[m.index];
       if (sel) {
-        ctx.drawImage(Assets.mon(sel.species, sel.seed), 6, 126, 28, 28);
+        // encolhido pelo redutor de pixel art (src/core/reduzir.js): sem ele a
+        // pupila some e o bicho muda de cara
+        ctx.drawImage(reduzido(Assets.comCor(Assets.mon(sel.species, sel.seed), sel), 28), 6, 126, 28, 28);
         drawText(ctx, sel.nickname, 38, 130, PAL.ink);
         drawText(ctx, `N${sel.level}  ${sel.hp}/${sel.maxHp}`, 38, 142, PAL.ink2);
       } else drawText(ctx, B.titulo, 8, 136, PAL.ink2);
@@ -5713,13 +7076,16 @@ export class OverworldScene {
       const img = Assets.mon(sp.id, 7);
       // a prévia sai NA COR escolhida: o menu mostra o que vai baixar
       const cor = { species: sp.id, shiny: m.cor === 1, luminoso: m.cor === 2 };
-      ctx.drawImage(Assets.comCor(img, cor), 158, 22, 48, 48);
+      // 64 -> 48 pelo redutor de pixel art: desenhado direto, a escala
+      // quebrada jogava fora pixel no chute e o olho de todo bicho estragava
+      ctx.drawImage(reduzido(Assets.comCor(img, cor), 48), 158, 22, 48, 48);
       drawText(ctx, sp.types.join("/").slice(0, 12), 150, 74, PAL.ink2);
       drawText(ctx, `NÍVEL ${String(m.lvl).padStart(3, " ")}`, 150, 86, PAL.ink);
       drawText(ctx, ["COR: COMUM", "COR: SHINY", "COR: LUMINOSA"][m.cor], 150, 98,
         [PAL.ink2, "#d8a828", "#fff3b0"][m.cor]);
-      drawText(ctx, DB.STORY.giveglitch.hint, 12, 132, PAL.ink2);
-      drawText(ctx, "C TROCA A COR", 12, 142, PAL.ink2);
+      // a ajuda em duas linhas: numa só ela passava da borda e cortava o fim
+      drawText(ctx, "CIMA/BAIXO ESCOLHE  LADOS NÍVEL", 12, 132, PAL.ink2);
+      drawText(ctx, "SHIFT +10  Z BAIXA  X SAI  C COR", 12, 142, PAL.ink2);
       return;
     }
     if (m.type === "aniversarioData") {
@@ -5757,6 +7123,20 @@ export class OverworldScene {
       drawText(ctx, A.ajudaTipo, 16, 136, PAL.ink2);
       return;
     }
+    if (m.type === "optsFala") {
+      const linhas = this.linhasDaFala();
+      panel(ctx, 20, 30, 200, linhas.length * LINE_H + 30);
+      drawText(ctx, "FALA", 30, 36, PAL.glitch);
+      linhas.forEach(([rot, val], i) => {
+        const y = 52 + i * LINE_H;
+        drawText(ctx, rot, 40, y, PAL.ink);
+        drawText(ctx, val, 138, y, PAL.glitch);
+        if (i === m.index) cursor(ctx, 30, y);
+      });
+      drawText(ctx, linhas[m.index][2].slice(0, 38), 6, 118, PAL.ink2);
+      drawText(ctx, "SETAS OU Z MUDA   X VOLTA", 6, 130, PAL.ink2);
+      return;
+    }
     if (m.type === "opts") {
       const idioma = DB.IDIOMAS?.find((l) => l.id === Opcoes.get("idioma")) || { nome: "PORTUGUÊS" };
       const linhas = [
@@ -5766,12 +7146,15 @@ export class OverworldScene {
         ["IDIOMA", idioma.nome],
         [DB.ANIVERSARIO_TEXTO.rotulo, this.resumoAniversario()],
         [DB.DUPLA_TEXTO?.opcao || "BATALHA DUPLA", this.st.flags?.todasDuplas ? "ON" : "OFF"],
+        ["ISOMÉTRICO", isoLigado() ? "ON" : "OFF"],
+        ["FALA", "..."],
         ["LIMPAR SAVE", ""],
       ];
-      panel(ctx, 30, 32, 180, linhas.length * LINE_H + 32);
-      drawText(ctx, `CORRUPÇÃO: ${Math.round(this.st.corruption)}%`, 40, 38, PAL.glitch);
+      // 9 linhas: o painel sobe pra dica de baixo não cair dentro dele
+      panel(ctx, 30, 14, 180, linhas.length * LINE_H + 32);
+      drawText(ctx, `CORRUPÇÃO: ${Math.round(this.st.corruption)}%`, 40, 20, PAL.glitch);
       linhas.forEach(([rot, val], i) => {
-        const y = 54 + i * LINE_H;
+        const y = 36 + i * LINE_H;
         drawText(ctx, rot, 50, y, PAL.ink);
         drawText(ctx, val, 140, y, PAL.glitch);
         if (i === m.index) cursor(ctx, 40, y);
@@ -5781,6 +7164,8 @@ export class OverworldScene {
       const aviso = DB.AVISO_IDIOMA?.[Opcoes.get("idioma")];
       if (m.index === 4) drawText(ctx, this.dicaAniversario().slice(0, 38), 12, 150, PAL.glitch);
       else if (m.index === 5) drawText(ctx, (DB.DUPLA_TEXTO?.opcaoDica || "").slice(0, 38), 12, 150, PAL.glitch);
+      else if (m.index === 6) drawText(ctx, "O MUNDO VISTO DE QUINA.", 12, 150, PAL.glitch);
+      else if (m.index === 7) drawText(ctx, "CAIXA OU BALÃO, VELOCIDADE, SOM...", 12, 150, PAL.glitch);
       else if (aviso) drawText(ctx, aviso.slice(0, 38), 12, 150, PAL.ink2);
     }
   }
