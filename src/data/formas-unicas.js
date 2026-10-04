@@ -13,5 +13,13 @@ export const FORMAS_UNICAS = {
       "autor": "CRIADOR DO JOGO",
       "sprite": "assets/unicas/pikachu~muu6tu3bkg.png"
     }
+  ],
+  "dewott": [
+    {
+      "id": "muu7k3m0qb",
+      "nome": "DEWOTT COSPLAY HISUI",
+      "autor": "CRIADOR DO JOGO",
+      "sprite": "assets/unicas/dewott~muu7k3m0qb.png"
+    }
   ]
 };
