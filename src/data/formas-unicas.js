@@ -29,5 +29,13 @@ export const FORMAS_UNICAS = {
       "autor": "CRIADOR DO JOGO",
       "sprite": "assets/unicas/irontreads~muu7thcpum.png"
     }
+  ],
+  "hitmonchan": [
+    {
+      "id": "muu7zw90ce",
+      "nome": "HITMONLEE SOMBRIO",
+      "autor": "CRIADOR DO JOGO",
+      "sprite": "assets/unicas/hitmonchan~muu7zw90ce.png"
+    }
   ]
 };
