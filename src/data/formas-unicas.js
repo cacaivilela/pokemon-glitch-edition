@@ -21,5 +21,13 @@ export const FORMAS_UNICAS = {
       "autor": "CRIADOR DO JOGO",
       "sprite": "assets/unicas/dewott~muu7k3m0qb.png"
     }
+  ],
+  "irontreads": [
+    {
+      "id": "muu7thcpum",
+      "nome": "IRON TREADS TRISTE",
+      "autor": "CRIADOR DO JOGO",
+      "sprite": "assets/unicas/irontreads~muu7thcpum.png"
+    }
   ]
 };
