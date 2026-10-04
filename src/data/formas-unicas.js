@@ -37,5 +37,13 @@ export const FORMAS_UNICAS = {
       "autor": "CRIADOR DO JOGO",
       "sprite": "assets/unicas/hitmonchan~muu7zw90ce.png"
     }
+  ],
+  "goomy": [
+    {
+      "id": "muu89rq93",
+      "nome": "GOOMY PAI E FILHO",
+      "autor": "CRIADOR DO JOGO",
+      "sprite": "assets/unicas/goomy~muu89rq93.png"
+    }
   ]
 };
