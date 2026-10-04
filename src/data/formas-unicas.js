@@ -1,8 +1,9 @@
 // AS FORMAS UNICAS: desenhos que os jogadores fizeram no UNIQUEMON
 // (uniquemon/), cada um de uma especie. O PUBLICAR de la manda pro
 // dev_server, que grava aqui (rota /__unica) e o PNG em assets/unicas/.
-// No jogo cada uma vira uma especie propria, com os tipos, os atributos e os
-// golpes da original, e aparece de vez em quando no mato no lugar dela
+// No jogo cada uma vira uma especie propria, com os atributos e os golpes da
+// original — e os tipos dela, a menos que a forma traga `tipos` proprios —, e
+// se veste num bicho seu com o GUARDA-ROUPA UNICO
 // (src/systems/unicas.js). Da pra editar a mao, e da pra apagar tudo:
 // e so deixar o objeto vazio.
 export const FORMAS_UNICAS = {
@@ -19,7 +20,11 @@ export const FORMAS_UNICAS = {
       "id": "muu7k3m0qb",
       "nome": "DEWOTT COSPLAY HISUI",
       "autor": "CRIADOR DO JOGO",
-      "sprite": "assets/unicas/dewott~muu7k3m0qb.png"
+      "sprite": "assets/unicas/dewott~muu7k3m0qb.png",
+      "tipos": [
+        "ÁGUA",
+        "SOMBRIO"
+      ]
     }
   ],
   "irontreads": [
@@ -35,7 +40,11 @@ export const FORMAS_UNICAS = {
       "id": "muu7zw90ce",
       "nome": "HITMONLEE SOMBRIO",
       "autor": "CRIADOR DO JOGO",
-      "sprite": "assets/unicas/hitmonchan~muu7zw90ce.png"
+      "sprite": "assets/unicas/hitmonchan~muu7zw90ce.png",
+      "tipos": [
+        "LUTADOR",
+        "SOMBRIO"
+      ]
     }
   ],
   "goomy": [
@@ -44,6 +53,17 @@ export const FORMAS_UNICAS = {
       "nome": "GOOMY PAI E FILHO",
       "autor": "CRIADOR DO JOGO",
       "sprite": "assets/unicas/goomy~muu89rq93.png"
+    },
+    {
+      "id": "muuam2qtfh",
+      "nome": "GOOMY DE HISUI",
+      "autor": "CAIO",
+      "sprite": "assets/unicas/goomy~muuam2qtfh.png",
+      "tipos": [
+        "ÁGUA",
+        "AÇO"
+      ],
+      "evoluiPra": "sliggoohisui"
     }
   ],
   "oshawott": [
@@ -51,7 +71,11 @@ export const FORMAS_UNICAS = {
       "id": "muu8lpv04l",
       "nome": "OSHAWOTT COSPLAY DE HISU",
       "autor": "CRIADOR DO JOGO",
-      "sprite": "assets/unicas/oshawott~muu8lpv04l.png"
+      "sprite": "assets/unicas/oshawott~muu8lpv04l.png",
+      "tipos": [
+        "ÁGUA",
+        "SOMBRIO"
+      ]
     }
   ],
   "clodsire": [
