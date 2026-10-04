@@ -53,5 +53,13 @@ export const FORMAS_UNICAS = {
       "autor": "CRIADOR DO JOGO",
       "sprite": "assets/unicas/oshawott~muu8lpv04l.png"
     }
+  ],
+  "clodsire": [
+    {
+      "id": "muu9951u5v",
+      "nome": "CLODSIRE BONÉ DO ASH",
+      "autor": "CRIADOR DO JOGO",
+      "sprite": "assets/unicas/clodsire~muu9951u5v.png"
+    }
   ]
 };
