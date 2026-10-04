@@ -45,5 +45,13 @@ export const FORMAS_UNICAS = {
       "autor": "CRIADOR DO JOGO",
       "sprite": "assets/unicas/goomy~muu89rq93.png"
     }
+  ],
+  "oshawott": [
+    {
+      "id": "muu8lpv04l",
+      "nome": "OSHAWOTT COSPLAY DE HISU",
+      "autor": "CRIADOR DO JOGO",
+      "sprite": "assets/unicas/oshawott~muu8lpv04l.png"
+    }
   ]
 };
