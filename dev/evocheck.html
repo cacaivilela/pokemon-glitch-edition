@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- TELA DE EVOLUÇÃO: abre ?evolucao=, passa do primeiro diálogo e tira um
+     retrato a cada tanto, até o BUUM. Uso: /dev/evocheck.html
+     (?evo=charmander:charmeleon&estranho=1 muda o bicho / a versão) -->
+<meta charset="utf-8">
+<title>evocheck</title>
+<style>
+  body { background: #111; color: #ddd; font: 13px monospace; margin: 8px; }
+  figure { display: inline-block; margin: 4px; }
+  img { width: 360px; height: 240px; image-rendering: pixelated; display: block; }
+  iframe { position: absolute; left: -2000px; width: 240px; height: 160px; }
+</style>
+<div id="saida"></div>
+<script type="module">
+const q = new URLSearchParams(location.search);
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const saida = document.getElementById("saida");
+const f = document.createElement("iframe");
+// perfil próprio: NUNCA gravar no save.json de quem joga
+f.src = `../index.html?evolucao=${q.get("evo") || "charmander:charmeleon"}${q.has("estranho") ? "&estranho=1" : ""}${q.has("iso") ? "&iso=1" : ""}&perfil=evocheck`;
+document.body.appendChild(f);
+for (let i = 0; i < 50 && !f.contentDocument?.getElementById("screen"); i++) await espera(100);
+const erros = [];
+f.contentWindow.addEventListener("error", (e) => erros.push(e.message));
+await espera(2500);
+const aperta = () => { for (const type of ["keydown", "keyup"]) f.contentWindow.dispatchEvent(new f.contentWindow.KeyboardEvent(type, { code: "Enter", key: "Enter" })); };
+for (let i = 0; i < 3; i++) { aperta(); await espera(300); }
+const t0 = performance.now();
+for (const ms of [800, 2400, 3600, 5000, 7200, 9000, 10800, 12300, 13300, 14000]) {
+  await espera(ms - (performance.now() - t0));
+  const top = f.contentWindow.game?.scenes?.top;
+  const log = `${ms}ms fase=${top?.fase} erros=${erros.join("|") || "nenhum"}`;
+  const dataUrl = f.contentDocument.getElementById("screen").toDataURL();
+  fetch("/__capture", { method: "POST", body: JSON.stringify({ name: `evo_${ms}`, dataUrl, log }) }).catch(() => {});
+  const fig = document.createElement("figure");
+  fig.innerHTML = `<img src="${dataUrl}"><figcaption>${log}</figcaption>`;
+  saida.appendChild(fig);
+}
+document.title = "evocheck pronto";
+</script>

@@ -2,7 +2,7 @@
 // Trocar por PNGs depois e so mudar Assets.tiles / Assets.mons.
 import { makeRng } from "./rng.js";
 import { DB } from "../data/index.js";
-import { SpriteStore, pedirMon, pedirMonShiny } from "./sprites.js";
+import { SpriteStore, pedirMon, pedirMonShiny, pedirMonUrl } from "./sprites.js";
 import { url as arquivo } from "./base.js";
 import { corpoBombado, CORPO } from "./diglettbombado.js";
 
@@ -726,7 +726,10 @@ export const Assets = {
   },
 
   /** personagem do mapa: folha externa se existir, senao a arte embutida */
-  actor(kind) {
+  actor(kind, deQuemJoga = true) {
+    // "hero" é QUEM JOGA: a menina usa a folha da heroína (main.js define isso).
+    // O outro jogador online passa `false`: o "hero" dele é dele, não o seu.
+    if (kind === "hero" && deQuemJoga) { const j = this.jogador?.(); if (j && SpriteStore.overworld[j]) kind = j; }
     return SpriteStore.overworld[kind] || this.actors[kind] || this.actors.hero;
   },
 
@@ -838,7 +841,7 @@ export const Assets = {
    *  não tem — e aí quem chamou usa o filtro. Pede o PNG na primeira vez. */
   monShiny(id, costas = false) {
     const sp = DB.SPECIES[id];
-    if (!sp || sp.fusao || sp.crescimento) return null;   // composta: não existe shiny oficial
+    if (!sp || sp.fusao || sp.crescimento || sp.spriteUrl) return null;   // composta ou desenhada: sem shiny oficial
     pedirMonShiny(sp.id || id, sp.spriteDex || sp.dex);
     // Sem arte shiny do lado pedido, devolve null e quem chamou usa o filtro em
     // cima do sprite certo. Cair no sprite de FRENTE quando pedem as costas
@@ -928,7 +931,9 @@ export const Assets = {
     if (ext && id === "spinda") return this.spinda(seed) || ext;
     if (ext) return ext;
     // ainda não foi pedido: pede agora e mostra a arte provisória enquanto vem
-    if (sp) pedirMon(sp.id || id, sp.spriteDex || sp.dex);
+    // a FORMA ÚNICA tem o desenho dela num caminho próprio
+    if (sp?.spriteUrl) pedirMonUrl(sp.id || id, sp.spriteUrl);
+    else if (sp) pedirMon(sp.id || id, sp.spriteDex || sp.dex);
     return this.placeholder(id, seed);
   },
 
@@ -936,7 +941,8 @@ export const Assets = {
   monBack(id, seed) {
     const sp = DB.SPECIES[id];
     if (sp?.fusao) return fusaoSprite(sp, "costas", seed);
-    if (sp && !SpriteStore.pokemonBack[id]) pedirMon(sp.id || id, sp.spriteDex || sp.dex);
+    // a FORMA ÚNICA só tem a frente: de costas ela usa o mesmo desenho
+    if (sp && !sp.spriteUrl && !SpriteStore.pokemonBack[id]) pedirMon(sp.id || id, sp.spriteDex || sp.dex);
     // nunca espelha: sprite espelhado deixa o jogo com cara de bug
     return SpriteStore.pokemonBack[id] || this.mon(id, seed);
   },

@@ -7,6 +7,7 @@ import { Assets } from "../core/assets.js";
 import { trainerArt, adiantarMons } from "../core/sprites.js";
 import { Input } from "../core/input.js";
 import { Audio2 } from "../core/audio.js";
+import { tocarGrito } from "../systems/gritos.js";
 import { panel, drawText, cursor, bar, hpColor, fade, PAL, LINE_H } from "../core/gfx.js";
 import { Dialogue } from "../systems/dialogue.js";
 import { Glitch } from "../systems/glitchfx.js";
@@ -20,6 +21,7 @@ import { podeUsarBooster, ligar, acumular, bugado, bonusDe, limpar, limparTudo }
 import { bater, podeCapturar, premio as premioRaid, RAID } from "../systems/raid.js";
 import { GLITCHBOOSTER } from "../data/glitch.js";
 import { hpPct, isFainted, gainXp, xpYieldFor, xpForLevel, heal, createMon } from "../systems/mon.js";
+import { prepararBatalha, fatorCaptura, fatorXp } from "../systems/pedras.js";
 import {
   calcDamage, accuracyCheck, applyMoveEffects, statusTickDamage, effText,
   chooseAiMove, catchAttempt, catchGlitchball, chanceDeCaptura, canFlee, newStages, effectiveStat,
@@ -27,8 +29,12 @@ import {
 } from "../systems/battle-engine.js";
 import { habilidadeDoMon, entrada as entradaDaHabilidade, contato as contatoDaHabilidade, curaDoTurno, ficaNaBola } from "../systems/habilidades.js";
 import { opcoesMega, megaEvoluir, reverterMega, reverterTudo } from "../systems/mega.js";
+import { tocarMega } from "./mega.js";
+import { marcarSecreta } from "../systems/secretas.js";
+import { cumprirProcurado } from "../systems/bicos.js";
 import { venceu as venceuAmizade } from "../systems/creche.js";
 import { reduzido } from "../core/reduzir.js";
+import { desenharItem } from "../core/itens.js";
 import { isoLigado, chaoDeBatalhaIso, plataformaIso, emPeIso } from "../core/isometrico.js";
 
 const W = 240, H = 160;
@@ -36,13 +42,14 @@ const W = 240, H = 160;
 export class BattleScene {
   enter(args = {}) {
     const st = this.game.state;
+    prepararBatalha(st);            // as PEDRAS BRAGLITCHIANAS da mochila valem aqui
     this.trainer = args.trainer || null;
     this.npcKey = args.npcKey || null;
     this.isGlitch = !!args.glitch;
     this.boss = !!args.boss;
     this.falaCaptura = args.falaCaptura || null;   // o SACI tem a dele
     this.foeParty = this.trainer
-      ? this.trainer.party.map((p) => createMon(p.id, p.lvl, { corrupt: !!p.corrupt }))
+      ? this.trainer.party.map((p) => createMon(p.id, p.lvl, { corrupt: !!p.corrupt, shiny: !!p.shiny }))
       : [args.foe];
     this.foeIdx = 0;
     // pede os sprites de quem vai lutar ANTES da transição de entrada: ela leva
@@ -90,6 +97,15 @@ export class BattleScene {
     // vem de habilidade de entrada ou de golpe, por cinco turnos.
     this.clima = st.player?.map === "tempestade" ? { tipo: "chuva", turnos: Infinity } : null;
     this.chuvaT = 0;
+    // A MEGA DESCONTROLADA (src/data/descontroladas.js): HP de chefe e a fúria
+    // já subindo o ATAQUE e o ATAQUE ESP.
+    this.descontrolada = args.descontrolada || null;
+    if (this.descontrolada) {
+      const D = DB.DESCONTROLADAS || {};
+      this.foe.maxHp *= D.hpVezes || 3;
+      this.foe.hp = this.foe.maxHp;
+      this.fStages.atk = this.fStages.spa = D.furia ?? 1;
+    }
     this.disp = { p: this.mine.hp, f: this.foe.hp };
     this.sp = { p: this.newSprite(-90), f: this.newSprite(90) };
     // o chefe entra do tamanho de um filhote; `crescer()` faz o resto
@@ -98,11 +114,13 @@ export class BattleScene {
     if (!this.raid && this.foe?.alfa) this.sp.f.escala = 1.3;
     if (this.totem) this.sp.f.escala = DB.TOTEM?.tamanho || 1.35;
     if (this.mine?.alfa) this.sp.p.escala = 1.3;
+    if (this.descontrolada) this.sp.f.escala = 1.25;
     this.crescendo = null;
     st.seen[this.foe.species] = true;
 
-    Audio2.playMusic(this.isGlitch ? "batalhaGlitch" : "batalha",
-                     this.isGlitch ? DB.MUSIC?.batalhaGlitch : DB.MUSIC?.batalha);
+    if (this.descontrolada) Audio2.playMusic("megaDescontrolada", DB.MUSIC?.megaDescontrolada);
+    else Audio2.playMusic(this.isGlitch ? "batalhaGlitch" : "batalha",
+                          this.isGlitch ? DB.MUSIC?.batalhaGlitch : DB.MUSIC?.batalha);
 
     this.run(this.intro());
   }
@@ -225,6 +243,12 @@ export class BattleScene {
       for (const linha of this.totem.acorda || []) await this.say(linha);
       await this.say((DB.PROVACOES_TEXTO?.apareceu || "O TOTEM {MON} SE LEVANTA!")
         .replace("{MON}", this.foe.nickname));
+    } else if (this.descontrolada) {
+      const T = DB.DESCONTROLADAS.textos;
+      this.flash = 0.6;
+      Audio2.tone(98, 0.5, "sawtooth", 0.5);
+      await this.say(T.entra.replace("{MON}", this.foe.nickname));
+      await this.say(T.furia);
     } else if (this.raid) {
       // a GLITCH RAID nunca tinha se apresentado: `raidApareceu` estava escrito
       // no story.js e não era dito por ninguém
@@ -246,6 +270,8 @@ export class BattleScene {
       else if (!this.foe.shiny && !this.foe.luminoso) await this.say("ESTE POKÉMON NÃO CONSTA NA POKÉDEX. NEM NO CARTUCHO.");
     } else {
       await this.say(`UM ${this.foe.nickname}${this.foe.alfa ? " ALFA" : ""} SELVAGEM APARECEU!`);
+      // um que VOCÊ SOLTOU (src/systems/soltos.js): é ele mesmo, de volta
+      if (this.foe.soltoId) await this.say(`ESPERA... É O ${this.foe.nickname} QUE VOCÊ SOLTOU AQUI!`);
       if (this.foe.alfa) { Glitch.hit(0.6); await this.say("ELE É MAIOR QUE O NORMAL. E NÃO VAI FUGIR."); }
       if (this.foe.luminoso) await this.say("ESSE NÃO TEM COR: TEM LUZ. UM EM 9999 NASCE ASSIM.");
       else if (this.foe.shiny) await this.say("A COR DELE NÃO É A DE SEMPRE. ESSE AÍ É RARO.");
@@ -279,6 +305,7 @@ export class BattleScene {
    *  INTIMIDAR derruba o ATAQUE do outro (src/data/habilidades.js). */
   async entrou(who) {
     const mon = who === "p" ? this.mine : this.foe;
+    tocarGrito(mon);          // todo Pokémon que entra em campo grita (src/data/gritos.js)
     const outro = who === "p" ? this.foe : this.mine;
     const oStages = who === "p" ? this.fStages : this.pStages;
     const e = entradaDaHabilidade(mon);
@@ -289,10 +316,24 @@ export class BattleScene {
       await this.say(`${h.nome} DE ${mon.nickname}!`);
       await this.mudarClima(e.clima);
     }
+    if (e.temporal) {
+      this.temporal = { dono: mon };
+      this.flash = 0.6;
+      Audio2.noise(0.5, 0.7);
+      Audio2.tone(60, 0.4, "sawtooth", 0.6);
+      await this.say(T.temporal.comeca.replace("{MON}", mon.nickname));
+    }
     if (e.intimidar && !habilidadeDoMon(outro)?.semQueda) {
       oStages.atk = Math.max(-6, (oStages.atk || 0) - 1);
       await this.say(T.intimidar.replace("{HAB}", h.nome).replace("{MON}", mon.nickname).replace("{ALVO}", outro.nickname));
     }
+  }
+
+  /** O TEMPORAL (a habilidade do TILAPISH): vale enquanto o dono estiver em
+   *  campo e de pé. Devolve o dono, ou null. */
+  temporalAtivo() {
+    const d = this.temporal?.dono;
+    return d && (d === this.mine || d === this.foe) && d.hp > 0 ? d : null;
   }
 
   async mudarClima(tipo) {
@@ -546,6 +587,9 @@ export class BattleScene {
     const M = DB.STORY.mega;
     const mon = who === "p" ? this.mine : this.foe;
     if (anel) await this.say(M.reagem.replace("{PEDRA}", regra.pedra.toUpperCase()));
+    // a cutscene da MEGA (src/scenes/mega.js); a do MISSINGNO, sem anel, não
+    // tem — ele não mega evolui, ele se sobrescreve
+    if (anel) await tocarMega(this.game, mon, regra.to);
     const r = megaEvoluir(mon, regra.to);
     if (!r) return;
     this.megou[who] = true;
@@ -613,6 +657,7 @@ export class BattleScene {
         this.quebrou = r.quebrou;
       }
       target.hp = Math.max(0, target.hp - dano);
+      marcarSecreta(target, mv, this.st.player.map, moveRef.id);   // o PARASECTROM (src/data/secretas.js)
       await this.syncHp();
       // CONTRA-ATAQUE (o GINGÃO): quem bateu com o dano guardado zera a conta;
       // quem apanhou guarda o golpe e sobe a defesa
@@ -659,6 +704,22 @@ export class BattleScene {
       if (res.crit) await this.say("ACERTO CRÍTICO!");
       const et = effText(res.eff);
       if (et && !res.pegouAlma) await this.say(et);
+      // DRENO (a linha do TRONKY): todo golpe que acerta puxa 10-20 de HP pra
+      // quem bateu. Embaixo do TEMPORAL não tem cura: ele tenta e não vem nada.
+      const hu = habilidadeDoMon(user);
+      if (hu?.dreno && dano > 0 && user.hp > 0 && user.hp < user.maxHp) {
+        const T = DB.CLIMA_TEXTO;
+        if (this.temporalAtivo()) await this.say(T.temporal.semCura.replace("{MON}", user.nickname));
+        else {
+          const [a, b] = hu.dreno;
+          const n = Math.min(user.maxHp - user.hp, a + Math.floor(Math.random() * (b - a + 1)));
+          user.hp += n;
+          await this.syncHp();
+          await this.say(T.temporal.dreno.replace("{HAB}", hu.nome).replace("{MON}", user.nickname).replace("{N}", n));
+          const doce = aoSerCurado(user, uStages);
+          if (doce) await this.say(doce);
+        }
+      }
       if (mv.recoil) {
         const rec = Math.max(1, Math.floor(dano * mv.recoil));
         user.hp = Math.max(0, user.hp - rec);
@@ -674,7 +735,10 @@ export class BattleScene {
     } else if (res.imune) {
       // LEVITAR, PARA-RAIOS, ESPONJA, CHAMA VIVA: a habilidade segurou o golpe
       const T = DB.CLIMA_TEXTO;
-      if (res.cura && target.hp < target.maxHp) {
+      if (res.cura && target.hp < target.maxHp && this.temporalAtivo()) {
+        await this.say(T.imune.replace("{HAB}", res.imune.nome).replace("{MON}", target.nickname));
+        await this.say(T.temporal.semCura.replace("{MON}", target.nickname));
+      } else if (res.cura && target.hp < target.maxHp) {
         target.hp = Math.min(target.maxHp, target.hp + Math.ceil(target.maxHp * res.cura));
         await this.syncHp();
         await this.say(T.absorve.replace("{HAB}", res.imune.nome).replace("{MON}", target.nickname));
@@ -702,6 +766,22 @@ export class BattleScene {
   }
 
   async endOfTurn() {
+    // O TEMPORAL: o dono saiu ou caiu, a chuva passa; senão, ela bate nos outros
+    const T = DB.CLIMA_TEXTO;
+    if (this.temporal && !this.temporalAtivo()) {
+      await this.say(T.temporal.para.replace("{MON}", this.temporal.dono.nickname));
+      this.temporal = null;
+    }
+    const dono = this.temporalAtivo();
+    if (dono) {
+      for (const mon of [this.mine, this.foe]) {
+        if (mon === dono || mon.hp <= 0) continue;
+        mon.hp = Math.max(0, mon.hp - Math.max(1, Math.floor(mon.maxHp / 16)));
+        Audio2.noise(0.15, 0.4);
+        await this.syncHp();
+        await this.say(T.temporal.dano.replace("{MON}", mon.nickname));
+      }
+    }
     for (const mon of [this.mine, this.foe]) {
       const d = statusTickDamage(mon);
       if (d > 0) {
@@ -711,7 +791,9 @@ export class BattleScene {
       }
       // REGENERAÇÃO, CORPO GELADO: cura no fim do turno
       const f = curaDoTurno(mon, this.clima?.tipo);
-      if (f > 0 && mon.hp > 0 && mon.hp < mon.maxHp) {
+      if (f > 0 && mon.hp > 0 && mon.hp < mon.maxHp && dono) {
+        await this.say(T.temporal.semCura.replace("{MON}", mon.nickname));
+      } else if (f > 0 && mon.hp > 0 && mon.hp < mon.maxHp) {
         mon.hp = Math.min(mon.maxHp, mon.hp + Math.max(1, Math.floor(mon.maxHp * f)));
         await this.syncHp();
         await this.say(DB.CLIMA_TEXTO.cura.replace("{HAB}", habilidadeDoMon(mon).nome).replace("{MON}", mon.nickname));
@@ -749,6 +831,40 @@ export class BattleScene {
     this.menu = { type: "main", index: 0 };
   }
 
+  /** O MISSINGNO DE BRAGLITCH vencido (derrubado ou pego), depois de ele
+   *  chegar lá: é o que abre a LIGA (src/data/braglitch-liga.js). */
+  marcarMissingnoBrag() {
+    if (this.foe?.species === "missingno" && this.st.flags?.bragGlitch && emBraglitch(this.st.player.map)) {
+      this.st.flags.bragMissingnoVencido = true;
+    }
+  }
+
+  /** A DESCONTROLADA caiu: a aura apaga, ela volta ao normal e vai embora, e
+   *  a PEDRA MEGA dela fica (ou vira dinheiro, se você já tem uma). */
+  async acalmouDescontrolada() {
+    const T = DB.DESCONTROLADAS.textos, d = this.descontrolada;
+    for (const linha of T.acalmou) await this.say(linha.replace("{BASE}", d.base));
+    if (!d.pedra) return;
+    await this.say(T.deixou);
+    const nome = d.pedra.toUpperCase();
+    if ((this.st.items[d.pedra] || 0) > 0) {
+      this.st.money += T.dinheiro;
+      return void (await this.say(T.jaTinha.replace("{PEDRA}", nome).replace("{DIN}", T.dinheiro)));
+    }
+    this.st.items[d.pedra] = 1;
+    Audio2.heal();
+    await this.say(T.pedra.replace("{PEDRA}", nome));
+  }
+
+  /** O MURAL DE PROCURADOS (src/systems/bicos.js): o selvagem derrubado ou
+   *  capturado estava lá? a recompensa cai na hora */
+  async pagarProcurado() {
+    const valor = cumprirProcurado(this.st, this.foe);
+    if (!valor) return;
+    Audio2.heal();
+    await this.say(DB.BICOS.textos.pago.replace("{MON}", this.foe.nickname).replace("{VALOR}", valor));
+  }
+
   async onFoeFaint() {
     // A GLITCH RAID NÃO DESMAIA: ELA VIRA BOLA. Derrubar o chefe é a captura —
     // ele desinfla até sumir, a bola cai no lugar onde ele estava, e ele é seu.
@@ -763,8 +879,10 @@ export class BattleScene {
     this.sp.f.faint = true;
     await this.wait(0.7);
     await this.say(`${this.trainer ? "O " + this.foe.nickname + " INIMIGO" : this.foe.nickname + " SELVAGEM"} DESMAIOU!`);
+    this.marcarMissingnoBrag();
 
     await this.premiarExp();
+    if (!this.trainer) await this.pagarProcurado();   // o MURAL DE PROCURADOS (src/data/bicos.js)
     venceuAmizade(this.mine);          // vencer aproxima (src/systems/creche.js)
     await this.dropDoAlfa();
 
@@ -811,6 +929,7 @@ export class BattleScene {
       }
     }
     if (this.boss && this.npcKey) (this.st.npcState[this.npcKey] ||= {}).defeated = true;
+    if (this.descontrolada) await this.acalmouDescontrolada();
     if (this.isGlitch && !this.boss) {
       this.st.corruption = Math.min(100, this.st.corruption + 8);
       await this.say("O CORPO DELE SE DESFAZ EM PIXELS QUE NÃO SOMEM DA TELA.");
@@ -920,6 +1039,11 @@ export class BattleScene {
       Audio2.cancel();
       return void this.say(DB.STORY.glitch.raidSemBola);
     }
+    // A DESCONTROLADA não entra em bola nenhuma: a aura rebate
+    if (this.descontrolada) {
+      Audio2.cancel();
+      return void this.say(DB.DESCONTROLADAS.textos.semBola);
+    }
     // O TOTEM NÃO É PRÊMIO: ele é porteiro. Nenhuma bola funciona nele — nem a
     // GLITCHBALL, que pega tudo. O que se leva da marca é o cristal.
     if (this.totem) {
@@ -946,12 +1070,12 @@ export class BattleScene {
     this.ballAnim = { t: 0, shakes: 0 };
     // o bônus da bola entra na mesma fórmula de sempre (`catchAttempt`): 1 na
     // comum, 1,5 na GREAT e 2 na ULTRA, como no jogo original
-    let shakes = ehGlitch ? catchGlitchball(this.foe) : catchAttempt(this.foe, bola?.bonus || 1);
+    let shakes = ehGlitch ? catchGlitchball(this.foe) : catchAttempt(this.foe, (bola?.bonus || 1) * fatorCaptura());
     // FICA! (a linha do DIGGLE, se for ele que está em campo): a bola ia abrir,
     // ele late o comando e o selvagem fica lá dentro. O bônus é 25% do nível,
     // SOMADO à chance da bola (ver `ficaNaBola`).
     let ficou = false;
-    if (!ehGlitch && shakes < 4 && ficaNaBola(this.mine, chanceDeCaptura(this.foe, bola?.bonus || 1))) {
+    if (!ehGlitch && shakes < 4 && ficaNaBola(this.mine, chanceDeCaptura(this.foe, (bola?.bonus || 1) * fatorCaptura()))) {
       shakes = 4; ficou = true;
     }
     await this.wait(0.7);
@@ -1005,7 +1129,7 @@ export class BattleScene {
   async premiarExp() {
     // o SANDUÍCHE DOCE do acampamento entra aqui, multiplicando o que se aprende
     const xp = Math.floor(xpYieldFor(this.foe) * (this.trainer ? 1.5 : 1)
-                          * fator(this.st, "xp") * (this.raid?.xp || 1));
+                          * fator(this.st, "xp") * (this.raid?.xp || 1) * fatorXp());
     const share = DB.CONFIG?.shareXp !== false;
     // desmaiado não ganha experiência (senão ele subiria de nível dentro da bola)
     const winners = (share ? this.st.party : [this.mine]).filter((m) => !isFainted(m));
@@ -1072,6 +1196,7 @@ export class BattleScene {
    *  RAID derrubada — os dois terminam no mesmo lugar, e um jeito só de guardar
    *  é um jeito só de errar. */
   async guardarCapturado() {
+    if (!this.trainer) await this.pagarProcurado();   // capturar também vale pro MURAL
     // espécie nova: a POKÉDEX anota, e diz que anotou (src/data/pokedex.js)
     const novo = !this.st.caught[this.foe.species] && !!this.st.flags?.pokedex;
     this.st.caught[this.foe.species] = true;
@@ -1088,6 +1213,7 @@ export class BattleScene {
       this.st.box.push(this.foe);
     }
     if (this.boss) await this.say(this.falaCaptura || DB.STORY.dimension.caught);
+    this.marcarMissingnoBrag();
     if (this.foe.species === "missingno" && emBraglitch(this.st.player.map)) {
       // em BRAGLITCH ele é só mais um glitch solto: não conserta Kanto
       // (src/systems/regionais.js, `glitchDeVerdade`)
@@ -1113,7 +1239,8 @@ export class BattleScene {
       return;
     }
     if (this.boss) {
-      await this.say("A FENDA SE FECHOU ATRÁS DE VOCÊ. NÃO TEM PRA ONDE FUGIR!");
+      await this.say(this.descontrolada ? DB.DESCONTROLADAS.textos.semFuga
+                                        : "A FENDA SE FECHOU ATRÁS DE VOCÊ. NÃO TEM PRA ONDE FUGIR!");
       this.menu = { type: "main", index: 0 };
       return;
     }
@@ -1403,6 +1530,22 @@ export class BattleScene {
       ctx.fillStyle = "rgba(255,210,80,0.22)";
       ctx.fillRect(-8, 0, W + 16, 110);
     }
+    // O TEMPORAL: céu fechado, chuva grossa e inclinada, e relâmpago de vez em quando
+    if (this.temporalAtivo()) {
+      ctx.fillStyle = "rgba(20,24,48,0.5)";
+      ctx.fillRect(-8, 0, W + 16, 110);
+      ctx.strokeStyle = "rgba(190,210,255,0.7)";
+      ctx.lineWidth = 1;
+      const t = this.t * 260;
+      for (let i = 0; i < 48; i++) {
+        const x = ((i * 29 + t * 0.9) % (W + 60)) - 30, y = ((i * 47 + t) % 140) - 20;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 6, y + 14); ctx.stroke();
+      }
+      if (Math.sin(this.t * 1.7) > 0.985 || Math.sin(this.t * 2.9 + 1) > 0.993) {
+        ctx.fillStyle = "rgba(230,235,255,0.55)";
+        ctx.fillRect(-8, 0, W + 16, 110);
+      }
+    }
     if (isoLigado()) {
       // NO ISOMÉTRICO: piso de losangos e plataformas em bloco (src/core/isometrico.js)
       chaoDeBatalhaIso(ctx, W, 52, 110, this.isGlitch ? ["#1d0e30", "#26123d"] : ["#b9e2a0", "#a8d68c"]);
@@ -1438,8 +1581,19 @@ export class BattleScene {
     } else if (!this.showTrainer && (!isFainted(this.foe) || this.disp.f > 0 || this.sp.f.alpha > 0)) {
       const fimg = Assets.mon(this.foe.species, this.foe.seed);
       if (this.totem && this.foe.species === "diglett") this.drawDiglettBombado(ctx, fimg, bob);
-      else drawMon(Assets.comCor(fimg, this.foe), 146,
-                   4 + bob + (this.raid ? RAID.desce : 0), this.sp.f, -1);
+      else {
+        // a aura roxa da MEGA DESCONTROLADA, pulsando atrás dela
+        if (this.descontrolada && !this.sp.f.faint) {
+          const a = 0.35 + 0.25 * Math.sin(this.t * 9);
+          const g = ctx.createRadialGradient(178, 40, 6, 178, 40, 52);
+          g.addColorStop(0, `rgba(200,70,255,${a})`);
+          g.addColorStop(1, "rgba(200,70,255,0)");
+          ctx.fillStyle = g;
+          ctx.fillRect(122, -12, 112, 104);
+        }
+        drawMon(Assets.comCor(fimg, this.foe), 146,
+                4 + bob + (this.raid ? RAID.desce : 0), this.sp.f, -1);
+      }
     }
     if (this.ballAnim) this.drawBall(ctx);
     if (this.sp.p.alpha > 0) {
@@ -1673,6 +1827,8 @@ export class BattleScene {
       });
       if (inicio > 0) drawText(ctx, "▲", 224, 116, PAL.ink2);
       if (inicio + JANELA < itens.length) drawText(ctx, "▼", 224, 140, PAL.ink2);
+      const sel = itens[Math.min(m.index, itens.length - 1)];
+      if (sel) desenharItem(ctx, sel.item, 186, 114, 2);   // o desenho do item da vez
       drawText(ctx, "X VOLTA", 168, 148, PAL.ink2);
       return;
     }

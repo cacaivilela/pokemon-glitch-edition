@@ -128,7 +128,9 @@ const semAcento = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, 
 // as formas MEGA ficam de fora: elas só existem dentro da batalha (baixar uma
 // deixaria um Pokémon megado pra sempre, que é justo o que o jogo não permite).
 // As fusões também: fusão sai do DECODIFICADOR, com dois Pokémon seus dentro.
-const ESPECIES = Object.values(DB.SPECIES).filter((sp) => !sp.mega && !sp.fusao)
+// E as FORMAS ÚNICAS (desenhos do UNIQUEMON): elas se vestem num bicho seu
+// pelo GUARDA-ROUPA ÚNICO ou chegam evoluindo, não se baixam prontas.
+const ESPECIES = Object.values(DB.SPECIES).filter((sp) => !sp.mega && !sp.fusao && !sp.unicaDe)
   .sort((a, b) => (a.dex || 9999) - (b.dex || 9999) || a.name.localeCompare(b.name));
 let escolhido = null;
 let save = null;

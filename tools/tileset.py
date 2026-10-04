@@ -126,6 +126,11 @@ def arte_de(folder):
         for bloco in re.findall(r"gTileset_(\w+)\s*=\s*\{(.*?)\}", txt, re.S):
             nome, corpo = bloco
             m = re.search(r"\.tiles\s*=\s*gTilesetTiles_(\w+)", corpo)
+            # no Emerald o `gTileset_Building` chama a própria arte de
+            # `gTilesetTiles_InsideBuilding`, mas ela mora na pasta dele mesmo
+            # (primary/building): é só o nome do símbolo, não um empréstimo
+            if m and m.group(1) == "InsideBuilding":
+                continue
             if m and m.group(1) != nome:
                 _arte[folder_for("gTileset_" + nome)] = folder_for("gTileset_" + m.group(1))
     return _arte.get(folder, folder)

@@ -8,11 +8,15 @@
 // A região é a do mapa em que você está: em Braglitch, a história de lá; em
 // qualquer outro lugar, a de Kanto. Quem vai e volta de barco vê as duas.
 import { DB } from "../data/index.js";
+import { ilhas, ilhaEntregue, ilhaCompleta, formasPegas } from "./ilhas.js";
 
-/** A frase do objetivo agora, ou null quando não há o que dizer. */
-export function objetivoAtual(st, emBraglitch) {
+/** A frase do objetivo agora, ou null quando não há o que dizer. `regiao` é
+ *  a do mapa ("kanto" ou "braglitch" — `regiaoDoMapa` em
+ *  src/systems/regionais.js; `true` ainda vale por "braglitch"). */
+export function objetivoAtual(st, regiao) {
   if (!st?.flags) return null;
-  return emBraglitch ? objetivoBraglitch(st) : objetivoKanto(st);
+  if (regiao === true || regiao === "braglitch") return objetivoBraglitch(st);
+  return objetivoKanto(st);
 }
 
 function objetivoKanto(st) {
@@ -32,18 +36,19 @@ function objetivoKanto(st) {
 function objetivoBraglitch(st) {
   const f = st.flags;
   if (!f.starterChosen) return "VÁ AO LAB DA PROFA. IPÊ, O PRÉDIO BRANCO DE SÃO LUCARIO DO SUL.";
-  // o MISSINGNO chegou: isso passa na frente de ginásio e redemoinho — é o
-  // que mudou no mundo inteiro de lá (src/systems/regionais.js)
+  // o MISSINGNO chegou: isso passa na frente das ilhas — é o que mudou no
+  // mundo inteiro de lá (src/systems/regionais.js)
   if (f.bragGlitch) return "O MISSINGNO CHEGOU EM BRAGLITCH: AQUI O GLITCH NÃO VIRA MAIS LENDA.";
   if (!f.bragMissao) return "FALE COM A PROFA. IPÊ NO LABORATÓRIO DELA.";
-  const reds = DB.REDEMOINHOS || [];
-  const feitos = reds.filter((r) => st.npcState?.[`${r.mapa}.redemoinho_${r.id}`]?.defeated).length;
-  if (feitos < reds.length) return `DESFAÇA OS REDEMOINHOS DA BR-101 (${feitos}/${reds.length}).`;
-  if (!st.caught?.saci) return "O ÚLTIMO REDEMOINHO ESTÁ NA MATA DO SACI, AO NORTE DA BR-101.";
-  if (!f.bragFim) return "VOLTE À PROFA. IPÊ: VOCÊ PEGOU O SACI!";
-  const tem = st.bragBadges || [];
-  const prox = (DB.INSIGNIAS_BRAG || []).find((b) => !tem.includes(b.id));
-  if (prox) return `PRÓXIMO GINÁSIO: ${prox.city} (${prox.name}).`;
+  // AS ILHAS (src/systems/ilhas.js): a primeira que ainda não foi entregue
+  const ilha = ilhas().find((i) => !ilhaEntregue(st, i));
+  if (ilha) {
+    if (ilhaCompleta(st, ilha)) return `ILHA COMPLETA: ${ilha.nome}! FALE COM A PROFA. IPÊ NA LANCHA.`;
+    if (st.player?.map !== ilha.id) return `PRÓXIMA ILHA: ${ilha.nome}. A PROFA. IPÊ TE LEVA NA LANCHA, NO PÍER.`;
+    const n = formasPegas(st, ilha), t = ilha.formas.length;
+    return `${ilha.nome}: VENÇA O CHEFE DA ILHA. (FORMAS -BRAG: ${n}/${t})`;
+  }
+  if (!f.bragIlhasFim) return "AS OITO ILHAS! FALE COM A PROFA. IPÊ NA LANCHA.";
   const lendas = (DB.LENDAS_BRAG || []).filter((l) => !st.caught?.[l.id]
     && (l.requer?.pegos || []).every((id) => st.caught?.[id]));   // só as que já apareceram
   if (lendas.length) {

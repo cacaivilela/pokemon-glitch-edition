@@ -257,6 +257,17 @@ export function pedirMon(id, dex) {
   });
 }
 
+/** O DESENHO DE UMA FORMA ÚNICA (src/data/formas-unicas.js): um PNG com
+ *  caminho próprio (assets/unicas/...), e não o número da Pokédex. */
+export function pedirMonUrl(id, caminho) {
+  if (!id || pedidos.has(id)) return;
+  pedidos.add(id);
+  loadImage(url(caminho)).then((img) => {
+    if (img) { SpriteStore.pokemon[id] = img; SpriteStore.loaded++; }
+    else SpriteStore.missing.add(id);
+  });
+}
+
 /** A ARTE SHINY, pedida só quando um shiny precisa ser desenhado.
  *
  *  Shiny é raro (1 em 1024), então pedir o PNG shiny de toda espécie que

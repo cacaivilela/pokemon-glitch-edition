@@ -399,10 +399,17 @@ export function desenharPokemon(ctx, ps, x, y, dir, k = 0, escala = 28, vista = 
   ctx.drawImage(img, Math.round(x - d), Math.round(y - (escala - 16) - pulo), escala, escala);
 }
 
+/** A folha de quem joga: hero (menino) ou heroina (menina), e em mapa de
+ *  BRAGLITCH os gêmeos de lá, CAIO e LARA (hero_brag / heroina_brag, tools/sprite_caio_lara.py). */
+export function folhaDoJogador(st) {
+  const base = st?.player?.genero === "menina" ? "heroina" : "hero";
+  return DB.KANTO?.[st?.player?.map]?.regiao === "braglitch" ? `${base}_brag` : base;
+}
+
 /** O que a sala online recebe como sprite: "mon:vulpixalola:shiny". */
 export function spriteOnline(st) {
   const ps = st?.pokesave;
-  if (!ps) return "hero";
+  if (!ps) return folhaDoJogador(st);
   return `mon:${ps.species}:${ps.luminoso ? "luminoso" : ps.shiny ? "shiny" : "comum"}`;
 }
 

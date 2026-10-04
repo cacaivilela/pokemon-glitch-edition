@@ -290,7 +290,7 @@ export const MISSOES = [
       "ENTÃO NÃO É UM POKÉMON FEITO DE CÉLULAS. É UM MONTE DE CÉLULAS QUE DECIDIU SER UM POKÉMON.",
       "VOU PRECISAR DE UM POTE MAIOR. E DE OUTRA PROFISSÃO, TALVEZ.",
     ],
-    premio: { dinheiro: 12000, item: "doce raro", qtd: 6 },
+    premio: { dinheiro: 12000, item: "cubo zygarde", qtd: 1 },
   },
 
   {

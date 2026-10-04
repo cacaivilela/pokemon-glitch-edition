@@ -2,10 +2,11 @@
 // conexões entre mapas) vem dos mapas originais do FireRed, carregados de
 // assets/maps/. Os diálogos, encontros e regras vêm de src/data/maps.js.
 import { DB } from "../data/index.js";
-import { Assets, TILE } from "../core/assets.js";
+import { Assets, TILE, makeCanvas } from "../core/assets.js";
 import { mapArt, mapArtInteira, mapOverlay, adiantarDoMapa, estatuaArt } from "../core/sprites.js";
 import { Input, Texto } from "../core/input.js";
 import { Audio2 } from "../core/audio.js";
+import { tocarGrito } from "../systems/gritos.js";
 import { Save } from "../core/save.js";
 import { Opcoes } from "../core/opcoes.js";
 import { panel, drawText, cursor, bar, hpColor, fade, sinal, PAL, LINE_H, moeda } from "../core/gfx.js";
@@ -13,8 +14,15 @@ import { Dialogue, FALA_VELOCIDADES } from "../systems/dialogue.js";
 import { Online } from "../systems/online.js";
 import { OnlineMenuScene } from "./online.js";
 import { TradeScene } from "./trade.js";
+import { TrocaNpcScene } from "./trocanpc.js";
 import { LinkBattleScene } from "./linkbattle.js";
 import { GrupoBattleScene } from "./grupobattle.js";
+import { HordaScene } from "./horda.js";
+import { SoltarScene } from "./soltar.js";
+import { VestirScene } from "./vestir.js";
+import { roupasDe, vestir, baseDe } from "../systems/unicas.js";
+import { novaEntrega, entregarAqui, novoMural, nomeDoCentro } from "../systems/bicos.js";
+import { soltar, lugarDoSolto, soltoParaNascer, limparRecapturados } from "../systems/soltos.js";
 import { PokedexScene } from "./pokedex.js";
 import { temPokedex, fatorAmuleto } from "../systems/pokedex.js";
 import { objetivoAtual } from "../systems/objetivo.js";
@@ -45,7 +53,9 @@ import { estaNaHora, marcarFeita, fracas, apagarDoCodigo } from "../systems/faxi
 // O aniversário entra como namespace de propósito: ele exporta `partes` e
 // `formata`, que são nomes que a fusão e o leilão também usam aqui dentro.
 import * as Aniv from "../systems/aniversario.js";
-import { alvoDaPedra, emBraglitch, seisLendasPegas, glitchDeVerdade } from "../systems/regionais.js";
+import { alvoDaPedra, emBraglitch, seisLendasPegas, glitchDeVerdade, regiaoDoMapa } from "../systems/regionais.js";
+import { ilhas, ilhaDoMapa, ilhaAberta, ilhaEntregue, ilhaCompleta, insigniaDaIlha, formasPegas,
+         chefeVencido, todasEntregues } from "../systems/ilhas.js";
 import { guardar as guardarNoBox, cheio as boxCheio } from "../systems/box.js";
 import { veu, temCeu, agora as horaDoMundo, ajustarRelogio } from "../systems/ciclo.js";
 import { escuridaoDoLugar, ehCaverna, acesa, camadaDeLuz, brilho, RAIO } from "../systems/lanterna.js";
@@ -60,7 +70,7 @@ import { VENDA_TEXTO } from "../data/leilao.js";
 import { quemSou, desenharPokemon, pokesaveDoSprite, acompanharEvolucao, euSei, posicionarCacador, chegarCacador, cacadorNpc, andarCacador, cacadorPerdeu, cacadorPegou, cacadorTentaBola, NOITE, idDaNoite, fugirDormindo, fugitivoAmanheceu, correrTempo, centroMaisPerto, andarNaBola, CACADOR, esfriarRaiva, RAIVA, diaDoCacador, desafiarGinasio, curarNoCentro, campeaoSolta } from "../systems/pokesave.js";
 import { temVisor, explicado } from "../systems/glitchboost.js";
 import { podeAcampar, fator, buff, minutosDoBuff } from "../systems/acampamento.js";
-import { rivalNpc } from "../systems/rival.js";
+import { rivalNpc, gemeoNpc, quemEhOGemeo } from "../systems/rival.js";
 import { eraDoMapa, erasAbertas, celebiApareceu, chaveGuardiao, acabouOTempo }
   from "../systems/eras.js";
 import { ehFusao, fundivel, previsao, partes, temFicha, fichasProntas, variantes,
@@ -76,12 +86,26 @@ import { FusionScene } from "./fusion.js";
 import { FusaoEditorScene } from "./fusaoeditor.js";
 import { ConcursoScene } from "./concurso.js";
 import { reduzido } from "../core/reduzir.js";
+import { desenharItem, adiantarItens } from "../core/itens.js";
 import { isoLigado, alternarIso, origem, naTela, noChao, coluna, tilesVisiveis, relevo, chaoEm, vistaIso, espelhar, sombra, comEspessura, fontesDoTeto } from "../core/isometrico.js";
 
 const W = 240, H = 160;
 /** Linhas visíveis na lista do GO PARK (a box inteira cabe nela, rolando). */
 const GO_LISTA_VIS = 6;
 const rumoDoSelvagem = new WeakMap();   // selvagem -> { x, y, dir } do último passo (isométrico)
+const pretas = new WeakMap();           // sprite -> a silhueta preta dele (o bando da HORDA)
+/** a silhueta PRETA de um sprite, feita uma vez só (ver `drawSelvagem`) */
+function silhuetaPreta(img) {
+  let cv = pretas.get(img);
+  if (cv) return cv;
+  const c = makeCanvas(img.width, img.height);
+  c.ctx.drawImage(img, 0, 0);
+  c.ctx.globalCompositeOperation = "source-in";
+  c.ctx.fillStyle = "#000";
+  c.ctx.fillRect(0, 0, img.width, img.height);
+  pretas.set(img, (cv = c.cv));
+  return cv;
+}
 const PRETO_MAX = 30;          // até onde dá pra andar no preto de fora do mapa (técnica secreta)
 const ESTATUA_BASE = 16;       // no isométrico, a base da estátua tem um bloco de altura
 const GLITCH_BRAG = 60;        // a corrupção de Braglitch depois que o MISSINGNO chega (a do finale de Kanto)
@@ -274,6 +298,7 @@ export class OverworldScene {
     }
     this.conferirCacador();
     if (this.st.pokesave && !this.st.cacador?.map) posicionarCacador(this.st, this);
+    limparRecapturados(this.st);        // pegou de volta um que tinha soltado?
     if (this.rodarEvolucao()) return;   // quem subiu de nível evolui antes de tudo
     this.deoxysVolta();                 // na ilha: ele se remonta se não foi capturado
     this.checkPokedexAlert();           // venceu o Brock? a Pokédex apita agora
@@ -295,7 +320,7 @@ export class OverworldScene {
     this.conferirProvacao();          // derrubou o totem: a marca se apaga e paga
     adiantarDoMapa(this.st);          // os bichos deste mapa, antes de aparecerem
     this.checkMissionDone();
-    this.conferirBraglitch();         // um redemoinho se desfez? o saci fugiu?
+    this.conferirBraglitch();         // o saci fugiu?
     this.conferirPandeiros();         // a IPÊ achou um PANDEIRO DA TERRA?
   }
 
@@ -440,6 +465,9 @@ export class OverworldScene {
       // `someComFlag`: o NPC sai de cena quando aquilo já aconteceu (o AZUL do
       // laboratório some assim que você escolhe, e volta montado em runtime)
       .filter((n) => !(n.someComFlag && this.st.flags?.[n.someComFlag]))
+      // `comFlag`: o contrário — só aparece depois (o mestre do quiz da LIGA,
+      // que sai da passagem e fica do lado)
+      .filter((n) => !(n.comFlag && !this.st.flags?.[n.comFlag]))
       // os MOTOQUEIROS da ILHA TRÊS somem depois de espantados. É por sprite e
       // não por `someComFlag` escrito no mapa porque esses NPCs vêm do decomp:
       // qualquer coisa anotada neles à mão morre na próxima reimportação.
@@ -458,6 +486,11 @@ export class OverworldScene {
     extra.push(...this.erasNpcs());
     const azul = rivalNpc(this.st);        // o AZUL aparece quando é a vez dele
     if (azul) extra.push(azul);
+    const gemeo = gemeoNpc(this.st);       // em BRAGLITCH, o seu irmão gêmeo
+    if (gemeo) extra.push(gemeo);
+    extra.push(...this.descontroladasNpcs());   // de noite: as MEGAS DESCONTROLADAS
+    const ash = this.ashNpc();                  // o CAMPEÃO SECRETO, em PALLET
+    if (ash) extra.push(ash);
     const caca = cacadorNpc(this.st);      // POKÉSAVE: o treinador que te caça
     if (caca) extra.push(caca);
     if (this.st.mission && this.st.player.map === "glitchdim") {
@@ -479,6 +512,11 @@ export class OverworldScene {
     const balsa = this.marinheiroSevii();
     if (balsa) extra.push(balsa);
     extra.push(...this.braglitchNpcs());
+    // AS TROCAS COM NPC (src/data/trocas.js)
+    for (const t of DB.TROCAS || []) {
+      if (t.mapa === mapa) extra.push({ id: `troca_${t.id}`, x: t.x, y: t.y, dir: t.dir, sprite: t.sprite, troca: t, lines: ["..."] });
+    }
+    extra.push(...this.lanchaNpcs());           // a IPÊ e o CARVALHO na lancha
     // a estação do BONDINHO (CARVORIÚ ⇄ PRAIA DO LARVANJAL, src/data/braglitch.js)
     const est = DB.BONDINHO?.estacoes.find((e) => e.mapa === mapa);
     if (est) extra.push({ id: "bondinho", x: est.x, y: est.y, dir: "down", sprite: "bondinho", bondinho: est, lines: ["..."] });
@@ -764,7 +802,7 @@ export class OverworldScene {
     Audio2.tone(392, 0.14, "triangle", 0.5);
     // saindo do píer de São Lucario é o barquinho, não a balsa
     const saindoDoPier = st.player.map === DB.BRAGLITCH?.porto?.mapa;
-    this.dlg.say(saindoDoPier ? DB.BARCO.zarpou : T.zarpou, () => {
+    this.dlg.say(destino.zarpou || (saindoDoPier ? DB.BARCO.zarpou : T.zarpou), () => {
       this.fx = { t: 0, cb: () => {
         Object.assign(st.player, {
           map: destino.porto,
@@ -972,9 +1010,10 @@ export class OverworldScene {
     const st = this.st;
     for (const pd of DB.PANDEIROS || []) {
       if (st.flags[`pandeiro_${pd.id}`]) continue;
-      const r = pd.requer || {};
-      const ok = (r.pegos || []).every((id) => st.caught?.[id]) && (st.bragBadges || []).length >= (r.braglitch || 0);
-      if (!ok) continue;
+      // o pandeiro é da ilha: sai quando ela é entregue (`entregarIlha`
+      // já dá na hora; isto aqui é pra quem já tinha a ilha no save)
+      const ilha = ilhas().find((i) => i.id === pd.ilha);
+      if (!ilha || !ilhaEntregue(st, ilha)) continue;
       st.flags[`pandeiro_${pd.id}`] = true;
       st.items[pd.item] = 1;
       Audio2.tone(660, 0.06); Audio2.tone(990, 0.1);
@@ -1113,6 +1152,8 @@ export class OverworldScene {
     if (!this.dlg.active && !this.dlg.choice) this.dlg.falante = null;
     // no BONDINHO não se anda nem se abre menu: a cabine vai sozinha
     if (this.viagemBondinho) return this.andarDeBondinho(dt);
+    // na LANCHA também não: a IPÊ dirige
+    if (this.viagemLancha) return this.andarDeLancha(dt);
     this.banner = Math.max(0, this.banner - dt);
     // O OBJETIVO aparece depois de 1 s parado: sem passo, sem conversa, sem menu
     const parado = !this.move && !this.dlg.active && !this.menu && !this.fx && !(this.fadeA > 0) && !(this.banner > 0);
@@ -1216,6 +1257,7 @@ export class OverworldScene {
     }
 
     if (this.entregarLendas()) return;          // lenda vencida esperando pra entrar no time
+    if (this.chefeDaIlhaCaiu()) return;         // venceu o chefe: a IPÊ leva pra próxima ilha
     if (this.glitchChegaEmBraglitch()) return;  // a sexta lenda entrou: o MISSINGNO chega
     if (Input.consume("b")) return this.openMenu();
     // NA BOLA (capturado): quem anda é o dono, e ele anda sozinho, caçando.
@@ -1389,8 +1431,11 @@ export class OverworldScene {
       this.nascerT = (DB.CONFIG?.selvagens?.nascer ?? 2) / calma;
       // o sorteio é o mesmo de sempre — MISSINGNO., corrompido, shiny e a fusão
       // selvagem saem daqui, agora em pé no mato em vez de aparecendo do nada
-      nascer(this.selvagens, st.player, (x, y) => this.sortearSelvagem(x, y),
-             (x, y) => this.daPraSelvagem(x, y));
+      const novo = nascer(this.selvagens, st.player, (x, y) => this.sortearSelvagem(x, y),
+                          (x, y) => this.daPraSelvagem(x, y));
+      // a HORDA também é sorteada no nascimento: quem traz uma anda com as
+      // silhuetas dela em cima (`drawSelvagem`), e é essa que você luta
+      if (novo) novo.horda = this.talvezHorda(novo);
     }
   }
 
@@ -1479,7 +1524,34 @@ export class OverworldScene {
     this.selvagens = this.selvagens.filter((o) => o !== b);
     for (const f of DB.GANCHOS?.encontrar || []) f(this.st, b);   // os DLCs
     if (b.bravo) { Audio2.bump(); this.rustle = { x: b.x, y: b.y, t: 0 }; }
+    if (b.horda) {
+      for (const r of b.horda) this.st.seen[r.species] = true;
+      return this.startHorda(b.horda);
+    }
     this.startBattle(encontroDe(b));
+  }
+
+  /** A HORDA (src/data/config.js, `hordaOdds`): às vezes o bicho comum que
+   *  nasce no mato vem com mais da mesma espécie. Sorteada no NASCIMENTO
+   *  (`updateSelvagens`), como o próprio bicho: o que você vê — as silhuetas
+   *  em cima dele — é o que você luta. Devolve a horda (3 a 5), ou null. */
+  talvezHorda(b) {
+    const C = DB.CONFIG || {}, m = b.mon;
+    if (!m || b.bravo || b.glitch || m.alfa || m.shiny || m.luminoso || m.corrupt || m.totem || m.soltoId) return null;
+    if (this.st.player.map === "glitchdim" || Math.random() >= (C.hordaOdds ?? 0)) return null;
+    const [a, z] = C.hordaNiveis || [1, 4];
+    const [min, max] = C.hordaTamanho || [3, 5];
+    const resto = Array.from({ length: randRange(min, max) - 1 }, () => createMon(m.species, Math.max(2, m.level - randRange(a, z))));
+    return [m, ...resto];
+  }
+
+  startHorda(foes) {
+    Audio2.stopLoop();
+    Audio2.tone(880, 0.08); Audio2.tone(660, 0.12); Audio2.tone(880, 0.08);
+    // a cutscene (src/scenes/horda.js) primeiro; a luta abre quando ela fecha
+    this.fx = { t: 0, cb: () => this.game.scenes.push(new HordaScene(), {
+      foes, aoFim: () => this.game.scenes.push(new GrupoBattleScene(), { foes, horda: true }),
+    }) };
   }
 
   /** O bicho que nasce naquele tile. Em Kanto é o sorteio de sempre; dentro da
@@ -1487,6 +1559,12 @@ export class OverworldScene {
    *  cada um tem a sua tabela e o seu lendário. */
   sortearSelvagem(x, y) {
     const st = this.st;
+    // UM QUE VOCÊ SOLTOU AQUI (src/systems/soltos.js): às vezes nasce ele de volta
+    if (st.player.map !== "glitchdim") {
+      const presentes = new Set(this.selvagens.map((b) => b.mon?.soltoId).filter(Boolean));
+      const solto = soltoParaNascer(st, st.player.map, presentes);
+      if (solto) return { mon: solto };
+    }
     // o primeiro que nasce depois do MISSINGNO chegar em Braglitch é ele: a
     // fala acabou de dizer isso, o mato tem que mostrar
     if (this.primeiroMissingno && emBraglitch(st.player.map)) {
@@ -1880,6 +1958,8 @@ export class OverworldScene {
   }
 
   afterTravel() {
+    // o último lugar ao ar livre com mato: é pra lá que vai quem é solto no PC
+    if ((this.map?.encounters || []).length && temCeu(this.map)) this.st.ultimoComMato = this.st.player.map;
     // trocou de mapa: o preto ficou pra trás — menos quando a porta de onde você
     // saiu fica NO preto (o GINÁSIO DO VOID, src/data/void.js)
     {
@@ -2185,6 +2265,7 @@ export class OverworldScene {
     if (npc.aurora) return this.talkVelhaAurora(state);
     if (npc.escort) return this.talkEscort(npc);
     if (npc.boss) return this.startBossBattle(npc);
+    if (npc.descontrolada) return this.enfrentarDescontrolada(npc);
     if (npc.balsa) return this.pegarBalsa();
     if (npc.distorcao) return this.investigarDistorcao();
     if (npc.raidPortal) return this.entrarNoRasgo();
@@ -2192,13 +2273,17 @@ export class OverworldScene {
     if (npc.fragment) return this.useFragment();
     if (npc.guiaVoid) return this.falarGuiaDoVoid(state);
     if (npc.bondinho) return this.pegarBondinho(npc.bondinho);
+    if (npc.ligaPortao) return this.talkLigaPortao();
+    if (npc.ligaQuiz != null) return this.talkLigaQuiz(npc.ligaQuiz);
+    if (npc.ligaCampeao) return this.talkLigaCampeao(npc);
     // os dois professores juntos: quem está no encontro puxa a conversa antes
     // de qualquer outra coisa (inclusive o professor da casa)
     const enc = this.encontroProfsAqui();
     if (enc && (npc.profVisita || npc.id === "carvalho" || npc.id === "ipe")) return this.conversaDosProfs(enc, npc);
     if (npc.id === "carvalho") return this.talkOak(npc, state);
+    if (npc.lancha) return this.lanchaIpe();
+    if (npc.carvalhoLancha) return this.falarCarvalhoLancha();
     if (npc.id === "ipe") return this.talkIpe(npc, state);
-    if (npc.redemoinho) return this.entrarNoRedemoinho(npc);
     if (npc.saci) return this.enfrentarSaci(npc);
     if (npc.lenda) return this.enfrentarLenda(npc);
     if (npc.livroLendas) return this.lerLivroDasLendas();
@@ -2207,6 +2292,7 @@ export class OverworldScene {
     if (npc.voltaTempo) return this.voltarDoTempo();
     if (npc.voltaBarco) return this.voltarDeBarco(npc);
     if (npc.missao) return this.talkMissao(npc);
+    if (npc.troca) return this.trocarComNpc(npc.troca);
     if (npc.travessia) return this.oferecerTravessia(npc);
     if (npc.creche) return this.talkCreche();
     if (npc.mineracao) return this.talkMineiro(state);
@@ -2296,23 +2382,77 @@ export class OverworldScene {
     }
     if (npc.heal) {
       const j = DB.STORY.joy;
-      this.dlg.say(npc.lines, () => {
-        if (!npc.tutor) return this.curarEquipe(npc);
-        this.dlg.ask(j.menu, ["CURAR", "TROCAR GOLPES", "NADA"], (i) => {
-          if (i === 0) return this.curarEquipe(npc);
-          if (i === 1) {
+      // OS BICOS (src/data/bicos.js): o pacote que veio pra cá é entregue antes de tudo
+      const mapa = this.st.player.map, ehCentro = /pokemon_center_1f$/.test(mapa) && DB.BICOS;
+      const entregue = ehCentro ? entregarAqui(this.st, mapa) : null;
+      const abrir = () => this.dlg.say(npc.lines, () => {
+        if (!npc.tutor && !ehCentro) return this.curarEquipe(npc);
+        const opcoes = ["CURAR", ...(npc.tutor ? ["TROCAR GOLPES"] : []), ...(ehCentro ? ["ENTREGAS", "PROCURADOS"] : []), "NADA"];
+        this.dlg.ask(j.menu, opcoes, (i) => {
+          const o = opcoes[i];
+          if (o === "CURAR") return this.curarEquipe(npc);
+          if (o === "TROCAR GOLPES") {
             if (!this.st.party.length) return void this.dlg.say("VOCÊ NÃO TEM POKÉMON AINDA!");
             this.menu = { type: "tutorMon", index: 0 };
             return;
           }
+          if (o === "ENTREGAS") return this.bicoEntregas();
+          if (o === "PROCURADOS") return this.bicoProcurados();
           this.dlg.say(j.tchau);
         });
       });
+      if (entregue) {
+        const T = DB.BICOS.textos;
+        Audio2.heal();
+        this.game.autosave?.(true);
+        return void this.dlg.say(T.entregou.map((l) => l.replace("{ORIGEM}", nomeDoCentro(entregue.de)).replace("{VALOR}", entregue.valor)), abrir);
+      }
+      abrir();
       return;
     }
     const lines = state.defeated || state.talked ? npc.afterLines || npc.lines : npc.lines;
     state.talked = true;
     this.dlg.say(lines);
+  }
+
+  /** ENTREGAS (src/data/bicos.js): um pacote por vez, pro Centro de outra cidade */
+  bicoEntregas() {
+    const T = DB.BICOS.textos, st = this.st, aqui = st.player.map;
+    const cid = (m) => nomeDoCentro(m);
+    if (st.entrega) {
+      return void this.dlg.say(T.jaTem.replace("{CIDADE}", cid(st.entrega.para)), () =>
+        this.dlg.ask(T.desistir, ["DEVOLVER", "FICO COM ELE"], (i) => {
+          if (i !== 0) return;
+          st.entrega = null;
+          this.dlg.say(T.devolveu);
+        }));
+    }
+    const e = novaEntrega(st, aqui);
+    if (!e) return void this.dlg.say(T.semDestino);
+    this.dlg.ask(T.oferta.replace("{CIDADE}", cid(e.para)).replace("{VALOR}", e.valor), T.simNao, (i) => {
+      if (i !== 0) return;
+      st.entrega = e;
+      Audio2.select();
+      this.game.autosave?.(true);
+      this.dlg.say(T.levou.map((l) => l.replace("{CIDADE}", cid(e.para))));
+    });
+  }
+
+  /** PROCURADOS (src/data/bicos.js): o mural, e um novo quando o de agora acabou */
+  bicoProcurados() {
+    const T = DB.BICOS.textos, st = this.st;
+    const falas = [];
+    if (!st.procurados?.length || st.procurados.every((p) => p.feito)) {
+      if (st.procurados?.length) falas.push(T.novo);
+      st.procurados = novoMural(st.player.map);
+      this.game.autosave?.(true);
+    }
+    // a caixa tem 3 linhas: o título numa página, os 3 procurados na outra
+    falas.push(T.mural);
+    falas.push(st.procurados.map((p) => T.linha.replace("{MON}", DB.SPECIES[p.species]?.name || p.species)
+      .replace("{LVL}", p.lvl).replace("{VALOR}", p.valor).replace("{FEITO}", p.feito ? T.feito : "")).join("\n"));
+    falas.push(T.explica);
+    this.dlg.say(falas);
   }
 
   /** batalha de chefe: dá pra capturar, mas não dá pra fugir */
@@ -2772,10 +2912,10 @@ export class OverworldScene {
     }
     // só as cidades da região em que você está: Kanto e Braglitch se ligam
     // por barco, não por asa (e as duas listas juntas não cabem na caixa)
-    const aqui = !!this.geo?.braglitch;
+    const aqui = regiaoDoMapa(this.st.player.map);
     const destinos = Object.entries(DB.FLY_SPOTS)
       .filter(([id]) => this.st.visitado?.[id] && id !== this.st.player.map && DB.MAPS[id]
-        && !!DB.KANTO[id]?.braglitch === aqui);
+        && regiaoDoMapa(id) === aqui);
     if (!destinos.length) return void this.dlg.say("VOCÊ AINDA NÃO CONHECE OUTRA CIDADE PRA VOAR.");
     this.menu = { type: "voo", index: 0, destinos, mon };
   }
@@ -2786,7 +2926,7 @@ export class OverworldScene {
   abrirVooBilhete(item, t) {
     // o avião de papel é de Kanto: pousa nas cidades de lá
     const destinos = Object.entries(DB.FLY_SPOTS)
-      .filter(([id]) => id !== this.st.player.map && DB.MAPS[id] && !DB.KANTO[id]?.braglitch);
+      .filter(([id]) => id !== this.st.player.map && DB.MAPS[id] && regiaoDoMapa(id) === "kanto");
     if (!destinos.length) return void this.dlg.say(DB.STORY.bilhete.semDestino);
     this.menu = { type: "voo", index: 0, destinos, bilhete: item, titulo: t.pergunta };
   }
@@ -4154,35 +4294,224 @@ export class OverworldScene {
   }
 
   // ------------------------------------------------------------- BRAGLITCH
-  // O arco do APAGÃO (src/data/braglitch.js): a PROFA. IPÊ, os três
-  // REDEMOINHOS da BR-101 e o SACI na mata. Tudo montado em runtime, como o
-  // AZUL e o DEOXYS: o redemoinho existe até ser desfeito, o SACI existe até
-  // ser pego.
+  // A história de lá são AS ILHAS (src/data/braglitch-ilhas.js e
+  // src/systems/ilhas.js): a PROFA. IPÊ dá a missão no laboratório e depois
+  // espera no píer, com a lancha; o PROF. CARVALHO chega depois da primeira
+  // ilha e fica do lado dela. O SACI, as lendas e o livro continuam montados em
+  // runtime, como o AZUL e o DEOXYS.
 
-  /** A PROFA. IPÊ. A ordem é a do laboratório de Kanto — inicial, Pokédex —
-   *  e depois a história daqui. Quem veio de Kanto já com inicial e Pokédex
-   *  cai direto na missão. */
+  /** A PROFA. IPÊ no laboratório: inicial, Pokédex e a missão. Depois disso
+   *  ela sai de lá (`someComFlag`) e vai pra lancha (`lanchaIpe`). */
   talkIpe(npc, state) {
-    const st = this.st, T = DB.BRAGLITCH_TEXTO;
+    const st = this.st;
     if (!st.flags.starterChosen) return void this.dlg.say(npc.lines);
     if (!temPokedex(st)) return this.darPokedexIpe(() => this.talkIpe(npc, state));
-    if (!st.flags.bragMissao) return this.darMissaoIpe();
-    if (st.caught?.saci) {
-      const n = (st.bragBadges || []).length;
-      if (st.flags.bragFim && n >= 8) return void this.dlg.say(T.campeao);
-      if (st.flags.bragFim) return void this.dlg.say(T.depois.map((l) => l.replace("{N}", n)));
-      st.flags.bragFim = true;
-      return void this.dlg.say(T.fim, () => {
-        const p = T.premio;
-        st.items[p.item] = Math.min(999, (st.items[p.item] || 0) + p.qty);
-        Audio2.heal();
-        this.game.autosave?.(true);
-        this.dlg.say(T.ganhou);
-      });
+    this.darMissaoIpe();
+  }
+
+  /** A IPÊ e o CARVALHO na lancha: no píer de SÃO LUCARIO (depois da missão)
+   *  e no píer da ilha em que você está. */
+  lanchaNpcs() {
+    const st = this.st, aqui = st.player.map, L = DB.BRAGLITCH?.lancha;
+    if (!st.flags.bragMissao || !L) return [];
+    const ilha = ilhaDoMapa(aqui);
+    const lugar = aqui === L.mapa ? L : ilha ? { ipe: ilha.lancha, carvalho: ilha.carvalho } : null;
+    if (!lugar) return [];
+    const out = [{ id: "ipe", ...lugar.ipe, dir: "down", sprite: DB.PROFS.ipe.sprite, lancha: true, lines: ["..."] }];
+    // o CARVALHO chega quando a primeira ilha é entregue
+    if (ilhas()[0] && ilhaEntregue(st, ilhas()[0])) {
+      out.push({ id: "carvalho_lancha", ...lugar.carvalho, dir: "down", sprite: DB.PROFS.carvalho.sprite,
+                 carvalhoLancha: true, lines: ["..."] });
     }
-    const faltam = (DB.REDEMOINHOS || []).length - this.redemoinhosDesfeitos();
-    if (faltam > 0) return void this.dlg.say(T.faltam.replace("{N}", faltam));
-    this.dlg.say(T.todos);
+    return out;
+  }
+
+  /** Falar com a IPÊ na lancha: ela cura a equipe, conta a ilha que ficou
+   *  completa (se tiver uma), e pergunta pra onde. */
+  lanchaIpe() {
+    const st = this.st, T = DB.ILHAS_TEXTO;
+    st.party.forEach(heal);
+    Audio2.heal();
+    // quem vem de um save antigo (a missão era a dos redemoinhos) ouve a teoria
+    if (!st.flags.bragIlhas) {
+      st.flags.bragIlhas = true;
+      this.game.autosave?.(true);
+      return void this.dlg.say(T.comeco, () => this.menuLancha());
+    }
+    const pronta = ilhas().find((i) => !ilhaEntregue(st, i) && ilhaCompleta(st, i));
+    if (pronta) return this.entregarIlha(pronta);
+    if (todasEntregues(st) && !st.flags.bragIlhasFim) return this.fimDasIlhas();
+    const msgs = [T.oi, T.curou];
+    const aqui = ilhaDoMapa(st.player.map);
+    if (aqui && !ilhaEntregue(st, aqui)) {
+      msgs.push(T.falta.replace("{ILHA}", aqui.nome).replace("{N}", formasPegas(st, aqui)));
+      if (!chefeVencido(st, aqui)) msgs.push(T.faltaChefe);
+    }
+    if (st.flags.bragIlhasFim) msgs.push(T.depois);
+    this.dlg.say(msgs, () => this.menuLancha());
+  }
+
+  /** A ILHA COMPLETA: a IPÊ conta o que descobriu, o CARVALHO compara com
+   *  Kanto, sai o prêmio e — nas cinco primeiras — um PANDEIRO DA TERRA. A
+   *  ilha entra em `st.bragBadges` (o menu de INSÍGNIAS de Braglitch). */
+  entregarIlha(ilha, depois) {
+    const st = this.st, T = DB.ILHAS_TEXTO;
+    (st.bragBadges ||= []).push(insigniaDaIlha(ilha));
+    st.items[T.premio.item] = Math.min(999, (st.items[T.premio.item] || 0) + T.premio.qty);
+    const pd = (DB.PANDEIROS || []).find((p) => p.ilha === ilha.id && !st.flags[`pandeiro_${p.id}`]);
+    if (pd) { st.flags[`pandeiro_${pd.id}`] = true; st.items[pd.item] = 1; }
+    // A PEDRA BRAGLITCHIANA que o chefe deixa (src/systems/pedras.js)
+    const pedra = (DB.PEDRAS_BRAG || []).find((p) => p.ilha === ilha.id);
+    const falaPedra = [];
+    if (pedra && !(st.items[pedra.item] > 0)) {
+      st.items[pedra.item] = 1;
+      const nome = pedra.item.toUpperCase(), chefe = DB.SPECIES[ilha.chefe]?.name || "CHEFE";
+      falaPedra.push(T.pedraCaiu.replace("{CHEFE}", chefe).replace("{PEDRA}", nome),
+                     T.pedraGanhou.replace("{PEDRA}", nome), pedra.texto);
+    }
+    this.game.autosave?.(true);
+    const falas = [...falaPedra, ...ilha.fim];
+    // o CARVALHO só está na lancha depois da primeira ilha
+    if (ilhas().indexOf(ilha) > 0) falas.push(...(ilha.carvalhoFala || []));
+    falas.push(T.ganhou);
+    if (pd) falas.push(...pd.fala, DB.PANDEIRO_GANHOU.replace("{ITEM}", pd.item.toUpperCase()));
+    Audio2.tone(660, 0.06); Audio2.tone(990, 0.1);
+    this.dlg.say(falas, () => (todasEntregues(st) ? this.fimDasIlhas() : depois ? depois() : this.menuLancha()));
+  }
+
+  /** O CHEFE CAIU: a IPÊ vem correndo do píer, conta a ilha e já sobe todo
+   *  mundo na lancha pra PRÓXIMA ilha — sem menu, sem voltar andando. Roda a
+   *  cada quadro parado (como `entregarLendas`), então espera a fala da
+   *  batalha acabar. Devolve true quando tomou conta do quadro. */
+  chefeDaIlhaCaiu() {
+    const st = this.st;
+    if (this.dlg.active || this.dlg.choice || this.menu || this.fx || this.viagemLancha) return false;
+    const ilha = ilhaDoMapa(st.player.map);
+    if (!ilha || ilhaEntregue(st, ilha) || !ilhaCompleta(st, ilha)) return false;
+    const prox = ilhas()[ilhas().indexOf(ilha) + 1];
+    st.party.forEach(heal);
+    this.dlg.say(DB.ILHAS_TEXTO.veio, () => this.entregarIlha(ilha, prox && (() => {
+      Audio2.tone(196, 0.18, "square", 0.25);
+      Audio2.tone(247, 0.22, "square", 0.25);
+      this.dlg.say(DB.ILHAS_TEXTO.proxima.replace("{ILHA}", prox.nome), () => {
+        this.viagemLancha = { t: 0, total: 4.5,
+                              destino: { nome: prox.nome, porto: prox.id, x: prox.chegada.x, y: prox.chegada.y } };
+      });
+    })));
+    return true;
+  }
+
+  /** As oito ilhas entregues: os dois professores fecham a história, e as
+   *  lendas acordam (`braglitchNpcs`). */
+  fimDasIlhas() {
+    const st = this.st, T = DB.ILHAS_TEXTO;
+    st.flags.bragIlhasFim = true;
+    st.items[T.premioFinal.item] = Math.min(999, (st.items[T.premioFinal.item] || 0) + T.premioFinal.qty);
+    this.game.autosave?.(true);
+    Audio2.heal();
+    this.dlg.say([...T.final, T.ganhouFinal]);
+  }
+
+  /** Pra onde a lancha vai: as ilhas já abertas e SÃO LUCARIO, menos onde você está. */
+  menuLancha() {
+    const st = this.st, T = DB.ILHAS_TEXTO, L = DB.BRAGLITCH.lancha, aqui = st.player.map;
+    const destinos = ilhas().filter((i) => i.id !== aqui && ilhaAberta(st, i))
+      .map((i) => ({ nome: i.nome, porto: i.id, x: i.chegada.x, y: i.chegada.y }));
+    if (aqui !== L.mapa) destinos.push({ nome: T.voltar, porto: L.mapa, x: L.chegada.x, y: L.chegada.y });
+    this.dlg.ask(T.pergunta, [...destinos.map((d) => d.nome), T.agoraNao], (i) => {
+      const d = destinos[i];
+      if (!d) return;
+      this.dlg.say(T.zarpou, () => {
+        Audio2.tone(196, 0.18, "square", 0.25);
+        Audio2.tone(247, 0.22, "square", 0.25);
+        this.viagemLancha = { t: 0, total: 4.5, destino: d };
+      });
+    });
+  }
+
+  /** A TRAVESSIA DE LANCHA: a tela desenhada (`drawLancha`) corre sozinha, e
+   *  no fim você desce no píer do outro lado. */
+  andarDeLancha(dt) {
+    const v = this.viagemLancha, st = this.st, T = DB.ILHAS_TEXTO, d = v.destino;
+    v.t += dt;
+    if (v.t < v.total) return;
+    Object.assign(st.player, { map: d.porto, x: d.x, y: d.y, dir: "down" });
+    st.surfando = null;
+    this.compa = null;
+    this.justWarped = true;
+    this.viagemLancha = null;
+    this.afterTravel();
+    this.game.autosave?.(true);
+    this.dlg.say(T.chegou.replace("{ONDE}", d.nome));
+  }
+
+  /** A LANCHA NO ESCURO: tela preta, e a lancha atravessando da esquerda pra
+   *  direita, quicando nas ondas — a PROFA. IPÊ no volante, na frente, e você
+   *  sentado atrás dela, com a esteira de espuma ficando pra trás. */
+  drawLancha(ctx) {
+    const v = this.viagemLancha;
+    const k = Math.min(1, v.t / v.total);
+    const agora = performance.now() / 1000;
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+    const agua = 104;
+    // as ondinhas no escuro: tracinhos azuis correndo pra trás
+    ctx.fillStyle = "#12305a";
+    for (let y = agua + 4; y < agua + 40; y += 7) {
+      for (let x = -24; x < W + 24; x += 28) {
+        const dx = (agora * 40 + y * 5) % 28;
+        ctx.fillRect(Math.round(x - dx), y, 10, 1);
+      }
+    }
+    // a lancha: entra pela esquerda e sai pela direita
+    const bx = Math.round(-70 + (W + 140) * k);
+    const by = agua + Math.round(Math.sin(agora * 7) * 1.5);
+    const incl = Math.sin(agora * 3.5) * 1.2;             // o bico sobe e desce
+    // a esteira de espuma atrás
+    ctx.fillStyle = "#cfe8ff";
+    for (let i = 0; i < 14; i++) {
+      const ex = bx - 36 - i * 7, abre = 1 + i * 0.6;
+      if ((i + Math.floor(agora * 10)) % 3 === 0) continue;
+      ctx.fillRect(Math.round(ex), Math.round(by + 6 - abre), 5, 1);
+      ctx.fillRect(Math.round(ex), Math.round(by + 8 + abre), 5, 1);
+    }
+    // as duas pessoas (desenhadas antes do casco, que cobre as pernas)
+    const pessoa = (nome, x, y) => {
+      const sets = Assets.actor(nome) || Assets.actor("hero");
+      const img = sets?.right?.[0] || (sets?.left?.[0] && espelhar(sets.left[0])) || sets?.down?.[0];
+      if (img) ctx.drawImage(img, Math.round(x - img.width / 2), Math.round(y - img.height));
+    };
+    pessoa("hero", bx - 14, by + 8 - incl);                        // você, atrás (sentado)
+    pessoa(DB.PROFS?.ipe?.sprite || "ipe", bx + 10, by + 6 + incl);   // a IPÊ, no volante
+    // o volante e o para-brisa na frente dela
+    ctx.fillStyle = "#2a2d33"; ctx.fillRect(bx + 16, by - 10, 2, 8);
+    ctx.fillStyle = "rgba(170,220,255,.75)";
+    ctx.beginPath(); ctx.moveTo(bx + 19, by - 1); ctx.lineTo(bx + 24, by - 14); ctx.lineTo(bx + 27, by - 14); ctx.lineTo(bx + 24, by - 1); ctx.fill();
+    // o casco: branco com a faixa verde e amarela, bico pra direita
+    ctx.fillStyle = "#f4f4f0";
+    ctx.beginPath();
+    ctx.moveTo(bx - 34, by - 2 - incl);
+    ctx.lineTo(bx + 30, by - 2 + incl);
+    ctx.lineTo(bx + 40, by - 5 + incl);
+    ctx.lineTo(bx + 30, by + 10);
+    ctx.lineTo(bx - 30, by + 10);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#1f9a4a"; ctx.fillRect(bx - 32, by + 2, 62, 2);
+    ctx.fillStyle = "#f2c230"; ctx.fillRect(bx - 31, by + 4, 60, 1);
+    ctx.fillStyle = "#9aa4ae"; ctx.fillRect(bx - 30, by + 9, 60, 1);
+    // o motor de popa, cuspindo espuma
+    ctx.fillStyle = "#3a3f48"; ctx.fillRect(bx - 38, by - 4, 5, 12);
+    ctx.fillStyle = "#e8f4ff";
+    if (Math.floor(agora * 12) % 2) ctx.fillRect(bx - 42, by + 7, 4, 2);
+    // o rótulo, como o do bondinho
+    const rotulo = `A CAMINHO DE ${v.destino.nome}`;
+    panel(ctx, 4, 4, rotulo.length * 6 + 12, 18);
+    drawText(ctx, rotulo, 9, 9, PAL.ink);
+  }
+
+  /** O CARVALHO na lancha: o que ele anda anotando. */
+  falarCarvalhoLancha() {
+    const T = DB.ILHAS_TEXTO;
+    this.dlg.say(this.st.flags.bragIlhasFim ? T.carvalhoFim : T.carvalho);
   }
 
   darPokedexIpe(depois) {
@@ -4197,6 +4526,7 @@ export class OverworldScene {
 
   darMissaoIpe() {
     this.st.flags.bragMissao = true;
+    this.st.flags.bragIlhas = true;
     this.game.autosave?.(true);
     this.dlg.say(DB.BRAGLITCH_TEXTO.missao);
   }
@@ -4241,25 +4571,16 @@ export class OverworldScene {
     });
   }
 
-  redemoinhosDesfeitos() {
-    return (DB.REDEMOINHOS || []).filter((r) => this.st.npcState[`${r.mapa}.redemoinho_${r.id}`]?.defeated).length;
-  }
-
-  /** Os redemoinhos que ainda giram neste mapa, e o SACI, se for a hora. */
+  /** O SACI na clareira (desde a missão da IPÊ) e as lendas, se for a hora. */
   braglitchNpcs() {
     const st = this.st, aqui = st.player.map, out = [];
-    for (const r of DB.REDEMOINHOS || []) {
-      if (r.mapa !== aqui || st.npcState[`${r.mapa}.redemoinho_${r.id}`]?.defeated) continue;
-      out.push({ id: `redemoinho_${r.id}`, x: r.x, y: r.y, dir: "down", sprite: "redemoinho", redemoinho: r });
-    }
     const S = DB.SACI_NA_MATA;
-    if (S && S.mapa === aqui && !st.caught?.saci
-        && this.redemoinhosDesfeitos() >= (DB.REDEMOINHOS || []).length) {
+    if (S && S.mapa === aqui && !st.caught?.saci && st.flags.bragMissao) {
       out.push({ id: "saci", x: S.x, y: S.y, dir: "down", sprite: "mon:saci", saci: true });
     }
-    // AS TRÊS LENDAS: soltas depois da oitava insígnia de Braglitch, cada uma
-    // na sua estrada, até serem pegas
-    if ((st.bragBadges || []).length >= 8) {
+    // AS LENDAS: soltas quando as oito ilhas estão completas, cada uma na sua
+    // estrada, até serem pegas
+    if (st.flags.bragIlhasFim) {
       for (const l of DB.LENDAS_BRAG || []) {
         if (l.mapa !== aqui || st.caught?.[l.id] || st.flags[`lenda_sumiu_${l.id}`]) continue;
         if (st.npcState[`${l.mapa}.lenda_${l.id}`]?.defeated) continue;   // vencida: já é sua
@@ -4274,14 +4595,6 @@ export class OverworldScene {
       out.push({ id: `lenda_${l.id}`, x: l.x, y: l.y, dir: "down", sprite: `mon:${l.id}`, lenda: l });
     }
     return out;
-  }
-
-  entrarNoRedemoinho(npc) {
-    const T = DB.BRAGLITCH_TEXTO;
-    if (!this.st.flags.bragMissao) return void this.dlg.say(T.semMissao);
-    if (!this.st.party.some((m) => m.hp > 0)) return void this.dlg.say(T.semPokemon);
-    const r = npc.redemoinho;
-    this.startBossBattle({ id: npc.id, lines: T.redemoinho, boss: { id: r.bicho, lvl: r.lvl, corrupt: true } });
   }
 
   enfrentarSaci(npc) {
@@ -4307,7 +4620,7 @@ export class OverworldScene {
     const st = this.st, L = DB.BRAGLITCH_TEXTO.livro;
     st.flags.leuLivroLendas = true;
     const paginas = [...L.abre];
-    if ((st.bragBadges || []).length < 8) paginas.push(L.dorme);
+    if (!st.flags.bragIlhasFim) paginas.push(L.dorme);
     for (const l of this.todasAsLendas()) {
       if (l === (DB.LENDAS_VOID || [])[0]) paginas.push(...[].concat(L.void));
       const nome = DB.SPECIES[l.id]?.name || l.id.toUpperCase();
@@ -4336,17 +4649,11 @@ export class OverworldScene {
     drawText(ctx, txt, W - w + 1, H - 17, PAL.ink);
   }
 
-  /** Depois da batalha: conta o redemoinho que se desfez, e devolve o SACI
-   *  pra clareira se ele só apanhou (ele volta — é o SACI). */
+  /** Depois da batalha: devolve o SACI pra clareira se ele só apanhou (ele
+   *  volta — é o SACI). */
   conferirBraglitch() {
     const st = this.st, T = DB.BRAGLITCH_TEXTO;
     if (!T || this.dlg.active) return;
-    const feitos = this.redemoinhosDesfeitos();
-    if (feitos > (st.flags.bragRedemoinhos || 0)) {
-      st.flags.bragRedemoinhos = feitos;
-      Audio2.glitch();
-      return void this.dlg.say(T.desfez.replace("{N}", feitos));
-    }
     const S = DB.SACI_NA_MATA;
     const chave = S && `${S.mapa}.saci`;
     if (chave && st.npcState[chave]?.defeated && !st.caught?.saci) {
@@ -4402,6 +4709,168 @@ export class OverworldScene {
     this.game.autosave?.(true);
     this.dlg.say(T.glitchChegou);
     return true;
+  }
+
+  // ------------------------------------- AS MEGAS DESCONTROLADAS
+  // src/data/descontroladas.js: de noite, um mega evoluído sem treinador, com
+  // aura roxa. A luta é de chefe (src/scenes/battle.js, `descontrolada`).
+
+  /** As descontroladas deste mapa agora: só de noite e só as não vencidas. O
+   *  lugar é o chão livre mais perto de `perto` (achado uma vez por mapa). */
+  descontroladasNpcs() {
+    const D = DB.DESCONTROLADAS, aqui = this.st.player.map;
+    if (!D || !temCeu(this.map) || !horaDoMundo().noite) return [];
+    const out = [];
+    for (const d of D.lista) {
+      if (d.mapa !== aqui || !DB.SPECIES[d.to]) continue;
+      const id = `descontrolada_${d.to}`;
+      if (this.st.npcState[`${aqui}.${id}`]?.defeated) continue;
+      const lugar = this.lugarDaDescontrolada(d);
+      if (!lugar) continue;
+      out.push({ id, ...lugar, dir: "down", sprite: `mon:${d.to}`, descontrolada: d, lines: ["..."] });
+    }
+    return out;
+  }
+
+  lugarDaDescontrolada(d) {
+    const cache = (this._lugaresDesc ||= {});
+    const chave = `${d.mapa}.${d.to}`;
+    if (chave in cache) return cache[chave];
+    const ocupado = new Set((this.map.npcs || []).map((n) => `${n.x},${n.y}`));
+    ocupado.add(`${this.st.player.x},${this.st.player.y}`);
+    const chao = (x, y) => {
+      const t = this.tagAt(x, y);
+      return t >= 0 && t !== DB.TAG.BLOCK && t < 4 && t !== DB.TAG.WATER;
+    };
+    // NO ISOMÉTRICO o que fica a leste e ao sul é desenhado POR CIMA: colado
+    // num prédio por esses lados, o bloco alto tapava ele inteiro (o ASH
+    // sumia atrás do laboratório de PALLET). Então esses três vizinhos também
+    // têm que ser chão.
+    const livre = (x, y) => chao(x, y) && chao(x + 1, y) && chao(x, y + 1) && chao(x + 1, y + 1)
+      && !this.warpAt(x, y) && !ocupado.has(`${x},${y}`);
+    const [x0, y0] = d.perto || [this.map.spawn?.x || 8, this.map.spawn?.y || 8];
+    let achou = null;
+    for (let r = 0; r < 14 && !achou; r++) {
+      for (let dy = -r; dy <= r && !achou; dy++) {
+        for (let dx = -r; dx <= r && !achou; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          if (livre(x0 + dx, y0 + dy)) achou = { x: x0 + dx, y: y0 + dy };
+        }
+      }
+    }
+    cache[chave] = achou;
+    return achou;
+  }
+
+  enfrentarDescontrolada(npc) {
+    const D = DB.DESCONTROLADAS, T = D.textos, d = npc.descontrolada;
+    const nome = DB.SPECIES[d.to].name;
+    const f = (t) => t.replace("{MON}", nome);
+    if (!this.st.party.some((m) => m.hp > 0)) return void this.dlg.say(T.aparece.map(f));
+    Audio2.tone(98, 0.5, "sawtooth", 0.35);
+    this.dlg.say(T.aparece.map(f), () => this.dlg.ask(f(T.pergunta), T.opcoes, (i) => {
+      if (i !== 0) return void this.dlg.say(T.saiu);
+      const N = D.nivel;
+      const insignias = (this.st.badges || []).length + (this.st.bragBadges || []).length;
+      const lvl = Math.min(N.max, N.base + N.porInsignia * insignias);
+      const foe = createMon(d.to, lvl);
+      const pedra = (DB.MEGAS?.[d.id] || []).find((r) => r.to === d.to)?.pedra || null;
+      Audio2.stopLoop();
+      this.fx = { t: 0, cb: () => this.game.scenes.push(new BattleScene(), {
+        foe, boss: true, npcKey: `${this.st.player.map}.${npc.id}`,
+        descontrolada: { pedra, base: DB.SPECIES[d.id]?.name || d.id },
+      }) };
+    }));
+  }
+
+  /** O ASH (src/data/ash.js): em PALLET, depois que você fecha uma das
+   *  histórias. É um treinador comum pro resto do jogo (a conversa, a luta e o
+   *  "já venci" são os de sempre), montado aqui só porque a hora dele chega. */
+  ashNpc() {
+    const A = DB.ASH;
+    if (!A || this.st.player.map !== A.mapa) return null;
+    if (!(A.requer || []).some((f) => this.st.flags?.[f])) return null;
+    const lugar = this.lugarDaDescontrolada({ mapa: A.mapa, to: "ash", perto: A.perto });
+    if (!lugar) return null;
+    const party = A.time.filter(([id]) => DB.SPECIES[id]).map(([id, lvl]) => ({ id, lvl }));
+    return {
+      id: "ash", ...lugar, dir: "down", sprite: A.sprite,
+      lines: A.antes, afterLines: A.depois, againLines: A.denovo,
+      trainer: { name: A.nome, prize: A.premio, party, sprite: A.sprite },
+    };
+  }
+
+  // --------------------------------------------- A LIGA DE BRAGLITCH
+  // src/data/braglitch-liga.js: o portão, o ELITE QUIZ e os dois campeões.
+
+  /** O guarda do portão: oito insígnias de ginásio e o MISSINGNO vencido. */
+  talkLigaPortao() {
+    const L = DB.LIGA_BRAG, st = this.st, P = L.portao;
+    const ids = new Set((DB.INSIGNIAS_BRAG || []).map((b) => b.id));
+    const n = (st.bragBadges || []).filter((b) => ids.has(b)).length;
+    if (n < ids.size) return void this.dlg.say([...P.antes, P.faltaInsignia.replace("{N}", n)]);
+    if (!st.flags.bragMissingnoVencido) return void this.dlg.say([...P.antes, P.faltaMissingno]);
+    this.dlg.say(P.passa, () => {
+      st.flags.ligaPortao = true;            // ele sai da passagem (`someComFlag`)
+      Audio2.heal();
+      this.game.autosave?.(true);
+    });
+  }
+
+  /** Um mestre do ELITE QUIZ: perguntas sorteadas da lista dele, com as opções
+   *  embaralhadas (decorar a posição não vale). Errou uma, começa de novo;
+   *  acertou todas, o rank sobe e ele sai da frente. */
+  talkLigaQuiz(i) {
+    const L = DB.LIGA_BRAG, q = L.quiz[i], st = this.st;
+    const embaralha = (lista) => lista.map((x) => [Math.random(), x]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
+    const perguntas = embaralha(q.perguntas).slice(0, L.porQuiz);
+    const fazer = (k) => {
+      if (k >= perguntas.length) {
+        Audio2.tone(523, 0.07); Audio2.tone(784, 0.07); Audio2.tone(1046, 0.14);
+        return void this.dlg.say([L.fimQuiz, L.subiu.replace("{RANK}", q.rank), ...q.depois], () => {
+          st.flags[`ligaQuiz${i}`] = true;
+          st.flags.ligaRank = q.rank;
+          Audio2.heal();
+          this.game.autosave?.(true);
+        });
+      }
+      const p = perguntas[k];
+      const ordem = embaralha(p.opcoes.map((_, j) => j));
+      this.dlg.ask(`${q.nome} (${k + 1}/${perguntas.length}): ${p.pergunta}`, ordem.map((j) => p.opcoes[j]), (esc) => {
+        if (esc == null || esc < 0) return;
+        if (ordem[esc] !== p.certa) { Audio2.cancel(); return void this.dlg.say(L.errado); }
+        Audio2.tone(784, 0.06);
+        this.dlg.say(L.certo, () => fazer(k + 1));
+      });
+    };
+    this.dlg.say(q.intro, () => fazer(0));
+  }
+
+  /** OS CAMPEÕES: a luta dupla, você e o gêmeo contra os dois. */
+  talkLigaCampeao(npc) {
+    const L = DB.LIGA_BRAG, st = this.st;
+    if (st.flags.bragCampeao) return void this.dlg.say(L.depois[npc.id] || "...");
+    this.dlg.say(L.desafio, () => this.dlg.ask(L.pergunta, L.opcoes, (i) => {
+      if (i !== 0) return void this.dlg.say(L.recusou);
+      this.lutarContraCampeoes();
+    }));
+  }
+
+  lutarContraCampeoes() {
+    const L = DB.LIGA_BRAG, nome = quemEhOGemeo(this.st);
+    const time = (lista) => lista.filter(([id]) => DB.SPECIES[id])
+      .map(([id, lvl, extra]) => ({ id, lvl, shiny: extra === "shiny", mega: extra === "mega" ? L.megas[id] : null }));
+    const [a, b] = L.campeoes;
+    const g = nome && L.gemeo[nome];
+    Audio2.stopLoop();
+    Audio2.tone(880, 0.08); Audio2.tone(660, 0.12);
+    this.fx = { t: 0, cb: () => this.game.scenes.push(new GrupoBattleScene(), {
+      tamanho: 2, npcKey: `${L.mapa}.campeoes`,
+      trainer: { name: a.nome, sprite: a.sprite, party: time(a.time), prize: L.premio, dupla: true,
+                 nomeDupla: L.nomeDupla, ligaBrag: true, falaMega: L.falaMega },
+      trainer2: { name: b.nome, sprite: b.sprite, party: time(b.time) },
+      aliado: g ? { name: nome, sprite: DB.GEMEO.sprite[nome], party: time(g.time) } : null,
+    }) };
   }
 
   /** O BONDINHO (src/data/braglitch.js): a estação pergunta, e o SIM começa a
@@ -5043,6 +5512,52 @@ export class OverworldScene {
     this.dlg.say(msg.replace("{MON}", mon.nickname));
   }
 
+  // ------------------------------------------------------------ SOLTAR
+  // src/systems/soltos.js e a cutscene em src/scenes/soltar.js.
+
+  /** A na equipe: TRUNFO (o que já era) ou SOLTAR */
+  acoesDaEquipe(i) {
+    const mon = this.st.party[i];
+    this.dlg.ask(`O QUE FAZER COM ${mon.nickname}?`, ["TRUNFO", "SOLTAR", "NADA"], (k) => {
+      if (k === 0) return this.escolherTrunfo(mon);
+      if (k === 1) return this.pedirSoltar(this.st.party, i);
+    });
+  }
+
+  /** A no PC: mover (o que já era) ou SOLTAR */
+  acoesDoBox(m, lista) {
+    const mon = lista[m.index];
+    if (!mon) return;
+    const mover = m.lado === "box" ? "PÔR NA EQUIPE" : "GUARDAR";
+    this.dlg.ask(`O QUE FAZER COM ${mon.nickname}?`, [mover, "SOLTAR", "NADA"], (k) => {
+      if (k === 0) return this.moverBox(m, lista);
+      if (k === 1) return this.pedirSoltar(lista, m.index, m);
+    });
+  }
+
+  pedirSoltar(lista, i, m = null) {
+    const mon = lista[i];
+    const daEquipe = lista === this.st.party;
+    if (daEquipe && this.st.party.length <= 1) { Audio2.cancel(); return void this.dlg.say("ELE É O ÚNICO DA EQUIPE. NÃO DÁ PRA SOLTAR."); }
+    if (daEquipe && mon.hp > 0 && this.st.party.filter((p) => p.hp > 0).length <= 1) {
+      Audio2.cancel();
+      return void this.dlg.say("ELE É O ÚNICO QUE AINDA AGUENTA LUTAR. NÃO DÁ PRA SOLTAR AGORA.");
+    }
+    const lugar = lugarDoSolto(this.st, this.st.player.map);
+    const nomeLugar = DB.MAPS[lugar]?.name || lugar.toUpperCase();
+    this.dlg.ask(`SOLTAR ${mon.nickname}? ELE VAI MORAR NO MATO DE ${nomeLugar}.`, ["SOLTAR", "NÃO"], (k) => {
+      if (k !== 0) return;
+      lista.splice(i, 1);
+      const caiu = soltar(this.st, mon, lugar);
+      if (m) { m.index = Math.max(0, Math.min(m.index, lista.length - 1)); m.top = Math.min(m.top, m.index); }
+      this.menu = null;
+      this.game.autosave?.(true);
+      const frase = [`TCHAU, ${mon.nickname}!`, `ELE FOI PRO MATO DE ${nomeLugar}. QUEM SABE VOCÊS SE ENCONTRAM DE NOVO.`];
+      if (caiu) frase.push(`(${caiu.mon.nickname}, O MAIS ANTIGO DOS SOLTOS, FOI EMBORA PRA SEMPRE.)`);
+      this.game.scenes.push(new SoltarScene(), { mon, frase, aoFim: () => this.game.music(this.map.music) });
+    });
+  }
+
   /** usa até 999 de uma vez */
   useItem(item, mon, qty) {
     this.menu = null;
@@ -5050,7 +5565,10 @@ export class OverworldScene {
     const n = Math.max(1, Math.min(qty, have));
     if (DB.EVO_ITEMS?.[item]) return this.useEvoItem(item, mon);
     if (item === DB.CUIA?.item) return this.usarCuia(mon);
+    if (DB.COGUMELOS?.itens?.[item]) return this.darCogumelo(item, mon);
+    if (item === DB.GUARDA_ROUPA?.item) return this.usarGuardaRoupa(mon);
     if (item === DB.CATALOGO_ROTOM?.item) return this.usarCatalogo(mon);
+    if (item === DB.CUBO_ZYGARDE?.item) return this.usarCubo(mon);
     if (item === "poção") {
       if (mon.hp <= 0) return void this.dlg.say(`${mon.nickname} ESTÁ DESMAIADO. POÇÃO NÃO RESOLVE.`);
       const missing = mon.maxHp - mon.hp;
@@ -5062,6 +5580,45 @@ export class OverworldScene {
       return void this.dlg.say(`${mon.nickname} RECUPEROU ${Math.min(missing, used * 20)} DE HP! (${used} POÇÃO)`);
     }
     return this.useCandy(mon, n);
+  }
+
+  /** O GUARDA-ROUPA ÚNICO (src/data/guarda-roupa.js): as roupas da espécie
+   *  dele — a normal e as FORMAS ÚNICAS do UNIQUEMON — e ele veste a escolhida.
+   *  Não se gasta. */
+  usarGuardaRoupa(mon) {
+    const G = DB.GUARDA_ROUPA, base = baseDe(mon.species);
+    const nomeBase = DB.SPECIES[base]?.name || base;
+    const f = (t, roupa = "") => t.replace("{MON}", mon.nickname).replace("{NOME}", nomeBase).replace("{ROUPA}", roupa);
+    const roupas = roupasDe(mon);
+    if (roupas.length <= 1) { Audio2.cancel(); return void this.dlg.say(f(G.semRoupa)); }
+    const nomes = roupas.map((id) => (id === base ? f(G.normal) : DB.SPECIES[id].name));
+    this.dlg.ask(f(G.pergunta), [...nomes, "VOLTAR"], (i) => {
+      const id = roupas[i];
+      if (!id) return;
+      if (id === mon.species) { Audio2.cancel(); return void this.dlg.say(f(G.jaEsta)); }
+      const de = mon.species;
+      vestir(mon, id);
+      this.st.seen[id] = true;
+      this.game.autosave?.(true);
+      // a cutscene do guarda-roupa (src/scenes/vestir.js), com a frase no fim
+      this.game.scenes.push(new VestirScene(), {
+        mon, de, para: id, frase: id === base ? f(G.tirou) : f(G.vestiu, DB.SPECIES[id].name),
+        aoFim: () => this.game.music(this.map.music),
+      });
+    });
+  }
+
+  /** OS COGUMELOS do PARASECT (src/data/secretas.js): ele come, e o cogumelo
+   *  decide a cor do PARASECTROM quando vier o choque nas SEVII. */
+  darCogumelo(item, mon) {
+    const C = DB.COGUMELOS, f = (t) => t.replace("{MON}", mon.nickname);
+    if (mon.species !== C.especie) { Audio2.cancel(); return void this.dlg.say(f(C.naoQuer)); }
+    if (mon.comeu === item) { Audio2.cancel(); return void this.dlg.say(f(C.jaComeu)); }
+    mon.comeu = item;
+    this.spend(item, 1);
+    Audio2.heal();
+    this.game.autosave?.(true);
+    this.dlg.say(f(C.itens[item].comeu));
   }
 
   /** A CUIA TÉRMICA: o VICTREEBEL de Braglitch troca de CHIMARRÃO pra TERERÊ
@@ -5119,6 +5676,60 @@ export class OverworldScene {
       this.game.autosave?.(true);
       this.dlg.say(C.bases.includes(nova) ? C.saiu.replace("{MON}", mon.nickname)
         : C.virou.replace("{MON}", mon.nickname).replace("{FORMA}", nome));
+    });
+  }
+
+  /** TROCA COM NPC (src/data/trocas.js): ele pede uma espécie e dá a dele,
+   *  com apelido. Uma vez só por troca. */
+  trocarComNpc(t) {
+    const st = this.st, F = t.falas, flag = `troca_${t.id}`;
+    if (st.flags[flag]) return void this.dlg.say(F.depois);
+    const meus = st.party.filter((m) => m.species === t.pede);
+    if (!meus.length) return void this.dlg.say([...F.oferta, ...F.semBicho]);
+    this.dlg.say(F.oferta, () => this.dlg.ask(F.pergunta, ["SIM", "NÃO"], (i) => {
+      if (i !== 0) return void this.dlg.say(F.recusou);
+      if (meus.length === 1) return this.fazerTroca(t, meus[0]);
+      const nomes = meus.map((m) => `${m.nickname} N${m.level}`);
+      this.dlg.ask(F.qual, [...nomes, "VOLTAR"], (k) => {
+        if (meus[k]) this.fazerTroca(t, meus[k]);
+        else this.dlg.say(F.recusou);
+      });
+    }));
+  }
+
+  fazerTroca(t, meu) {
+    const st = this.st;
+    const i = st.party.indexOf(meu);
+    if (i < 0) return;
+    const novo = createMon(t.da.especie, meu.level, { nickname: t.da.apelido, shiny: !!t.da.shiny });
+    novo.ot = t.dono;                      // o treinador original é quem trocou
+    novo.trocado = true;
+    st.party[i] = novo;                    // entra no mesmo lugar da equipe
+    st.seen[t.da.especie] = true;
+    st.caught[t.da.especie] = true;
+    st.flags[`troca_${t.id}`] = true;
+    this.game.autosave?.(true);
+    // o filme da troca (src/scenes/trocanpc.js); o agradecimento vem depois
+    this.game.scenes.push(new TrocaNpcScene(), {
+      meu, novo, dono: t.dono, onDone: () => this.dlg.say(t.falas.feito),
+    });
+  }
+
+  /** O CUBO ZYGARDE (src/data/extra.js): escolhe a forma, e a troca é a
+   *  cutscene de evolução no tema verde das células. O cubo não se gasta. */
+  usarCubo(mon) {
+    const C = DB.CUBO_ZYGARDE;
+    if (!C.aceita.includes(mon.species)) {
+      Audio2.cancel();
+      return void this.dlg.say(C.nada.replace("{MON}", mon.nickname));
+    }
+    const opcoes = C.opcoes.filter(([id]) => DB.SPECIES[id]);
+    this.dlg.ask(C.pergunta.replace("{MON}", mon.nickname), [...opcoes.map(([, nome]) => nome), "VOLTAR"], (i) => {
+      const escolha = opcoes[i];
+      if (!escolha) return;
+      const [nova] = escolha;
+      if (nova === mon.species) return void this.dlg.say(C.jaE.replace("{MON}", mon.nickname));
+      this.game.scenes.push(new EvolutionScene(), { mon, to: nova, forma: C.cena });
     });
   }
 
@@ -5185,6 +5796,11 @@ export class OverworldScene {
 
   updateMenu() {
     const m = this.menu;
+    // INSÍGNIAS em Braglitch: duas páginas, os GINÁSIOS e as ILHAS (← →)
+    if (m.type === "badges" && this.geo?.braglitch && (Input.consume("left") || Input.consume("right"))) {
+      m.pagina = m.pagina ? 0 : 1;
+      return void Audio2.blip();
+    }
     if (m.type === "main") {
       const items = this.itensMenu();
       m.index = Math.min(m.index, items.length - 1);
@@ -5207,7 +5823,7 @@ export class OverworldScene {
         if (pick === "POKÉDEX") { this.menu = null; return void this.game.scenes.push(new PokedexScene(), {}); }
         if (pick === "POKÉMON") this.menu = { type: "party", index: 0 };
         else if (pick === "BOX") this.menu = { type: "box", lado: "box", index: 0, top: 0 };
-        else if (pick === "MOCHILA") this.menu = { type: "bag", index: 0 };
+        else if (pick === "MOCHILA") { this.menu = { type: "bag", index: 0 }; adiantarItens(Object.keys(this.st.items)); }
         else if (pick === "INSÍGNIAS") this.menu = { type: "badges", index: 0 };
         else if (pick === "MAPA") this.menu = { type: "mapaRegiao", sel: this.ondeNoMapa() };
         else if (pick === DB.MISSAO_TEXTO.titulo) this.menu = { type: "missoes", index: 0, top: 0 };
@@ -5233,7 +5849,7 @@ export class OverworldScene {
         return;
       }
       if (Input.consume("b")) { this.menu = { type: "main", index: 0 }; Audio2.cancel(); }
-      else if (Input.consume("a") && this.st.party[m.index]) { Audio2.select(); this.escolherTrunfo(this.st.party[m.index]); }
+      else if (Input.consume("a") && this.st.party[m.index]) { Audio2.select(); this.acoesDaEquipe(m.index); }
       return;
     }
     if (m.type === "goLista") {
@@ -5338,6 +5954,9 @@ export class OverworldScene {
         // OS PANDEIROS DA TERRA também tocam da MOCHILA: o do CÉU chama o
         // CATORBIS e abre a lista de cidades; os outros dizem onde tocar (eles
         // funcionam de frente pro obstáculo, com Z)
+        // AS PEDRAS BRAGLITCHIANAS não se gastam: usar só diz o que ela faz
+        const pedra = (DB.PEDRAS_BRAG || []).find((p) => p.item === item);
+        if (pedra && owned > 0) { Audio2.select(); return void this.dlg.say([pedra.texto, "(FUNCIONA SÓ DE ESTAR NA MOCHILA.)"]); }
         const pandeiro = (DB.PANDEIROS || []).find((pd) => pd.item === item);
         if (pandeiro && owned > 0) {
           if (!this.geo?.braglitch) { Audio2.cancel(); return void this.dlg.say(DB.PANDEIRO_TEXTO.foraDeBraglitch); }
@@ -5345,8 +5964,10 @@ export class OverworldScene {
           if (pandeiro.golpe === "voar") { this.menu = null; return void this.abrirVoo(); }
           return void this.dlg.say(DB.PANDEIRO_TEXTO.onde[pandeiro.golpe] || DB.PANDEIRO_TEXTO.ondeGeral);
         }
-        // a CUIA TÉRMICA e o CATÁLOGO ROTOM também escolhem um bicho
-        const cuia = item === DB.CUIA?.item || item === DB.CATALOGO_ROTOM?.item;
+        // a CUIA TÉRMICA, o CATÁLOGO ROTOM, o CUBO ZYGARDE e os COGUMELOS do
+        // PARASECT também escolhem um bicho
+        const cuia = item === DB.CUIA?.item || item === DB.CATALOGO_ROTOM?.item || item === DB.CUBO_ZYGARDE?.item
+          || !!DB.COGUMELOS?.itens?.[item] || item === DB.GUARDA_ROUPA?.item;
         if ((DB.EVO_ITEMS?.[item] || cuia) && owned > 0 && this.st.party.length) {
           Audio2.select();                       // item de evolução: um por vez
           this.menu = { type: "useItem", index: 0, item, qty: 1 };
@@ -5585,7 +6206,7 @@ export class OverworldScene {
         Audio2.cancel();
         return;
       }
-      if (Input.consume("a") && n) this.moverBox(m, lista);
+      if (Input.consume("a") && n) this.acoesDoBox(m, lista);
       return;
     }
     if (m.type === "fios") {
@@ -5932,6 +6553,7 @@ export class OverworldScene {
     if (this.banner > 0) this.drawBanner(ctx);
     else if ((this.paradoT || 0) > 1) this.drawObjetivo(ctx);
     if (this.viagemBondinho) this.drawBondinho(ctx);
+    if (this.viagemLancha) this.drawLancha(ctx);
     if (this.menu) this.drawMenu(ctx);
     this.dlg.render(ctx);
     if (this.fadeA > 0) fade(ctx, this.fadeA);
@@ -6260,8 +6882,8 @@ export class OverworldScene {
     const x = Math.round(p.px - cx), y = Math.round(p.py - cy);
     const ps = pokesaveDoSprite(p.sprite);     // o outro jogador é um Pokémon?
     if (ps) return desenharPokemon(ctx, ps, x, y, p.dir || "down", p.passo > 0 ? (p.passo % 1) : 0, 28, this.vistaMon(p.dir || "down"));
-    const { set: s0, espelha } = this.olhar(Assets.actor(p.sprite || "hero"), p.dir || "down");
-    const set = s0 || Assets.actor("hero").down;
+    const { set: s0, espelha } = this.olhar(Assets.actor(p.sprite || "hero", false), p.dir || "down");
+    const set = s0 || Assets.actor("hero", false).down;
     const img = this.quadro(p.passo > 0 ? set[(p.passo | 0) % 2 ? 1 : 3] : set[0], espelha);
     ctx.drawImage(img, x, y + TILE - img.height);
   }
@@ -6332,6 +6954,20 @@ export class OverworldScene {
     // o ALFA é maior — é a primeira coisa que se nota nele, antes da cor
     const lado = b.mon.alfa ? 38 : 28;
     const x = Math.round(b.x * TILE - cx - 6 - (lado - 28) / 2), y = Math.round(b.y * TILE - cy - 12 - pulo - (lado - 28));
+    // A HORDA: quem traz uma anda com o bando em cima dele — silhuetas pretas,
+    // uma por bicho a mais (até 4), em leque por trás e pulando cada uma no seu
+    // compasso. É o aviso de que encostar ali é 1 contra vários.
+    if (b.horda) {
+      const sil = silhuetaPreta(img), n = Math.min(4, b.horda.length - 1), t = performance.now();
+      ctx.save();
+      ctx.globalAlpha = 0.8;
+      for (let i = 0; i < n; i++) {
+        const k = n === 1 ? 0 : i / (n - 1) - 0.5;          // -0.5 .. 0.5: o leque
+        const p = Math.abs(Math.sin(t / 300 + i * 1.9 + b.x)) * 2;
+        ctx.drawImage(reduzido(sil, 20), Math.round(x + 4 + k * 26), Math.round(y - 9 + Math.abs(k) * 6 - p), 20, 20);
+      }
+      ctx.restore();
+    }
     ctx.drawImage(reduzido(img, lado), x, y, lado, lado);
     // e o AVISO em cima dele. Perseguidor sem aviso é armadilha: quem toma uma
     // batalha que não pediu tem que ter tido a chance de ver ela chegando.
@@ -6456,9 +7092,6 @@ export class OverworldScene {
       }
       return;
     }
-    // O REDEMOINHO de Braglitch: poeira girando em faixas que alargam pra
-    // cima, cada uma no seu passo — e de vez em quando uma faixa escorrega de
-    // cor, que é o que diferencia ele de vento comum.
     // A ESTAÇÃO DO BONDINHO: o poste com o cabo subindo pro mar e a cabine
     // vermelha parada na plataforma, balançando de leve
     if (n.sprite === "bondinho") {
@@ -6477,23 +7110,19 @@ export class OverworldScene {
       ctx.fillRect(x + 6 + bal, y - 1, 10, 1);
       return;
     }
-    if (n.sprite === "redemoinho") {
-      const t = performance.now() / 160;
-      const meio = x + 8;
-      for (let i = 0; i < 10; i++) {
-        const larg = 4 + i * 2.2;
-        const dx = Math.round(Math.sin(t * 0.9 + i * 0.8) * (2 + i * 0.35));
-        const glitch = (i + Math.floor(t / 3)) % 7 === 0;
-        ctx.fillStyle = glitch ? ["#b455ff", "#00ffcc", "#ff0066"][i % 3] : i % 2 ? "#d9c7a0" : "#b89c6e";
-        ctx.fillRect(Math.round(meio - larg / 2 + dx), y + 14 - i * 3, Math.round(larg), 2);
-      }
-      ctx.fillStyle = "rgba(0,0,0,0.2)";
-      ctx.fillRect(x + 3, y + 14, 10, 2);
-      return;
-    }
     if (n.sprite.startsWith("mon:")) {
+      // a MEGA DESCONTROLADA: a aura roxa pulsando atrás, e ela não para quieta
+      if (n.descontrolada) {
+        const a = 0.35 + 0.25 * Math.sin(performance.now() / 110);
+        const g = ctx.createRadialGradient(x + 8, y - 4, 2, x + 8, y - 4, 28);
+        g.addColorStop(0, `rgba(200,70,255,${a})`);
+        g.addColorStop(1, "rgba(200,70,255,0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(x - 20, y - 32, 56, 56);
+      }
+      const treme = n.descontrolada ? Math.round((Math.random() * 2 - 1) * 0.8) : 0;
       const img = this.monNaVista(n.sprite.slice(4), 7, n.dir || "down");
-      return void ctx.drawImage(reduzido(img, 40), x - 12, y - 24, 40, 40);
+      return void ctx.drawImage(reduzido(img, 40), x - 12 + treme, y - 24, 40, 40);
     }
     const { set, espelha } = this.olhar(Assets.actor(n.sprite), n.dir || "down");
     // andando, alterna a perna como o jogador (a paridade sai da posição)
@@ -6543,7 +7172,7 @@ export class OverworldScene {
   /** O OBJETIVO: o próximo passo da história da região em que você está
    *  (src/systems/objetivo.js), no canto de cima, depois de 1 s parado. */
   drawObjetivo(ctx) {
-    const texto = objetivoAtual(this.st, !!this.geo?.braglitch);
+    const texto = objetivoAtual(this.st, regiaoDoMapa(this.st.player.map));
     if (!texto) return;
     const linhas = wrapText(texto, 24).slice(0, 4);
     ctx.globalAlpha = Math.min(1, (this.paradoT - 1) / 0.25);
@@ -6844,12 +7473,17 @@ export class OverworldScene {
       return;
     }
     if (m.type === "badges") {
-      // em Braglitch, as insígnias de lá; em qualquer outro lugar, as de Kanto
-      const brag = !!this.geo?.braglitch;
-      const lista = brag ? DB.INSIGNIAS_BRAG || [] : DB.STORY.badges || [];
+      // em Braglitch, as insígnias de lá; em qualquer outro lugar, as de Kanto.
+      // Em Braglitch são duas páginas: os GINÁSIOS e as ILHAS entregues
+      // (src/systems/ilhas.js), as duas em `st.bragBadges`
+      const brag = !!this.geo?.braglitch, ilhas = brag && m.pagina === 1;
+      const lista = ilhas ? DB.INSIGNIAS_ILHAS || [] : brag ? DB.INSIGNIAS_BRAG || [] : DB.STORY.badges || [];
       const tem = brag ? this.st.bragBadges || [] : this.st.badges;
+      const n = lista.filter((b) => tem.includes(b.id)).length;
       panel(ctx, 4, 4, W - 8, H - 8);
-      drawText(ctx, `INSÍGNIAS ${brag ? "DE BRAGLITCH" : "DE KANTO"}  ${tem.length}/8`, 12, 10, PAL.ink);
+      const titulo = ilhas ? "ILHAS DE BRAGLITCH" : brag ? "INSÍGNIAS DE BRAGLITCH" : "INSÍGNIAS DE KANTO";
+      drawText(ctx, `${titulo}  ${n}/8`, 12, 10, PAL.ink);
+      if (brag) drawText(ctx, ilhas ? "← GINÁSIOS" : "ILHAS →", 12, H - 20, PAL.ink2);
       lista.forEach((b, i) => {
         const got = tem.includes(b.id);
         const x = 14 + (i % 2) * 112, y = 30 + Math.floor(i / 2) * 24;
@@ -6866,12 +7500,30 @@ export class OverworldScene {
     if (m.type === "bag") {
       panel(ctx, 4, 4, W - 8, H - 8);
       drawText(ctx, m.titulo || "MOCHILA", 12, 10, PAL.ink);
-      Object.entries(this.st.items).forEach(([k, v], i) => {
-        const y = 30 + i * LINE_H;
-        drawText(ctx, k.toUpperCase(), 24, y, PAL.ink);
-        drawText(ctx, `x${v}`, 180, y, PAL.ink);
-        if (i === m.index) cursor(ctx, 12, y);
+      // Cada linha tem o ÍCONE do item (src/core/itens.js, 16x16), então a
+      // linha cresceu de 11 pra 16 pixels e a lista ROLA: com os fósseis, as
+      // pedras, os cristais e os ingredientes a mochila passa de cem itens, e
+      // antes a lista era desenhada até sair da tela. O item da vez aparece
+      // em dobro no canto, pra se ver o desenho.
+      const lista = Object.entries(this.st.items);
+      const PASSO = 16, JANELA = 5;
+      m.top = Math.max(0, Math.min(m.top || 0, lista.length - JANELA));
+      if (m.index < m.top) m.top = m.index;
+      if (m.index >= m.top + JANELA) m.top = m.index - JANELA + 1;
+      lista.slice(m.top, m.top + JANELA).forEach(([k, v], j) => {
+        const i = m.top + j, y = 24 + j * PASSO;
+        desenharItem(ctx, k, 22, y - 2);
+        drawText(ctx, k.toUpperCase(), 42, y + 2, PAL.ink, { maxChars: 21 });
+        const q = `x${v}`;
+        drawText(ctx, q, 190 - q.length * 6, y + 2, PAL.ink);
+        if (i === m.index) cursor(ctx, 12, y + 2);
       });
+      if (m.top > 0) drawText(ctx, "\u2191", 182, 12, PAL.ink2);
+      if (m.top + JANELA < lista.length) drawText(ctx, "\u2193", 182, 106, PAL.ink2);
+      if (lista[m.index]) {
+        panel(ctx, 194, 22, 40, 40);
+        desenharItem(ctx, lista[m.index][0], 198, 26, 2);
+      }
       drawText(ctx, m.escolher ? "Z ENTREGA   X DESISTE" : "Z USA   X VOLTA", 20, H - 42, PAL.ink2);
       if (!Object.keys(this.st.items).length) drawText(ctx, "MOCHILA VAZIA.", 24, 30, PAL.ink2);
       drawText(ctx, `DINHEIRO: ${moeda(this.st.money)}`, 20, H - 30, PAL.ink2);
@@ -6898,6 +7550,10 @@ export class OverworldScene {
       panel(ctx, 158, 4, 78, 22);
       drawText(ctx, "DINHEIRO", 164, 8, PAL.ink2);
       drawText(ctx, moeda(this.st.money), 164, 17, PAL.ink, { maxChars: 11 });
+      if (m.lista[m.index]) {                     // o desenho do que está na mira
+        panel(ctx, 158, 30, 40, 40);
+        desenharItem(ctx, m.lista[m.index].item, 162, 34, 2);
+      }
       return;
     }
     if (m.type === "shop") {
@@ -6929,6 +7585,10 @@ export class OverworldScene {
       panel(ctx, 158, 4, 78, 22);
       drawText(ctx, "DINHEIRO", 164, 8, PAL.ink2);
       drawText(ctx, moeda(this.st.money), 164, 17, PAL.ink, { maxChars: 11 });
+      if (m.shop[m.index]) {                      // o desenho do que está na mira
+        panel(ctx, 158, 30, 40, 40);
+        desenharItem(ctx, m.shop[m.index].item, 162, 34, 2);
+      }
       return;
     }
     if (m.type === "tutorMon") {

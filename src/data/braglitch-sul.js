@@ -45,7 +45,7 @@ export const LUGARES = [
     ],
     saidas: { right: 6 },
     niveis: [10, 14],
-    mato: [["pineco", 20], ["capivarinha", 18], ["snover", 12], ["hoothoot", 12], ["starly", 14], ["cubchoo", 8], ["spearowbrag", 10]],
+    mato: [["pineco", 20], ["capivarinha", 18], ["snover", 12], ["hoothoot", 12], ["starly", 14], ["cubchoo", 8]],
     npcs: [
       { id: "povo0", x: 8, y: 8, dir: "down", sprite: "velha", wander: true,
         lines: ["AQUI FAZ AS QUATRO ESTAÇÕES NO MESMO DIA.", "HOJE JÁ FOI INVERNO DUAS VEZES E AINDA NEM DEU MEIO-DIA."] },
@@ -159,7 +159,7 @@ export const LUGARES = [
     ],
     saidas: { down: 14 },
     niveis: [13, 17],
-    mato: [["carvanha", 16], ["wingull", 18], ["krabby", 12], ["caranguejinho", 12], ["piranhita", 10], ["sandygast", 8], ["spearowbrag", 10]],
+    mato: [["carvanha", 16], ["wingull", 18], ["krabby", 12], ["caranguejinho", 12], ["piranhita", 10], ["sandygast", 8]],
     npcs: [
       { id: "treinador0", x: 6, y: 10, dir: "right", sprite: "garoto",
         lines: ["EI, CRAUD! A ONDA TÁ FLAT, ENTÃO BORA BATALHAR!"],
@@ -217,7 +217,7 @@ export const LUGARES = [
     saidas: {},
     chegada: { x: 17, y: 12 },
     niveis: [9, 13],
-    mato: [["applinbrag", 14], ["larvesta", 14], ["capivarinha", 18], ["ducklett", 16], ["bidoofbrag", 14], ["spearowbrag", 12], ["psyduck", 10], ["lotad", 10]],
+    mato: [["larvesta", 14], ["capivarinha", 18], ["ducklett", 16], ["psyduck", 10], ["lotad", 10]],
     npcs: [
       { id: "povo0", x: 25, y: 8, dir: "left", sprite: "velha",
         lines: ["OLHA O QUINDIM! O BEM-CASADO! O PASTEL DE SANTA CLARA!", "UM LARVESTA COMEU UMA BANDEJA INTEIRA. AGORA ELE BRILHA NO ESCURO."] },

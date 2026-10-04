@@ -663,3 +663,60 @@ export function emPeIso(ctx, img, x, y, w, h, n = 5) {
     .multiply(new DOMMatrix([1, 0.5, 0, 1, 0, 0])).translate(-px, -py);
   comEspessura(ctx, m, (c) => c.drawImage(img, x, y, w, h), 1, -0.5, n);
 }
+
+// ------------------------------------------------- AS CUTSCENES NO ISOMÉTRICO
+// Evolução, troca e fusão (src/scenes/evolution.js, trocanpc.js, fusion.js):
+// com o isométrico ligado, elas ganham o chão de losangos e uma plataforma em
+// bloco debaixo de cada bicho, e o PALCO INTEIRO — sprites, pixels voando,
+// anéis, raios, faíscas — vai inclinado no mesmo plano dos sprites da batalha
+// (`emPeIso`): a face sul, cisalhada em volta da linha dos pés. Texto e caixa
+// de diálogo ficam retos, por fora do palco.
+
+/** inclina tudo que for desenhado depois, em volta de (px, py) — o meio da
+ *  linha dos pés. Chamar entre ctx.save() e ctx.restore(). */
+export function palcoIso(ctx, px, py) {
+  ctx.translate(px, py);
+  ctx.transform(1, 0.5, 0, 1, 0, 0);
+  ctx.translate(-px, -py);
+}
+
+/** O BICHO NO PALCO: dentro de `palcoIso` o desenho já sai inclinado; isto dá
+ *  a ele a mesma GROSSURA da plaquinha da batalha (`emPeIso`), com a lateral
+ *  escurecida — o Pokémon da cutscene fica isométrico de verdade, não só torto.
+ *  Fora do isométrico é um drawImage comum. */
+export function bichoNoPalco(ctx, img, x, y, w, h, n = 5) {
+  if (!img) return;
+  if (!isoLigado()) return void ctx.drawImage(img, x, y, w, h);
+  comEspessura(ctx, ctx.getTransform(), (c) => c.drawImage(img, x, y, w, h), 1, -0.5, n);
+}
+
+/** onde fica, na tela, o pé de quem está em `x` no palco inclinado em (px, py) */
+export const peNoPalco = (x, px, py) => py + (x - px) * 0.5;
+
+/** o chão da cutscene: losangos do horizonte pra baixo e as plataformas dos
+ *  bichos (`xs`: o x de cada um; a plataforma desce junto com a inclinação) */
+export function chaoDeCena(ctx, W, H, px, py, cores, xs = [], corPlataforma = "#3a2a70") {
+  chaoDeBatalhaIso(ctx, W, py - 16, H, cores);
+  for (const x of xs) plataformaIso(ctx, x, peNoPalco(x, px, py), 30, corPlataforma, 5);
+}
+
+/** OS PIXELS DAS CUTSCENES NO ISOMÉTRICO: cada um vira um cubinho — o topo
+ *  mais claro, a face da esquerda na cor e a da direita escura. `cubos` é uma
+ *  lista de [x, y, r, g, b] em coordenadas do palco; `base` é a transformação
+ *  de ANTES de inclinar (o cubo é desenhado reto, só a posição é inclinada,
+ *  senão o cubo sairia borrado) e (px, py) é o pé do palco de `palcoIso`. */
+export function cubosIso(ctx, cubos, base, px, py) {
+  ctx.save();
+  ctx.setTransform(base);
+  const cor = (r, g, b, k) => `rgb(${Math.min(255, r * k) | 0},${Math.min(255, g * k) | 0},${Math.min(255, b * k) | 0})`;
+  for (const [x, y, r, g, b] of cubos) {
+    const sx = Math.round(x), sy = Math.round(y + (x - px) * 0.5);
+    ctx.fillStyle = cor(r + 30, g + 30, b + 30, 1.1);  // o topo
+    ctx.fillRect(sx, sy, 2, 1);
+    ctx.fillStyle = cor(r, g, b, 1);                   // a face da esquerda
+    ctx.fillRect(sx, sy + 1, 1, 2);
+    ctx.fillStyle = cor(r, g, b, 0.6);                 // a face da direita, na sombra
+    ctx.fillRect(sx + 1, sy + 1, 1, 2);
+  }
+  ctx.restore();
+}

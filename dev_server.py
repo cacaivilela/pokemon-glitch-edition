@@ -762,7 +762,93 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(corpo)
 
-    def publicar_sozinho(self, nome, autor, prefixo="fusao"):
+    def unica_post(self):
+        """O UNIQUEMON (uniquemon/) publicou uma FORMA UNICA: o desenho de um
+        jogador pra uma especie. Vira CODIGO como a ficha de fusao: o PNG em
+        assets/unicas/ e a lista em src/data/formas-unicas.js (um mapa
+        "especie" -> lista de formas), com hot-swap pelo live update.
+        """
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            payload = json.loads(self.rfile.read(n) or b"{}")
+        except ValueError:
+            return self.send_error(400)
+        forma = payload.get("forma") or {}
+        especie = str(forma.get("especie", ""))
+        fid = re.sub(r"[^a-z0-9]", "", str(forma.get("id", "")))[:24]
+        nome = re.sub(r"[^\w ÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç.!?'-]", "", str(forma.get("nome", "")).upper())[:24].strip()
+        autor = re.sub(r"[^\w ÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç.-]", "", str(forma.get("autor", "")).upper())[:20].strip()
+        sprite = str(forma.get("sprite") or "")
+        if not re.fullmatch(r"[a-z0-9]+", especie) or not fid or not nome or not sprite.startswith("data:image/png;base64,"):
+            return self.send_error(400)
+        import base64
+        try:
+            png = base64.b64decode(sprite.split(",", 1)[1])
+        except ValueError:
+            return self.send_error(400)
+        if not png.startswith(b"\x89PNG") or len(png) > 200_000:
+            return self.send_error(400)
+        pasta = os.path.join(ROOT, "assets", "unicas")
+        os.makedirs(pasta, exist_ok=True)
+        arquivo = f"{especie}~{fid}.png"
+        with open(os.path.join(pasta, arquivo), "wb") as fh:
+            fh.write(png)
+
+        caminho = os.path.join(ROOT, "src", "data", "formas-unicas.js")
+        atual = {}
+        try:
+            with open(caminho, encoding="utf-8") as fh:
+                corpo = fh.read().split("FORMAS_UNICAS =", 1)[1].rsplit(";", 1)[0].strip()
+            atual = json.loads(corpo) if corpo.startswith("{") else {}
+        except (OSError, IndexError, ValueError):
+            atual = {}
+        lista = [f for f in atual.get(especie, []) if f.get("id") != fid]
+        nova = {"id": fid, "nome": nome, "autor": autor, "sprite": f"assets/unicas/{arquivo}"}
+        # TIPOS NOVOS (opcional): um ou dois dos tipos do jogo; sem isso, os da original
+        TIPOS_OK = ("NORMAL", "LUTADOR", "VOADOR", "VENENO", "TERRA", "PEDRA", "INSETO", "FANTASMA", "AÇO", "FOGO",
+                    "ÁGUA", "PLANTA", "ELÉTRICO", "PSÍQUICO", "GELO", "DRAGÃO", "SOMBRIO", "FADA", "GLITCH")
+        tipos = []
+        for t in forma.get("tipos") or []:
+            if t in TIPOS_OK and t not in tipos:
+                tipos.append(t)
+        if tipos:
+            nova["tipos"] = tipos[:2]
+        # EVOLUI PRA (opcional): uma especie ("sliggoohisui") ou outra forma
+        # unica ("sliggoo:<id>"); o jogo confere se ela existe
+        pra = str(forma.get("evoluiPra") or "")
+        if re.fullmatch(r"[a-z0-9]+(:[a-z0-9]+)?", pra):
+            nova["evoluiPra"] = pra
+        lista.append(nova)
+        atual[especie] = lista
+        cabecalho = (
+            "// AS FORMAS UNICAS: desenhos que os jogadores fizeram no UNIQUEMON\n"
+            "// (uniquemon/), cada um de uma especie. O PUBLICAR de la manda pro\n"
+            "// dev_server, que grava aqui (rota /__unica) e o PNG em assets/unicas/.\n"
+            "// No jogo cada uma vira uma especie propria, com os atributos e os golpes da\n"
+            "// original — e os tipos dela, a menos que a forma traga `tipos` proprios —, e\n"
+            "// se veste num bicho seu com o GUARDA-ROUPA UNICO\n"
+            "// (src/systems/unicas.js). Da pra editar a mao, e da pra apagar tudo:\n"
+            "// e so deixar o objeto vazio.\n"
+            "export const FORMAS_UNICAS = "
+        )
+        with open(caminho, "w", encoding="utf-8") as fh:
+            fh.write(cabecalho + json.dumps(atual, ensure_ascii=False, indent=2) + ";\n")
+        with _lock:
+            aparelhos = len(_clients)
+        print(f"\033[35m[unica]\033[0m {especie}: {nome} publicada ({aparelhos} aparelho(s) ligado(s))", flush=True)
+        if AUTO_PUBLICAR:
+            self.publicar_sozinho(nome, autor, prefixo="forma unica",
+                                  caminhos=("src/data/formas-unicas.js", "assets/unicas"))
+        corpo = json.dumps({"ok": True, "aparelhos": aparelhos, "codigo": bool(AUTO_PUBLICAR)}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Private-Network", "true")
+        self.send_header("Content-Length", str(len(corpo)))
+        self.end_headers()
+        self.wfile.write(corpo)
+
+    def publicar_sozinho(self, nome, autor, prefixo="fusao", caminhos=None):
         """Commit + push da ficha recem-gravada, numa thread propria.
 
         Numa thread porque o `git push` fala com a internet e demora: quem
@@ -778,8 +864,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 cod, saida, _ = self._git("rev-parse", "--is-inside-work-tree")
                 if cod or saida != "true":
                     return print("\033[33m[codigo]\033[0m esta copia nao e um repositorio git", flush=True)
-                self._git("add", "--", self.FICHAS_REL, "assets/fusoes")
-                cod, saida, err = self._git("commit", "-m", msg, "--", self.FICHAS_REL, "assets/fusoes")
+                arquivos = list(caminhos or (self.FICHAS_REL, "assets/fusoes"))
+                self._git("add", "--", *arquivos)
+                cod, saida, err = self._git("commit", "-m", msg, "--", *arquivos)
                 if cod and "nothing to commit" not in (saida + err).lower():
                     return print(f"\033[33m[codigo]\033[0m nao deu pra gravar: {(err or saida).splitlines()[-1][:120]}", flush=True)
                 cod, saida, err = self._git("push", "origin", "HEAD:main", timeout=120)
@@ -791,7 +878,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_OPTIONS(self):
         """O navegador pergunta antes de mandar a ficha de outro endereco."""
-        if self.path.split("?")[0] != "/__ficha":
+        if self.path.split("?")[0] not in ("/__ficha", "/__unica"):
             return self.send_error(404)
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -814,6 +901,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.resgate_post()
         if self.path.split("?")[0] == "/__ficha":
             return self.ficha_post()
+        if self.path.split("?")[0] == "/__unica":
+            return self.unica_post()
         if self.path.split("?")[0] == "/__faxina":
             return self.faxina_post()
         if self.path.split("?")[0] == "/__mundo":

@@ -89,6 +89,18 @@ export const CONFIG = {
     { item: "poção", qty: [2, 4], w: 12 },
   ],
 
+  // AS HORDAS, como em X/Y: um em `hordaOdds` selvagens comuns que você
+  // encosta vem com mais da mesma espécie — a horda inteira tem de 3 a 5
+  // (`hordaTamanho`), os outros `hordaNiveis` abaixo dele — e a luta é 1 contra
+  // todos (src/scenes/grupobattle.js, `horda`). Alfa, shiny, bravo e glitch
+  // nunca vêm em horda: esses já são o encontro.
+  hordaOdds: 1 / 12,
+  // OS SOLTOS (src/systems/soltos.js): a chance de, no mato do lugar onde você
+  // soltou um Pokémon, quem nascer ser ELE de volta
+  soltoChance: 0.2,
+  hordaTamanho: [3, 5],
+  hordaNiveis: [1, 4],
+
   // Shiny solto pela grama de Kanto: 1 em 1024 selvagens vem com a cor trocada.
   // (dentro da fenda a regra é outra: 1 a cada SHINY_EVERY vistos, em extra.js)
   shinyOdds: 1 / 1024,

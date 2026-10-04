@@ -1,0 +1,255 @@
+<!doctype html>
+<!-- AS CUTSCENES DO JOGO, todas num lugar: abertura, evolução, MEGA, fusão,
+     troca, horda e soltar. Cada cartão escolhe (ou sorteia) os Pokémon e abre a cena
+     de verdade num player (index.html com o atalho dela). O jogo do player
+     roda no perfil "cutscenes": NUNCA no save.json de quem joga.
+     Uso: http://localhost:5173/cutscenes.html -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cutscenes — Pokémon Glitch Edition</title>
+<style>
+  :root { color-scheme: dark; --fundo:#0b0d10; --cartao:#151a21; --borda:#232a34; --texto:#d6dde6; --apagado:#6b7684; --roxo:#8f6bd8; --roxo2:#b455ff; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--fundo); color:var(--texto); font:14px ui-monospace, "SF Mono", Menlo, Consolas, monospace; padding:20px 16px 60px; }
+  header { max-width:1100px; margin:0 auto 18px; }
+  h1 { font-size:22px; letter-spacing:1px; }
+  h1 span { color:var(--roxo2); }
+  header p { color:var(--apagado); margin-top:6px; font-size:12px; line-height:1.5; }
+  header a { color:var(--roxo2); }
+  #grade { max-width:1100px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:12px; }
+  .cena { background:var(--cartao); border:1px solid var(--borda); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+  .cena h2 { font-size:15px; color:#fff; letter-spacing:1px; }
+  .cena h2 small { color:var(--roxo2); font-size:11px; font-weight:normal; margin-left:6px; }
+  .cena p { color:var(--apagado); font-size:12px; line-height:1.5; }
+  .sprites { display:flex; align-items:center; justify-content:center; gap:4px; min-height:72px; }
+  .sprites canvas { width:64px; height:64px; image-rendering:pixelated; }
+  .sprites .seta { color:var(--roxo2); }
+  .campos { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  select, input[type=number] { background:#0f1318; border:1px solid var(--borda); color:var(--texto); padding:6px 8px; border-radius:6px; font:inherit; font-size:12px; max-width:100%; }
+  input[type=number] { width:60px; }
+  .campos label { color:var(--apagado); font-size:12px; display:flex; gap:5px; align-items:center; }
+  .botoes { display:flex; gap:8px; margin-top:auto; }
+  button { background:#1c2230; border:1px solid var(--borda); color:var(--texto); padding:8px 14px; border-radius:6px; cursor:pointer; font:inherit; font-size:13px; }
+  button:hover, button:focus-visible { border-color:var(--roxo); outline:none; }
+  button.ver { background:#241a3a; border-color:var(--roxo); color:#fff; }
+
+  #player { position:fixed; inset:0; background:rgba(4,5,8,.92); display:none; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:16px; z-index:10; }
+  #player.aberto { display:flex; }
+  #tela { width:min(96vw, calc((100vh - 170px) * 1.5)); aspect-ratio:3/2; border:0; border-radius:4px; background:#000; }
+  #titulo { font-size:16px; text-align:center; }
+  #dica { color:var(--apagado); font-size:12px; text-align:center; }
+  #dica kbd { border:1px solid var(--borda); border-radius:4px; padding:1px 5px; color:var(--texto); }
+  .controles { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; align-items:center; }
+  .controles label { color:var(--apagado); font-size:12px; display:flex; gap:6px; align-items:center; cursor:pointer; }
+  @media (max-width:520px) { #grade { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>CUTSCENES <span>— Pokémon Glitch Edition</span></h1>
+  <p>Todas as cutscenes do jogo. Escolha os Pokémon (ou sorteie) e aperte ▶ — a cena roda de verdade, com a música, num save à parte que não mexe na sua partida.
+     A lista inteira das evoluções fica no <a href="evolucoes.html">site das evoluções</a>.</p>
+</header>
+<main id="grade"></main>
+<div id="player" role="dialog" aria-modal="true">
+  <div id="titulo"></div>
+  <iframe id="tela" title="cutscene"></iframe>
+  <div id="dica">clique na tela e aperte <kbd>ENTER</kbd> quando pedir · <kbd>ESC</kbd> fecha</div>
+  <div class="controles">
+    <button id="rever">↻ ver de novo</button>
+    <label><input type="checkbox" id="iso"> isométrico</label>
+    <button id="fechar">fechar</button>
+  </div>
+</div>
+<script type="module">
+import { DB } from "./src/data/index.js";
+import { Assets } from "./src/core/assets.js";
+// as formas da arte provisória (a que aparece até o PNG chegar) nascem aqui
+Assets.init();
+
+const nome = (id) => DB.SPECIES[id]?.name || String(id).toUpperCase();
+const sorteia = (lista) => lista[Math.floor(Math.random() * lista.length)];
+// os de Kanto (os mais conhecidos) pros seletores da fusão e da troca
+const kanto = Object.keys(DB.GEN1 || {}).filter((id) => DB.SPECIES[id]).sort((a, b) => DB.SPECIES[a].dex - DB.SPECIES[b].dex);
+// a HORDA pode vir de qualquer um do jogo (Kanto, as outras regiões, Braglitch,
+// as formas -BRAG...): só as MEGAs e as fusões ficam de fora, que horda delas
+// não existe no mato
+const todos = Object.keys(DB.SPECIES)
+  .filter((id) => !DB.SPECIES[id].fusao && !DB.MEGA_FORMS?.[id] && DB.SPECIES[id].dex)
+  .sort((a, b) => (DB.SPECIES[a].dex - DB.SPECIES[b].dex) || a.localeCompare(b));
+const evolucoes = [];
+for (const [de, regras] of Object.entries(DB.EVOLUTIONS || {})) {
+  for (const r of regras) if (DB.SPECIES[de] && DB.SPECIES[r.to]) evolucoes.push([de, r.to]);
+}
+evolucoes.sort((x, y) => (DB.SPECIES[x[0]].dex || 9999) - (DB.SPECIES[y[0]].dex || 9999));
+const megas = [];
+for (const [de, regras] of Object.entries(DB.MEGAS || {})) {
+  for (const r of regras) if (DB.SPECIES[de] && DB.SPECIES[r.to]) megas.push([de, r.to]);
+}
+
+/** um <select> de pares "de → para" ou de espécies */
+const selPares = (lista) => {
+  const s = document.createElement("select");
+  for (const [de, para] of lista) s.add(new Option(`${nome(de)} → ${nome(para)}`, `${de}:${para}`));
+  return s;
+};
+const selEspecie = (padrao, lista = kanto) => {
+  const s = document.createElement("select");
+  for (const id of lista) s.add(new Option(`#${String(DB.SPECIES[id].dex).padStart(3, "0")} ${nome(id)}`, id));
+  if (padrao) s.value = padrao;
+  return s;
+};
+const sprite = () => { const c = document.createElement("canvas"); c.width = c.height = 64; return c; };
+const desenha = (cv, id) => {
+  const ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, 64, 64);
+  // um desenho que falha não pode derrubar o resto da página
+  try {
+    const img = id && Assets.mon(id, 1);
+    if (img) ctx.drawImage(img, (64 - img.width) / 2, (64 - img.height) / 2);
+  } catch (e) { console.warn("[cutscenes] sem desenho pra", id, e); }
+};
+
+/** AS CENAS. `campos()` monta os controles e devolve { url, titulo, sprites } */
+const CENAS = [
+  {
+    nome: "ABERTURA", dica: "src/scenes/abertura.js",
+    texto: "O filme de antes do título: a fanfarra, o mundo, os lendários, o rival e o caos. Oitenta segundos casados com a música.",
+    campos: () => ({ url: () => "index.html?perfil=cutscenes", titulo: () => "ABERTURA", sprites: () => [] }),
+  },
+  {
+    nome: "EVOLUÇÃO", dica: "src/scenes/evolution.js",
+    texto: "O DNA girando, o bicho rachando de luz, os pixels voando, os raios, o BUUM e os fogos.",
+    campos: (el) => {
+      const s = selPares(evolucoes); s.value = "charmander:charmeleon";
+      const est = Object.assign(document.createElement("input"), { type: "checkbox" });
+      const lab = document.createElement("label"); lab.append(est, "versão da pedra da fenda");
+      el.append(s, lab);
+      return { url: () => `index.html?evolucao=${s.value}${est.checked ? "&estranho=1" : ""}`, titulo: () => s.selectedOptions[0].text,
+               sprites: () => s.value.split(":"), sorteia: () => { s.value = sorteia(evolucoes).join(":"); }, muda: [s] };
+    },
+  },
+  {
+    nome: "MEGA EVOLUÇÃO", dica: "src/scenes/mega.js",
+    texto: "A pedra do anel e a pedra mega se ligam num raio de arco-íris, o casulo de cristal trinca e estoura, e o símbolo da MEGA acende.",
+    campos: (el) => {
+      const s = selPares(megas); s.value = "charizard:megacharizardx";
+      el.append(s);
+      return { url: () => `index.html?megacena=${s.value}`, titulo: () => s.selectedOptions[0].text,
+               sprites: () => s.value.split(":"), sorteia: () => { s.value = sorteia(megas).join(":"); }, muda: [s] };
+    },
+  },
+  {
+    nome: "FUSÃO", dica: "src/scenes/fusion.js",
+    texto: "Os dois se encaram, se desfazem em pixels e nascem juntos no DECODIFICADOR DE GENOMA. O primeiro é a cabeça, o segundo o corpo.",
+    campos: (el) => {
+      const a = selEspecie("pikachu"), b = selEspecie("charmander");
+      el.append(a, "+", b);
+      return { url: () => `index.html?fundir=${a.value}:${b.value}`, titulo: () => `${nome(a.value)} + ${nome(b.value)}`,
+               sprites: () => [a.value, b.value], sorteia: () => { a.value = sorteia(kanto); b.value = sorteia(kanto); }, muda: [a, b] };
+    },
+  },
+  {
+    nome: "TROCA", dica: "src/scenes/trocanpc.js",
+    texto: "A troca com NPC: os dois racham, viram um sprite bizarro encavalado, BUUM, e cada um monta do lado novo. Shiny chove estrela.",
+    campos: (el) => {
+      const a = selEspecie("charmander"), b = selEspecie("pikachu");
+      el.append(a, "⇄", b);
+      return { url: () => `index.html?troca=${a.value}:${b.value}`, titulo: () => `${nome(a.value)} ⇄ ${nome(b.value)}`,
+               sprites: () => [a.value, b.value], sorteia: () => { a.value = sorteia(kanto); b.value = sorteia(kanto); }, muda: [a, b] };
+    },
+  },
+  {
+    nome: "HORDA", dica: "src/scenes/horda.js",
+    texto: "O mato treme, um \"!\" em cada moita, as silhuetas pulam uma por uma e caem levantando poeira — e o HORDA! despenca do alto.",
+    campos: (el) => {
+      const s = selEspecie("rattata", todos);
+      const n = Object.assign(document.createElement("input"), { type: "number", min: 3, max: 5, value: 5 });
+      const lab = document.createElement("label"); lab.append("quantos", n);
+      el.append(s, lab);
+      return { url: () => `index.html?hordacena=${s.value}:${Math.max(3, Math.min(5, +n.value || 5))}`,
+               titulo: () => `HORDA DE ${nome(s.value)} (${n.value})`, sprites: () => [s.value],
+               sorteia: () => { s.value = sorteia(todos); n.value = 3 + Math.floor(Math.random() * 3); }, muda: [s] };
+    },
+  },
+  {
+    nome: "SOLTAR", dica: "src/scenes/soltar.js",
+    texto: "A bola cai na grama e abre, ele olha pra você, grita, e vai embora pro mato alto. Dá pra achar ele de volta no mato daquele lugar.",
+    campos: (el) => {
+      const s = selEspecie("pikachu", todos);
+      el.append(s);
+      return { url: () => `index.html?soltarcena=${s.value}`, titulo: () => `SOLTAR ${nome(s.value)}`,
+               sprites: () => [s.value], sorteia: () => { s.value = sorteia(todos); }, muda: [s] };
+    },
+  },
+  {
+    nome: "GUARDA-ROUPA ÚNICO", dica: "src/scenes/vestir.js",
+    texto: "O guarda-roupa abre, ele entra, o armário treme e cospe cabide e meia pra todo lado — e ele sai vestindo a FORMA ÚNICA desenhada no UNIQUEMON.",
+    campos: (el) => {
+      const s = document.createElement("select");
+      for (const [base, ids] of Object.entries(DB.UNICAS_DE || {})) {
+        for (const id of ids) s.add(new Option(`${nome(base)} → ${nome(id)}`, `${base}:${id}`));
+      }
+      if (!s.options.length) s.add(new Option("(nenhuma forma única ainda)", ""));
+      el.append(s);
+      return { url: () => `index.html?vestircena=${s.value.split(":")[0] || "pikachu"}`, titulo: () => s.selectedOptions[0]?.text || "",
+               sprites: () => (s.value ? s.value.split(":") : []),
+               sorteia: () => { if (s.options.length) s.selectedIndex = Math.floor(Math.random() * s.options.length); }, muda: [s] };
+    },
+  },
+];
+
+const grade = document.getElementById("grade");
+const player = document.getElementById("player"), tela = document.getElementById("tela"), iso = document.getElementById("iso");
+let atual = null;
+const toca = (c) => {
+  atual = c;
+  document.getElementById("titulo").textContent = c.titulo();
+  // perfil próprio: NUNCA gravar no save.json de quem joga
+  const url = c.url();
+  tela.src = `${url}${url.includes("?") ? "&" : "?"}iso=${iso.checked ? 1 : 0}${url.includes("perfil=") ? "" : "&perfil=cutscenes"}`;
+  player.classList.add("aberto");
+};
+tela.addEventListener("load", () => tela.focus());
+const fecha = () => { player.classList.remove("aberto"); tela.src = "about:blank"; };
+document.getElementById("fechar").addEventListener("click", fecha);
+document.getElementById("rever").addEventListener("click", () => atual && toca(atual));
+iso.addEventListener("change", () => atual && toca(atual));
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && player.classList.contains("aberto")) fecha(); });
+
+for (const cena of CENAS) {
+  const card = document.createElement("section");
+  card.className = "cena";
+  card.innerHTML = `<h2></h2><p></p><div class="sprites"></div><div class="campos"></div><div class="botoes"></div>`;
+  card.querySelector("h2").append(cena.nome, Object.assign(document.createElement("small"), { textContent: cena.dica }));
+  card.querySelector("p").textContent = cena.texto;
+  const c = cena.campos(card.querySelector(".campos"));
+  const caixa = card.querySelector(".sprites");
+  const atualiza = () => {
+    caixa.textContent = "";
+    c.sprites().forEach((id, i) => {
+      if (i) caixa.append(Object.assign(document.createElement("span"), { className: "seta", textContent: "→" }));
+      const cv = sprite(); caixa.append(cv);
+      desenha(cv, id);
+      // o PNG pode chegar depois: redesenha por um tempinho
+      let n = 0; const tic = setInterval(() => { desenha(cv, id); if (++n > 12) clearInterval(tic); }, 300);
+    });
+  };
+  for (const m of c.muda || []) m.addEventListener("change", atualiza);
+  atualiza();
+  const ver = Object.assign(document.createElement("button"), { className: "ver", textContent: "▶ ver" });
+  ver.addEventListener("click", () => toca(c));
+  const bots = card.querySelector(".botoes");
+  bots.append(ver);
+  if (c.sorteia) {
+    const sb = Object.assign(document.createElement("button"), { textContent: "🎲 sortear" });
+    sb.addEventListener("click", () => { c.sorteia(); atualiza(); });
+    bots.append(sb);
+  }
+  grade.append(card);
+}
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-# Pokémon Glitch Edition — Vol. 5
+# Pokémon Glitch Edition — Vol. 6
 
 Fangame 2D de Pokémon FireRed em **Kanto**, com **só os 151 da primeira geração**.
 Boilerplate próprio + live update: roda direto no navegador com ES modules
@@ -126,10 +126,46 @@ igrejinha, coreto na praça, praia com coqueiro e um píer com um barquinho.
   Carvalho; aqui também é nome de árvore): **TRONKY** (muda de pau-brasil,
   PLANTA/SOMBRIO), **DIGGLE** (beagle cavador, FOGO/TERRA) e **TILAPISH**
   (tilápia, ÁGUA). São espécies novas, com sprite desenhado em código.
-- **O APAGÃO**: a luz caiu no meio de uma gravação e os dados de Braglitch
-  voltaram fora de ordem. Três **REDEMOINHOS** na **BR-101** trocam bicho de
-  lugar; desfazer os três abre o caminho pro **SACI** (SOMBRIO/GLITCH), na
-  **MATA DO SACI**. Vencido sem captura, ele some num redemoinho e volta.
+- **A HISTÓRIA SÃO AS ILHAS.** A PROFA. IPÊ acha que toda **FORMA -BRAG**
+  nasceu numa ilha da costa: o mesmo Pokémon, isolado no mar por gerações,
+  virando outra coisa. Ela te leva na **lancha** dela (no píer de São Lucario)
+  por **oito ilhas**, e cada uma tem **14 formas -BRAG** no mato e um **CHEFE**
+  (uma forma evoluída, que dá pra vencer ou capturar). **Venceu o chefe, a
+  ilha está completa**: a IPÊ vem do píer e já leva de lancha pra próxima
+  (as 14 formas são pra ir descobrindo; não trancam nada). O
+  **PROF. CARVALHO** atravessa o mar depois da primeira ilha, fica na lancha e
+  compara cada forma com o primo de Kanto. **Não tem mais ginásio**: as ilhas
+  completas são as insígnias de Braglitch. O SACI ficou solto na MATA DO SACI.
+
+  | # | Ilha | Nível | Chefe | Pandeiro |
+  |---|---|---|---|---|
+  | 1 | ILHA DO MELTAN | 5-9 | FEAROW-BRAG 13 | DO MATO |
+  | 2 | ILHABELLOSSOM | 10-14 | BIBAREL-BRAG 18 | DO MAR |
+  | 3 | ILHA DA QUEIMADA SANDACONDA | 15-19 | ARBOK-BRAG 23 | DO SERTÃO |
+  | 4 | ILHA GRANDULL | 20-24 | AMBIPOM-BRAG 28 | DO CÉU |
+  | 5 | ITAPARICHU | 25-29 | VILEPLUME-BRAG 33 | DA SERRA |
+  | 6 | MARAJOLTEON | 30-34 | PERSIAN-BRAG 38 | — |
+  | 7 | ATOL DAS ROCKRUFF | 35-39 | PALAFIN-BRAG 43 | — |
+  | 8 | FERNANDO DE NOROWLET | 40-45 | SANDSLASH-BRAG 50 | — |
+
+  **AS PEDRAS BRAGLITCHIANAS**: cada chefe deixa uma quando cai. Não se
+  gastam e funcionam só de estar na mochila, em qualquer batalha
+  (`src/systems/pedras.js`):
+
+  | Chefe | Pedra | Bônus |
+  |---|---|---|
+  | FEAROW-BRAG | PEDRA DO CARCARÁ | +10% velocidade |
+  | BIBAREL-BRAG | PEDRA DA CAPIVARA | +10% defesa |
+  | ARBOK-BRAG | PEDRA DA SUCURI | +25% na captura |
+  | AMBIPOM-BRAG | PEDRA DO MICO | +10% ataque |
+  | VILEPLUME-BRAG | PEDRA DA VITÓRIA-RÉGIA | +10% defesa especial |
+  | PERSIAN-BRAG | PEDRA DA ONÇA | +10% ataque especial |
+  | PALAFIN-BRAG | PEDRA DO BOTO | +25% de experiência |
+  | SANDSLASH-BRAG | PEDRA DO TATU | -10% no dano recebido |
+
+  As ilhas estão em `src/data/braglitch-ilhas.js`, as regras em
+  `src/systems/ilhas.js`, e o atalho de teste é `?ilhas=N&perfil=teste`
+  (chega na ilha N com as de antes entregues).
 - **63 Pokémon novos, inspirados no Brasil**, todos desenhados em código
   (`tools/braglitch_desenhos/`), como as evoluções dos iniciais (TRONCUDO →
   PAUBRASILISCO, BRASEAGLE → MAGMASTIM, TILAPISCO → TILAPIRAÇU), a fauna
@@ -137,16 +173,15 @@ igrejinha, coreto na praça, praia com coqueiro e um píer com um barquinho.
   ENCANTADO, LOBISOMEM, BANTEVY → BANGVEET, o papagaio LOROSÉ, o beagle fantasma ZEROGLE, o SANDBASH...), a cultura (FOGUEIRINHA, BALÃOZINHO, BRIGADEIRINHO,
   PLUMÁRIO, ORELHÃO, GATONET, GAMBIARRA, CHUVISCO, CONCRETÃO...) e as lendas
   (SACI, BOITATÁ, IARA e CURUPIRA).
-- **E 22 formas braglitchianas**, que continuam no mato junto com os novos:
-  SANDSHREW-BRAG (tatu-bola), SPEAROW-BRAG (carcará), AIPOM-BRAG
-  (mico-leão-dourado), MEOWTH-BRAG (onça-pintada), FINIZEN-BRAG (boto)... Nada
-  de Braglitch aparece no mato de Kanto, na fenda, em ovo ou em presente de
-  aniversário.
-- **Os dois professores se encontram** quatro vezes na história, e a conversa
-  começa falando com qualquer um deles: a IPÊ visita o laboratório do CARVALHO
-  (depois de você conhecer os dois), o CARVALHO vem a Braglitch ver o SACI, a
-  IPÊ volta a Kanto quando a última trava da fenda cede, e os dois esperam na
-  porta do ginásio de BASCULINHA depois da oitava insígnia de lá.
+- **E 125 formas braglitchianas**: as 25 antigas (recolor, como SANDSHREW-BRAG,
+  o tatu-bola) e **100 novas desenhadas do zero** (`tools/braglitch_desenhos/lote_20..27.py`,
+  fichas em `src/data/braglitch-formas-ilha1..8.js`): o sabiá, o preá, a
+  jabuticaba, a baiana do acarajé, o búfalo de Marajó, o peixe-boi... As novas
+  não evoluem. -BRAG só aparece no mato das ilhas; nada de Braglitch aparece no
+  mato de Kanto, na fenda, em ovo ou em presente de aniversário.
+- **Os dois professores**: a IPÊ visita o laboratório do CARVALHO em Kanto
+  (depois de você conhecer os dois) e volta lá quando a última trava da fenda
+  cede; em Braglitch, o CARVALHO fica na lancha com ela desde a primeira ilha.
 - **Em Braglitch não se usa golpe fora de batalha.** SURFAR, CORTE,
   QUEBRA-ROCHA, FORÇA e VOAR não funcionam do lado de lá; quem faz isso são as
   **MONTARIAS**, e quem chama a montaria é um dos cinco **PANDEIROS DA TERRA**,
@@ -156,11 +191,11 @@ igrejinha, coreto na praça, praia com coqueiro e um píer com um barquinho.
 
   | Pandeiro | Quando a IPÊ acha | Montaria | Ação |
   |---|---|---|---|
-  | DO MATO | depois de pegar o SACI | ROÇADOR (PLANTA/AÇO) | Corte |
-  | DO MAR | 2ª insígnia de Braglitch | SUBMARINUM (ÁGUA/AÇO) | Surfar |
-  | DO SERTÃO | 4ª insígnia | TRATORÃO (TERRA/AÇO) | Força |
-  | DO CÉU | 5ª insígnia | CATORBIS (VOADOR/AÇO), o 14-Bis | Voar |
-  | DA SERRA | 6ª insígnia | BRITADEIRO (PEDRA/AÇO) | Quebra-Rocha |
+  | DO MATO | ILHA DO MELTAN completa | ROÇADOR (PLANTA/AÇO) | Corte |
+  | DO MAR | ILHABELLOSSOM | SUBMARINUM (ÁGUA/AÇO) | Surfar |
+  | DO SERTÃO | QUEIMADA SANDACONDA | TRATORÃO (TERRA/AÇO) | Força |
+  | DO CÉU | ILHA GRANDULL | CATORBIS (VOADOR/AÇO), o 14-Bis | Voar |
+  | DA SERRA | ITAPARICHU | BRITADEIRO (PEDRA/AÇO) | Quebra-Rocha |
 
 - **A linha do DIGGLE tem a habilidade FICA!** (DIGGLE, BRASEAGLE e
   MAGMASTIM): com ele em campo, ele late "FICA!" e o selvagem fica na Poké Bola.
@@ -171,21 +206,10 @@ igrejinha, coreto na praça, praia com coqueiro e um píer com um barquinho.
   FOLHA do lado de lá do mar (em Kanto continua o VICTREEBEL de sempre), e a
   **CUIA TÉRMICA**, que o gaúcho de São Lucario do Sul dá, troca uma forma pela
   outra quantas vezes quiser.
-- **Oito cidades e oito ginásios**, subindo da MATA DO SACI pela
-  MATA ATLÂNTICA até a capital. As insígnias de Braglitch são contadas à parte
-  das de Kanto (o menu de INSÍGNIAS mostra as da região em que você está), e o
-  VOAR também só lista as cidades da região atual:
-
-  | Cidade | Líder | Tipo | Insígnia |
-  |---|---|---|---|
-  | BELÉM DO PARASECT | JACIRA | PLANTA | SAMAÚMA |
-  | RECIFEEBAS | CHICO MANGUE | ÁGUA | MANGUE |
-  | SALVADITTO | MESTRE GINGA | LUTADOR | BERIMBAU |
-  | CARUARU DO MAGMAR | ZEFA DA FOGUEIRA | FOGO | FOGUEIRA |
-  | SAMPIKACHU | GAMBI | ELÉTRICO | TOMADA |
-  | OURO GASTLY | LUZIA DAS ALMAS | FANTASMA | LAMPIÃO |
-  | RIO DE JANEEVEE | RAINHA LUA | FADA | TAMBORIM |
-  | BASCULINHA | ENGENHEIRA NIEMA | GLITCH | CÚPULA |
+- **Oito cidades**, subindo da MATA DO SACI pela MATA ATLÂNTICA até a
+  capital: BELÉM DO PARASECT, RECIFEEBAS, SALVADITTO, CARUARU DO MAGMAR,
+  SAMPIKACHU, OURO GASTLY, RIO DE JANEEVEE e BASCULINHA. O prédio que era
+  ginásio virou casa; o menu de INSÍGNIAS, em Braglitch, mostra as ILHAS.
 
   Entre a ESTRADA REAL e o RIO DE JANEEVEE fica o **MONTE SERRA**: a subida é
   em terraços de pedra ligados por escadarias em zigue-zague, com um riacho que
@@ -210,7 +234,7 @@ igrejinha, coreto na praça, praia com coqueiro e um píer com um barquinho.
   | Sul | CURITYRANITAR | araucárias, a estufa do Jardim Botânico |
   | Sul | FLORIPACHIRISU | a ilha, a ponte Hercílio Luz, a Lagoa da Conceição |
   | Sul | CARVORIÚ (praia) | os prédios na beira-mar, CARVANHA no mato |
-  | Sul | PRAIA DO LARVANJAL | a lagoa, o píer, o doce de Pelotas e o **APPLIN-BRAG** |
+  | Sul | PRAIA DO LARVANJAL | a lagoa, o píer e o doce de Pelotas |
   | Nordeste | NATALTAIR | dunas, o Forte dos Reis Magos, o cajueiro |
   | Nordeste | FORTALEZARD | a beira-mar e as jangadas |
   | Norte | MANAUSQUIRTLE | o Rio Negro, o porto e o Teatro Amazonas (pós-jogo) |
@@ -219,20 +243,20 @@ igrejinha, coreto na praça, praia com coqueiro e um píer com um barquinho.
   | Centro-Oeste | CHAPADA DOS VEADEIROS (rota) | cânions e cachoeiras, entre a capital e a floresta |
 
   O **APPLIN-BRAG** (PLANTA/ÁGUA) é o Applin de Braglitch: em vez de maçã, mora
-  num COCO VERDE com canudinho (sprite em `tools/braglitch_desenhos/lote_14.py`).
+  num COCO VERDE com canudinho (sprite em `tools/braglitch_desenhos/lote_14.py`); mora em FERNANDO DE NOROWLET.
 
   **Beeem ao norte**, saindo por cima da CHAPADA, fica a **FLORESTA AMAZÔNICA**:
   o fim de Braglitch. É o dobro de uma estrada, mata fechada com lagoa por todo
   lado, bichos da Amazônia no nível 50-56 (PIRARUCU, VITÓRIA-RÉGIA, TUCANAÇU,
   PIRANHORDA...) e fechada em cima — depois dela não tem mais nada.
 
-  **O TRIO LENDÁRIO**: depois da oitava insígnia acordam o **AMAZONIUM**
+  **O TRIO LENDÁRIO**: com as oito ilhas completas acordam o **AMAZONIUM**
   (PLANTA/FADA, a árvore da floresta, na FLORESTA AMAZÔNICA) e o **DESTROIUM**
   (SOMBRIO/AÇO, a máquina de destruição que saiu do servidor, na BR-040). Com os
   dois pegos, sobe na lagoa da FLORESTA AMAZÔNICA o **ENCONTRIUM** (ÁGUA/DRAGÃO), o
   Encontro das Águas: o rio que corre entre a mata e a máquina sem escolher lado.
 
-  Depois da oitava, BOITATÁ (BR-324), IARA (ESTRADA REAL) e CURUPIRA
+  Com as oito ilhas, BOITATÁ (BR-324), IARA (ESTRADA REAL) e CURUPIRA
   (MATA ATLÂNTICA) aparecem nas estradas, nível 60.
 - **O barco**: o barqueiro do píer de São Lucario e o marinheiro da balsa das
   SEVII fazem a mesma linha, com três pontas: **KANTO** (cais de Vermilion),
@@ -747,7 +771,7 @@ de já ter fundido aquela dupla.
 ### FUSIONGLITCH: fazer fusão fora do jogo
 
 A oficina também existe **fora do jogo**, numa página só:
-[`fusionglitch/`](https://cacaivilela.github.io/pokemon-glitch-edition/fusionglitch/)
+[`fusionglitch/`](http://cacaivilela.github.io/pokemon-glitch-edition/fusionglitch/)
 (o endereço curto **cacaivilela.github.io/fusionglitch** leva pra ela). Ali dá pra: escolhe os dois pelo número ou
 pelo nome, monta a fusão automática, deixa desenhar por cima com o mouse (tela
 grande, pincel de 1 a 8, balde, conta-gotas, sete paletas, desfazer), e a ficha
@@ -1967,6 +1991,33 @@ entrada de tabela de encontro nasce corrompido sempre (`rollEncounter`), e
 Desligar a REVOLTA com um ?????????? na equipe ou no PC deixa o save
 incompatível — solte ele antes.
 
+## Os ícones dos itens
+
+Todo item da mochila tem um desenho de 16x16: as bolas, a poção, as pedras de
+evolução (cada uma com o motivo dela: a chama, a folha, a gota, o raio, a lua, o
+floco), as dezesseis megapedras, os cristais Z por tipo, os ovos, os fósseis da
+mina (a rocha com o motivo gravado), a picareta, os cinco PANDEIROS DA TERRA, os
+ingredientes do acampamento e os itens-chave. A mochila mostra o ícone em cada
+linha e o item da vez em dobro no canto; a loja, o balcão de venda e a mochila
+da batalha mostram o desenho do que está na mira. Como a linha cresceu pra
+caber o ícone, a mochila passou a **rolar** (antes ela desenhava até sair da
+tela; com os fósseis e os ingredientes ela passa de cem itens).
+
+Os desenhos são código (`tools/itens_sprites.py` + `tools/itens_desenhos/`), no
+mesmo espírito dos bichos de Braglitch: linhas de texto, uma letra por pixel.
+Saem em `assets/sprites/itens/<slug>.png`, e `src/core/itens.js` carrega pelo
+nome do item. O que não tem desenho próprio cai no da família — um OVO DA
+CRECHE (`ovo de pichu`) usa `ovo.png`, uma megapedra que uma DLC inventar usa
+`megapedra.png` — e, no fim, na sacolinha (`item.png`). Ou seja: item novo já
+nasce com ícone; desenhar o dele é opcional.
+
+```bash
+python3 tools/itens_sprites.py --folha=/tmp/itens.png   # redesenha e mostra a folha
+```
+
+`dev/itenscheck.html` lista o que o jogo conhece e ainda está caindo na família.
+Atalho: `?map=pallet&itens=1&perfil=teste` abre com um de cada na mochila.
+
 ## Vender itens
 
 Todo balcão pergunta **COMPRAR OU VENDER?** (com a BARRACA DE LEILÃO na
@@ -2537,6 +2588,7 @@ src/
   core/
     assets.js          arte provisória gerada em runtime + animação de grama
     sprites.js         carregador de PNGs externos (Pokémon, personagens, mapas)
+    itens.js           os ícones dos itens (assets/sprites/itens/, com família e sacolinha)
     font.js            fonte bitmap 5x7 desenhada à mão (acentos derivados)
     gfx.js             painéis, barras, cursor, fade — visual GBA
     net.js             a conexão com a sala (SSE pra receber, POST pra falar)
@@ -2601,6 +2653,7 @@ assets/
   sprites/             PNGs externos (vazio por padrão): pokemon/, overworld/, trainers/, tiles/
   maps/                mapas renderizados + kanto.json (geometria e colisão)
 tools/                 fetch_sprites / fetch_overworld / fetch_trainers / fetch_maps / fetch_pesos / slice_sheet / png_io
+                       itens_sprites (+ itens_desenhos/): os ícones dos itens, 16x16, em código
                        gera_especies.py — reescreve a lista da oficina de fora a partir das tabelas
                        compacta.py — reescreve os PNGs em paleta, sem perder pixel
 dev/smoke.html         teste headless com roteiro de teclas
@@ -2678,7 +2731,7 @@ Atalhos de dev na URL do jogo: `?map=route1&x=17&y=34&dir=up`,
 ## Jogar no navegador
 
 O jogo está publicado em
-**[cacaivilela.github.io/pokemon-glitch-edition/](https://cacaivilela.github.io/pokemon-glitch-edition/)**,
+**[cacaivilela.github.io/pokemon-glitch-edition/](http://cacaivilela.github.io/pokemon-glitch-edition/)**,
 direto do `main` (GitHub Pages). Ali não existe `dev_server.py`, então o jogo se
 vira sozinho:
 

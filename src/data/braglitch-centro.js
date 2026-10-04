@@ -49,7 +49,7 @@ export const LUGARES = [
     ],
     saidas: { left: 14, right: 14 },
     niveis: [48, 52],
-    mato: [["capivarao", 18], ["pirarucu", 10], ["piranhorda", 10], ["seakingbrag", 8], ["vitoriregia", 10],
+    mato: [["capivarao", 18], ["pirarucu", 10], ["piranhorda", 10], ["vitoriregia", 10],
            ["araraio", 10], ["tucanacu", 8], ["krokorok", 6], ["bombirdier", 6], ["whiscash", 6],
            ["toxicroak", 5], ["seismitoad", 5], ["tilapiracu", 4], ["krookodile", 1]],
     npcs: [

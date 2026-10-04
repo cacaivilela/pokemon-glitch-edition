@@ -24,7 +24,8 @@ export const FORMAS_UNICAS = {
       "tipos": [
         "ÁGUA",
         "SOMBRIO"
-      ]
+      ],
+      "evoluiPra": "samurotthisui"
     }
   ],
   "irontreads": [
@@ -75,7 +76,8 @@ export const FORMAS_UNICAS = {
       "tipos": [
         "ÁGUA",
         "SOMBRIO"
-      ]
+      ],
+      "evoluiPra": "dewott:muu7k3m0qb"
     }
   ],
   "clodsire": [

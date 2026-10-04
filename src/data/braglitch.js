@@ -7,11 +7,13 @@
 // ou é uma FORMA BRAGLITCHIANA — o mesmo bicho de sempre, criado deste lado.
 //
 // A HISTÓRIA É OUTRA, E O GLITCH TAMBÉM. Kanto tem a fenda: um buraco pra fora
-// do jogo. Braglitch teve O APAGÃO: a luz caiu no meio de uma gravação, e desde
-// então os dados da região são lidos meio fora de ordem. O povo não fala em
-// "erro de leitura" — fala em SACI. E os dois estão certos: os REDEMOINHOS que
-// aparecem na BR-101 trocam bicho de lugar, embaralham o mato, e no meio de
-// cada um alguma coisa assobia.
+// do jogo. Braglitch tem AS ILHAS: a PROFA. IPÊ acha que toda FORMA
+// BRAGLITCHIANA nasceu numa ilha da costa — o mesmo bicho, isolado no mar,
+// virando outra coisa como um save copiado que cada cópia joga do seu jeito. A
+// história é descobrir e capturar as formas de cada ilha, com a IPÊ levando na
+// lancha dela e o PROF. CARVALHO, que atravessa o mar pra ver, comparando com
+// os primos de Kanto (src/data/braglitch-ilhas.js). Os oito ginásios continuam
+// no continente, pra quem quiser.
 //
 // DÁ PRA COMEÇAR AQUI OU EM KANTO (a escolha é na tela de título), e dá pra ir
 // e voltar: o BARQUEIRO do píer de SÃO LUCARIO DO SUL e o marinheiro da balsa
@@ -19,6 +21,16 @@
 
 import { slugify } from "./gen1.js";
 import * as mundo from "./braglitch-mundo.js";
+// AS FORMAS DAS ILHAS: 100 formas -BRAG desenhadas do zero (as fichas de cada
+// ilha; os desenhos em tools/braglitch_desenhos/lote_20..27.py)
+import { FORMAS_ILHA as FI1 } from "./braglitch-formas-ilha1.js";
+import { FORMAS_ILHA as FI2 } from "./braglitch-formas-ilha2.js";
+import { FORMAS_ILHA as FI3 } from "./braglitch-formas-ilha3.js";
+import { FORMAS_ILHA as FI4 } from "./braglitch-formas-ilha4.js";
+import { FORMAS_ILHA as FI5 } from "./braglitch-formas-ilha5.js";
+import { FORMAS_ILHA as FI6 } from "./braglitch-formas-ilha6.js";
+import { FORMAS_ILHA as FI7 } from "./braglitch-formas-ilha7.js";
+import { FORMAS_ILHA as FI8 } from "./braglitch-formas-ilha8.js";
 
 // ------------------------------------------------------------- A REGIÃO
 export const BRAGLITCH = {
@@ -27,6 +39,9 @@ export const BRAGLITCH = {
   inicio: "bra_casa",
   /** o píer: onde o barqueiro fica e onde o barco te deixa */
   porto: { mapa: "sao_lucario", barqueiro: { x: 15, y: 25, dir: "right" }, chegada: { x: 14, y: 24 } },
+  /** A LANCHA DA IPÊ, no mesmo píer: onde ela fica (e o CARVALHO do lado,
+   *  depois da primeira ilha) e onde a lancha te deixa na volta */
+  lancha: { mapa: "sao_lucario", ipe: { x: 13, y: 20 }, carvalho: { x: 12, y: 20 }, chegada: { x: 14, y: 21 } },
   /** os três da mesa da PROFA. IPÊ, na ordem de sempre: PLANTA, FOGO, ÁGUA */
   iniciais: ["tronky", "diggle", "tilapish"],
 };
@@ -280,6 +295,30 @@ for (const linha of FORMAS.trim().split("\n")) {
   COR_DAS_FORMAS[id] = cor.split(/\s+/);
 }
 
+// O EXEGGUTOR-BRAG: o EXEGGCUTE com PEDRA DA FOLHA em Braglitch não vira
+// coqueiro, vira a AVE-BURITI — um pássaro de planta com o pescoço de tronco
+// de palmeira e três cabeças saindo dele lá em cima, no lugar dos cocos
+// (desenho em tools/braglitch_desenhos/lote_28.py).
+registrar("exeggutorbrag", 103, "EXEGGUTOR-BRAG", "PLANTA/VOADOR", "95 100 80 115 75 65", {
+  spriteDex: 21901,
+  dexText: "AVE-BURITI. O PESCOÇO É UM TRONCO DE PALMEIRA, E NO ALTO NASCERAM TRÊS CABEÇAS EM VEZ DE COCO. NAS VEREDAS, O POVO CONFUNDE ELE COM O PÉ DE BURITI ATÉ ELE PIAR.",
+});
+
+// O ORBEETLE DE BRAGLITCH é um ABAJUR DE JOANINHA — e está de mau humor. A
+// carapaça virou a cúpula, a lâmpada acende quando ele se irrita (sempre), e o
+// rabo é o fio com a tomada. ELÉTRICO/AÇO; o total é o do ORBEETLE (505), com
+// a defesa especial trocada por ataque especial. Quem tem um é a CAMPEÃ DALVA,
+// da LIGA (src/data/braglitch-liga.js). Desenho em tools/braglitch_desenhos/lote_29.py.
+registrar("orbeetlebrag", 826, "ORBEETLE-BRAG", "ELÉTRICO/AÇO", "60 50 110 115 100 70", {
+  spriteDex: 21902,
+  dexText: "ABAJUR DE JOANINHA. ACENDE SOZINHO QUANDO FICA BRAVO, E ELE FICA BRAVO COM TUDO. DÁ CHOQUE EM QUEM TENTA DESLIGAR.",
+});
+
+// AS FORMAS DAS ILHAS: essas não evoluem — a forma -BRAG é um estágio só.
+for (const f of [...FI1, ...FI2, ...FI3, ...FI4, ...FI5, ...FI6, ...FI7, ...FI8]) {
+  registrar(f.id, f.base, f.nome, f.tipos, f.stats, { spriteDex: f.sprite, dexText: f.dexText, formaIlha: true });
+}
+
 // O VICTREEBEL DE BRAGLITCH é uma CUIA — e tem duas formas, como a bebida:
 // CHIMARRÃO (quente, PLANTA/FOGO) e TERERÊ (gelado, PLANTA/GELO). O total de
 // status é o do VICTREEBEL (490) nas duas; o que muda é pra onde ele pende: o
@@ -346,6 +385,9 @@ export const EVO_BRAGLITCH = {
   // Em Kanto continua virando o VICTREEBEL de sempre (a regra com lugar vem
   // na frente, como as das formas regionais).
   weepinbell: [{ item: "pedra da folha", onde: "braglitch", to: "victreebelchimarrao" }],
+  // e o EXEGGCUTE, com a mesma pedra, vira a AVE-BURITI de três cabeças (em Kanto
+  // continua o coqueiro; nas outras terras, o de ALOLA)
+  exeggcute: [{ item: "pedra da folha", onde: "braglitch", to: "exeggutorbrag" }],
   // as formas -BRAG
   sandshrewbrag: [{ lvl: 22, to: "sandslashbrag" }],
   // o SANDSLASH-BRAG vira bola de vez: o SANDBASH (as três cabeças da linha)
@@ -497,9 +539,18 @@ const TAG_DE = {
 /** Monta a geometria de Braglitch no formato de assets/maps/kanto.json.
  *  `kanto` é o JSON importado (de onde saem os interiores). */
 export function montarBraglitch(kanto) {
+  return montarGeos(kanto, { plantas: PLANTAS, interiores: INTERIORES, ligacoes: LIGACOES, temas: TEMAS,
+                             cidadePadrao: "sao_lucario", marca: { braglitch: true, regiao: "braglitch" } });
+}
+
+/** O CONSTRUTOR DE REGIÃO DESENHADA: plantas de texto viram geometria, e os
+ *  interiores são cópia dos de Kanto com as portas trocadas. Braglitch usa
+ *  isto, e uma outra região desenhada em código usaria também. `marca` é o
+ *  que cada mapa ganha pra dizer de que região é (`braglitch: true`, `regiao`). */
+export function montarGeos(kanto, { plantas, interiores, ligacoes = {}, temas = {}, cidadePadrao, marca = {} }) {
   const out = {};
   const portas = {};                  // mapa -> [{ x, y, predio }]
-  for (const [id, planta] of Object.entries(PLANTAS)) {
+  for (const [id, planta] of Object.entries(plantas)) {
     const h = planta.length, w = planta[0].length;
     let tags = "";
     const warps = [];
@@ -510,8 +561,8 @@ export function montarBraglitch(kanto) {
         if (c !== "D") continue;
         const predio = planta[y - 1]?.[x];
         // o interior é o daquele prédio NAQUELA cidade (todas têm Centro e loja)
-        const dentro = Object.entries(INTERIORES).find(([, i]) => i.predio === predio
-          && (i.cidade || "sao_lucario") === id)?.[0] || null;
+        const dentro = Object.entries(interiores).find(([, i]) => i.predio === predio
+          && (i.cidade || cidadePadrao) === id)?.[0] || null;
         warps.push({ x, y, to: dentro, toWarp: 0, predio });
       }
     }
@@ -537,22 +588,22 @@ export function montarBraglitch(kanto) {
     } : null;
     out[id] = {
       ...(estatua ? { estatua } : {}),
-      w, h, tags, warps, connections: LIGACOES[id] || [], signs: signs.map(({ x, y }) => ({ x, y })),
-      objects: [], planta, braglitch: true, tema: TEMAS[id] || "mata",
+      w, h, tags, warps, connections: ligacoes[id] || [], signs: signs.map(({ x, y }) => ({ x, y })),
+      objects: [], planta, ...marca, tema: temas[id] || "mata",
       content: { name: id, music: "route", interior: false, npcs: [], encounters: [] },
       _placas: signs,
     };
   }
   // os interiores: cópia da geometria de Kanto, portas trocadas
-  for (const [id, i] of Object.entries(INTERIORES)) {
+  for (const [id, i] of Object.entries(interiores)) {
     const geo = kanto?.[i.de];
     if (!geo) continue;
-    const cidade = i.cidade || "sao_lucario";
+    const cidade = i.cidade || cidadePadrao;
     const saida = portas[cidade].findIndex((p) => p.to === id);
     out[id] = {
       ...geo,
       arte: i.de,
-      braglitch: true,
+      ...marca,
       // a escada da casa (e qualquer outra porta interna) fica trancada: o
       // segundo andar daqui não foi desenhado
       warps: geo.warps.map((w) => (w.to === geo.warps[0].to
@@ -567,15 +618,15 @@ export function montarBraglitch(kanto) {
 
 /** O texto das placas e das portas trancadas, por mapa — src/data/index.js
  *  cola no conteúdo depois de montar a geometria. */
-export function placasEPortas(geos, conteudo = {}) {
+export function placasEPortas(geos, conteudo = {}, placas = PLACAS, portaFechada = PORTA_FECHADA) {
   const out = {};
   for (const [id, geo] of Object.entries(geos)) {
-    const textos = PLACAS[id] || conteudo[id]?.placas || {};
+    const textos = placas[id] || conteudo[id]?.placas || {};
     const signs = {};
     for (const p of geo._placas || []) if (textos[p.n]) signs[`${p.x},${p.y}`] = textos[p.n];
     const lockedWarps = {};
     for (const w of geo.warps || []) {
-      if (!w.to && PORTA_FECHADA[w.predio]) lockedWarps[`${w.x},${w.y}`] = PORTA_FECHADA[w.predio];
+      if (!w.to && portaFechada[w.predio]) lockedWarps[`${w.x},${w.y}`] = portaFechada[w.predio];
     }
     out[id] = { signs, lockedWarps };
   }
@@ -588,10 +639,14 @@ const TEMAS = { ...Object.fromEntries([...mundo.ESTRADAS, mundo.FLORESTA, ...mun
 /** O conteúdo das cidades e estradas de cima (src/data/braglitch-mundo.js). */
 export const conteudoDoMundo = mundo.conteudoDoMundo;
 export const INSIGNIAS_BRAG = mundo.INSIGNIAS_BRAG;
+export const INSIGNIAS_ILHAS = mundo.INSIGNIAS_ILHAS;
+export { ILHAS as ILHAS_BRAG, ILHAS_TEXTO, PEDRAS as PEDRAS_BRAG } from "./braglitch-ilhas.js";
 /** O MAPA DA REGIÃO (a tela do menu em Braglitch): onde cada lugar fica no
  *  desenho do Brasil, com quem ele se liga, o contorno do país e o tipo. */
 export const MAPA_REGIAO = { layout: mundo.LAYOUT, contorno: mundo.CONTORNO_BRASIL, tipos: mundo.TIPO_DO_LUGAR };
 export const LENDAS = mundo.LENDAS_LUGAR;
+export const LUGAR_DO_GEMEO = mundo.LUGAR_DO_GEMEO;
+export { LIGA as LIGA_BRAG } from "./braglitch-liga.js";
 /** As cidades onde dá pra pousar voando (o VOAR mostra só as da região em que
  *  você está). */
 export const VOO_BRAGLITCH = {
@@ -658,11 +713,6 @@ export const BRAGLITCH_MAPS = {
       { id: "biquinho", min: 2, max: 5, w: 18 },
       { id: "tatubola", min: 3, max: 6, w: 14 },
       { id: "sauvinha", min: 3, max: 6, w: 12 },
-      { id: "bidoofbrag", min: 2, max: 5, w: 14 },
-      { id: "spearowbrag", min: 2, max: 5, w: 12 },
-      { id: "sandshrewbrag", min: 3, max: 6, w: 8 },
-      { id: "oddishbrag", min: 3, max: 6, w: 6 },
-      { id: "goldeenbrag", min: 4, max: 7, w: 4 },
     ],
     npcs: [
       {
@@ -699,12 +749,6 @@ export const BRAGLITCH_MAPS = {
       { id: "guaraninho", min: 8, max: 12, w: 8 },
       { id: "macacoeira", min: 8, max: 12, w: 8 },
       { id: "penadinha", min: 9, max: 12, w: 4 },
-      { id: "ekansbrag", min: 7, max: 11, w: 12 },
-      { id: "aipombrag", min: 7, max: 11, w: 12 },
-      { id: "parasbrag", min: 7, max: 11, w: 10 },
-      { id: "meowthbrag", min: 8, max: 12, w: 6 },
-      { id: "finizenbrag", min: 8, max: 12, w: 4 },
-      { id: "rotombrag", min: 10, max: 13, w: 3 },
     ],
     npcs: [
       {
@@ -735,12 +779,12 @@ export const BRAGLITCH_MAPS = {
     name: "LAB DA PROFA. IPÊ", music: "lab", interior: true,
     spawn: { x: 6, y: 12, dir: "up" },
     signs: {
-      "9,1": "UM CADERNO: \"DIA DO APAGÃO — 3 REDEMOINHOS NA BR-101. TODOS GIRAM PRO NORTE.\"",
+      "9,1": "UM CADERNO: \"TODA FORMA -BRAG TEM UMA ILHA DE ORIGEM. SÃO CINCO ILHAS. FALTA PROVAR.\"",
       "10,1": "LIVROS DE FOLCLORE AO LADO DE LIVROS DE INFORMÁTICA. ELES CONCORDAM EM MAIS COISA DO QUE PARECE.",
       "11,1": "FICHAS DE BICHO DE BRAGLITCH. METADE TEM O MESMO NOME DE BICHO DE KANTO, COM \"-BRAG\" NO FIM.",
       "12,1": "UM MAPA DO MAR. KANTO FICA AO NORTE, E UMA LINHA DE CANETA LIGA O PÍER A VERMILION.",
       "0,1": "UM NOBREAK PISCANDO. ELE APITA TODA VEZ QUE ALGUÉM FALA \"APAGÃO\".",
-      "1,1": "MONITOR DE REDE. O GRÁFICO TEM TRÊS PICOS — E UM QUARTO, MAIOR, AO NORTE.",
+      "1,1": "UM MAPA DA COSTA COM CINCO ILHAS CIRCULADAS À CANETA. DO LADO: \"A LANCHA TÁ NO PÍER.\"",
     },
     encounters: [],
     labBraglitch: true,
@@ -749,7 +793,8 @@ export const BRAGLITCH_MAPS = {
     profPC: ["2,1", "3,1"],
     npcs: [
       {
-        id: "ipe", x: 6, y: 3, dir: "down", sprite: "tecnica",
+        // depois da missão ela vai pro píer, pra lancha (src/scenes/overworld.js, `lanchaNpcs`)
+        id: "ipe", x: 6, y: 3, dir: "down", sprite: "ipe", someComFlag: "bragMissao",
         lines: [
           "AH, FINALMENTE! EU SOU A PROFESSORA IPÊ.",
           "TRÊS POKÉMON DE BRAGLITCH ESTÃO NAQUELA MESA. ESCOLHE UM PRA LEVAR.",
@@ -817,13 +862,8 @@ export const BRAGLITCH_MAPS = {
 };
 
 // --------------------------------------------------------- A HISTÓRIA
-// O arco de Braglitch: O APAGÃO. Três redemoinhos na BR-101, e o que mora no
-// quarto, na MATA DO SACI.
-export const REDEMOINHOS = [
-  { id: "r1", mapa: "rota_br101", x: 9, y: 17, bicho: "tatubola", lvl: 6 },
-  { id: "r2", mapa: "rota_br101", x: 26, y: 21, bicho: "sauvinha", lvl: 7 },
-  { id: "r3", mapa: "rota_br101", x: 19, y: 4, bicho: "biquinho", lvl: 8 },
-];
+// As ilhas (src/data/braglitch-ilhas.js). O SACI ficou de fora do caminho: mora
+// na clareira da MATA DO SACI, pra quem quiser, desde que a IPÊ deu a missão.
 export const SACI_NA_MATA = { mapa: "mata_do_saci", x: 15, y: 6, lvl: 15 };
 
 export const BRAGLITCH_TEXTO = {
@@ -833,38 +873,12 @@ export const BRAGLITCH_TEXTO = {
     "AQUI ELA TRABALHA DOBRADO: METADE DOS BICHOS DE BRAGLITCH TEM PRIMO EM KANTO, E ELA ANOTA OS DOIS.",
   ],
   missao: [
-    "PROFA. IPÊ: AGORA ESCUTA, QUE O ASSUNTO É SÉRIO.",
-    "HÁ UM MÊS DEU UM APAGÃO NA REGIÃO INTEIRA. A LUZ VOLTOU — MAS OS DADOS DE BRAGLITCH VOLTARAM FORA DE ORDEM.",
-    "DESDE ENTÃO APARECEM REDEMOINHOS NA BR-101. QUEM ENTRA NUM, SAI TROCADO. BICHO DE RIO NA ESTRADA, BICHO DE MATA NA PRAIA.",
-    "O POVO DIZ QUE É O SACI. EU DIGO QUE É ERRO DE LEITURA. E EU DESCONFIO QUE A GENTE TÁ FALANDO DA MESMA COISA.",
-    "SÃO TRÊS REDEMOINHOS. VAI LÁ, DESFAZ OS TRÊS — E ME CONTA PRA ONDE ELES APONTAM.",
-  ],
-  faltam: "PROFA. IPÊ: AINDA TEM {N} REDEMOINHO(S) NA BR-101. A ESTRADA É LOGO AO NORTE DA CIDADE.",
-  todos: [
-    "PROFA. IPÊ: OS TRÊS SE DESFIZERAM? E TODOS GIRAVAM PRO NORTE...",
-    "PASSANDO A BR-101 TEM A MATA DO SACI. O MONITOR MOSTRA UM REDEMOINHO LÁ QUATRO VEZES MAIOR QUE OS OUTROS.",
-    "VAI COM CALMA. E SE ELE ASSOBIAR, NÃO RESPONDE.",
-  ],
-  fim: [
-    "PROFA. IPÊ: VOCÊ... PEGOU O SACI?!",
-    "OLHA O MONITOR: A LINHA PAROU DE PULAR. OS DADOS DE BRAGLITCH VOLTARAM PRO LUGAR — QUASE TODOS.",
-    "OS -BRAG FICARAM. ACHO QUE ELES NÃO ERAM ERRO: ERAM DAQUI MESMO, E O APAGÃO SÓ MOSTROU.",
-    "MAS O MONITOR AINDA MOSTRA UMA COISA: O APAGÃO NÃO COMEÇOU AQUI. COMEÇOU LÁ EM CIMA, EM BASCULINHA, A CAPITAL.",
-    "PASSANDO A MATA DO SACI, A MATA ATLÂNTICA LEVA ÀS OITO CIDADES DE BRAGLITCH. CADA UMA TEM UM GINÁSIO.",
-    "JUNTA AS OITO INSÍGNIAS E VAI ATÉ A CAPITAL. LEVA ISTO, É O MÍNIMO.",
-  ],
-  premio: { item: "doce raro", qty: 5 },
-  ganhou: "VOCÊ RECEBEU 5 DOCES RAROS!",
-  depois: [
-    "PROFA. IPÊ: SÃO OITO GINÁSIOS ATÉ BASCULINHA. VOCÊ TEM {N}.",
-    "E O BARQUEIRO DO PÍER LEVA PRA KANTO E PRAS ILHAS SEVII, SE QUISER DAR UMA VOLTA.",
-  ],
-  campeao: [
-    "PROFA. IPÊ: AS OITO! E A NIEMA CONTOU TUDO NO RÁDIO...",
-    "BOITATÁ NA BR-324, IARA NA ESTRADA REAL, CURUPIRA NA MATA ATLÂNTICA. AS TRÊS LENDAS DE BRAGLITCH.",
-    "NINGUÉM NUNCA PEGOU UMA. MAS NINGUÉM NUNCA PEGOU O SACI TAMBÉM, E OLHA VOCÊ AÍ.",
-    "E TEM COISA MAIOR: O DESTROIUM SAIU DO SERVIDOR PELA BR-040, E O AMAZONIUM ACORDOU LÁ NO NORTE, NA FLORESTA AMAZÔNICA, PRA SEGURAR ELE.",
-    "SE OS DOIS SE ENCONTRAREM, NÃO SOBRA MAPA. CHEGA ANTES DELES.",
+    "PROFA. IPÊ: AGORA ESCUTA A MINHA TEORIA, QUE É O QUE EU ESTUDO.",
+    "METADE DOS BICHOS DE BRAGLITCH TEM PRIMO EM KANTO, COM \"-BRAG\" NO FIM DO NOME. E EU ACHO QUE SEI DE ONDE ELES VÊM.",
+    "TODA FORMA -BRAG NASCEU NUMA ILHA. O BICHO DE SEMPRE FICOU SOZINHO NUM PEDAÇO DE TERRA NO MEIO DO MAR...",
+    "...E FOI VIRANDO OUTRA COISA. COMO UM SAVE COPIADO QUE CADA CÓPIA CONTINUA JOGANDO DO SEU JEITO.",
+    "SÃO CINCO ILHAS NA COSTA. EU TE LEVO NA MINHA LANCHA; VOCÊ DESCOBRE E CAPTURA AS FORMAS DE CADA UMA.",
+    "TE ESPERO NO PÍER, NA PRAIA AQUI EMBAIXO. A PRIMEIRA É A ILHA DO MELTAN!",
   ],
   insignia: "VOCÊ RECEBEU A {NOME}!",
   lenda: "O DADO VOLTOU PRO LUGAR. {MON} AGORA É SEU.",
@@ -878,7 +892,7 @@ export const BRAGLITCH_TEXTO = {
   livro: {
     abre: ["UM LIVRO DE CAPA DE COURO, JOGADO NO CHÃO. NA CAPA: \"COORDENADAS DA LENDA\".",
            "NA PRIMEIRA PÁGINA: \"X CONTA DA ESQUERDA PRA DIREITA, Y DE CIMA PRA BAIXO. O CANTO DE CIMA É O ZERO.\""],
-    dorme: "\"ELAS SÓ ACORDAM DEPOIS DA OITAVA INSÍGNIA DE BRAGLITCH.\"",
+    dorme: "\"ELAS SÓ ACORDAM QUANDO AS OITO ILHAS ESTIVEREM COMPLETAS.\"",
     linha: "{MON} — {LUGAR}, X {X} Y {Y}.",
     pego: "{MON} — RISCADO À MÃO: \"CAPTURADO\".",
     sumiu: "{MON} — A TINTA DESBOTOU. SÓ SE LÊ: \"SUMIU\".",
@@ -916,12 +930,6 @@ export const BRAGLITCH_TEXTO = {
     "PELO JEITO O APAGÃO ESPALHOU ELE PELOS COMPUTADORES DE BRAGLITCH.",
     "A LISTA MOSTRA TODOS OS POKÉMON DO JOGO — OS DE LÁ E OS DAQUI.",
   ],
-  redemoinho: [
-    "UM REDEMOINHO DE POEIRA E PIXELS, PARADO NO MEIO DO CAMINHO.",
-    "LÁ DENTRO, ALGUMA COISA ASSOBIA... E UM BICHO SAI GIRANDO PRA CIMA DE VOCÊ!",
-  ],
-  desfez: "O REDEMOINHO SE DESFEZ. SOBROU SÓ UM ASSOBIO, INDO PRO NORTE. ({N}/3)",
-  semMissao: ["UM REDEMOINHO DE POEIRA E PIXELS.", "MELHOR FALAR COM A PROFA. IPÊ ANTES DE ENFIAR A MÃO NISSO."],
   saci: [
     "NO MEIO DA CLAREIRA, UM REDEMOINHO ENORME PARA DE GIRAR.",
     "DE DENTRO SAI UM BICHO DE UMA PERNA SÓ, GORRO VERMELHO, CACHIMBO NA BOCA.",
@@ -944,8 +952,9 @@ export const BRAGLITCH_TEXTO = {
 };
 
 // ------------------------------------------------- OS DOIS PROFESSORES
-// CARVALHO e IPÊ se encontram em quatro pontos da história — dois em cada
-// região. Um deles vem de visita e fica do lado do outro; falar com qualquer um
+// CARVALHO e IPÊ se encontram em dois pontos da história de Kanto (em
+// Braglitch o CARVALHO fica na lancha da IPÊ: src/scenes/overworld.js,
+// `lanchaNpcs`). Um deles vem de visita e fica do lado do outro; falar com qualquer um
 // dos dois abre a conversa, que acontece uma vez só (`flags.profs_<id>`). Quem
 // visita some quando você sai do mapa.
 //
@@ -973,22 +982,6 @@ export const ENCONTROS_PROFS = [
     depois: [`${I} VOU FICAR ATÉ A MÁQUINA DELE LIGAR. OU ATÉ O CAFÉ ACABAR. O QUE VIER PRIMEIRO.`],
   },
   {
-    // 2. O CARVALHO VEM VER O SACI: depois que ele é pego, no laboratório da IPÊ
-    id: "visita_braglitch", mapa: "bra_lab",
-    requer: { pegos: ["saci"] },
-    visita: [{ id: "carvalho_visita", quem: "carvalho", x: 7, y: 3, dir: "down" }],
-    conversa: [
-      `${C} ENTÃO É ESTE O SACI. EU VIM NO PRIMEIRO BARCO QUANDO A IPÊ ME CONTOU.`,
-      `${I} UMA PERNA SÓ, E MESMO ASSIM ANDA MAIS RÁPIDO QUE QUALQUER DADO DO SERVIDOR.`,
-      `${C} EM KANTO O QUE ESCAPA PELA FENDA VIRA MISSINGNO. AQUI VIRA LENDA. INTERESSANTE...`,
-      `${I} AQUI O POVO JÁ TINHA NOME PRA TUDO ISSO MUITO ANTES DE ALGUÉM FALAR EM GLITCH.`,
-      `${C} QUEM PEGA O GORRO MANDA NELE, NÃO É? ENTÃO CUIDE BEM DESTE GORRO, TREINADOR.`,
-      `${C} E ISTO É PRA ESTRADA. DAQUI ATÉ A CAPITAL SÃO OITO GINÁSIOS.`,
-    ],
-    premio: { item: "doce raro", qty: 3 },
-    depois: [`${C} A IPÊ ME PROMETEU UM CHIMARRÃO. ESTOU ESPERANDO HÁ UMA HORA. DIZEM QUE É ASSIM MESMO.`],
-  },
-  {
     // 3. KANTO QUEBRA: com o mundo bugado (as oito insígnias de Kanto), a IPÊ
     //    volta ao laboratório do CARVALHO trazendo o que aprendeu com o apagão
     id: "fenda_aberta", mapa: "lab",
@@ -1004,29 +997,9 @@ export const ENCONTROS_PROFS = [
     premio: { item: "poké bola", qty: 10 },
     depois: [`${I} SE O MISSINGNO ASSOBIAR, NÃO RESPONDE. ISSO VALE PRO SACI E VALE PRA ELE.`],
   },
-  {
-    // 4. A CAPITAL: depois da oitava insígnia de Braglitch, os dois esperam na
-    //    porta do ginásio da NIEMA
-    id: "capital", mapa: "brasilia",
-    requer: { braglitch: 8 },
-    visita: [
-      { id: "carvalho_visita", quem: "carvalho", x: 7, y: 7, dir: "up" },
-      { id: "ipe_visita", quem: "ipe", x: 8, y: 7, dir: "up" },
-    ],
-    conversa: [
-      `${I} AS OITO DE BRAGLITCH! EU SABIA!`,
-      `${C} EU TAMBÉM SABIA. EU SÓ NÃO FALEI PRA NÃO DAR AZAR.`,
-      `${I} A NIEMA JÁ CONTOU TUDO. O APAGÃO FOI TESTE DELA... E SOLTOU AS TRÊS LENDAS.`,
-      `${C} BOITATÁ, IARA E CURUPIRA. NA MINHA ÉPOCA A GENTE SÓ TINHA TRÊS PÁSSAROS PRA CORRER ATRÁS.`,
-      `${I} A POKÉDEX VAI PRECISAR DE MAIS PÁGINA, CARVALHO.`,
-      `${C} ENTÃO ELA GANHA MAIS PÁGINA. TREINADOR: DE DOIS PROFESSORES, OBRIGADO.`,
-    ],
-    premio: { item: "doce raro", qty: 5 },
-    depois: [`${C} DEPOIS DAQUI EU VOLTO PRA KANTO. A IPÊ DIZ QUE O BARCO ENJOA. EU DIGO QUE É O CHIMARRÃO.`],
-  },
 ];
 /** Quem é quem na hora de desenhar a visita (o sprite de cada um). */
-export const PROFS = { carvalho: { sprite: "prof", nome: "PROF. CARVALHO" }, ipe: { sprite: "tecnica", nome: "PROFA. IPÊ" } };
+export const PROFS = { carvalho: { sprite: "prof", nome: "PROF. CARVALHO" }, ipe: { sprite: "ipe", nome: "PROFA. IPÊ" } };
 
 // ----------------------------------------------------------- AS MONTARIAS
 // EM BRAGLITCH NINGUÉM USA GOLPE FORA DE BATALHA. Surfar, Corte, Quebra-Rocha,
@@ -1071,26 +1044,25 @@ export const PANDEIRO_TEXTO = {
   },
 };
 
-/** OS PANDEIROS DA TERRA, na ordem em que a IPÊ acha. `requer` usa as mesmas
- *  chaves dos encontros dos professores: `pegos` e `braglitch` (insígnias). */
+/** OS PANDEIROS DA TERRA, na ordem em que a IPÊ acha: um em cada uma das
+ *  cinco primeiras ilhas, quando ela fica completa (`ilha`: o id da ilha em
+ *  src/data/braglitch-ilhas.js). */
 export const PANDEIROS = [
-  { id: "mato", item: "pandeiro do mato", golpe: "corte", requer: { pegos: ["saci"] },
-    fala: ["PROFA. IPÊ (PELA POKÉDEX): O SACI DEIXOU UMA COISA NA CLAREIRA QUANDO FOI PEGO!",
-           "UM PANDEIRO VELHO, DE COURO E PLATINELA. OS ANTIGOS CHAMAVAM DE PANDEIRO DA TERRA.",
-           "TOCA ELE PERTO DE MATO ALTO: O ROÇADOR VEM APARAR. EM BRAGLITCH É ASSIM QUE SE PASSA — GOLPE NENHUM FUNCIONA DESDE O APAGÃO.",
-           "E DIZ A LENDA QUE SÃO CINCO. VOU PROCURAR OS OUTROS."] },
-  { id: "mar", item: "pandeiro do mar", golpe: "surfar", requer: { braglitch: 2 },
-    fala: ["PROFA. IPÊ (PELA POKÉDEX): ACHEI O SEGUNDO PANDEIRO DA TERRA! ESTAVA ENTERRADO NA AREIA DO PÍER.",
-           "É O PANDEIRO DO MAR. TOCA NA BEIRA DA ÁGUA E O SUBMARINUM SOBE PRA TE BUSCAR."] },
-  { id: "sertao", item: "pandeiro do sertão", golpe: "forca", requer: { braglitch: 4 },
-    fala: ["PROFA. IPÊ (PELA POKÉDEX): O TERCEIRO VEIO DE CARUARU, NUMA CAIXA DE FORRÓ!",
-           "É O PANDEIRO DO SERTÃO. COM ELE O TRATORÃO VEM EMPURRAR BLOCO DE PEDRA."] },
-  { id: "ceu", item: "pandeiro do céu", golpe: "voar", requer: { braglitch: 5 },
-    fala: ["PROFA. IPÊ (PELA POKÉDEX): O QUARTO CAIU DO CÉU. LITERALMENTE: EM CIMA DO MEU TELHADO.",
-           "É O PANDEIRO DO CÉU. TOCA E O CATORBIS POUSA DO SEU LADO — ELE TE LEVA PRA QUALQUER CIDADE QUE VOCÊ JÁ CONHEÇA."] },
-  { id: "serra", item: "pandeiro da serra", golpe: "quebrarocha", requer: { braglitch: 6 },
-    fala: ["PROFA. IPÊ (PELA POKÉDEX): O ÚLTIMO! UM TROPEIRO TROUXE DO ALTO DO MONTE SERRA.",
-           "É O PANDEIRO DA SERRA. O BRITADEIRO VEM QUEBRAR PEDRA RACHADA.",
+  { id: "mato", item: "pandeiro do mato", golpe: "corte", ilha: "ilha_do_mel",
+    fala: ["PROFA. IPÊ: UM PANDEIRO VELHO, DE COURO E PLATINELA, ENTERRADO NA AREIA. OS ANTIGOS CHAMAVAM DE PANDEIRO DA TERRA.",
+           "TOCA ELE PERTO DE MATO ALTO OU DE ARVOREZINHA: O ROÇADOR VEM APARAR. EM BRAGLITCH GOLPE NENHUM FUNCIONA FORA DE BATALHA.",
+           "COM ELE DÁ PRA PASSAR A MATA DO SACI E CONHECER O CONTINENTE. E DIZ A LENDA QUE SÃO CINCO."] },
+  { id: "mar", item: "pandeiro do mar", golpe: "surfar", ilha: "ilhabela",
+    fala: ["PROFA. IPÊ: O SEGUNDO PANDEIRO DA TERRA! O PANDEIRO DO MAR.",
+           "TOCA NA BEIRA DA ÁGUA E O SUBMARINUM SOBE PRA TE BUSCAR."] },
+  { id: "sertao", item: "pandeiro do sertão", golpe: "forca", ilha: "queimada_grande",
+    fala: ["PROFA. IPÊ: O TERCEIRO! O PANDEIRO DO SERTÃO.",
+           "COM ELE O TRATORÃO VEM EMPURRAR BLOCO DE PEDRA."] },
+  { id: "ceu", item: "pandeiro do céu", golpe: "voar", ilha: "ilha_grande",
+    fala: ["PROFA. IPÊ: O QUARTO! O PANDEIRO DO CÉU.",
+           "TOCA E O CATORBIS POUSA DO SEU LADO — ELE TE LEVA PRA QUALQUER CIDADE QUE VOCÊ JÁ CONHEÇA."] },
+  { id: "serra", item: "pandeiro da serra", golpe: "quebrarocha", ilha: "itaparica",
+    fala: ["PROFA. IPÊ: O ÚLTIMO! O PANDEIRO DA SERRA. O BRITADEIRO VEM QUEBRAR PEDRA RACHADA.",
            "OS CINCO PANDEIROS DA TERRA ESTÃO COM VOCÊ. BRAGLITCH INTEIRA ESTÁ ABERTA."] },
 ];
 export const PANDEIRO_GANHOU = "VOCÊ RECEBEU O {ITEM}!";

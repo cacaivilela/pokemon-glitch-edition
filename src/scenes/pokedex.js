@@ -7,11 +7,12 @@
 import { DB } from "../data/index.js";
 import { Input } from "../core/input.js";
 import { Audio2 } from "../core/audio.js";
+import { tocarGrito } from "../systems/gritos.js";
 import { Assets } from "../core/assets.js";
 import { panel, drawText, cursor, bar, fade, PAL, LINE_H, wrapText } from "../core/gfx.js";
 import { Dialogue } from "../systems/dialogue.js";
 import {
-  listas, estado, contagem, sincronizar, onde, cadeia, peso, marcosDevidos, pagarMarco, numeroNaDex,
+  listas, estado, contagem, sincronizar, onde, cadeia, peso, marcosDevidos, pagarMarco, numeroNaDex, ABAS_DA_DEX,
 } from "../systems/pokedex.js";
 
 const W = 240, H = 160;
@@ -59,8 +60,10 @@ export class PokedexScene {
     this.dlg.say(falas);
   }
 
-  nomeAba() { return (T().abas || ["KANTO", "NACIONAL", "FORMAS"])[this.aba]; }
-  lista() { return listas()[["KANTO", "NACIONAL", "FORMAS"][this.aba]] || []; }
+  // AS ABAS (src/systems/pokedex.js, ABAS_DA_DEX): a GLITCH DEX, uma por
+  // região, a NACIONAL e as FORMAS. O SELECT passa pra próxima.
+  nomeAba() { return ABAS_DA_DEX[this.aba]?.nome || ""; }
+  lista() { return listas()[ABAS_DA_DEX[this.aba]?.id] || []; }
 
   // --------------------------------------------------------------- update
   update(dt) {
@@ -83,7 +86,7 @@ export class PokedexScene {
     if (Input.consume("left")) anda(-10);
     if (Input.consume("right")) anda(10);
     if (Input.consume("select")) {
-      this.aba = (this.aba + 1) % 3;
+      this.aba = (this.aba + 1) % ABAS_DA_DEX.length;
       this.index = 0; this.topo = 0;
       Audio2.select();
     }
@@ -95,6 +98,7 @@ export class PokedexScene {
       if (!estado(this.st, id)) return void Audio2.cancel();   // nunca visto: não tem ficha
       Audio2.select();
       this.ficha = { id, pagina: 0 };
+      setTimeout(() => tocarGrito(id), 120);    // a ficha abre com o grito dele
     }
   }
 
@@ -154,7 +158,8 @@ export class PokedexScene {
       const i = this.topo + k, y = 33 + k * LINE_H;
       const sp = DB.SPECIES[id];
       const e = estado(this.st, id);
-      const n = numeroNaDex(id);
+      // nas abas regionais (e na GLITCH DEX) o número é a posição nela
+      const n = ABAS_DA_DEX[this.aba]?.regional ? i + 1 : numeroNaDex(id);
       const numero = n >= 1 ? num(n) : "????";
       if (e === "pego") this.bolinha(ctx, 17, y + 1);
       drawText(ctx, numero, 27, y, PAL.ink2);

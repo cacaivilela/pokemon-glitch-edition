@@ -1,0 +1,58 @@
+<!doctype html>
+<!-- A FINAL DA LIGA DE BRAGLITCH: abre a arena (?liga=4), começa a luta dupla
+     contra os campeões (você + gêmeo) e aperta A até ela acabar, gravando
+     retratos em dev/captures/liga_*.png e os erros no log. Uso:
+     /dev/ligacheck.html (?genero=menina pra lutar do lado do CAIO) -->
+<meta charset="utf-8">
+<title>ligacheck</title>
+<style>
+  body { background: #111; color: #ddd; font: 13px monospace; margin: 8px; }
+  img { width: 480px; height: 320px; image-rendering: pixelated; margin: 4px; }
+  iframe { position: absolute; left: -2000px; width: 240px; height: 160px; }
+</style>
+<div id="saida"></div>
+<script type="module">
+const q = new URLSearchParams(location.search);
+const genero = q.get("genero") || "menino";
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const saida = document.getElementById("saida");
+const erros = [];
+const f = document.createElement("iframe");
+// perfil próprio: NUNCA gravar no save.json de quem joga
+f.src = `../index.html?liga=4&genero=${genero}&perfil=ligacheck`;
+document.body.appendChild(f);
+for (let i = 0; i < 50 && !f.contentDocument?.getElementById("screen"); i++) await espera(100);
+f.contentWindow.addEventListener("error", (e) => erros.push(String(e.message)));
+f.contentWindow.addEventListener("unhandledrejection", (e) => erros.push("rejeição: " + e.reason));
+await espera(2500);
+const tecla = (code) => { for (const type of ["keydown", "keyup"]) f.contentWindow.dispatchEvent(new f.contentWindow.KeyboardEvent(type, { code, key: code })); };
+for (let i = 0; i < 6; i++) { await espera(400); tecla("Enter"); }
+await espera(800);
+let n = 0;
+const retrato = (nome, log = "") => {
+  const dataUrl = f.contentDocument.getElementById("screen").toDataURL();
+  fetch("/__capture", { method: "POST", body: JSON.stringify({ name: `liga_${nome}`, dataUrl, log }) }).catch(() => {});
+  const img = document.createElement("img"); img.src = dataUrl; saida.appendChild(img);
+};
+const g = () => f.contentWindow.game;
+retrato("arena", JSON.stringify({ map: g().state.player.map, x: g().state.player.x, y: g().state.player.y }));
+// ?mega=1: o AERODACTYL da DALVA vai na frente, pra ver a MEGA na entrada
+if (q.get("mega")) await f.contentWindow.eval(`import("/src/data/index.js").then(({ DB }) => {
+  const t = DB.LIGA_BRAG.campeoes[0].time; t.unshift(...t.splice(t.findIndex(([id]) => id === "aerodactyl"), 1)); })`);
+try { g().scenes.top.lutarContraCampeoes(); } catch (e) { erros.push("começar: " + e); }
+for (let t = 0; t < (q.get("mega") ? 40 : 400); t++) {
+  await espera(250);
+  tecla("Enter");
+  if (t % (q.get("mega") ? 6 : 40) === 3) retrato(`luta${n++}`);
+  if (g().state.flags.bragCampeao) break;
+  const cena = g().scenes.top?.constructor?.name;
+  if (t > 30 && cena !== "GrupoBattleScene") break;
+}
+await espera(1500);
+retrato("fim");
+const log = JSON.stringify({ campeao: !!g().state.flags.bragCampeao, mapa: g().state.player.map, cena: g().scenes.top?.constructor?.name,
+  equipe: g().state.party.map((m) => `${m.species}:${m.hp}`), erros });
+fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "liga_log", dataUrl: f.contentDocument.getElementById("screen").toDataURL(), log }) }).catch(() => {});
+saida.append(log);
+document.title = "ligacheck pronto";
+</script>

@@ -14,11 +14,20 @@ import { Glitch } from "./systems/glitchfx.js";
 import { abrirPortal } from "./systems/raid.js";
 import { ZONA, abrirZona, garantirZona, zonaDoCodigo, entrarNaZona } from "./systems/glitchzones.js";
 import { createMon, recalc } from "./systems/mon.js";
+import { EvolutionScene } from "./scenes/evolution.js";
+import { MegaScene } from "./scenes/mega.js";
+import { GrupoBattleScene } from "./scenes/grupobattle.js";
+import { HordaScene } from "./scenes/horda.js";
+import { TrocaNpcScene } from "./scenes/trocanpc.js";
+import { SoltarScene } from "./scenes/soltar.js";
+import { VestirScene } from "./scenes/vestir.js";
+import { FusionScene } from "./scenes/fusion.js";
 import { reverterTudo } from "./systems/mega.js";
+import { minutosDaFase } from "./systems/ciclo.js";
 import { registrarDoEstado } from "./systems/fusao.js";
 import { Online } from "./systems/online.js";
 import { carregarDLC, aplicarDLC, ligarDoLink } from "./systems/dlc.js";
-import { lerCodigo as lerPokesave, criarPokesave } from "./systems/pokesave.js";
+import { lerCodigo as lerPokesave, criarPokesave, folhaDoJogador } from "./systems/pokesave.js";
 import { guardar as guardarNoBox, cheio as boxCheio } from "./systems/box.js";
 import { TitleScene } from "./scenes/title.js";
 import { AberturaScene } from "./scenes/abertura.js";
@@ -26,6 +35,7 @@ import { OverworldScene } from "./scenes/overworld.js";
 import { BattleScene } from "./scenes/battle.js";
 import { drawText, painelEmBloco } from "./core/gfx.js";
 import { isoLigado } from "./core/isometrico.js";
+import { url as arquivo } from "./core/base.js";
 import { loadExternalSprites, adiantarDoMapa, adiantarOResto, mapArt, SpriteStore } from "./core/sprites.js";
 
 const W = 240, H = 160;
@@ -60,11 +70,19 @@ function mapaInicial(regiao) {
   return m && DB.MAPS[m] && DB.KANTO[m] ? m : DB.START_MAP;
 }
 
-function newState(regiao) {
+// MENINO OU MENINA: escolhido no JOGO NOVO, depois da região. Muda o desenho
+// no mapa (hero / heroina, ver Assets.actor) e o nome de quem joga. Save sem
+// o campo é de antes da escolha existir: menino. Em BRAGLITCH são os gêmeos
+// de lá, CAIO e LARA (tools/sprite_caio_lara.py).
+const NOME_DO_GENERO = { menino: "VERMELHO", menina: "FOLHA" };
+const NOME_BRAGLITCH = { menino: "CAIO", menina: "LARA" };
+
+function newState(regiao, genero = "menino") {
   const inicio = mapaInicial(regiao);
+  if (!NOME_DO_GENERO[genero]) genero = "menino";
   return {
     regiao: inicio === DB.START_MAP ? "kanto" : "braglitch",
-    player: { name: "VERMELHO", map: inicio, ...DB.MAPS[inicio].spawn },
+    player: { name: (inicio === DB.START_MAP ? NOME_DO_GENERO : NOME_BRAGLITCH)[genero], genero, map: inicio, ...DB.MAPS[inicio].spawn },
     party: [],
     box: [],
     items: { "poké bola": 5, "poção": 3 },
@@ -91,9 +109,11 @@ const game = {
   scenes: null,
   debug: false,
 
-  /** `regiao`: "kanto" ou "braglitch" (a escolha da tela de título). */
-  newGame(regiao) {
-    this.state = newState(regiao);
+  /** `regiao`: "kanto" ou "braglitch"; `genero`: "menino" ou "menina" (as
+   *  duas escolhas da tela de título). */
+  newGame(regiao, genero) {
+    this.state = newState(regiao, genero);
+    setTextVars({ NOME: this.state.player.name });
     Glitch.level = this.state.corruption;
     return this.state;
   },
@@ -227,7 +247,8 @@ const PAPEIS_FIXOS = [
   "hero", "heroina", "prof", "mae", "garoto", "garota", "velho", "velha", "menino", "menina",
   "enfermeira", "balconista", "rival", "gentleman", "cientista", "cacador", "policial", "pescador",
   "motoqueiro", "marinheiro", "montanhista", "rocket", "rocketf", "lutador", "superm", "superf",
-  "tecnico", "tecnica", "canalizadora", "maniaco", "roqueiro",
+  "tecnico", "tecnica", "canalizadora", "maniaco", "roqueiro", "ipe",
+  "hero_brag", "heroina_brag", "ash",
 ];
 const ATORES = [...new Set([
   ...PAPEIS_FIXOS,
@@ -302,7 +323,7 @@ if (stash?.state && !game.isValid(stash.state)) {
   // arquivo salvo.
   const busca = new URLSearchParams(location.search);   // o `q` do arquivo só nasce mais abaixo
   const atalhoDeDev = busca.has("map") || busca.has("battle") || busca.has("starter") || busca.has("era")
-    || busca.has("area") || busca.has("pokesave") || busca.has("lendasbrag");
+    || busca.has("area") || busca.has("pokesave") || busca.has("lendasbrag") || busca.has("ilhas");
   game.scenes.push(atalhoDeDev ? new TitleScene() : new AberturaScene());
 }
 
@@ -326,8 +347,63 @@ const q = new URLSearchParams(location.search);
 // ?lendasbrag=1 -> A VERSÃO DE TESTE do MISSINGNO em Braglitch: jogo novo na
 // BR-101 com as seis lendas pegas (sem ?map, começa em rota_br101)
 if (q.has("lendasbrag") && !q.has("map")) q.set("map", "rota_br101");
+// ?ilhas=1&perfil=teste -> BRAGLITCH com a missão das ilhas dada: no píer de SÃO
+// LUCARIO, do lado da lancha da IPÊ (TRONKY no 12). ?ilhas=N (2..8) já chega
+// com as ilhas de antes entregues, e na ilha N
+if (q.has("ilhas") && !q.has("map")) {
+  const n = Math.max(1, Math.min(8, +q.get("ilhas") || 1));
+  const ilha = DB.ILHAS_BRAG?.[n - 1];
+  if (n > 1 && ilha) { q.set("map", ilha.id); q.set("x", ilha.chegada.x); q.set("y", ilha.chegada.y); }
+  else { q.set("map", "sao_lucario"); q.set("x", 14); q.set("y", 21); }
+  if (!q.has("starter")) q.set("starter", `tronky:${5 + n * 5}`);
+}
+// ?gemeo=belem&genero=menino&perfil=teste -> BRAGLITCH de frente pro GÊMEO
+// (o rival de lá, src/data/rival.js): lab, belem, salvador, sampa, rio ou
+// brasilia, com as insígnias de ginásio que aquele encontro pede
+const GEMEO_TESTE = q.has("gemeo") && (DB.GEMEO?.encontros || []).find((e) => e.id === q.get("gemeo"));
+if (GEMEO_TESTE && !q.has("map")) {
+  const l = GEMEO_TESTE.cidade ? DB.LUGAR_DO_GEMEO[GEMEO_TESTE.cidade] : GEMEO_TESTE;
+  q.set("map", GEMEO_TESTE.cidade || GEMEO_TESTE.mapa);
+  q.set("x", l.x); q.set("y", l.y + 1); q.set("dir", "up");
+  const lvl = { lab: 5, belem: 14, salvador: 25, sampa: 36, rio: 46, brasilia: 53 }[GEMEO_TESTE.id] || 20;
+  if (!q.has("starter")) q.set("starter", `tronky:${lvl}`);
+}
+// ?liga=0&genero=menino&perfil=teste -> a ESPLANADA DA LIGA de Braglitch
+// (src/data/braglitch-liga.js) com as 8 insígnias e o MISSINGNO vencido: 0 na
+// frente do guarda, 1..4 na frente do próximo quiz com N já passados (4 = na
+// frente dos campeões, com o gêmeo do lado). Time forte pra aguentar.
+const LIGA_TESTE = q.has("liga") && DB.LIGA_BRAG ? Math.max(0, Math.min(4, +q.get("liga") || 0)) : null;
+if (LIGA_TESTE != null && !q.has("map")) {
+  const PAREDOES = DB.LIGA_BRAG.paredoes;
+  q.set("map", DB.LIGA_BRAG.mapa);
+  if (LIGA_TESTE === 0) { q.set("x", 14); q.set("y", PAREDOES[0] - 1); }
+  else if (LIGA_TESTE < 4) { q.set("x", 14); q.set("y", PAREDOES[LIGA_TESTE + 1] - 1); }
+  else { q.set("x", 13); q.set("y", 34); }
+  q.set("dir", "down");
+  if (!q.has("starter")) q.set("starter", "paubrasilisco:62");
+  if (!q.has("party")) q.set("party", "magmastim:60,tilapiracu:60,dragonite:60");
+}
+// ?descontrolada=gengar&perfil=teste -> de NOITE, do lado da MEGA DESCONTROLADA
+// daquela espécie (src/data/descontroladas.js), com um time forte
+const DESC_TESTE = q.has("descontrolada")
+  && (DB.DESCONTROLADAS?.lista || []).find((d) => d.id === q.get("descontrolada") || d.to === q.get("descontrolada"));
+if (DESC_TESTE && !q.has("map")) {
+  q.set("map", DESC_TESTE.mapa);
+  q.set("x", DESC_TESTE.perto[0]); q.set("y", DESC_TESTE.perto[1]);
+  if (!q.has("starter")) q.set("starter", "charizard:60");
+  if (!q.has("party")) q.set("party", "blastoise:60,venusaur:60,dragonite:60");
+}
+// ?ash=1&perfil=teste -> em PALLET, já campeão de Braglitch, com um time forte,
+// colado no ASH (src/data/ash.js) e virado pra ele: é só apertar A
+const ASH_TESTE = q.has("ash");
+if (ASH_TESTE && !q.has("map")) {
+  q.set("map", DB.ASH?.mapa || "pallet");
+  if (!q.has("starter")) q.set("starter", "mewtwo:90");
+  if (!q.has("party")) q.set("party", "rayquaza:90,garchomp:90,tyranitar:90,metagross:90,salamence:90");
+  if (!q.has("flags")) q.set("flags", "bragCampeao");
+}
 if (q.has("map") || q.has("battle") || q.has("era")) {
-  game.newGame();
+  game.newGame(GEMEO_TESTE || LIGA_TESTE != null ? "braglitch" : undefined, q.get("genero") || undefined);
   {
     const [sid, slvl] = (q.get("starter") || "charmander").split(":");
     const mon = game.giveStarter(sid);
@@ -349,6 +425,35 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
     game.state.flags.oakPending = n > 0;
     game.state.flags.starterChosen = true;
   }
+  if (DESC_TESTE) {
+    // o relógio do mundo no começo da próxima NOITE (src/systems/ciclo.js)
+    const fase = minutosDaFase() * 60000, ciclo = 2 * fase;
+    game.state.relogio = (ciclo - (Date.now() % ciclo)) % ciclo + fase + 1000;
+    game.state.items["poção"] = 20;
+  }
+  if (LIGA_TESTE != null) {
+    Object.assign(game.state.flags, { starterChosen: true, bragMissao: true, bragMissingnoVencido: true });
+    game.state.bragBadges = (DB.INSIGNIAS_BRAG || []).map((b) => b.id);
+    if (LIGA_TESTE > 0) game.state.flags.ligaPortao = true;
+    for (let i = 0; i < LIGA_TESTE; i++) game.state.flags[`ligaQuiz${i}`] = true;
+    game.state.items["poção"] = 20;
+  }
+  if (GEMEO_TESTE) {
+    game.state.flags.starterChosen = true;
+    game.state.flags.bragMissao = true;
+    game.state.bragBadges = (DB.INSIGNIAS_BRAG || []).slice(0, GEMEO_TESTE.requer?.ginasios || 0).map((b) => b.id);
+  }
+  if (q.has("ilhas")) {    // a missão das ilhas dada, e as de antes de N já entregues
+    const n = Math.max(1, Math.min(8, +q.get("ilhas") || 1));
+    Object.assign(game.state.flags, { starterChosen: true, bragMissao: true, bragIlhas: true });
+    game.state.bragBadges = (DB.ILHAS_BRAG || []).slice(0, n - 1).map((i) => `ilha_${i.id}`);
+    for (const pd of DB.PANDEIROS || []) {
+      if (!game.state.bragBadges.includes(`ilha_${pd.ilha}`)) continue;
+      game.state.flags[`pandeiro_${pd.id}`] = true;
+      game.state.items[pd.item] = 1;
+    }
+    game.state.items["poké bola"] = 99;
+  }
   if (q.get("glitchworld")) {   // ?glitchworld=1 -> testa a caçada final
     game.state.flags.glitchWorld = true;
     game.state.corruption = 60;
@@ -361,6 +466,30 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
   } else if (q.get("escort")) game.state.flags.escortPending = true;
   if (q.has("party")) {   // ?party=pidgey:8,pikachu:6 -> equipe extra pra teste
     addMons(game.state, q.get("party"));
+  }
+  if (q.has("horda")) {  // ?horda=rattata&map=route1 -> a primeira coisa é uma HORDA dessa espécie (&qtd=3..5)
+    const id = DB.SPECIES[q.get("horda")] ? q.get("horda") : "rattata";
+    const lvl = +q.get("lvl") || 8;
+    const qtd = Math.max(3, Math.min(5, +q.get("qtd") || 5));   // &qtd=3..5
+    const foes = Array.from({ length: qtd }, (_, i) => createMon(id, Math.max(2, lvl - (i ? 2 : 0))));
+    setTimeout(() => game.scenes.push(new HordaScene(), {
+      foes, aoFim: () => game.scenes.push(new GrupoBattleScene(), { foes, horda: true }),
+    }), 300);
+  }
+  // ?hordas=1&map=route1 -> todo selvagem comum nasce com HORDA (e as silhuetas em cima)
+  if (q.has("hordas") && DB.CONFIG) DB.CONFIG.hordaOdds = 1;
+  if (q.has("flags")) {    // ?flags=bragCampeao,caughtMissingno -> marcas da história ligadas
+    for (const f of q.get("flags").split(",")) if (f.trim()) game.state.flags[f.trim()] = true;
+  }
+  if (q.has("mochila")) {  // ?mochila=guarda-roupa único:1,poção:5 -> itens na mochila pra teste
+    for (const par of q.get("mochila").split(",")) {
+      const [item, n] = par.split(":");
+      if (item?.trim()) game.state.items[item.trim()] = Math.max(1, +n || 1);
+    }
+  }
+  if (q.has("golpes")) {  // ?golpes=chicotedevinha,folhanavalha -> a equipe inteira só com esses
+    const ids = q.get("golpes").split(",").map((g) => g.trim()).filter((g) => DB.MOVES[g]).slice(0, 4);
+    if (ids.length) for (const m of game.state.party) m.moves = ids.map((id) => ({ id, pp: DB.MOVES[id].pp, ppMax: DB.MOVES[id].pp }));
   }
   if (q.get("dim")) {   // ?dim=3 -> já dentro da dimensão, missão 3
     game.state.mission = { n: +q.get("dim") || 1, back: { map: "lab", x: 6, y: 11, dir: "up" } };
@@ -434,13 +563,140 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
     game.state.flags.dimUnlocked = true;
     game.state.fragment = { map: p2.map, x: p2.x, y: p2.y + 1 };
   }
-  game.scenes.replace(new OverworldScene());
+  const cena = game.scenes.replace(new OverworldScene());
+  if (ASH_TESTE) {
+    // o lugar do ASH é achado pelo próprio mapa; o jogador vai pro primeiro
+    // chão livre colado nele (embaixo, dos lados, em cima) e olha pra ele
+    const ash = cena.ashNpc?.();
+    const p = game.state.player;
+    if (ash) {
+      for (const [dx, dy, dir] of [[0, 1, "up"], [-1, 0, "right"], [1, 0, "left"], [0, -1, "down"]]) {
+        const x = ash.x + dx, y = ash.y + dy;
+        if (cena.blocked(x, y)) continue;
+        Object.assign(p, { x, y, dir });
+        break;
+      }
+      cena.snapCamera?.();
+    }
+  }
   if (q.has("battle")) {
     const foe = createMon(q.get("battle"), +(q.get("lvl") || 5));
+    if (q.has("foegolpes")) {   // &foegolpes=ondadechoque -> o selvagem só com esses golpes
+      const ids = q.get("foegolpes").split(",").map((g) => g.trim()).filter((g) => DB.MOVES[g]).slice(0, 4);
+      if (ids.length) foe.moves = ids.map((id) => ({ id, pp: DB.MOVES[id].pp, ppMax: DB.MOVES[id].pp }));
+    }
     const bs = game.scenes.push(new BattleScene(), { foe, glitch: q.get("battle") === "missingno" });
     bs.fadeA = 0; bs.fadeDir = 0;
   }
   if (q.get("debug")) game.debug = true;
+}
+
+// ?evolucao=charmander:charmeleon&perfil=teste -> abre direto a tela de evolução
+// (jogo novo, o primeiro vira o inicial). &estranho=1 -> a versão da pedra da fenda.
+if (q.has("evolucao")) {
+  const [de, para] = (q.get("evolucao") || "").split(":");
+  const sid = DB.SPECIES[de] ? de : "charmander";
+  const to = DB.SPECIES[para] ? para : DB.EVOLUTIONS?.[sid]?.[0]?.to;
+  if (!(game.scenes.top instanceof OverworldScene)) {
+    game.newGame();
+    game.giveStarter(sid);
+    game.scenes.replace(new OverworldScene());
+  }
+  // UM BICHO NOVO da espécie pedida, e não o primeiro da equipe: recarregando
+  // a página, o jogo restaura a partida do perfil, e o primeiro da equipe já é
+  // a forma evoluída — a cena mostrava "PARASECTROM EVOLUIU PARA PARASECTROM"
+  const mon = createMon(sid, 30);
+  // as formas do ZYGARDE trocam pelo CUBO: a cena é a de mudar de forma
+  const cubo = DB.CUBO_ZYGARDE;
+  const forma = cubo?.aceita.includes(sid) && cubo.aceita.includes(to) ? cubo.cena : null;
+  if (to) game.scenes.push(new EvolutionScene(), { mon, to, estranho: q.has("estranho"), forma });
+}
+
+// ?megacena=charizard:megacharizardx&perfil=teste -> abre direto a cutscene da
+// MEGA EVOLUÇÃO (src/scenes/mega.js), a mesma da batalha, com a frase no fim
+if (q.has("megacena")) {
+  const [de, para] = (q.get("megacena") || "").split(":");
+  const sid = DB.SPECIES[de] ? de : "charizard";
+  const to = DB.SPECIES[para] ? para : DB.MEGAS?.[sid]?.[0]?.to;
+  if (!(game.scenes.top instanceof OverworldScene)) {
+    game.newGame();
+    game.giveStarter(sid);
+    game.scenes.replace(new OverworldScene());
+  }
+  // um bicho novo da espécie pedida (o primeiro da equipe pode ser outro, ver ?evolucao=)
+  if (to) game.scenes.push(new MegaScene(), { mon: createMon(sid, 30), to, sozinha: true });
+}
+
+// ?hordacena=rattata:5&perfil=teste -> só a cutscene da HORDA (src/scenes/horda.js),
+// com a frase no fim; o número é o tamanho (3 a 5)
+if (q.has("hordacena")) {
+  const [id, n] = (q.get("hordacena") || "").split(":");
+  const sp = DB.SPECIES[id] ? id : "rattata";
+  const qtd = Math.max(3, Math.min(5, +n || 5));
+  if (!(game.scenes.top instanceof OverworldScene)) {
+    game.newGame();
+    game.giveStarter("charmander");
+    game.scenes.replace(new OverworldScene());
+  }
+  const foes = Array.from({ length: qtd }, () => createMon(sp, 8));
+  game.scenes.push(new HordaScene(), { foes, sozinha: true });
+}
+
+// ?soltarcena=pikachu&perfil=teste -> só a cutscene de SOLTAR (src/scenes/soltar.js)
+if (q.has("soltarcena")) {
+  const id = DB.SPECIES[q.get("soltarcena")] ? q.get("soltarcena") : "pikachu";
+  if (!(game.scenes.top instanceof OverworldScene)) {
+    game.newGame();
+    game.giveStarter("charmander");
+    game.scenes.replace(new OverworldScene());
+  }
+  game.scenes.push(new SoltarScene(), { mon: createMon(id, 20) });
+}
+
+// ?vestircena=pikachu&perfil=teste -> só a cutscene do GUARDA-ROUPA ÚNICO
+// (src/scenes/vestir.js), vestindo a primeira forma única da espécie
+if (q.has("vestircena")) {
+  const base = DB.SPECIES[q.get("vestircena")] ? q.get("vestircena") : "pikachu";
+  const para = DB.UNICAS_DE?.[base]?.[0] || base;
+  if (!(game.scenes.top instanceof OverworldScene)) {
+    game.newGame();
+    game.giveStarter("charmander");
+    game.scenes.replace(new OverworldScene());
+  }
+  game.scenes.push(new VestirScene(), {
+    mon: createMon(base, 20), de: base, para, frase: `${DB.SPECIES[base].name} VESTIU ${DB.SPECIES[para].name}!`,
+  });
+}
+
+// ?troca=charmander:pikachu&perfil=teste -> só o filme da TROCA COM NPC
+// (src/scenes/trocanpc.js): o primeiro é o seu, que vai; o segundo o que vem
+if (q.has("troca")) {
+  const [a, b] = (q.get("troca") || "").split(":");
+  const meuId = DB.SPECIES[a] ? a : "charmander", novoId = DB.SPECIES[b] ? b : "pikachu";
+  if (!(game.scenes.top instanceof OverworldScene)) {
+    game.newGame();
+    game.giveStarter(meuId);
+    game.scenes.replace(new OverworldScene());
+  }
+  game.scenes.push(new TrocaNpcScene(), {
+    meu: createMon(meuId, 10), novo: createMon(novoId, 10), dono: "TREINADOR", onDone: () => {},
+  });
+}
+
+// ?fundir=pikachu:charmander&perfil=teste -> abre direto o filme da FUSÃO
+// (jogo novo, os dois na equipe; o primeiro é a cabeça, o segundo o corpo).
+// Um terceiro pedaço escolhe a VARIANTE: ?fundir=rotom:voltorb:pokball
+if (q.has("fundir")) {
+  const [a, b, variante = ""] = (q.get("fundir") || "").split(":");
+  const cab = DB.SPECIES[a] ? a : "pikachu", cor = DB.SPECIES[b] ? b : "charmander";
+  if (!(game.scenes.top instanceof OverworldScene)) {
+    game.newGame();
+    game.giveStarter(cab);
+    game.scenes.replace(new OverworldScene());
+  }
+  game.giveStarter(cor);
+  const [cabeca, corpo] = game.state.party.slice(-2);
+  game.scenes.push(new FusionScene(), { modo: "fundir", cabeca, corpo, variante });
 }
 
 // ?presente=LENDAS001 -> entrega aquele PRESENTE MISTERIOSO (um código de
@@ -540,6 +796,27 @@ if (q.has("give")) {
   if (game.scenes.top instanceof OverworldScene) entregar(game.state);
 }
 
+// ?itens=1 -> a mochila com UM DE CADA item que tem desenho (a lista é a de
+// assets/sprites/itens/itens.json, escrita por tools/itens_sprites.py), mais
+// um OVO DA CRECHE e um item inventado, pra ver os ícones de família e a
+// sacolinha. Funciona com CONTINUAR e com jogo novo; usar com &perfil=.
+if (q.has("itens")) {
+  const encher = (st) => {
+    if (!st?.items) return;
+    fetch(arquivo("assets/sprites/itens/itens.json")).then((r) => r.json()).then((j) => {
+      for (const nome of Object.keys(j.itens || {})) st.items[nome] = Math.max(st.items[nome] || 0, 1);
+      st.items["ovo de pichu"] = 1;
+      st.items["coisa sem desenho"] = 1;
+      game.autosave(true);
+    }).catch((e) => console.warn("[itens]", e));
+  };
+  const loadOrig = game.loadGame.bind(game);
+  game.loadGame = () => { const st = loadOrig(); encher(st); return st; };
+  const newOrig = game.newGame.bind(game);
+  game.newGame = (...a) => { const st = newOrig(...a); encher(st); return st; };
+  if (game.scenes.top instanceof OverworldScene) encher(game.state);
+}
+
 // ?area=<código> -> entra numa GLITCH ZONE que alguém montou na oficina
 // (glitchzone/). O código carrega a zona inteira (src/systems/glitchzones.js,
 // zonaDoCodigo), então quem abre o link cai NO MESMO LUGAR, tile por tile.
@@ -580,7 +857,7 @@ for (const e of DB.ERAS || []) {
 // BRAGLITCH: os mapas abertos saem da planta (src/data/braglitch.js); os
 // interiores usam o desenho de um interior de Kanto (`arte`, ver mapArt)
 for (const [id, geo] of Object.entries(DB.KANTO)) {
-  if (geo.braglitch && geo.planta) SpriteStore.maps[id] = Assets.braglitchArt(geo);
+  if (geo.planta) SpriteStore.maps[id] = Assets.braglitchArt(geo);
 }
 // só desenha a ilha em código quando o mapa do decomp não foi importado
 if (ILHA_GERADA) SpriteStore.maps.birth_island = Assets.islandArt(DB.KANTO.birth_island);
@@ -589,6 +866,9 @@ adiantarDoMapa(game.state);    // a equipe e os bichos daqui vêm primeiro
 adiantarOResto();              // e o resto entra sozinho, de pouquinho em pouquinho
 
 setTextVars({ NOME: game.state.player?.name || "VERMELHO" });
+// o desenho do jogador sai do save de agora, em qualquer cena: menino ou
+// menina, e a roupa de BRAGLITCH enquanto o mapa for de lá
+Assets.jogador = () => folhaDoJogador(game.state);
 
 /** O jogo publicado no Pages pode ficar com metade dos arquivos velhos por até
  *  dez minutos depois de uma atualização (cada um tem o próprio cache), e aí um

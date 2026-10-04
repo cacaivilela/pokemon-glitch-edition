@@ -30,6 +30,10 @@ export const naFenda = (mapa) => mapa === "glitchdim";
 export const naEra = (mapa) => (DB.ERAS || []).some((e) => e.mapa === mapa);
 /** BRAGLITCH: qualquer mapa de lá (src/data/braglitch.js marca a geometria). */
 export const emBraglitch = (mapa) => !!DB.KANTO?.[mapa]?.braglitch;
+/** A REGIÃO de um mapa: "braglitch" ou "kanto" (tudo o mais: Kanto, as SEVII,
+ *  a fenda, as eras...). É o que o VOAR e o objetivo na tela usam pra separar
+ *  as listas. */
+export const regiaoDoMapa = (mapa) => DB.KANTO?.[mapa]?.regiao || "kanto";
 /** EM BRAGLITCH O GLITCH VIRA FOLCLORE: o que escapa dos dados vira lenda
  *  (SACI, BOITATÁ, IARA...), e não MISSINGNO. Até você pegar AS SEIS LENDAS
  *  (DB.LENDAS_BRAG): aí não sobra lenda pra virar, o MISSINGNO chega

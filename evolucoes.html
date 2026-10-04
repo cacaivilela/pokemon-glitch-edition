@@ -1,0 +1,229 @@
+<!doctype html>
+<!-- GALERIA DAS EVOLUÇÕES: todas as regras de DB.EVOLUTIONS numa grade, e
+     clicar numa abre a cutscene de verdade (index.html?evolucao=de:para) num
+     player. O jogo do player roda no perfil "evolucoes": NUNCA no save.json
+     de quem joga. Uso: http://localhost:5173/evolucoes.html -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Evoluções — Pokémon Glitch Edition</title>
+<style>
+  :root { color-scheme: dark; --fundo:#0b0d10; --cartao:#151a21; --borda:#232a34; --texto:#d6dde6; --apagado:#6b7684; --roxo:#8f6bd8; --roxo2:#b455ff; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--fundo); color:var(--texto); font:14px ui-monospace, "SF Mono", Menlo, Consolas, monospace; padding:20px 16px 60px; }
+  header { max-width:1200px; margin:0 auto 18px; }
+  h1 { font-size:22px; letter-spacing:1px; }
+  h1 span { color:var(--roxo2); }
+  header p { color:var(--apagado); margin-top:6px; font-size:12px; }
+  .barra { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; align-items:center; }
+  input[type=search] { flex:1 1 240px; background:var(--cartao); border:1px solid var(--borda); color:var(--texto); padding:9px 12px; border-radius:6px; font:inherit; }
+  input[type=search]:focus { outline:none; border-color:var(--roxo); }
+  .chip { background:var(--cartao); border:1px solid var(--borda); color:var(--apagado); padding:7px 11px; border-radius:99px; cursor:pointer; font:inherit; font-size:12px; }
+  .chip.on { color:#fff; border-color:var(--roxo); background:#241a3a; }
+  #conta { color:var(--apagado); font-size:12px; margin-left:auto; }
+  #grade { max-width:1200px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px; }
+  .evo { background:var(--cartao); border:1px solid var(--borda); border-radius:8px; padding:10px; cursor:pointer; text-align:center; transition:border-color .15s, transform .15s; }
+  .evo:hover, .evo:focus-visible { border-color:var(--roxo); transform:translateY(-2px); outline:none; }
+  .par { display:flex; align-items:center; justify-content:center; gap:4px; }
+  .par canvas { width:72px; height:72px; image-rendering:pixelated; }
+  .seta { color:var(--roxo2); font-size:18px; }
+  .nomes { font-size:12px; margin-top:4px; line-height:1.4; }
+  .nomes b { color:#fff; font-weight:normal; }
+  .como { font-size:11px; color:var(--apagado); margin-top:3px; }
+  #vazio { text-align:center; color:var(--apagado); margin-top:40px; }
+
+  #player { position:fixed; inset:0; background:rgba(4,5,8,.92); display:none; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:16px; z-index:10; }
+  #player.aberto { display:flex; }
+  #tela { width:min(96vw, calc((100vh - 170px) * 1.5)); aspect-ratio:3/2; border:0; border-radius:4px; background:#000; }
+  #titulo { font-size:16px; }
+  #titulo .como { display:inline; margin-left:8px; }
+  #dica { color:var(--apagado); font-size:12px; text-align:center; }
+  #dica kbd { border:1px solid var(--borda); border-radius:4px; padding:1px 5px; color:var(--texto); }
+  .botoes { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; align-items:center; }
+  .botoes button { background:var(--cartao); border:1px solid var(--borda); color:var(--texto); padding:8px 14px; border-radius:6px; cursor:pointer; font:inherit; font-size:13px; }
+  .botoes button:hover { border-color:var(--roxo); }
+  .botoes label { color:var(--apagado); font-size:12px; display:flex; gap:6px; align-items:center; cursor:pointer; }
+  @media (max-width:520px) { #grade { grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); } .par canvas { width:56px; height:56px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>EVOLUÇÕES <span>— Pokémon Glitch Edition</span></h1>
+  <p>Todas as evoluções do jogo. Clique numa para ver a cutscene de verdade (com a música), rodando num save à parte que não mexe na sua partida.</p>
+  <div class="barra">
+    <input id="busca" type="search" placeholder="buscar (nome, pedra, nível...)" autocomplete="off">
+    <button class="chip on" data-f="todas">todas</button>
+    <button class="chip" data-f="kanto">kanto</button>
+    <button class="chip" data-f="outras">outras regiões</button>
+    <button class="chip" data-f="especiais">formas do jogo</button>
+    <button class="chip" data-f="forma">mudar de forma</button>
+    <button class="chip" data-f="mega">mega evolução</button>
+    <span id="conta"></span>
+  </div>
+</header>
+<main id="grade"></main>
+<p id="vazio" hidden>nenhuma evolução com esse nome.</p>
+
+<div id="player" role="dialog" aria-modal="true">
+  <div id="titulo"></div>
+  <iframe id="tela" title="cutscene de evolução"></iframe>
+  <div id="dica">clique na tela e aperte <kbd>ENTER</kbd> para começar · <kbd>ESC</kbd> fecha</div>
+  <div class="botoes">
+    <button id="ant">◀ anterior</button>
+    <button id="rever">↻ ver de novo</button>
+    <button id="prox">próxima ▶</button>
+    <label><input type="checkbox" id="estranho"> versão da pedra da fenda</label>
+    <label><input type="checkbox" id="iso"> isométrico</label>
+    <button id="fechar">fechar</button>
+  </div>
+</div>
+
+<script type="module">
+import { DB } from "./src/data/index.js";
+import { Assets } from "./src/core/assets.js";
+
+const nome = (id) => DB.SPECIES[id]?.name || id.toUpperCase();
+const como = (r) => {
+  const p = [];
+  if (r.lvl) p.push(`nível ${r.lvl}`);
+  if (r.item) p.push(r.item.toUpperCase());
+  if (r.amizade) p.push(`amizade ${r.amizade}`);
+  if (r.onde) p.push(`em ${String(r.onde).toUpperCase()}`);
+  if (r.secreta) p.push("SECRETA");
+  return p.join(" · ") || "especial";
+};
+// kanto = a linhagem toda dentro dos 151; outras = a pokédex nacional; o resto
+// (MEGAs, regionais, BRAG, hackeanas, bonés...) são as formas do jogo
+const grupo = (de, para) => {
+  const a = DB.SPECIES[de], b = DB.SPECIES[para];
+  const nac = (s, id) => s && s.dex >= 1 && s.dex <= 1025 && !s.spriteDex && !/[-_]/.test(id);
+  if (!nac(a, de) || !nac(b, para)) return "especiais";
+  return a.dex <= 151 && b.dex <= 151 ? "kanto" : "outras";
+};
+
+const lista = [];
+for (const [de, regras] of Object.entries(DB.EVOLUTIONS || {})) {
+  for (const r of regras) {
+    if (!DB.SPECIES[de] || !DB.SPECIES[r.to]) continue;
+    lista.push({ de, para: r.to, como: como(r), grupo: grupo(de, r.to), dex: DB.SPECIES[de].dex || 9999 });
+  }
+}
+// AS MUDANÇAS DE FORMA (o CUBO ZYGARDE): não são evolução, mas têm a mesma
+// cutscene, no tema verde das células — toda forma pra toda outra
+const cubo = DB.CUBO_ZYGARDE;
+for (const de of cubo?.aceita || []) for (const para of cubo.aceita) {
+  if (de === para || !DB.SPECIES[de] || !DB.SPECIES[para]) continue;
+  lista.push({ de, para, como: cubo.item.toUpperCase(), grupo: "forma", dex: DB.SPECIES[de].dex || 9999 });
+}
+// AS MEGA EVOLUÇÕES (DB.MEGAS): a cutscene é outra, a da batalha
+// (src/scenes/mega.js) — o cristal, o símbolo e o arco-íris
+for (const [de, regras] of Object.entries(DB.MEGAS || {})) {
+  for (const r of regras) {
+    if (!DB.SPECIES[de] || !DB.SPECIES[r.to]) continue;
+    lista.push({ de, para: r.to, como: r.pedra ? r.pedra.toUpperCase() : "sem pedra", grupo: "mega", mega: true, dex: DB.SPECIES[de].dex || 9999 });
+  }
+}
+lista.sort((x, y) => x.dex - y.dex || x.de.localeCompare(y.de));
+
+// sprites: o mesmo Assets.mon do jogo (BRAG, fusões, hackeanas, SPINDA...),
+// pedido só quando o cartão aparece; redesenha até o PNG chegar
+const pendentes = new Set();
+const desenha = (cv) => {
+  const img = Assets.mon(cv.dataset.id, 1);
+  const ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, 64, 64);
+  if (img) ctx.drawImage(img, (64 - img.width) / 2, (64 - img.height) / 2);
+};
+const olho = new IntersectionObserver((vistos) => {
+  for (const v of vistos) if (v.isIntersecting) {
+    for (const cv of v.target.querySelectorAll("canvas")) { desenha(cv); pendentes.add(cv); }
+    olho.unobserve(v.target);
+  }
+}, { rootMargin: "300px" });
+// sem como saber se é provisória, redesenha por um tempo depois de pedir
+setInterval(() => {
+  const agora = performance.now();
+  for (const cv of pendentes) {
+    cv._t ||= agora;
+    desenha(cv);
+    if (agora - cv._t > 8000) pendentes.delete(cv);
+  }
+}, 400);
+
+const grade = document.getElementById("grade");
+const sprite = (id) => { const c = document.createElement("canvas"); c.width = c.height = 64; c.dataset.id = id; return c; };
+for (const [i, e] of lista.entries()) {
+  const d = document.createElement("div");
+  d.className = "evo"; d.tabIndex = 0; d.dataset.i = i;
+  const par = document.createElement("div"); par.className = "par";
+  par.append(sprite(e.de), Object.assign(document.createElement("span"), { className: "seta", textContent: "→" }), sprite(e.para));
+  d.append(par);
+  d.insertAdjacentHTML("beforeend", `<div class="nomes"><b></b> → <b></b></div><div class="como"></div>`);
+  const [b1, b2] = d.querySelectorAll("b");
+  b1.textContent = nome(e.de); b2.textContent = nome(e.para);
+  d.querySelector(".como").textContent = e.como;
+  e.el = d;
+  e.busca = `${nome(e.de)} ${nome(e.para)} ${e.de} ${e.para} ${e.como}`.toLowerCase();
+  grade.append(d);
+  olho.observe(d);
+}
+
+let filtro = "todas", visiveis = lista;
+const aplica = () => {
+  const q = document.getElementById("busca").value.trim().toLowerCase();
+  visiveis = lista.filter((e) => (filtro === "todas" || e.grupo === filtro) && (!q || e.busca.includes(q)));
+  const ok = new Set(visiveis);
+  for (const e of lista) e.el.hidden = !ok.has(e);
+  document.getElementById("conta").textContent = `${visiveis.length} de ${lista.length}`;
+  document.getElementById("vazio").hidden = visiveis.length > 0;
+};
+document.getElementById("busca").addEventListener("input", aplica);
+for (const c of document.querySelectorAll(".chip")) c.addEventListener("click", () => {
+  document.querySelectorAll(".chip").forEach((x) => x.classList.toggle("on", x === c));
+  filtro = c.dataset.f; aplica();
+});
+aplica();
+
+// o player
+const player = document.getElementById("player"), tela = document.getElementById("tela");
+const estranho = document.getElementById("estranho");
+// ISOMÉTRICO: começa desligado; o ?iso= força o modo só no jogo do player,
+// sem mexer na opção que o jogo guarda pra quem joga
+const iso = document.getElementById("iso");
+let atual = null;
+const toca = (e) => {
+  atual = e;
+  const t = document.getElementById("titulo");
+  t.textContent = `${nome(e.de)} → ${nome(e.para)}`;
+  t.append(Object.assign(document.createElement("span"), { className: "como", textContent: e.como }));
+  // perfil próprio: NUNCA gravar no save.json de quem joga
+  const par = `${encodeURIComponent(e.de)}:${encodeURIComponent(e.para)}`;
+  tela.src = e.mega
+    ? `index.html?megacena=${par}&iso=${iso.checked ? 1 : 0}&perfil=evolucoes`
+    : `index.html?evolucao=${par}${estranho.checked ? "&estranho=1" : ""}&iso=${iso.checked ? 1 : 0}&perfil=evolucoes`;
+  player.classList.add("aberto");
+};
+tela.addEventListener("load", () => tela.focus());
+const fecha = () => { player.classList.remove("aberto"); tela.src = "about:blank"; atual?.el.focus(); };
+const anda = (passo) => {
+  const i = visiveis.indexOf(atual);
+  if (visiveis.length) toca(visiveis[(i + passo + visiveis.length) % visiveis.length]);
+};
+grade.addEventListener("click", (ev) => { const d = ev.target.closest(".evo"); if (d) toca(lista[d.dataset.i]); });
+grade.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && ev.target.classList.contains("evo")) toca(lista[ev.target.dataset.i]); });
+document.getElementById("fechar").onclick = fecha;
+document.getElementById("rever").onclick = () => atual && toca(atual);
+document.getElementById("ant").onclick = () => anda(-1);
+document.getElementById("prox").onclick = () => anda(1);
+estranho.onchange = () => atual && toca(atual);
+iso.onchange = () => atual && toca(atual);
+player.addEventListener("click", (ev) => { if (ev.target === player) fecha(); });
+document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && player.classList.contains("aberto")) fecha(); });
+// o ESC apertado com o foco dentro do jogo também fecha
+tela.addEventListener("load", () => {
+  try { tela.contentWindow.addEventListener("keydown", (ev) => { if (ev.key === "Escape") fecha(); }); } catch {}
+});
+</script>
+</body>
+</html>

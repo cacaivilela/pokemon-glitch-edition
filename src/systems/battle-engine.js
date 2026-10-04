@@ -1,6 +1,7 @@
 // Regras de batalha (sem render): dano, stages, status, captura e IA.
 import { DB } from "../data/index.js";
 import { bonusDoAtributo } from "./glitchboost.js";
+import { fatorAtributo, fatorDanoRecebido } from "./pedras.js";
 import { pick, chance, clamp, randRange } from "../core/rng.js";
 import { isFainted } from "./mon.js";
 import { efeitoNoGolpe, semCrit, semStatus, semQueda, fatorVelocidade, habilidadeDoMon } from "./habilidades.js";
@@ -13,6 +14,8 @@ export function effectiveStat(mon, key, stages, clima = null) {
   let v = withStage(mon.stats[key], stages[key] || 0);
   // NADO RÁPIDO, CLOROFILA: a velocidade muda com o clima (src/data/habilidades.js)
   if (key === "spe") v = Math.floor(v * fatorVelocidade(mon, clima));
+  // AS PEDRAS BRAGLITCHIANAS na mochila (src/systems/pedras.js): só nos seus
+  v = Math.floor(v * fatorAtributo(mon, key));
   // O GLITCHBOOSTER entra AQUI, e não nos `stats`: o dano acumulado é um bônus
   // que vive só nesta batalha, então ele não pode encostar no Pokémon gravado.
   v += bonusDoAtributo(mon, key);
@@ -56,6 +59,8 @@ export function calcDamage(atk, def, moveId, aStages, dStages, clima = null) {
   const contra = ha?.contraAtaque && aStages?.acumulado > 0 ? Math.min(1, aStages.acumulado / atk.maxHp) : 0;
   dmg = Math.floor(dmg * stab * eff * rand * (crit ? 2 : 1) * hab.mult * (1 + contra)) + (hab.extra || 0);
   if (atk.corrupt) dmg = Math.floor(dmg * 1.2);
+  // a PEDRA DO TATU: os seus apanham menos
+  dmg = Math.floor(dmg * fatorDanoRecebido(def));
 
   // Espelho: bater num Pokémon corrompido usando a MESMA espécie faz o dado
   // dele entrar em conflito consigo mesmo — 8x de dano.

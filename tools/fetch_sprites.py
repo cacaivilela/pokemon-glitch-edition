@@ -68,7 +68,9 @@ MEGA_DEX = [10033, 10034, 10035, 10036, 10037, 10038, 10039, 10040,
             10041, 10042, 10043, 10044, 10071, 10073, 10090,
             # os PIKACHU DE BONÉ das ilhas SEVII (src/data/bones.js). São FORMAS,
             # como as MEGA: o número é o da forma na PokeAPI, não o da Pokédex.
-            10094, 10095, 10096, 10097, 10098, 10099, 10148, 10160]
+            10094, 10095, 10096, 10097, 10098, 10099, 10148, 10160,
+            # as formas do ZYGARDE (src/data/extra.js): 10% e COMPLETO
+            10181, 10120]
 # AS FORMAS REGIONAIS (src/data/regionais.js): ALOLA, GALAR, HISUI e PALDEA.
 # Também são ids de FORMA da PokeAPI, lidos direto da tabela do jogo — mexeu
 # em regionais.js, este script já sabe.

@@ -13,6 +13,7 @@ import { EVO_BONES } from "./bones.js";
 import { EVO_MAIS } from "./mais.js";
 import { EVO_HACKEANAS } from "./hackeanas.js";
 import { EVO_BRAGLITCH } from "./braglitch.js";
+import { EVO_SECRETAS } from "./secretas.js";
 
 export const EVOLUTIONS = {
   // OS INICIAIS DAS OUTRAS REGIÕES. As regras saem de src/data/iniciais.js,
@@ -196,6 +197,12 @@ for (const [id, regras] of Object.entries(EVO_HACKEANAS)) {
 // AS FORMAS BRAGLITCHIANAS (src/data/braglitch.js): só existem do lado de lá
 // do mar, e evoluem dentro da forma, com o gatilho da base.
 for (const [id, regras] of Object.entries(EVO_BRAGLITCH)) {
+  EVOLUTIONS[id] = [...regras, ...(EVOLUTIONS[id] || [])];
+}
+
+// AS SECRETAS (src/data/secretas.js): o PARASECTROM e companhia. Na frente,
+// porque a marca é rara e, quando existe, ela é que manda.
+for (const [id, regras] of Object.entries(EVO_SECRETAS)) {
   EVOLUTIONS[id] = [...regras, ...(EVOLUTIONS[id] || [])];
 }
 

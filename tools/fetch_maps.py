@@ -303,7 +303,7 @@ def convert(folder, layout_index, dest_index, wild):
     w, h = lay["width"], lay["height"]
     prim = Tileset(folder_for(lay["primary_tileset"]))
     sec = Tileset(folder_for(lay["secondary_tileset"])) if lay.get("secondary_tileset") else None
-    interior = lay["primary_tileset"] == "gTileset_Building"
+    interior = lay["primary_tileset"] in ("gTileset_Building", "gTileset_InsideBuilding")   # FRLG | Emerald
 
     blocks = fetch(lay["blockdata_filepath"])
     cells = [int.from_bytes(blocks[i * 2:i * 2 + 2], "little") for i in range(w * h)]

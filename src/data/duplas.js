@@ -150,6 +150,10 @@ export const DUPLA_TEXTO = {
   inimigos: "ACERTA OS DOIS DO OUTRO LADO!",
   semFuga: "NÃO DÁ PRA FUGIR DE UMA BATALHA DUPLA!",
   quemEntra: "QUEM ENTRA NO LUGAR DE {MON}?",
+  // as HORDAS (1 contra 5)
+  horda: "UMA HORDA DE {MON} APARECEU!",
+  hordaSobrou: "SÓ SOBROU UM {MON}! AGORA DÁ PRA JOGAR BOLA.",
+  hordaFugiu: "VOCÊ FUGIU DA HORDA!",
   opcao: "BATALHA DUPLA",
   opcaoDica: "TREINADOR COM 2+ POKÉMON LUTA EM DUPLA",
 };

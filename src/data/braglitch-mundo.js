@@ -1,5 +1,6 @@
 // BRAGLITCH, DA MATA DO SACI PRA CIMA: oito cidades, oito ginásios, oito
-// estradas e as três lendas.
+// estradas e as lendas. (As ILHAS da PROFA. IPÊ correm junto: os chefes -BRAG
+// e as formas moram lá, src/data/braglitch-ilhas.js.)
 //
 // O caminho é um só, subindo o mapa: SÃO LUCARIO → BR-101 → MATA DO SACI →
 // MATA ATLÂNTICA → BELÉM DO PARASECT → ... → BASCULINHA, a capital, onde o
@@ -22,7 +23,10 @@
 import { LUGARES as SUL } from "./braglitch-sul.js";
 import { LUGARES as NORTE } from "./braglitch-norte.js";
 import { LUGARES as CENTRO } from "./braglitch-centro.js";
-export const LUGARES_NOVOS = [...SUL, ...NORTE, ...CENTRO];
+import { LUGARES as LIGA } from "./braglitch-liga.js";
+// AS CINCO ILHAS da história (src/data/braglitch-ilhas.js): só se chega na lancha da IPÊ
+import { LUGARES as ILHAS, ILHAS as ILHAS_DA_HISTORIA } from "./braglitch-ilhas.js";
+export const LUGARES_NOVOS = [...SUL, ...NORTE, ...CENTRO, ...ILHAS, ...LIGA];
 
 // ------------------------------------------------------- as plantas-molde
 const MOLDE_A = [
@@ -217,6 +221,8 @@ function lugaresDeTreinador(planta, quantos) {
 // --------------------------------------------------- as cidades e ginásios
 // `ginasio`: qual interior de Kanto a sala do ginásio copia (só os três sem
 // quebra-cabeça: pedra de Pewter, piscina de Cerulean, jardim de Celadon).
+// Os ginásios VOLTARAM (out/2026) depois de um tempo só com as ilhas: as duas
+// coisas existem juntas, cada uma com as insígnias dela.
 export const CIDADES = [
   {
     id: "belem", nome: "BELÉM DO PARASECT", molde: "A", marco: "~", musica: "saolucario",
@@ -230,8 +236,8 @@ export const CIDADES = [
                   ["EXTRATIVISTA ZECA", "garoto", [["vitoriregia", 12]]]],
     placa: "BELÉM DO PARASECT — A PORTA DA AMAZÔNIA.\nPROVE O AÇAÍ. COM FARINHA.",
     povo: [
-      ["velha", ["NO MERCADO DO VER-O-PESO TEM ERVA PRA TUDO.", "PRA DERROTA NO GINÁSIO TAMBÉM, MAS NÃO FUNCIONA."]],
-      ["pescador", ["DEPOIS DO APAGÃO, O RIO SUBIU SEM CHOVER.", "A JACIRA DIZ QUE É A MATA RESPIRANDO. EU DIGO QUE É GLITCH."]],
+      ["velha", ["NO MERCADO DO VER-O-PESO TEM ERVA PRA TUDO.", "TEM ATÉ ERVA PRA ACHAR FORMA -BRAG. NÃO FUNCIONA: TEM QUE IR NAS ILHAS."]],
+      ["pescador", ["DEPOIS DO APAGÃO, O RIO SUBIU SEM CHOVER.", "MINHA AVÓ DIZ QUE É A MATA RESPIRANDO. EU DIGO QUE É GLITCH."]],
     ],
   },
   {
@@ -246,7 +252,7 @@ export const CIDADES = [
                   ["PESCADOR BIU", "pescador", [["caranguejinho", 17]]]],
     placa: "RECIFEEBAS — VENEZA BRASILEIRA.\nCUIDADO: TUBARÃO NA PRAIA, FEEBAS NO RIO.",
     povo: [
-      ["garoto", ["O CHICO FAZ SOM COM ANTENA ENFIADA NA LAMA.", "O CARANGUEJO DELE PEGA RÁDIO DE PORTUGAL."]],
+      ["garoto", ["TEM GENTE AQUI QUE FAZ SOM COM ANTENA ENFIADA NA LAMA.", "O CARANGUEJO PEGA RÁDIO DE PORTUGAL."]],
       ["velho", ["NO CARNAVAL O FREVO NÃO PARA NEM NO APAGÃO.", "A GENTE DANÇOU NO ESCURO. FOI O MELHOR ANO."]],
     ],
   },
@@ -278,7 +284,7 @@ export const CIDADES = [
     placa: "CARUARU DO MAGMAR — CAPITAL DO FORRÓ.\nO SÃO JOÃO AQUI DURA O ANO INTEIRO.",
     povo: [
       ["velho", ["O MANDACARU FLOROU ONTEM. VAI CHOVER NO SERTÃO.", "OU O APAGÃO DESREGULOU A PLANTA. UM DOS DOIS."]],
-      ["menina", ["A ZEFA SOLTA BALÃO DENTRO DO GINÁSIO.", "É PROIBIDO LÁ FORA. DENTRO, NINGUÉM FALOU NADA."]],
+      ["menina", ["A ZEFA SOLTA BALÃO DENTRO DE CASA.", "É PROIBIDO LÁ FORA. DENTRO, NINGUÉM FALOU NADA."]],
     ],
   },
   {
@@ -310,7 +316,7 @@ export const CIDADES = [
     placa: "OURO GASTLY — LADEIRAS DE PEDRA E IGREJAS DE OURO.\nNÃO SUBA A LADEIRA DEPOIS DA MEIA-NOITE.",
     povo: [
       ["velho", ["AQUI TODO MUNDO TEM UM PARENTE QUE VIROU ASSOMBRAÇÃO.", "O MEU VEM TOMAR CAFÉ TODO DOMINGO."]],
-      ["garota", ["A DONA LUZIA CONTA CAUSO NO GINÁSIO.", "EU FUI OUVIR E ESQUECI QUE ERA PRA LUTAR."]],
+      ["garota", ["A DONA LUZIA CONTA CAUSO NA PRAÇA.", "EU FUI OUVIR E ESQUECI DE VOLTAR PRA CASA."]],
       ["menino", ["DE NOITE, NA FERNÃO DIAS, TEM UM CACHORRINHO BRANCO FLUTUANDO COM O NARIZ ACESO.", "ELE NÃO MORDE. SÓ QUER QUE ALGUÉM JOGUE A BOLINHA."]],
     ],
   },
@@ -345,15 +351,15 @@ export const CIDADES = [
                     "E A REGIÃO FEZ VOCÊ. VAMOS VER SE VOCÊ É ERRO OU É ATUALIZAÇÃO."],
              depois: ["...ATUALIZAÇÃO. A LEITURA VOLTOU PRO LUGAR.",
                       "MAS NO TESTE EU ACORDEI UMA COISA QUE NÃO DEVIA: O DESTROIUM, A MÁQUINA QUE O SERVIDOR USAVA PRA APAGAR DADO VELHO.",
-                      "ELE SAIU PELA BR-040. E A MATA RESPONDEU: O AMAZONIUM ACORDOU NA FLORESTA AMAZÔNICA, LÁ NO NORTE.",
-                      "E NÃO SÃO SÓ ELES: BOITATÁ, IARA E CURUPIRA TAMBÉM ESTÃO SOLTOS. VAI LÁ — VOCÊ É O ÚNICO QUE ELES VÃO DEIXAR CHEGAR PERTO."],
+                      "ELE ESTÁ DORMINDO EMBAIXO DA REGIÃO, E A MATA ESTÁ DE OLHO NELE.",
+                      "DIZEM QUE AS LENDAS SÓ ACORDAM PRA QUEM FECHAR AS OITO ILHAS DA PROFA. IPÊ. EU ACREDITO."],
              time: [["chuvisco", 48], ["gambiarra", 49], ["concretao", 50], ["saci", 50]] },
     insignia: { id: "cupula", nome: "INSÍGNIA CÚPULA" },
     treinadores: [["SERVIDOR PÚBLICO RUI", "gentleman", [["chuvisco", 46], ["orelhao", 46]]],
                   ["ESTAGIÁRIA BIA", "tecnica", [["gambiarra", 47]]]],
     placa: "BASCULINHA — A CAPITAL.\nVISTA DE CIMA TEM FORMA DE AVIÃO. OU DE BASCULIN. DEPENDE DE QUEM DESENHOU O MAPA.",
     povo: [
-      ["gentleman", ["AQUI TUDO É LONGE E TUDO É CURVO.", "O SERVIDOR CENTRAL FICA NO GINÁSIO. A LUZ DE BRAGLITCH INTEIRA PASSA POR LÁ."]],
+      ["gentleman", ["AQUI TUDO É LONGE E TUDO É CURVO.", "O SERVIDOR CENTRAL FICA AQUI. A LUZ DE BRAGLITCH INTEIRA PASSA POR ELE."]],
       ["garoto", ["DIZEM QUE A ENGENHEIRA NIEMA DERRUBOU A LUZ DE PROPÓSITO.", "MINHA MÃE DIZ QUE É FOFOCA DE CORREDOR."]],
     ],
   },
@@ -379,37 +385,29 @@ export const FLORESTA = {
 export const ESTRADAS = [
   // o id segue "transamazonica" (é o nome do mapa no save de quem já passou)
   { id: "transamazonica", nome: "MATA ATLÂNTICA", semente: 101, tema: "mata", lagoa: true, niveis: [9, 14],
-    mato: [["sauvinha", 22], ["acaizinho", 18], ["guaraninho", 12], ["capivarinha", 16], ["vitoriregia", 6], ["biquinho", 14], ["bantevy", 10],
-           ["oddishbrag", 8], ["aipombrag", 6], ["ekansbrag", 6], ["weepinbell", 6], ["rocador", 1]],
+    mato: [["sauvinha", 22], ["acaizinho", 18], ["guaraninho", 12], ["capivarinha", 16], ["vitoriregia", 6], ["biquinho", 14], ["bantevy", 10], ["weepinbell", 6], ["rocador", 1]],
     treinadores: [["MATEIRO JOÃO", "garoto", [["sauvinha", 11], ["biquinho", 12]]], ["BOTÂNICA ÉRICA", "tecnica", [["acaizinho", 13]]]] },
   { id: "br232", nome: "BR-232", semente: 232, deitada: true, tema: "litoral", lagoa: true, niveis: [14, 19],
-    mato: [["caranguejinho", 18], ["piranhita", 16], ["capivarinha", 14], ["biquinho", 12], ["bantevy", 10], ["tatubola", 12], ["botinho", 6],
-           ["goldeenbrag", 8], ["finizenbrag", 6], ["bidoofbrag", 8], ["submarinum", 1]],
+    mato: [["caranguejinho", 18], ["piranhita", 16], ["capivarinha", 14], ["biquinho", 12], ["bantevy", 10], ["tatubola", 12], ["botinho", 6], ["submarinum", 1]],
     treinadores: [["SURFISTA GUGA", "garoto", [["botinho", 16], ["piranhita", 17]]], ["CATADORA DE SIRI", "garota", [["caranguejinho", 18]]]] },
   { id: "br101n", nome: "BR-101 NORTE", semente: 1012, tema: "litoral", niveis: [19, 24],
-    mato: [["macacoeira", 18], ["tatubola", 14], ["beijaflorzinha", 12], ["caranguejinho", 12], ["piranhita", 10], ["biquinho", 10],
-           ["sandshrewbrag", 8], ["spearowbrag", 8], ["meowthbrag", 5]],
+    mato: [["macacoeira", 18], ["tatubola", 14], ["beijaflorzinha", 12], ["caranguejinho", 12], ["piranhita", 10], ["biquinho", 10]],
     treinadores: [["CAPOEIRISTA NENEM", "lutador", [["macacoeira", 21]]], ["BAIANA DO ACARAJÉ", "velha", [["beijaflorzinha", 20], ["tatubola", 21]]]] },
   { id: "br324", nome: "BR-324", semente: 324, deitada: true, tema: "sertao", niveis: [23, 28],
-    mato: [["fogueirinha", 18], ["balaozinho", 14], ["mandacaru", 14], ["tatubola", 12], ["macacoeira", 10],
-           ["sandshrewbrag", 10], ["spearowbrag", 10], ["parasbrag", 6], ["tratorao", 1]],
+    mato: [["fogueirinha", 18], ["balaozinho", 14], ["mandacaru", 14], ["tatubola", 12], ["macacoeira", 10], ["tratorao", 1]],
     treinadores: [["VAQUEIRO TONHO", "montanhista", [["tatubola", 25], ["mandacaru", 26]]], ["FORROZEIRA DIDA", "garota", [["fogueirinha", 26]]]] },
   { id: "br116", nome: "BR-116", semente: 116, tema: "cerrado", niveis: [28, 33],
-    mato: [["gatonet", 16], ["orelhao", 12], ["araraio", 10], ["bantevy", 8], ["balaozinho", 10], ["capivarao", 8], ["tucanacu", 10],
-           ["rotombrag", 6], ["persianbrag", 5], ["bibarelbrag", 8], ["catorbis", 1]],
+    mato: [["gatonet", 16], ["orelhao", 12], ["araraio", 10], ["bantevy", 8], ["balaozinho", 10], ["capivarao", 8], ["tucanacu", 10], ["catorbis", 1]],
     treinadores: [["CAMINHONEIRA DEDÉ", "montanhista", [["capivarao", 30], ["tucanacu", 30]]], ["MOTOBOY KIKO", "motoqueiro", [["gatonet", 31]]]] },
   { id: "br381", nome: "FERNÃO DIAS", semente: 381, deitada: true, tema: "mata", niveis: [33, 38],
-    mato: [["penadinha", 16], ["zerogle", 6], ["gatonet", 12], ["tucanacu", 12], ["taturrao", 10], ["lobisomem", 5], ["chuvisco", 5],
-           ["arbokbrag", 8], ["fearowbrag", 8], ["sandslashbrag", 6]],
+    mato: [["penadinha", 16], ["zerogle", 6], ["gatonet", 12], ["tucanacu", 12], ["taturrao", 10], ["lobisomem", 5], ["chuvisco", 5]],
     treinadores: [["GARIMPEIRO ZÉ", "montanhista", [["taturrao", 35], ["tatubola", 34]]], ["CAÇA-FANTASMA LU", "canalizadora", [["penadinha", 36]]]] },
   { id: "estrada_real", nome: "ESTRADA REAL", semente: 1700, tema: "mata", lagoa: true, niveis: [38, 43],
     mato: [["beijaflorzinha", 14], ["brigadeirinho", 10], ["botinho", 10], ["pirarucu", 6], ["tucanacu", 12], ["penadinha", 10],
-           ["palafinbrag", 5], ["vileplumebrag", 5], ["ambipombrag", 6], ["seakingbrag", 6],
            ["lorose", 4], ["bangveet", 6], ["zerogle", 3]],
     treinadores: [["TROPEIRO JUCA", "gentleman", [["capivarao", 40], ["tucanacu", 40]]], ["DANÇARINA MEL", "garota", [["beijaflorzinha", 41], ["botinho", 41]]]] },
   { id: "br040", nome: "BR-040", semente: 40, deitada: true, tema: "cerrado", niveis: [43, 48],
-    mato: [["chuvisco", 14], ["gambiarra", 10], ["araraio", 12], ["lobisomem", 8], ["concretao", 4], ["taturrao", 10],
-           ["rotombrag", 8], ["parasectbrag", 6], ["persianbrag", 6], ["bangveet", 8]],
+    mato: [["chuvisco", 14], ["gambiarra", 10], ["araraio", 12], ["lobisomem", 8], ["concretao", 4], ["taturrao", 10], ["bangveet", 8]],
     treinadores: [["ASSESSOR DUDU", "gentleman", [["chuvisco", 45], ["gambiarra", 45]]], ["ARQUITETA VERA", "tecnica", [["concretao", 46]]]] },
 ];
 
@@ -455,7 +453,7 @@ const SERRA_DE_PE = {
   "##############PP##############",
   ],
   mato: [["taturrao", 16], ["tucanacu", 14], ["araraio", 12], ["lobisomem", 8], ["zerogle", 6], ["penadinha", 8],
-         ["concretao", 3], ["sandslashbrag", 10], ["fearowbrag", 8], ["britadeiro", 1]],
+         ["concretao", 3], ["britadeiro", 1]],
   // os treinadores ficam fora do caminho (conferido em dev/braglitchcheck.html)
   treinadores: [
     { x: 8, y: 9, dir: "right", nome: "ALPINISTA TETÊ", sprite: "montanhista", time: [["taturrao", 41], ["tucanacu", 41]] },
@@ -482,7 +480,7 @@ export const SERRA = {
   },
 };
 
-/** As três lendas soltas depois da oitava insígnia de Braglitch. */
+/** As lendas soltas quando as oito ilhas ficam completas (src/data/braglitch-ilhas.js). */
 export const LENDAS = [
   // A DUPLA LENDÁRIA: a mata e a máquina, cada uma na ponta dela da região
   { id: "amazonium", estrada: "floresta_amazonica", lvl: 70, perto: [8, 10],
@@ -552,12 +550,23 @@ export const LAYOUT = {
   monte_serra:        { pos: [80, 70], liga: { up: "estrada_real", down: "rio" } },
   rio:                { pos: [81, 73], liga: { up: "monte_serra", left: "br040" } },
   br040:              { pos: [72, 61], liga: { right: "rio", left: "brasilia" } },
-  brasilia:           { pos: [65, 53], liga: { right: "br040", up: "chapada", left: "pantanal" } },
+  brasilia:           { pos: [65, 53], liga: { right: "br040", up: "chapada", left: "pantanal", down: "esplanada" } },
+  // a ESPLANADA DA LIGA (src/data/braglitch-liga.js): embaixo da capital, sem outra saída
+  esplanada:          { pos: [65, 58], liga: { up: "brasilia" } },
   pantanal:           { pos: [48, 59], liga: { right: "brasilia", left: "cuiaba" } },
   cuiaba:             { pos: [39, 55], liga: { right: "pantanal" } },
   chapada:            { pos: [64, 44], liga: { down: "brasilia", up: "floresta_amazonica" } },
   floresta_amazonica: { pos: [38, 27], liga: { down: "chapada", left: "manaus" } },
   manaus:             { pos: [27, 23], liga: { right: "floresta_amazonica" } },
+  // AS ILHAS: sem estrada nenhuma, só a lancha da PROFA. IPÊ (src/data/braglitch-ilhas.js)
+  ilha_do_mel:        { pos: [67, 81], liga: {} },
+  queimada_grande:    { pos: [74, 76], liga: {} },
+  ilhabela:           { pos: [77, 76], liga: {} },
+  ilha_grande:        { pos: [83, 75], liga: {} },
+  itaparica:          { pos: [92, 47], liga: {} },
+  atol:               { pos: [97, 30], liga: {} },
+  marajo:             { pos: [64, 11], liga: {} },
+  noronha:            { pos: [99, 22], liga: {} },
 };
 const OPOSTO = { up: "down", down: "up", left: "right", right: "left" };
 
@@ -571,7 +580,7 @@ export const CONTORNO_BRASIL = [
   [35, 54], [34, 47], [22, 41], [11, 41], [1, 31], [4, 26], [10, 24], [11, 15], [10, 10], [18, 10], [25, 4],
 ];
 
-/** O que cada lugar é, pra tela do mapa: "cidade" (com ou sem ginásio),
+/** O que cada lugar é, pra tela do mapa: "cidade",
  *  "rota" ou "praia". */
 export const TIPO_DO_LUGAR = {
   sao_lucario: "cidade", rota_br101: "rota", mata_do_saci: "rota",
@@ -679,8 +688,14 @@ const SALA = {
   celadon_city_gym: { lider: { x: 6, y: 4 }, treinadores: [{ x: 3, y: 11, dir: "right" }, { x: 9, y: 10, dir: "left" }], guia: { x: 9, y: 17 } },
 };
 
-/** As insígnias de Braglitch, na ordem (o menu e a batalha leem daqui). */
+/** AS INSÍGNIAS DE BRAGLITCH, as dos oito ginásios, na ordem (o menu e a
+ *  batalha leem daqui). Vencer o líder põe o id em `st.bragBadges`. */
 export const INSIGNIAS_BRAG = CIDADES.map((c) => ({ id: c.insignia.id, name: c.insignia.nome, city: c.nome }));
+
+/** AS ILHAS: completar uma (o chefe dela) também põe o id em `st.bragBadges`
+ *  (src/scenes/overworld.js, `lanchaIpe`). O menu de INSÍGNIAS mostra as duas
+ *  listas, uma em cada página. */
+export const INSIGNIAS_ILHAS = ILHAS_DA_HISTORIA.map((l, i) => ({ id: `ilha_${l.id}`, name: l.nome, city: `ILHA ${i + 1}` }));
 
 const time = (lista) => lista.map(([id, lvl]) => ({ id, lvl }));
 const tabela = (lista, [min, max]) => lista.map(([id, w]) => ({ id, min, max, w }));
@@ -822,6 +837,20 @@ export function conteudoDoMundo(geos) {
   };
   return out;
 }
+
+/** Onde o GÊMEO (o rival de Braglitch, src/data/rival.js) espera em cada
+ *  cidade: do lado da porta do ginásio, que é pra onde você está indo. A porta
+ *  é o "D" logo embaixo do bloco "G" da planta. */
+export const LUGAR_DO_GEMEO = Object.fromEntries(CIDADES.map((c) => {
+  const planta = PLANTAS_MUNDO[c.id];
+  const yG = planta.reduce((u, l, y) => (l.includes("G") ? y : u), -1);
+  const x0 = planta[yG].indexOf("G"), x1 = planta[yG].lastIndexOf("G");
+  const linha = planta[yG + 1] || "";
+  let xd = [...linha].findIndex((ch, x) => ch === "D" && x >= x0 && x <= x1);
+  if (xd < 0) xd = Math.round((x0 + x1) / 2);
+  const p = chaoPerto(planta, xd + 2, yG + 2);
+  return [c.id, { x: p.x, y: p.y, dir: "down" }];
+}));
 
 /** Onde cada lenda aparece: num chão livre no meio da estrada dela. */
 export const LENDAS_LUGAR = LENDAS.map((l) => {

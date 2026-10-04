@@ -114,6 +114,8 @@ const TABLE = `
 386 DEOXYS-ATAQUE PSÍQUICO 50 180 20 180 20 150
 386 DEOXYS-DEFESA PSÍQUICO 50 70 160 70 160 90
 386 DEOXYS-VELOCIDADE PSÍQUICO 50 95 90 95 90 180
+718 ZYGARDE-10% DRAGÃO/TERRA 54 100 71 61 85 115
+718 ZYGARDE-COMPLETO DRAGÃO/TERRA 216 100 121 91 95 85
 `;
 /** os três só aparecem no terreno certo, e quase nunca */
 export const WEATHER_TRIO = { agua: "kyogre", terra: "groudon", ar: "rayquaza" };
@@ -133,6 +135,8 @@ export const LORE = {
   deoxysataque: "TODO O CORPO VIROU ARMA. NÃO SOBROU NADA PRA SE DEFENDER.",
   deoxysdefesa: "ELE SE FECHOU. AGORA AGUENTA O QUE VIER — E NÃO DEVOLVE QUASE NADA.",
   deoxysvelocidade: "FINO, LEVE E RÁPIDO DEMAIS PRA TELA ACOMPANHAR.",
+  zygarde10: "SÓ UM DÉCIMO DAS CÉLULAS. VIRA UM CACHORRO MAGRO E CORRE MAIS QUE QUALQUER COISA NO TÚNEL.",
+  zygardecompleto: "TODAS AS CÉLULAS JUNTAS. É ALTO COMO UM PRÉDIO, E O NÚCLEO NO PEITO BRILHA QUANDO ALGUÉM ESTRAGA A NATUREZA.",
   porygonz: "NÃO DÁ PRA CHAMAR ISSO DE POKÉMON. SÓ DE GLITCH.",
   cranidos: "CRÂNIO DURO DEMAIS PRA UM BICHO QUE NÃO EXISTE MAIS.",
   rampardos: "BATE DE CABEÇA EM TUDO. O QUE QUEBRA NUNCA É A CABEÇA.",
@@ -195,6 +199,30 @@ for (const line of TABLE.trim().split("\n")) {
     xpYield: Math.floor(bst / 4),
   };
 }
+
+// as formas do ZYGARDE têm desenho próprio (ids de FORMA da PokeAPI, baixados
+// por tools/fetch_sprites.py): o 10% é um cachorro, o COMPLETO é um gigante
+EXTRA.zygarde10.spriteDex = 10181;
+EXTRA.zygardecompleto.spriteDex = 10120;
+
+/** O CUBO ZYGARDE: guarda as células do ZYGARDE. Usado nele, junta ou
+ *  espalha as células e ele muda de forma (10%, 50% ou COMPLETO) — com a
+ *  cutscene de evolução, no tema verde das células (src/scenes/evolution.js).
+ *  Não se gasta, como o CATÁLOGO ROTOM. Vem da missão O Z DO DNA. */
+export const CUBO_ZYGARDE = {
+  item: "cubo zygarde",
+  aceita: ["zygarde10", "zygarde", "zygardecompleto"],
+  opcoes: [["zygarde10", "10% (CACHORRO)"], ["zygarde", "50%"], ["zygardecompleto", "COMPLETO"]],
+  pergunta: "O CUBO PULSA VERDE. QUANTAS CÉLULAS {MON} JUNTA?",
+  jaE: "{MON} JÁ ESTÁ NESSA FORMA.",
+  nada: "O CUBO FICA APAGADO. SÓ AS CÉLULAS DE UM ZYGARDE RESPONDEM A ELE.",
+  // a cutscene: o mesmo filme da evolução, com outras palavras e o tema verde
+  cena: {
+    tema: "zygarde",
+    inicio: "O CUBO ACENDE! AS CÉLULAS DE {MON} ESTÃO SE REORGANIZANDO!",
+    fim: "AS CÉLULAS SE ASSENTARAM! {MON} AGORA É {NOVO}!",
+  },
+};
 
 /** encontros dentro da dimensão, por terreno */
 export const DIM_ENCOUNTERS = {

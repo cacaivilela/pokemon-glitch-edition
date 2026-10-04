@@ -1,0 +1,126 @@
+<!doctype html>
+<!-- OS GRITOS: todos os Pokémon numa grade; clicar toca o grito dele (o mesmo
+     Audio2.grito do jogo, src/data/gritos.js). Uso: http://localhost:5173/gritos.html -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gritos — Pokémon Glitch Edition</title>
+<style>
+  :root { color-scheme: dark; --fundo:#0b0d10; --cartao:#151a21; --borda:#232a34; --texto:#d6dde6; --apagado:#6b7684; --roxo:#8f6bd8; --roxo2:#b455ff; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--fundo); color:var(--texto); font:14px ui-monospace, "SF Mono", Menlo, Consolas, monospace; padding:20px 16px 60px; }
+  header { max-width:1200px; margin:0 auto 18px; }
+  h1 { font-size:22px; letter-spacing:1px; }
+  h1 span { color:var(--roxo2); }
+  header p { color:var(--apagado); margin-top:6px; font-size:12px; }
+  .barra { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; align-items:center; }
+  input[type=search] { flex:1 1 240px; background:var(--cartao); border:1px solid var(--borda); color:var(--texto); padding:9px 12px; border-radius:6px; font:inherit; }
+  input[type=search]:focus { outline:none; border-color:var(--roxo); }
+  #conta { color:var(--apagado); font-size:12px; margin-left:auto; }
+  #grade { max-width:1200px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px; }
+  .mon { background:var(--cartao); border:1px solid var(--borda); border-radius:8px; padding:8px; cursor:pointer; text-align:center; transition:border-color .15s, transform .15s; }
+  .mon:hover, .mon:focus-visible { border-color:var(--roxo); outline:none; transform:translateY(-2px); }
+  .mon.tocando { border-color:var(--roxo2); background:#221836; }
+  .mon canvas { width:64px; height:64px; image-rendering:pixelated; }
+  .nome { font-size:12px; color:#fff; margin-top:2px; }
+  .som { font-size:12px; color:var(--roxo2); margin-top:2px; min-height:1.3em; }
+  .som.sem { color:var(--apagado); }
+  .musica { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:12px; background:#1a1226; border:1px solid #3a2458; border-radius:8px; padding:10px 12px; }
+  .musica b { color:#e6b8ff; font-weight:normal; }
+  .musica small { color:var(--apagado); flex:1 1 220px; }
+  .musica button { background:var(--cartao); border:1px solid var(--roxo); color:#fff; padding:7px 14px; border-radius:6px; cursor:pointer; font:inherit; }
+  .musica button.tocando { background:#3a1d5c; border-color:var(--roxo2); }
+  @media (max-width:520px) { #grade { grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>GRITOS <span>— Pokémon Glitch Edition</span></h1>
+  <p>Clique num Pokémon (ou ENTER) para ouvir o grito dele, com o mesmo som do jogo. Em cinza ficam os que ainda não têm grito escrito e tocam um tirado do nome.</p>
+  <div class="musica">
+    <button id="musica" aria-pressed="false">▶ tocar</button>
+    <b>MÚSICA: MEGA DESCONTROLADA</b>
+    <small>a luta contra os megas descontrolados, de noite — metal a 200 bpm, a mesma do jogo</small>
+  </div>
+  <div class="barra">
+    <input id="busca" type="search" placeholder="buscar (nome ou som)" autocomplete="off">
+    <span id="conta"></span>
+  </div>
+</header>
+<main id="grade"></main>
+
+<script type="module">
+import { DB } from "./src/data/index.js";
+import { Assets } from "./src/core/assets.js";
+import { Audio2 } from "./src/core/audio.js";
+import { GRITOS } from "./src/data/gritos.js";
+import { gritoDe } from "./src/systems/gritos.js";
+
+const ids = Object.keys(DB.SPECIES).filter((id) => !DB.SPECIES[id].fusao)
+  .sort((a, b) => (DB.SPECIES[a].dex || 9999) - (DB.SPECIES[b].dex || 9999) || a.localeCompare(b));
+
+const pendentes = new Set();
+const desenha = (cv) => {
+  const img = Assets.mon(cv.dataset.id, 1), ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, 64, 64);
+  if (img) ctx.drawImage(img, (64 - img.width) / 2, (64 - img.height) / 2);
+};
+const olho = new IntersectionObserver((vistos) => {
+  for (const v of vistos) if (v.isIntersecting) {
+    const cv = v.target.querySelector("canvas"); desenha(cv); pendentes.add(cv); olho.unobserve(v.target);
+  }
+}, { rootMargin: "300px" });
+setInterval(() => {
+  const agora = performance.now();
+  for (const cv of pendentes) { cv._t ||= agora; desenha(cv); if (agora - cv._t > 8000) pendentes.delete(cv); }
+}, 400);
+
+const grade = document.getElementById("grade");
+const cartoes = ids.map((id) => {
+  const d = document.createElement("div");
+  d.className = "mon"; d.tabIndex = 0; d.dataset.id = id;
+  const cv = document.createElement("canvas"); cv.width = cv.height = 64; cv.dataset.id = id;
+  const g = GRITOS[id];
+  d.append(cv,
+    Object.assign(document.createElement("div"), { className: "nome", textContent: DB.SPECIES[id].name }),
+    Object.assign(document.createElement("div"), { className: "som" + (g ? "" : " sem"), textContent: g?.som || "(do nome)" }));
+  d._busca = `${DB.SPECIES[id].name} ${id} ${g?.som || ""}`.toLowerCase();
+  grade.append(d); olho.observe(d);
+  return d;
+});
+
+const toca = (d) => {
+  Audio2.unlock();
+  const dur = Audio2.grito(gritoDe(d.dataset.id));
+  d.classList.add("tocando");
+  setTimeout(() => d.classList.remove("tocando"), Math.max(200, dur * 1000));
+};
+grade.addEventListener("click", (e) => { const d = e.target.closest(".mon"); if (d) toca(d); });
+grade.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.classList.contains("mon")) toca(e.target); });
+
+// A MÚSICA DA MEGA DESCONTROLADA (MUSIC.megaDescontrolada, src/data/music.js)
+const bMusica = document.getElementById("musica");
+let tocandoMusica = false;
+bMusica.addEventListener("click", () => {
+  Audio2.unlock();
+  tocandoMusica = !tocandoMusica;
+  if (tocandoMusica) Audio2.playMusic("megaDescontrolada", DB.MUSIC.megaDescontrolada);
+  else Audio2.stopLoop();
+  bMusica.textContent = tocandoMusica ? "■ parar" : "▶ tocar";
+  bMusica.classList.toggle("tocando", tocandoMusica);
+  bMusica.setAttribute("aria-pressed", String(tocandoMusica));
+});
+
+const busca = document.getElementById("busca");
+const aplica = () => {
+  const q = busca.value.trim().toLowerCase();
+  let n = 0;
+  for (const d of cartoes) { const ok = !q || d._busca.includes(q); d.hidden = !ok; n += ok; }
+  document.getElementById("conta").textContent = `${n} de ${cartoes.length} · ${Object.keys(GRITOS).length} com grito escrito`;
+};
+busca.addEventListener("input", aplica);
+aplica();
+</script>
+</body>
+</html>

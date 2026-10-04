@@ -1,0 +1,39 @@
+<!doctype html>
+<!-- CUTSCENE DA MEGA: abre ?megacena= (src/scenes/mega.js) e tira um
+     retrato a cada tanto, até a frase. Uso: /dev/megacheck.html
+     (?mega=charizard:megacharizardx muda o bicho, &iso=1 no isométrico) -->
+<meta charset="utf-8">
+<title>megacheck</title>
+<style>
+  body { background: #111; color: #ddd; font: 13px monospace; margin: 8px; }
+  figure { display: inline-block; margin: 4px; }
+  img { width: 360px; height: 240px; image-rendering: pixelated; display: block; }
+  iframe { position: absolute; left: -2000px; width: 240px; height: 160px; }
+</style>
+<div id="saida"></div>
+<script type="module">
+const q = new URLSearchParams(location.search);
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const saida = document.getElementById("saida");
+const f = document.createElement("iframe");
+// perfil próprio: NUNCA gravar no save.json de quem joga
+f.src = `../index.html?megacena=${q.get("mega") || "charizard:megacharizardx"}${q.has("iso") ? "&iso=1" : ""}&perfil=megacheck`;
+document.body.appendChild(f);
+for (let i = 0; i < 50 && !f.contentDocument?.getElementById("screen"); i++) await espera(100);
+const erros = [];
+f.contentWindow.addEventListener("error", (e) => erros.push(e.message));
+// a cena abre sozinha: espera ela estar no topo e começa a contar dali
+for (let i = 0; i < 100 && f.contentWindow.game?.scenes?.top?.constructor?.name !== "MegaScene"; i++) await espera(50);
+const t0 = performance.now();
+for (const ms of [300, 900, 1600, 2300, 2900, 3500, 3700, 4300, 5200, 6200]) {
+  await espera(ms - (performance.now() - t0));
+  const top = f.contentWindow.game?.scenes?.top;
+  const log = `${ms}ms fase=${top?.fase} erros=${erros.join("|") || "nenhum"}`;
+  const dataUrl = f.contentDocument.getElementById("screen").toDataURL();
+  fetch("/__capture", { method: "POST", body: JSON.stringify({ name: `mega_${ms}`, dataUrl, log }) }).catch(() => {});
+  const fig = document.createElement("figure");
+  fig.innerHTML = `<img src="${dataUrl}"><figcaption>${log}</figcaption>`;
+  saida.appendChild(fig);
+}
+document.title = "megacheck pronto";
+</script>

@@ -11,11 +11,13 @@
 // O jogo compara este número com o do servidor (buscado sem cache) e avisa
 // quando a página está velha, em vez de deixar o jogador achar que quebrou.
 // Suba um número aqui a cada publicação que valha um aviso.
-export const VERSAO = "2026-09-28.1";
+export const VERSAO = "2026-10-04.1";
 
 /** O VOLUME do jogo, o que aparece na tela de título. Não é o número técnico
  *  de cima: aquele sobe a cada publicação; este sobe quando o jogo ganha uma
  *  leva grande de coisa nova. O VOL. 4 foi o das BATALHAS EM GRUPO (duplas e
- *  trios), das PROVAÇÕES espalhadas por Kanto e do MEWTHREE; o VOL. 5 é o de
- *  BRAGLITCH, do mundo ISOMÉTRICO e das configurações de FALA. */
-export const VOLUME = "VOL. 5";
+ *  trios), das PROVAÇÕES espalhadas por Kanto e do MEWTHREE; o VOL. 5 foi o de
+ *  BRAGLITCH, do mundo ISOMÉTRICO e das configurações de FALA; o VOL. 6 é o do
+ *  RIVAL GÊMEO, da LIGA DE BRAGLITCH (o ELITE QUIZ e a final em dupla), da
+ *  cutscene da MEGA EVOLUÇÃO e das MEGAS DESCONTROLADAS. */
+export const VOLUME = "VOL. 6";

@@ -26,6 +26,11 @@
 //   contraAtaque                  guarda o dano que leva (DEFESA +1 a cada pancada) e
 //                                 devolve no próximo golpe dele: até 2x, e zera
 //   mordidaMata                   golpe de morder (mv.mordida) derruba ele na hora
+//   dreno: [min, max]             todo golpe dele que acerta drena de min a max de HP
+//                                 (sorteado) pra ele — o TEMPORAL bloqueia
+//   entrada: { temporal: true }   O TEMPORAL: enquanto ele está em campo, cai uma
+//                                 chuva que tira 1/16 do HP dos OUTROS por turno, e
+//                                 ninguém recupera HP por golpe nem por habilidade
 import { effectiveness } from "./types.js";
 
 const fraco = (mon) => mon.hp <= mon.maxHp / 3;
@@ -106,6 +111,13 @@ export const HABILIDADES = {
   // bola de 30% vira 40%.
   fica:        { nome: "FICA!", texto: "SOMA 25% DO NÍVEL NA CHANCE DE CAPTURA: O SELVAGEM FICA NA BOLA.",
                  fica: 0.25 },
+  // a linha do TILAPISH (src/data/braglitch.js): os peixes que chamam o temporal. A chuva
+  // dura enquanto ele estiver em campo — saiu ou desmaiou, passou
+  // a linha do TRONKY: a raiz do pau-brasil puxa a seiva de quem ele acerta
+  dreno:       { nome: "DRENO", texto: "TODO GOLPE DELE QUE ACERTA DRENA DE 10 A 20 DE HP PRA ELE.",
+                 dreno: [10, 20] },
+  temporal:    { nome: "TEMPORAL", texto: "ENQUANTO ELE ESTÁ EM CAMPO, CAI UMA CHUVA QUE DÁ DANO NOS OUTROS. NINGUÉM RECUPERA HP POR GOLPE OU HABILIDADE.",
+                 entrada: { temporal: true } },
   mareaalta:   { nome: "MARÉ ALTA", texto: "NA CHUVA, OS GOLPES DE ÁGUA DELE BATEM 2X (EM VEZ DE 1,5X).", gosta: "chuva",
                  dano: (mv, u, t, clima) => (mv.type === "ÁGUA" && clima === "chuva" ? 2 / 1.5 : 1) },
 };
@@ -122,6 +134,8 @@ export const HABILIDADE_POR_TIPO = {
 /** quem tem habilidade própria */
 export const HABILIDADE_DE = {
   diggle: "fica", braseagle: "fica", magmastim: "fica",
+  tronky: "dreno", troncudo: "dreno", paubrasilisco: "dreno",
+  tilapish: "temporal", tilapisco: "temporal", tilapiracu: "temporal",
   brigadeirinho: "docedepokemon",
   gingao: "contraataque",
   saci: "travessura",
@@ -165,5 +179,12 @@ export const CLIMA_TEXTO = {
   contato: "{HAB} DE {MON}: {ALVO} FICOU {STATUS}!",
   intimidar: "{HAB} DE {MON}: O ATAQUE DE {ALVO} CAIU!",
   cura: "{HAB} DE {MON}: RECUPEROU HP.",
+  temporal: {
+    comeca: "TEMPORAL DE {MON}! O CÉU FECHOU E DESABOU UMA CHUVA PESADA!",
+    dano: "{MON} APANHOU DA CHUVA DO TEMPORAL!",
+    semCura: "O TEMPORAL NÃO DEIXA {MON} SE RECUPERAR!",
+    dreno: "{HAB} DE {MON}: DRENOU {N} DE HP!",
+    para: "{MON} SAIU DE CAMPO, E O TEMPORAL PASSOU.",
+  },
   statusNomes: { paralisia: "PARALISADO", envenenado: "ENVENENADO", queimadura: "QUEIMADO" },
 };

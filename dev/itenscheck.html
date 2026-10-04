@@ -1,0 +1,84 @@
+<!doctype html>
+<!-- OS ÍCONES DOS ITENS: a folha com todos os PNGs de assets/sprites/itens/, a
+     lista do que o jogo conhece e ainda não tem desenho próprio (cai na família
+     ou na sacolinha), e um retrato da mochila cheia (?itens=1) tirado do jogo.
+     Uso: /dev/itenscheck.html  (o retrato vai pra dev/captures/itens_mochila.png) -->
+<meta charset="utf-8">
+<title>itenscheck</title>
+<style>
+  body { background: #1c1a24; color: #ddd; font: 13px monospace; margin: 8px; }
+  figure { display: inline-block; margin: 4px; width: 84px; text-align: center; vertical-align: top; }
+  figure img { width: 64px; height: 64px; image-rendering: pixelated; display: block; margin: 0 auto; background: #2a2836; }
+  figcaption { font-size: 10px; word-break: break-all; }
+  .fam figcaption { color: #9ad; }
+  #mochila img { width: 480px; height: 320px; image-rendering: pixelated; display: block; }
+  iframe { position: absolute; left: -2000px; width: 240px; height: 160px; }
+  h2 { font-size: 14px; margin: 12px 0 4px; }
+  .ruim { color: #f88; }
+</style>
+<h2>a folha</h2>
+<div id="folha"></div>
+<h2>o que o jogo conhece e não tem desenho próprio</h2>
+<pre id="faltam">...</pre>
+<h2>a mochila (?itens=1)</h2>
+<div id="mochila"></div>
+<script type="module">
+import { slugItem, familiaDoItem } from "../src/core/itens.js";
+import { DB } from "../src/data/index.js";
+
+const lista = await fetch("../assets/sprites/itens/itens.json").then((r) => r.json());
+const folha = document.getElementById("folha");
+const fig = (nome, slug, fam) => {
+  const f = document.createElement("figure");
+  if (fam) f.className = "fam";
+  f.innerHTML = `<img src="../assets/sprites/itens/${slug}.png"><figcaption>${nome}</figcaption>`;
+  folha.appendChild(f);
+};
+for (const [nome, slug] of Object.entries(lista.itens)) fig(nome, slug);
+for (const fam of lista.familias) fig(`[${fam}]`, fam, true);
+
+// tudo que aparece com `item:` em alguma tabela do DB, mais os achados da mina
+const nomes = new Set();
+const anda = (o, d = 0) => {
+  if (!o || d > 7) return;
+  if (Array.isArray(o)) return o.forEach((x) => anda(x, d + 1));
+  if (typeof o === "object") { if (typeof o.item === "string") nomes.add(o.item); for (const v of Object.values(o)) anda(v, d + 1); }
+};
+anda(DB);
+for (const n of Object.keys(DB.MINERACAO?.MINA_LORE || {})) nomes.add(n);
+for (const n of Object.keys(DB.ITEM_LORE || {})) nomes.add(n);
+const temPng = new Set(Object.values(lista.itens));
+const faltam = [...nomes].filter((n) => !temPng.has(slugItem(n))).sort()
+  .map((n) => `${n}  ->  ${familiaDoItem(n) || "item"}.png`);
+document.getElementById("faltam").textContent = faltam.length ? faltam.join("\n") : "nenhum: todo item do DB tem PNG próprio";
+document.getElementById("faltam").className = faltam.length ? "ruim" : "";
+
+// o retrato da mochila: o jogo num iframe, com a mochila aberta por dentro
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const f = document.createElement("iframe");
+// perfil próprio: NUNCA gravar no save.json de quem joga
+f.src = "../index.html?map=pallet&itens=1&perfil=itenscheck";
+document.body.appendChild(f);
+for (let i = 0; i < 50 && !f.contentDocument?.getElementById("screen"); i++) await espera(100);
+await espera(2500);
+for (let i = 0; i < 6; i++) {
+  await espera(400);
+  for (const type of ["keydown", "keyup"]) {
+    f.contentWindow.dispatchEvent(new f.contentWindow.KeyboardEvent(type, { code: "Enter", key: "Enter" }));
+  }
+}
+let log = "";
+try {
+  log = await f.contentWindow.eval(`(() => {
+    const top = window.game.scenes.top;
+    top.menu = { type: "bag", index: 3 };
+    return "itens na mochila: " + Object.keys(window.game.state.items).length + " | cena " + top.constructor.name;
+  })()`);
+} catch (e) { log = "sem abrir a mochila: " + e; }
+await espera(1500);
+const dataUrl = f.contentDocument.getElementById("screen").toDataURL();
+fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "itens_mochila", dataUrl, log: log + "\n" + faltam.join("\n") }) }).catch(() => {});
+document.getElementById("mochila").innerHTML = `<img src="${dataUrl}"><div>${log}</div>`;
+f.remove();
+document.title = "itenscheck pronto";
+</script>

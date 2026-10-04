@@ -82,8 +82,92 @@ export function listas() {
     KANTO: nacional.filter((id) => numeroNaDex(id) >= 1 && numeroNaDex(id) <= 151),
     NACIONAL: nacional,
     FORMAS: formas,
+    GLITCH: glitchDex(nacional),
   };
+  // UMA POKÉDEX POR REGIÃO: pela faixa do número nacional; BRAGLITCH são os de
+  // lá (número depois dos três extras, ou marcados como de Braglitch)
+  for (const r of REGIOES_DA_DEX) {
+    if (r.id === "KANTO") continue;
+    cache[r.id] = nacional.filter((id) => r.dentro(id, numeroNaDex(id), DB.SPECIES[id]));
+  }
   return cache;
+}
+
+/** AS ABAS DA POKÉDEX, na ordem do SELECT: a GLITCH DEX, uma por região, a
+ *  NACIONAL e as FORMAS. `regional`: o número mostrado é a posição na lista
+ *  (cada uma começa no 1), e não o nacional. */
+export const REGIOES_DA_DEX = [
+  { id: "KANTO", dentro: (id, n) => n >= 1 && n <= 151 },
+  { id: "JOHTO", dentro: (id, n) => n >= 152 && n <= 251 },
+  { id: "HOENN", dentro: (id, n) => n >= 252 && n <= 386 },
+  { id: "SINNOH", dentro: (id, n) => n >= 387 && n <= 493 },
+  { id: "UNOVA", dentro: (id, n) => n >= 494 && n <= 649 },
+  { id: "KALOS", dentro: (id, n) => n >= 650 && n <= 721 },
+  { id: "ALOLA", dentro: (id, n) => n >= 722 && n <= 809 },
+  { id: "GALAR", dentro: (id, n) => n >= 810 && n <= 905 },
+  { id: "PALDEA", dentro: (id, n) => n >= 906 && n <= 1025 },
+  { id: "BRAGLITCH", dentro: (id, n, sp) => !!sp?.braglitch || n >= 1029 },
+];
+export const ABAS_DA_DEX = [
+  { id: "GLITCH", nome: "GLITCH DEX", regional: true },
+  ...REGIOES_DA_DEX.map((r) => ({ id: r.id, nome: r.id, regional: true })),
+  { id: "NACIONAL", nome: "NACIONAL" },
+  { id: "FORMAS", nome: "FORMAS" },
+];
+
+/** A GLITCH DEX: a Pokédex PRÓPRIA do jogo, na ordem da jornada.
+ *
+ *    1. os INICIAIS: os três de Kanto, os três de BRAGLITCH e os das outras
+ *       regiões (o laboratório oferece todos), cada um com a linha inteira;
+ *    2. as FAMÍLIAS na ordem em que se encontra no mato: cada família entra na
+ *       posição do nível mais baixo em que algum membro dela aparece selvagem,
+ *       em qualquer mapa — quem nasce no começo da jornada fica no começo;
+ *    3. no fim, quem NUNCA aparece no mato (lendários, presentes, fósseis), na
+ *       ordem do número nacional.
+ *
+ *  Cada família fica junta, na ordem da evolução (a pré-evolução antes). */
+function glitchDex(nacional) {
+  const naDex = new Set(nacional);
+  const pre = DB.PRE_EVOLUCAO || {};
+  const raiz = (id) => { let r = id, n = 0; while (pre[r] && naDex.has(pre[r]) && n++ < 6) r = pre[r]; return r; };
+  // a família inteira, a partir da raiz, na ordem da evolução
+  const familia = (r) => {
+    const out = [], fila = [r];
+    while (fila.length) {
+      const id = fila.shift();
+      if (out.includes(id)) continue;
+      if (naDex.has(id)) out.push(id);
+      for (const regra of DB.EVOLUTIONS?.[id] || []) if (naDex.has(regra.to)) fila.push(regra.to);
+    }
+    return out;
+  };
+  // o nível mais baixo em que cada espécie aparece no mato
+  const nivel = new Map();
+  for (const [mapa, def] of Object.entries(DB.MAPS || {})) {
+    if (mapa === "glitchdim") continue;
+    for (const e of def.encounters || []) {
+      const lv = e.min ?? e.max ?? 99;
+      if (!nivel.has(e.id) || lv < nivel.get(e.id)) nivel.set(e.id, lv);
+    }
+  }
+  const out = [], ja = new Set();
+  const poe = (ids) => { for (const id of ids) if (!ja.has(id)) { ja.add(id); out.push(id); } };
+  // 1. os iniciais
+  const iniciais = ["bulbasaur", "charmander", "squirtle", ...(DB.BRAGLITCH?.iniciais || []),
+    ...(DB.REGIOES || []).flatMap((r) => r.mons || [])];
+  for (const id of iniciais) if (naDex.has(id)) poe(familia(raiz(id)));
+  // 2 e 3. as famílias, pelo primeiro encontro no mato (sem encontro, no fim)
+  const familias = new Map();
+  for (const id of nacional) {
+    if (ja.has(id)) continue;
+    const r = raiz(id);
+    if (familias.has(r)) continue;
+    const membros = familia(r);
+    const nv = Math.min(...membros.map((m) => nivel.get(m) ?? Infinity));
+    familias.set(r, { membros, nv, numero: numeroNaDex(r) });
+  }
+  [...familias.values()].sort((a, b) => a.nv - b.nv || a.numero - b.numero).forEach((f) => poe(f.membros));
+  return out;
 }
 
 /** "pego" | "visto" | null */

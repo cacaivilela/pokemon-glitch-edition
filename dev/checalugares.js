@@ -17,7 +17,10 @@ const { LUGARES } = await import(`file://${RAIZ}/${arquivo}`);
 const brag = await import(`file://${RAIZ}/src/data/braglitch.js`);
 const mais = await import(`file://${RAIZ}/src/data/mais.js`);
 const gen1 = await import(`file://${RAIZ}/src/data/gen1.js`);
-const ESPECIES = new Set([...Object.keys(brag.BRAGLITCH_ESPECIES), ...Object.keys(mais.MAIS), ...Object.keys(gen1.GEN1)]);
+// as regionais e as evoluções delas (ZIGZAGOON, LINOONE...) moram em regionais.js
+const regionais = await import(`file://${RAIZ}/src/data/regionais.js`);
+const ESPECIES = new Set([...Object.keys(brag.BRAGLITCH_ESPECIES), ...Object.keys(mais.MAIS), ...Object.keys(gen1.GEN1),
+                          ...Object.keys(regionais.REGIONAIS), ...Object.keys(regionais.EVO_REGIONAIS)]);
 
 const CONHECIDOS = "#.,P~=aFYoBHhLCMIKGDRvea123456789";
 const ANDA = ".,PFDa=e";                  // onde se pisa (D é a porta: pisa e entra)

@@ -680,3 +680,330 @@ export const MUSIC = {
 
 /** música de cada tipo de mapa; o que não estiver aqui cai em pallet */
 export const MUSIC_ALIAS = {};
+
+// ---------------------------------------------------------------- EVOLUÇÃO
+// Tema ORIGINAL (nada transcrito), no espírito das evoluções de GBA: ostinato
+// insistente de duas notas, solo "tam, tam, tam... ta-RAM", e a frase
+// inteira subindo de tom (E -> F# -> G# -> B) pra tensão ir crescendo enquanto
+// o bicho se desmancha. Arranjo de banda: guitarra solo, guitarra base, pulso
+// no ostinato, baixo e bateria em meio-tempo. Um arquivo seu em
+// assets/music/evolucao.ogg toca no lugar (é só pra sua máquina, .gitignore).
+const NOMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+/** "E2" + 7 semitons -> "B2" */
+function sobe(nota, semi) {
+  const m = /^([A-G]#?)(-?\d)$/.exec(nota);
+  const n = NOMES.indexOf(m[1]) + (+m[2]) * 12 + semi;
+  return NOMES[((n % 12) + 12) % 12] + Math.floor(n / 12);
+}
+const TONS = [0, 2, 4, 7];                       // E, F#, G#, B: sobe a cada frase
+// [semitons acima da raiz | null = pausa, tempos]; cada frase tem 8 tempos
+// (2 compassos), então as quatro somam 32 tempos = 12,8 s a 150 bpm.
+// Ostinato: quinta e sexta menor se revezando sem parar — a "agonia" da mudança.
+const OSTINATO = Array.from({ length: 16 }, (_, i) => [i % 2 ? 20 : 19, 0.5]);
+// Solo no ritmo "tam, tam, tam, tam, tam, tam, tam, ta-RAM": sete batidas
+// curtas e iguais, e um floreio rápido subindo no fim de cada frase.
+const SOLO = [[12, 1], [12, 1], [12, 1], [12, 1], [15, 1], [15, 1], [15, 1], [17, 0.25], [19, 0.75]];
+// Base: um acorde por compasso (raiz, depois a sexta menor), deixando soar.
+const BASE = [[0, 4], [8, 4]];
+const BAIXO = [0, 0, 12, 0, 0, 0, 12, 0, 8, 8, 20, 8, 8, 8, 20, 8].map((o) => [o, 0.5]);
+// Bateria acompanhando os "tam" (bumbo e caixa revezando em cada um) e
+// batendo junto no "ta-RAM"; virada de tons na última frase.
+const TAMS = ["KC", "H", "S", "H", "K", "H", "S", "H", "K", "H", "S", "H", "K", "H"].map((p) => [p, 0.5]);
+const TARAM = [["S", 0.25], ["KS", 0.75]];
+const VIRADA = ["KC", "H", "S", "H", "K", "H", "S", "H", "T", "T", "T", "S", "S", "S"].map((p) => [p, 0.5]);
+const frase = (raiz, pares) => TONS.flatMap((t) => pares.map(([o, d]) => [o === null ? "-" : sobe(raiz, t + o), d]));
+
+MUSIC.evolucao = {
+  bpm: 150,
+  tracks: [
+    { guitarra: true, acorde: [0, 12], ganho: 40, vol: 0.6, eco: true, legato: 0.55,
+      vibrato: { hz: 5.5, cents: 30 }, notes: frase("E3", SOLO) },
+    { wave: "pulso", duty: 0.125, vol: 0.12, legato: 0.6, eco: true, notes: frase("E3", OSTINATO) },
+    { guitarra: true, acorde: [0, 7, 12], ganho: 25, vol: 0.38, legato: 0.98, notes: frase("E2", BASE) },
+    { wave: "triangle", vol: 0.6, legato: 0.8, notes: frase("E2", BAIXO) },
+    { wave: "bateria", vol: 0.55,
+      notes: [...TAMS, ...TARAM, ...TAMS, ...TARAM, ...TAMS, ...TARAM, ...VIRADA, ...TARAM] },
+  ],
+};
+
+// a fanfarra do BUUM: toca uma vez (a pausa longa no fim segura o loop)
+const UMA_VEZ = ["-", 64];
+MUSIC.evolucao_fanfarra = {
+  bpm: 150,
+  tracks: [
+    { guitarra: true, acorde: [0, 12], ganho: 40, vol: 0.6, eco: true, legato: 0.95,
+      vibrato: { hz: 5.5, cents: 35 },
+      notes: [["B4", 0.5], ["B4", 0.5], ["B4", 0.5], ["E5", 1.5], ["D#5", 0.5], ["E5", 0.5], ["G#5", 0.5], ["B5", 3], UMA_VEZ] },
+    { guitarra: true, acorde: [0, 7, 12], ganho: 25, vol: 0.5, legato: 0.95,
+      notes: [["E2", 0.5], ["E2", 0.5], ["E2", 0.5], ["E2", 1.5], ["B1", 1.5], ["E2", 3], UMA_VEZ] },
+    { wave: "triangle", vol: 0.6, legato: 0.9,
+      notes: [["E2", 0.5], ["E2", 0.5], ["E2", 0.5], ["E2", 1.5], ["B1", 1.5], ["E2", 3], UMA_VEZ] },
+    { wave: "bateria", vol: 0.6,
+      notes: [["S", 0.5], ["S", 0.5], ["S", 0.5], ["KC", 1.5], ["S", 0.5], ["S", 0.5], ["S", 0.5], ["KC", 3], UMA_VEZ] },
+  ],
+};
+
+// a festa depois da fanfarra: toca em loop enquanto o "PARABÉNS! SEU X
+// EVOLUIU PARA Y!" está na tela. Tema ORIGINAL em E maior, I-vi-IV-V
+// (E, C#m, A, B), 8 compassos: guitarra mais limpa no solo, arpejo no pulso,
+// guitarra base abafada, baixo e bateria animada.
+const ACORDES = [
+  ["E4", "G#4", "B4", "G#4"], ["C#4", "E4", "G#4", "E4"],
+  ["A3", "C#4", "E4", "C#4"], ["B3", "D#4", "F#4", "D#4"],
+];
+const RAIZES = ["E2", "C#2", "A1", "B1"];
+const doisCiclos = (f) => [...ACORDES.flatMap(f), ...ACORDES.flatMap(f)];
+MUSIC.evolucao_festa = {
+  bpm: 150,
+  tracks: [
+    { guitarra: true, acorde: [0, 12], ganho: 12, vol: 0.5, eco: true, legato: 0.9,
+      vibrato: { hz: 5.5, cents: 20 },
+      notes: [
+        ["B4", 1], ["G#4", 0.5], ["B4", 0.5], ["E5", 1], ["D#5", 1],
+        ["C#5", 1.5], ["B4", 0.5], ["G#4", 2],
+        ["A4", 0.5], ["B4", 0.5], ["C#5", 1], ["E5", 1], ["C#5", 1],
+        ["D#5", 1], ["F#5", 1], ["E5", 0.5], ["D#5", 0.5], ["B4", 1],
+        ["E5", 1], ["G#5", 1], ["F#5", 0.5], ["E5", 0.5], ["B4", 1],
+        ["C#5", 1], ["E5", 1], ["G#5", 2],
+        ["F#5", 1], ["E5", 0.5], ["C#5", 0.5], ["A4", 1], ["C#5", 1],
+        ["B4", 1], ["D#5", 1], ["E5", 2],
+      ] },
+    { wave: "pulso", duty: 0.125, vol: 0.18, legato: 0.5, eco: true,
+      notes: doisCiclos((a) => [...a, ...a].map((n) => [n, 0.5])) },
+    { guitarra: true, acorde: [0, 7, 12], abafado: true, ganho: 18, vol: 0.32, legato: 0.5,
+      notes: [...RAIZES, ...RAIZES].flatMap((r) => Array.from({ length: 8 }, () => [sobe(r, 12), 0.5])) },
+    { wave: "triangle", vol: 0.6, legato: 0.8,
+      notes: [...RAIZES, ...RAIZES].flatMap((r) => [r, r, sobe(r, 12), r, r, r, sobe(r, 12), sobe(r, 7)].map((n) => [n, 0.5])) },
+    { wave: "bateria", vol: 0.5,
+      notes: [
+        ...["KC", "H", "S", "H", "K", "K", "S", "H"],
+        ...Array.from({ length: 6 }, () => ["K", "H", "S", "H", "K", "K", "S", "O"]).flat(),
+        ...["K", "H", "S", "H", "S", "S", "T", "T"],
+      ].map((p) => [p, 0.5]) },
+  ],
+};
+
+// ------------------------------------------- A FUSÃO E A TROCA (as cutscenes)
+// Temas ORIGINAIS, no arranjo de banda da EVOLUÇÃO: guitarra solo com eco e
+// vibrato, uma segunda voz harmonizando, pulso no ostinato, guitarra base
+// abafada, baixo em triângulo e bateria. Cada parte da música cai numa parte do
+// filme (os tempos estão nas cenas), e as duas tocam UMA vez (a pausa longa no
+// fim segura o loop); o BUUM é a fanfarra, e depois dela a festa da evolução.
+const NADA = ["-", 64];
+const vezes = (n, pares) => Array.from({ length: n }, () => pares).flat();
+const em = (nomes, d) => nomes.map((n) => [n, d]);
+/** um compasso de baixo andando: raiz, raiz, oitava, raiz... (como o da evolução) */
+const baixoAndando = (r) => [r, r, sobe(r, 12), r, r, r, sobe(r, 12), sobe(r, 7)].map((n) => [n, 0.5]);
+/** um compasso de guitarra base abafada: a raiz em colcheia */
+const abafada = (r) => vezes(8, [[r, 0.5]]);
+/** um compasso de arpejo em semicolcheia, subindo e descendo pelo acorde */
+const arpejo = (notas) => em([...notas, ...notas.slice().reverse()].concat(notas, notas.slice().reverse()).slice(0, 16), 0.25);
+
+// --- A FUSÃO (src/scenes/fusion.js): 32 tempos a 150 bpm = 12,8 s, em mi menor
+//   0-8   ENCARAM-SE e se DESFAZEM: o chamado de quatro notas, abafado e bumbo
+//   8-24  O REDEMOINHO: o tema (Em, C, D, B), com a segunda voz e o arpejo girando
+//   24-28 SE JUNTAM: dó maior, as duas vozes subindo juntas
+//   28-32 CARREGANDO: escala cromática, a caixa acelerando e — silêncio — BUUM
+const FUS_TEMA = [
+  ["B4", 0.5], ["E5", 0.5], ["G5", 0.75], ["F#5", 0.25], ["E5", 1], ["B4", 1],
+  ["C5", 0.5], ["E5", 0.5], ["G5", 0.75], ["A5", 0.25], ["G5", 1], ["E5", 1],
+  ["D5", 0.5], ["F#5", 0.5], ["A5", 0.75], ["G5", 0.25], ["F#5", 1], ["D5", 1],
+  ["D#5", 0.5], ["F#5", 0.5], ["B5", 1.5], ["A5", 0.25], ["G5", 0.25], ["F#5", 1],
+];
+const FUS_SOBE = [["E5", 0.5], ["G5", 0.5], ["C6", 1], ["B5", 0.5], ["G5", 0.5], ["E5", 0.5], ["G5", 0.5]];
+const CROMATICA = ["E5", "F5", "F#5", "G5", "G#5", "A5", "A#5", "B5"];
+MUSIC.fusao = {
+  bpm: 150,
+  tracks: [
+    // a guitarra solo: o chamado, o tema e a escalada
+    { guitarra: true, acorde: [0, 12], ganho: 40, vol: 0.55, eco: true, legato: 0.6, vibrato: { hz: 5.5, cents: 30 },
+      notes: [["-", 4], ["E5", 1], ["D#5", 1], ["E5", 1], ["B4", 1],
+              ...FUS_TEMA, ...FUS_SOBE, ...em(CROMATICA, 0.25), ["B5", 1.5], ["-", 0.5], NADA] },
+    // a segunda voz: uma terça abaixo no tema, uníssono na escalada
+    { wave: "pulso", duty: 0.25, vol: 0.2, eco: true, detune: 6, legato: 0.7, vibrato: { hz: 6, cents: 15 },
+      notes: [["-", 8], ...FUS_TEMA.map(([n, d]) => [sobe(n, -3), d]), ...FUS_SOBE.map(([n, d]) => [sobe(n, -4), d]),
+              ...em(CROMATICA, 0.25), ["B5", 1.5], ["-", 0.5], NADA] },
+    // o ostinato: a quinta e a sexta menor revezando (a agonia) e, no redemoinho, o arpejo girando
+    { wave: "pulso", duty: 0.125, vol: 0.15, legato: 0.5, eco: true,
+      notes: [...vezes(8, [["B4", 0.5], ["C5", 0.5]]),
+              ...arpejo(["E4", "G4", "B4", "E5"]), ...arpejo(["C4", "E4", "G4", "C5"]),
+              ...arpejo(["D4", "F#4", "A4", "D5"]), ...arpejo(["B3", "D#4", "F#4", "B4"]),
+              ...arpejo(["C4", "E4", "G4", "C5"]), ...em(["B3", "D#4", "F#4", "B4"].concat(["D#5", "F#5", "B5", "F#5"]), 0.25),
+              ...vezes(8, [["B4", 0.25]]), NADA] },
+    // a guitarra base: o acorde soando no começo, depois abafada em colcheia
+    { guitarra: true, acorde: [0, 7, 12], ganho: 25, vol: 0.36, legato: 0.95,
+      notes: [["E2", 4], ["E2", 4], ["E2", 4], ["C2", 4], ["D2", 4], ["B1", 4], ["C2", 4], ["B1", 3.5], ["-", 0.5], NADA] },
+    { guitarra: true, acorde: [0, 7, 12], abafado: true, ganho: 18, vol: 0.28, legato: 0.5,
+      notes: [["-", 4], ...abafada("E3"), ...abafada("E3"), ...abafada("C3"), ...abafada("D3"), ...abafada("B2"),
+              ...abafada("C3"), ...vezes(14, [["B2", 0.25]]), ["-", 0.5], NADA] },
+    // o baixo andando
+    { wave: "triangle", vol: 0.6, legato: 0.8,
+      notes: [...vezes(8, [["E2", 0.5]]), ...baixoAndando("E2"), ...baixoAndando("E2"), ...baixoAndando("C2"),
+              ...baixoAndando("D2"), ...baixoAndando("B1"), ...baixoAndando("C2"), ...vezes(14, [["B1", 0.25]]), ["-", 0.5], NADA] },
+    // a bateria: bumbo e tons no começo, rock com prato no tema, a caixa dobrando e o rufo até o silêncio
+    { wave: "bateria", vol: 0.55,
+      notes: [...em(["K", "-", "K", "-", "K", "-", "K", "K"], 0.5), ...em(["K", "H", "K", "H", "T", "T", "S", "S"], 0.5),
+              ...vezes(4, em(["KC", "H", "S", "H", "K", "K", "S", "O"], 0.5)),
+              ...em(["KC", "S", "K", "S", "K", "S", "S", "S"], 0.5),
+              ...vezes(2, [["S", 0.5]]), ...vezes(4, [["S", 0.25]]), ...vezes(8, [["S", 0.125]]), ["KC", 0.5], ["-", 0.5], NADA] },
+  ],
+};
+
+// o BUUM da fusão: o mi maior estourando, com a segunda voz por baixo
+MUSIC.fusao_fanfarra = {
+  bpm: 150,
+  tracks: [
+    { guitarra: true, acorde: [0, 12], ganho: 40, vol: 0.6, eco: true, legato: 0.95, vibrato: { hz: 5.5, cents: 35 },
+      notes: [["B4", 0.5], ["B4", 0.5], ["B4", 0.5], ["E5", 1.5], ["G#5", 0.5], ["F#5", 0.5], ["G#5", 0.5], ["B5", 3], NADA] },
+    { wave: "pulso", duty: 0.25, vol: 0.22, eco: true, legato: 0.9,
+      notes: [["G#4", 0.5], ["G#4", 0.5], ["G#4", 0.5], ["B4", 1.5], ["E5", 0.5], ["D#5", 0.5], ["E5", 0.5], ["G#5", 3], NADA] },
+    { guitarra: true, acorde: [0, 7, 12], ganho: 25, vol: 0.5, legato: 0.95,
+      notes: [["E2", 0.5], ["E2", 0.5], ["E2", 0.5], ["E2", 1.5], ["B1", 1.5], ["E2", 3], NADA] },
+    { wave: "triangle", vol: 0.6, legato: 0.9, notes: [["E2", 1.5], ["E2", 1.5], ["B1", 1.5], ["E1", 3], NADA] },
+    { wave: "bateria", vol: 0.6,
+      notes: [["S", 0.5], ["S", 0.5], ["S", 0.5], ["KC", 1.5], ["S", 0.5], ["S", 0.5], ["S", 0.5], ["KC", 3], NADA] },
+  ],
+};
+
+// --- A TROCA (src/scenes/trocanpc.js): 29 tempos a 150 bpm. Banda inteira
+// desde o primeiro tempo, com o pulso fazendo o FLUXO DE DADOS do cabo em
+// semicolcheia sem parar. PERGUNTA na guitarra solo (você), RESPOSTA no pulso
+// brilhante (quem troca), e a frase SUBINDO DE TOM a cada parte, como a da
+// evolução, até as duas vozes se trombarem no BIZARRO:
+//   0-4   OS DOIS NA TELA (sol)    4-8 RACHAM (lá)    8-12 SE DESFAZEM (si)
+//   12-20 SE MISTURAM: o tema, guitarra e harmonia (Em, C, D, G)
+//   20-24 O BIZARRO: trilo de trítono, cromática despencando, tons rolando
+//   24-25 BUUM    25-29 SE SEPARAM: a escala triunfal subindo, e a fanfarra
+const tr = (pares, semi) => pares.map(([n, d]) => [n === "-" ? n : sobe(n, semi), d]);
+const TR_PERGUNTA = [["D5", 0.25], ["D5", 0.25], ["G5", 0.5], ["B5", 1]];
+const TR_RESPOSTA = [["C6", 0.25], ["B5", 0.25], ["A5", 0.5], ["G5", 1]];
+// o tema: dois tempos por acorde (Em, C, D, G), subindo e caindo no fim de cada um
+const TR_TEMA = [
+  ["E5", 0.5], ["G5", 0.5], ["B5", 0.75], ["A5", 0.25],
+  ["C5", 0.5], ["E5", 0.5], ["G5", 0.75], ["F#5", 0.25],
+  ["D5", 0.5], ["F#5", 0.5], ["A5", 0.75], ["G5", 0.25],
+  ["G5", 0.5], ["B5", 0.5], ["D6", 1],
+];
+/** 16 semicolcheias rodando num acorde: o fluxo de dados do cabo */
+const fluxo = (a, b, c, n = 16) => em(Array.from({ length: n }, (_, k) => [a, b, c, b][k % 4]), 0.25);
+const SUBIDA = ["G4", "B4", "D5", "G5", "B5", "D6", "G6", "D6"];
+MUSIC.troca = {
+  bpm: 150,
+  tracks: [
+    // a guitarra solo (você): a pergunta subindo de tom, o tema, o trilo e a escala triunfal
+    { guitarra: true, acorde: [0, 12], ganho: 40, vol: 0.5, eco: true, legato: 0.6, vibrato: { hz: 5.5, cents: 30 },
+      notes: [...TR_PERGUNTA, ["-", 2], ...tr(TR_PERGUNTA, 2), ["-", 2], ...tr(TR_PERGUNTA, 4), ["-", 2],
+              ...TR_TEMA,
+              ...vezes(8, em(["C#5", "G5"], 0.25)),
+              ["-", 1],
+              ...em(SUBIDA, 0.25), ["G6", 2], NADA] },
+    // o pulso brilhante (quem troca): a resposta, a harmonia do tema e o trilo do outro lado
+    { wave: "pulso", duty: 0.25, vol: 0.34, eco: true, detune: 8, legato: 0.8, vibrato: { hz: 6.2, cents: 16 },
+      notes: [["-", 2], ...TR_RESPOSTA, ["-", 2], ...tr(TR_RESPOSTA, 2), ["-", 2], ...tr(TR_RESPOSTA, 4),
+              ...TR_TEMA.map(([n, d]) => [sobe(n, -3), d]),
+              ...vezes(8, em(["G4", "C#5"], 0.25)),
+              ["-", 1],
+              ...em(SUBIDA.slice().reverse().map((n) => sobe(n, -12)), 0.25), ["G4", 2], NADA] },
+    // o fluxo de dados do cabo, sem parar
+    { wave: "pulso", duty: 0.125, vol: 0.13, eco: true, legato: 0.5,
+      notes: [...fluxo("G4", "B4", "D5"), ...fluxo("A4", "C#5", "E5"), ...fluxo("B4", "D#5", "F#5"),
+              ...fluxo("E4", "G4", "B4", 8), ...fluxo("C4", "E4", "G4", 8), ...fluxo("D4", "F#4", "A4", 8), ...fluxo("G4", "B4", "D5", 8),
+              ...em(Array.from({ length: 16 }, (_, k) => sobe("G5", -k)), 0.25),
+              ["-", 1], ...fluxo("G5", "B5", "D6"), NADA] },
+    // a guitarra base abafada em colcheia, seguindo o tom
+    { guitarra: true, acorde: [0, 7, 12], abafado: true, ganho: 18, vol: 0.3, legato: 0.5,
+      notes: [...abafada("G2"), ...abafada("A2"), ...abafada("B2"),
+              ...vezes(4, [["E3", 0.5]]), ...vezes(4, [["C3", 0.5]]), ...vezes(4, [["D3", 0.5]]), ...vezes(4, [["G2", 0.5]]),
+              ...vezes(16, [["C#3", 0.25]]), ["-", 1], ...abafada("G2"), NADA] },
+    // a guitarra base solta: o acorde no começo de cada parte e o golpe do BUUM
+    { guitarra: true, acorde: [0, 7, 12], ganho: 28, vol: 0.32, legato: 0.95,
+      notes: [["G2", 4], ["A2", 4], ["B2", 4], ["E2", 2], ["C2", 2], ["D2", 2], ["G2", 2], ["-", 4], ["G2", 1], ["G2", 4], NADA] },
+    // o baixo andando com o tom, despencando no bizarro
+    { wave: "triangle", vol: 0.6, legato: 0.8,
+      notes: [...baixoAndando("G1"), ...baixoAndando("A1"), ...baixoAndando("B1"),
+              ...em(["E2", "E2", "E3", "E2", "C2", "C2", "C3", "C2", "D2", "D2", "D3", "D2", "G1", "G1", "G2", "D2"], 0.5),
+              ["D2", 1], ["C#2", 1], ["C2", 1], ["B1", 1],
+              ["G1", 1], ...baixoAndando("G1"), NADA] },
+    // a bateria: desde o primeiro tempo, crescendo parte a parte
+    { wave: "bateria", vol: 0.52,
+      notes: [...em(["K", "H", "H", "H", "K", "H", "S", "H"], 0.5),
+              ...em(["KC", "H", "S", "H", "K", "H", "S", "H"], 0.5),
+              ...em(["KC", "H", "S", "H", "K", "K", "S", "S"], 0.5),
+              ...vezes(2, em(["KC", "H", "S", "H", "K", "K", "S", "O"], 0.5)),
+              ...vezes(4, em(["T", "S", "T", "S"], 0.25)),
+              ["KC", 1],
+              ...em(["KC", "H", "S", "H", "K", "K"], 0.5), ...vezes(4, [["S", 0.25]]), NADA] },
+  ],
+};
+
+// o fim da troca: o bicho novo aparecendo, em sol maior
+MUSIC.troca_fanfarra = {
+  bpm: 150,
+  tracks: [
+    { wave: "pulso", duty: 0.25, vol: 0.48, eco: true, detune: 6, legato: 0.95, vibrato: { hz: 6, cents: 20 },
+      notes: [["D5", 0.5], ["D5", 0.5], ["D5", 0.5], ["G5", 1.5], ["F#5", 0.5], ["G5", 0.5], ["A5", 0.5], ["B5", 3], NADA] },
+    { wave: "pulso", duty: 0.125, vol: 0.3, eco: true, legato: 0.95,
+      notes: [["B4", 0.5], ["B4", 0.5], ["B4", 0.5], ["D5", 1.5], ["D5", 0.5], ["E5", 0.5], ["F#5", 0.5], ["G5", 3], NADA] },
+    { guitarra: true, acorde: [0, 7, 12], ganho: 22, vol: 0.45, legato: 0.95,
+      notes: [["G2", 1.5], ["G2", 1.5], ["D2", 1.5], ["G2", 3], NADA] },
+    { wave: "triangle", vol: 0.6, legato: 0.9, notes: [["G2", 1.5], ["G2", 1.5], ["D2", 1.5], ["G1", 3], NADA] },
+    { wave: "bateria", vol: 0.55,
+      notes: [["S", 0.5], ["S", 0.5], ["S", 0.5], ["KC", 1.5], ["S", 0.5], ["S", 0.5], ["S", 0.5], ["KC", 3], NADA] },
+  ],
+};
+
+// A MEGA DESCONTROLADA (src/data/descontroladas.js): metal, a 200 bpm, em MI
+// frígio — o semitom de cima (o FÁ) é o que deixa tudo com cara de briga.
+// Guitarra base distorcida martelando semicolcheias ("chug") em cima de
+// MI-MI-DÓ-RÉ, guitarra solo com vibrato largo, baixo dobrando a base uma
+// oitava abaixo, e bateria de bumbo duplo. 12 compassos (48 tempos):
+//   ENTRADA 2 · SOLO 8 (a base embaixo) · QUEBRA 2 — e volta.
+const S16 = 0.25;
+/** um compasso de "chug" na raiz: a palhetada abafada, com o semitom e a
+ *  terça menor mordendo no fim do compasso */
+const chug = (r) => [0, 0, null, 0, 0, null, 0, 0, 1, null, 0, 0, 3, null, 1, 0]
+  .map((o) => [o === null ? "-" : sobe(r, o), S16]);
+const DESC_ENTRADA = [
+  ["E2", 0.75], ["-", 0.25], ["E2", 0.75], ["-", 0.25], ["F2", 1], ["F#2", 0.5], ["G2", 0.5],
+  ["G2", 0.5], ["F#2", 0.5], ["F2", 0.5], ["E2", 0.5], ...oitavos("E2", 4).map(([n]) => [n, 0.5]),
+];
+const DESC_BASE = ["E2", "E2", "C3", "D3", "E2", "E2", "C3", "B2"].flatMap(chug);
+const DESC_QUEBRA = [
+  ["E2", 1.5], ["-", 0.5], ["E2", 0.5], ["F2", 0.5], ["E2", 1],
+  ["A#2", 1], ["A2", 1], ["G#2", 0.5], ["G2", 0.5], ["F#2", 0.25], ["F2", 0.25], ["E2", 0.5],
+];
+const DESC_RITMO = [...DESC_ENTRADA, ...DESC_BASE, ...DESC_QUEBRA];
+const DESC_SOLO = [
+  ["-", 8],
+  ["E4", 1], ["G4", 0.5], ["A4", 0.5], ["B4", 1.5], ["A4", 0.25], ["G4", 0.25],
+  ["A4", 0.5], ["G4", 0.5], ["F#4", 0.5], ["E4", 0.5], ["F4", 2],
+  ["C5", 1], ["B4", 0.5], ["C5", 0.5], ["E5", 1.5], ["D5", 0.5],
+  ["D5", 0.5], ["C5", 0.5], ["B4", 0.5], ["A4", 0.5], ["B4", 2],
+  ["E5", 0.25], ["D5", 0.25], ["B4", 0.25], ["A4", 0.25], ["E5", 0.25], ["D5", 0.25], ["B4", 0.25], ["A4", 0.25],
+  ["G4", 0.5], ["A4", 0.5], ["B4", 1],
+  ["E5", 1], ["F5", 1], ["E5", 0.5], ["D5", 0.5], ["B4", 1],
+  ["C5", 0.25], ["E5", 0.25], ["G5", 0.25], ["E5", 0.25], ["C5", 0.25], ["E5", 0.25], ["G5", 0.25], ["E5", 0.25],
+  ["B4", 1], ["A4", 1],
+  ["B4", 0.5], ["C5", 0.5], ["D#5", 1], ["E5", 2],
+  ["-", 8],
+];
+/** um compasso de bumbo duplo: semicolcheias no bumbo, caixa no 2 e no 4 */
+const duplo = (prato = false) => [0, 1, 2, 3].flatMap((t) =>
+  [t % 2 ? "KS" : t === 0 && prato ? "KC" : "KH", "K", "K", "K"].map((p) => [p, S16]));
+const DESC_BATERIA = [
+  ["KC", 0.75], ["-", 0.25], ["KC", 0.75], ["-", 0.25], ["KS", 1], ["KS", 0.5], ["KS", 0.5],
+  ...Array.from({ length: 8 }, () => ["S", S16]), ...Array.from({ length: 4 }, () => ["T", S16]), ["KC", 1],
+  ...Array.from({ length: 8 }, (_, i) => duplo(i % 4 === 0)).flat(),
+  ["KC", 1.5], ["-", 0.5], ["K", 0.5], ["K", 0.5], ["KS", 1],
+  ["KS", 1], ["KS", 1], ...Array.from({ length: 4 }, () => ["S", S16]), ...Array.from({ length: 4 }, () => ["T", S16]),
+];
+MUSIC.megaDescontrolada = {
+  bpm: 200,
+  tracks: [
+    { guitarra: true, acorde: [0, 12], ganho: 55, vol: 0.55, eco: true, legato: 0.9,
+      vibrato: { hz: 6.5, cents: 40 }, notes: DESC_SOLO },
+    { guitarra: true, acorde: [0, 7, 12], ganho: 70, vol: 0.42, legato: 0.7, notes: DESC_RITMO },
+    { wave: "triangle", vol: 0.6, legato: 0.8, notes: DESC_RITMO.map(([n, d]) => [n === "-" ? n : sobe(n, -12), d]) },
+    { wave: "bateria", vol: 0.6, notes: DESC_BATERIA },
+  ],
+};

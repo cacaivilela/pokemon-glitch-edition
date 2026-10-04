@@ -148,3 +148,58 @@ export function rivalNpc(st) {
   }
   return null;
 }
+
+// ---------------------------------------------------------------- O GÊMEO
+// O rival de BRAGLITCH (src/data/rival.js, GEMEO): a skin que você não
+// escolheu. Montado na hora como o AZUL, com o mesmo `npcState` pra lembrar
+// quem já foi vencido. Só existe pra quem começou em Braglitch: quem veio de
+// Kanto é o VERMELHO ou a FOLHA, e esses não têm irmão gêmeo.
+
+/** Quantas insígnias de GINÁSIO de Braglitch (as das ilhas não contam). */
+function ginasiosBrag(st) {
+  const ids = new Set((DB.INSIGNIAS_BRAG || []).map((b) => b.id));
+  return (st?.bragBadges || []).filter((b) => ids.has(b)).length;
+}
+
+/** "CAIO" ou "LARA" — o gêmeo de quem joga — ou null fora de Braglitch. */
+export function quemEhOGemeo(st) {
+  const G = DB.GEMEO;
+  if (!G || st?.regiao !== "braglitch") return null;
+  return G.quem[st?.player?.genero === "menina" ? "menina" : "menino"];
+}
+
+export function gemeoNpc(st) {
+  const G = DB.GEMEO, nome = quemEhOGemeo(st);
+  const aqui = st?.player?.map;
+  if (!nome || !aqui) return null;
+  // NA ARENA DA LIGA (src/data/braglitch-liga.js): depois do último quiz ele
+  // está lá, do seu lado — não pra lutar contra você, pra lutar junto
+  const L = DB.LIGA_BRAG;
+  if (L && aqui === L.mapa) {
+    const g = L.gemeo[nome];
+    if (!st.flags?.[`ligaQuiz${L.quiz.length - 1}`] || !g) return null;
+    return { id: "gemeo_liga", ...L.gemeo.lugar, sprite: G.sprite[nome],
+             lines: st.flags.bragCampeao ? g.depois : g.espera };
+  }
+  for (const enc of G.encontros || []) {
+    const lugar = enc.cidade ? DB.LUGAR_DO_GEMEO?.[enc.cidade] : enc;
+    const mapa = enc.cidade || enc.mapa;
+    if (mapa !== aqui || !lugar) continue;
+    const r = enc.requer || {};
+    if (r.flag && !st?.flags?.[r.flag]) continue;
+    if (r.ginasios != null && ginasiosBrag(st) < r.ginasios) continue;
+    const id = `gemeo_${enc.id}`;
+    if (st?.npcState?.[`${aqui}.${id}`]?.defeated) continue;
+    const fala = enc[nome];
+    const time = (fala?.time || []).filter(([sp]) => DB.SPECIES[sp]).map(([sp, lvl, extra]) => ({ id: sp, lvl, shiny: extra === "shiny" }));
+    if (!time.length) continue;
+    return {
+      id, x: lugar.x, y: lugar.y, dir: lugar.dir || "down",
+      sprite: G.sprite[nome],
+      lines: fala.antes,
+      afterLines: fala.depois,
+      trainer: { name: nome, prize: enc.premio || 500, sprite: G.sprite[nome], party: time },
+    };
+  }
+  return null;
+}

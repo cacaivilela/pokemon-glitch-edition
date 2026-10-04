@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, aniv, reg, zonas, ovos, decamark, hab, pesos, mina, mais, gopark, spinda, prov, hack, duplas, dex, brag, textos, rotom, vazio, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, aniv, reg, zonas, ovos, decamark, hab, pesos, mina, mais, gopark, spinda, prov, hack, duplas, dex, brag, textos, rotom, vazio, trocas, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -62,8 +62,21 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./pokedex-textos.js" + V),
   import("./rotom.js" + V),
   import("./void.js" + V),
+  import("./trocas.js" + V),
   fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
+
+// AS MEGAS DESCONTROLADAS (src/data/descontroladas.js), à parte da lista acima
+const descontroladas = await import("./descontroladas.js" + V);
+// AS EVOLUÇÕES SECRETAS (src/data/secretas.js): as espécies e as marcas
+const secretas = await import("./secretas.js" + V);
+// AS FORMAS ÚNICAS (src/data/formas-unicas.js): os desenhos do UNIQUEMON
+const unicas = await import("./formas-unicas.js" + V);
+const guardaRoupa = await import("./guarda-roupa.js" + V);
+// O ASH, o campeão secreto (src/data/ash.js)
+const ash = await import("./ash.js" + V);
+// OS BICOS: entregas e procurados (src/data/bicos.js)
+const bicos = await import("./bicos.js" + V);
 
 if (!kanto) {
   console.error("[dados] assets/maps/kanto.json não encontrado — rode: python3 tools/fetch_maps.py");
@@ -191,7 +204,7 @@ function mergeMaps(kanto, authored) {
   // nos mapas de Kanto mesmo (os interiores de BRAGLITCH copiam a geometria de
   // Kanto, objetos junto, e não herdam as árvores de lá).
   for (const [id, geo] of Object.entries(kanto)) {
-    if (!out[id] || geo.braglitch || out[id].arvores) continue;
+    if (!out[id] || geo.planta || out[id].arvores) continue;   // região desenhada em código: sem árvore do decomp
     const livre = (x, y) => x >= 0 && y >= 0 && x < geo.w && y < geo.h
       && [maps.TAG.FREE, maps.TAG.GRASS].includes(geo.tags.charCodeAt(y * geo.w + x) - 48);
     const arv = (geo.objects || []).filter((o) => o.gfx === "CUT_TREE" && livre(o.x, o.y)).map((o) => `${o.x},${o.y}`);
@@ -248,6 +261,19 @@ function mergeMaps(kanto, authored) {
       const comBolas = i < 0 ? [...npc.shop, ...novas]
         : [...npc.shop.slice(0, i + 1), ...novas, ...npc.shop.slice(i + 1)];
       npc.shop = [...comBolas, ...acamp.ESTOQUE.filter((x) => !tem.has(x.item))];
+      // o GUARDA-ROUPA ÚNICO (src/data/guarda-roupa.js): uma vez só, como a barraca
+      const G = guardaRoupa.GUARDA_ROUPA;
+      if (!tem.has(G.item)) npc.shop.push({ item: G.item, price: G.preco, unico: true });
+    }
+  }
+  // OS COGUMELOS DO PARASECT (src/data/secretas.js) só nas lojas das SEVII
+  for (const [id, mapa] of Object.entries(out)) {
+    if (!/_island_mart$/.test(id)) continue;
+    for (const npc of mapa.npcs || []) {
+      if (!npc.shop || npc.estoqueFechado) continue;
+      for (const [item, c] of Object.entries(secretas.COGUMELOS.itens)) {
+        if (!npc.shop.some((x) => x.item === item)) npc.shop.push({ item, price: c.preco });
+      }
     }
   }
 
@@ -454,7 +480,16 @@ export const ILHA_GERADA = !kanto?.birth_island;
 /** só entra se o mapa importado não existir */
 const ilhaFallback = ILHA_GERADA ? { birth_island: islandMap() } : {};
 
+/** O DB inteiro, com as FORMAS ÚNICAS por cima. O live update (src/core/hot.js)
+ *  chama este mesmo `buildDB`: fora daqui, publicar uma forma (que é o que
+ *  dispara o hot-swap) apagaria todas elas da memória. */
 export function buildDB() {
+  const db = montarDB();
+  aplicarUnicas(db, unicas.FORMAS_UNICAS);
+  return db;
+}
+
+function montarDB() {
   return {
     CONFIG: config.CONFIG,
     TYPES: types.TYPES,
@@ -474,7 +509,8 @@ export function buildDB() {
     SPECIES: species.buildSpecies(
       { ...gen1.GEN1, ...extra.EXTRA, ...reg.REGIONAIS, ...eras.ERAS_ESPECIES,
         ...iniciais.INICIAIS_ESPECIES, ...bones.BONES_ESPECIES, ...decamark.DECAMARK_ESPECIE, ...mais.MAIS,
-        ...hack.HACKEANAS, ...brag.BRAGLITCH_ESPECIES, ...rotom.ROTOM_FORMAS, ...mega.MEGA_FORMS },
+        ...hack.HACKEANAS, ...brag.BRAGLITCH_ESPECIES, ...rotom.ROTOM_FORMAS, ...mega.MEGA_FORMS,
+        ...secretas.SECRETAS_ESPECIES },
       types.TYPE_COLOR, textos.DEX_TEXTOS),
     EXTRA: extra.EXTRA,
     // as formas regionais entram na fenda junto com o resto que vaza pra lá
@@ -496,6 +532,7 @@ export function buildDB() {
     RARE_LEGEND: extra.RARE_LEGEND,
     FUSAO_SELVAGEM: extra.FUSAO_SELVAGEM,
     DEOXYS_FORMS: extra.DEOXYS_FORMS,
+    CUBO_ZYGARDE: extra.CUBO_ZYGARDE,
     TEMPESTADE: extra.TEMPESTADE,
     ESTATICOS: [...extra.ESTATICOS, ...bones.BONES_ESTATICOS, decamark.DECAMARK_ESTATICO],
     DECAMARK: { registro: decamark.REGISTRO, naFenda: decamark.REGISTRO_NA_FENDA },
@@ -563,6 +600,7 @@ export function buildDB() {
     FUSOES_FEITAS: feitas.FUSOES_FEITAS,
     CONCURSO: concurso.CONCURSO,
     MISSOES: missoes.MISSOES,
+    TROCAS: trocas.TROCAS,
     DISTORCOES: distorcoes.DISTORCOES,
     GLITCH_ZONES: zonas.GLITCH_ZONES,
     OVOS: ovos.OVOS,
@@ -606,10 +644,24 @@ export function buildDB() {
     BRAGLITCH: brag.BRAGLITCH,
     BRAGLITCH_TEXTO: brag.BRAGLITCH_TEXTO,
     BONDINHO: brag.BONDINHO,
-    REDEMOINHOS: brag.REDEMOINHOS,
+    // AS ILHAS: a história de lá (src/data/braglitch-ilhas.js)
+    ILHAS_BRAG: brag.ILHAS_BRAG,
+    ILHAS_TEXTO: brag.ILHAS_TEXTO,
+    PEDRAS_BRAG: brag.PEDRAS_BRAG,
+    EVO_BRAGLITCH: brag.EVO_BRAGLITCH,
     SACI_NA_MATA: brag.SACI_NA_MATA,
     INSIGNIAS_BRAG: brag.INSIGNIAS_BRAG,
+    INSIGNIAS_ILHAS: brag.INSIGNIAS_ILHAS,
     LENDAS_BRAG: brag.LENDAS,
+    LUGAR_DO_GEMEO: brag.LUGAR_DO_GEMEO,
+    LIGA_BRAG: brag.LIGA_BRAG,
+    DESCONTROLADAS: descontroladas.DESCONTROLADAS,
+    MARCAS_SECRETAS: secretas.MARCAS_SECRETAS,
+    COGUMELOS: secretas.COGUMELOS,
+    GUARDA_ROUPA: guardaRoupa.GUARDA_ROUPA,
+    ASH: ash.ASH,
+    BICOS: bicos.BICOS,
+    GEMEO: rival.GEMEO,
     MAPA_REGIAO: brag.MAPA_REGIAO,
     PANDEIRO_TEXTO: brag.PANDEIRO_TEXTO,
     BARCO: brag.BARCO,
@@ -628,3 +680,49 @@ export function buildDB() {
 
 /** Objeto vivo: o hot-swap faz Object.assign neste mesmo objeto. */
 export const DB = buildDB();
+
+/** AS FORMAS ÚNICAS viram espécies próprias: a original inteira (atributos,
+ *  golpes, evolução, e os tipos — a menos que a forma tenha `tipos` próprios),
+ *  com o nome e o desenho de quem fez. Ela pode escolher pra quem evolui
+ *  (`evoluiPra`, no UNIQUEMON): uma espécie oficial ou outra forma única. O id é
+ *  "<espécie>u<id>". `DB.UNICAS_DE` diz quais formas cada espécie tem — é
+ *  por ali que o GUARDA-ROUPA ÚNICO lista as roupas (src/systems/unicas.js). */
+function aplicarUnicas(db, todas) {
+  db.UNICAS_DE = {};
+  for (const [base, lista] of Object.entries(todas || {})) {
+    const sp = db.SPECIES[base];
+    if (!sp || !Array.isArray(lista)) continue;
+    for (const f of lista) {
+      if (!f?.id || !f.sprite) continue;
+      const id = `${base}u${f.id}`;
+      // TIPOS próprios (opcional, escolhidos no UNIQUEMON): só os que existem
+      const tipos = (Array.isArray(f.tipos) ? f.tipos : []).filter((t) => db.TYPE_COLOR?.[t]).slice(0, 2);
+      db.SPECIES[id] = { ...sp, id, name: f.nome || sp.name, unicaDe: base, autor: f.autor || "",
+                         types: tipos.length ? tipos : sp.types,
+                         spriteUrl: f.sprite, spriteDex: undefined, soEvolucao: true };
+      (db.UNICAS_DE[base] ||= []).push(id);
+      // a forma evolui como a original (uma CÓPIA das regras: a ligação abaixo
+      // mexe nelas, e mexer na lista da original mudaria a original também)
+      if (db.EVOLUTIONS[base]) db.EVOLUTIONS[id] = db.EVOLUTIONS[base].map((r) => ({ ...r }));
+    }
+  }
+  // EVOLUI PRA QUEM (escolhido no UNIQUEMON): `evoluiPra` é uma espécie
+  // ("sliggoohisui", o SLIGGOO de Hisui oficial) ou outra forma única
+  // ("sliggoo:<id>"). A forma passa a evoluir SÓ pra ela, com a mesma regra
+  // (nível, pedra...) que a original usa pra chegar naquela espécie — sem a
+  // exigência de lugar: escolhida, ela vale em qualquer canto.
+  for (const [base, lista] of Object.entries(todas || {})) {
+    for (const f of Array.isArray(lista) ? lista : []) {
+      const eu = `${base}u${f?.id}`, alvo = String(f?.evoluiPra || "");
+      if (!alvo || !db.SPECIES[eu]) continue;
+      const [alvoBase, alvoId] = alvo.split(":");
+      const para = alvoId ? `${alvoBase}u${alvoId}` : alvoBase;
+      if (!db.SPECIES[para]) continue;
+      const regras = db.EVOLUTIONS[base] || [];
+      const r0 = regras.find((r) => r.to === alvoBase) || regras[0];
+      if (!r0) continue;
+      const { onde, ...regra } = r0;
+      db.EVOLUTIONS[eu] = [{ ...regra, to: para }];
+    }
+  }
+}

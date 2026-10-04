@@ -108,7 +108,7 @@ export const LUGARES = [
     saidas: { right: 6 },
     niveis: [19, 23],
     mato: [["wingull", 16], ["krabby", 14], ["corphish", 12], ["caranguejinho", 14], ["capivarinha", 12],
-           ["biquinho", 10], ["aipombrag", 10], ["charmander", 3]],
+           ["biquinho", 10], ["charmander", 3]],
     npcs: [
       { id: "jangadeiro", x: 18, y: 22, dir: "left", sprite: "pescador",
         lines: ["MINHA JANGADA É DE PAU E VELA. MEU TIME É DE ESCAMA E BICO. VEM!"],
@@ -174,7 +174,7 @@ export const LUGARES = [
     saidas: { right: 6 },
     niveis: [54, 58],
     mato: [["wartortle", 14], ["piranhorda", 16], ["acaizeiro", 14], ["tucanacu", 14], ["sauvarainha", 12],
-           ["capivarao", 12], ["arbokbrag", 10], ["encantado", 6], ["squirtle", 6], ["blastoise", 2]],
+           ["capivarao", 12], ["encantado", 6], ["squirtle", 6], ["blastoise", 2]],
     npcs: [
       { id: "pescador_negro", x: 23, y: 19, dir: "left", sprite: "pescador",
         lines: ["O RIO NEGRO É PRETO QUE NEM CAFÉ. E O MEU TIME É FORTE QUE NEM CAFÉ!"],

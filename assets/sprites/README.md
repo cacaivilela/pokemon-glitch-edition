@@ -111,6 +111,29 @@ assets/sprites/tiles/balcao.png       cama.png        pc.png       tv.png
 assets/sprites/tiles/planta.png       escada.png
 ```
 
+## Itens (16x16)
+
+```
+assets/sprites/itens/poke-bola.png        pedra-do-trovao.png   fossil-helix.png   morango.png ...
+assets/sprites/itens/ovo.png  megapedra.png  cristal-z.png  fossil.png  pedra.png  bola.png
+                     pandeiro.png  bilhete.png  comida.png  item.png      <- as FAMÍLIAS
+assets/sprites/itens/itens.json           a lista (nome do item -> arquivo)
+```
+
+Um ícone por item da mochila, desenhado em código por `tools/itens_sprites.py`
+(os desenhos ficam em `tools/itens_desenhos/lote_*.py`). O nome do arquivo é o
+nome do item sem acento, minúsculo e com hífen no lugar de espaço e ponto —
+a mesma conta de `src/core/itens.js`. Item que não tem PNG próprio usa o da
+família (um OVO DA CRECHE usa `ovo.png`) e, por último, `item.png`, a sacolinha.
+
+```bash
+python3 tools/itens_sprites.py                    # redesenha tudo
+python3 tools/itens_sprites.py --folha=/tmp/f.png  # e uma folha de contato pra olhar
+```
+
+`dev/itenscheck.html` mostra a folha, lista o que o jogo conhece e ainda cai
+na família, e tira um retrato da mochila cheia (`?itens=1`).
+
 ## Cortando uma spritesheet
 
 Se você tiver uma folha com vários sprites em grade, use o utilitário:

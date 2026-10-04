@@ -188,8 +188,10 @@ export function evolveTo(mon, toId) {
 export function evolutionFor(mon, mapa = null) {
   for (const r of DB.EVOLUTIONS?.[mon.species] || []) {
     if (!DB.SPECIES[r.to]) continue;
+    // SECRETA (src/data/secretas.js): uma marca que ficou no bicho, em qualquer nível
+    if (r.secreta) { if (!mon[r.secreta] || (r.comeu && mon.comeu !== r.comeu)) continue; }
     // por AMIZADE (os bebês): gostar de você o bastante, em qualquer nível
-    if (r.amizade) { if ((mon.amizade || 0) < r.amizade) continue; }
+    else if (r.amizade) { if ((mon.amizade || 0) < r.amizade) continue; }
     else if (!r.lvl || mon.level < r.lvl) continue;
     if (lugarBate(r, mapa)) return r.to;
   }

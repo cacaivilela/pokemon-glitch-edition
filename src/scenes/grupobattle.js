@@ -17,6 +17,7 @@
 // pegar), fuga pelo mesmo motivo, MEGA e GLITCHBOOSTER, que continuam sendo
 // coisa de um contra um.
 import { DB } from "../data/index.js";
+import { prepararBatalha, fatorXp } from "../systems/pedras.js";
 import { Assets } from "../core/assets.js";
 import { trainerArt, adiantarMons } from "../core/sprites.js";
 import { Input } from "../core/input.js";
@@ -29,7 +30,10 @@ import { veu, temCeu } from "../systems/ciclo.js";
 import { fator } from "../systems/acampamento.js";
 import { partes } from "../systems/fusao.js";
 import { limpar, limparTudo } from "../systems/glitchboost.js";
-import { reverterMega, reverterTudo } from "../systems/mega.js";
+import { reverterMega, reverterTudo, megaEvoluir } from "../systems/mega.js";
+import { tocarMega } from "./mega.js";
+import { marcarSecreta } from "../systems/secretas.js";
+import { cumprirProcurado } from "../systems/bicos.js";
 import { venceu as venceuAmizade } from "../systems/creche.js";
 import { isFainted, gainXp, xpYieldFor, heal, createMon } from "../systems/mon.js";
 import {
@@ -62,37 +66,76 @@ const PALCO = {
   },
 };
 
+/** A HORDA, de 3 a 5 do outro lado e um só do seu: os de 4 e 5 em duas
+ *  fileiras (os de trás desenhados antes). A vida de cada um é uma barrinha
+ *  embaixo dele. */
+const HORDA = {
+  3: [{ cx: 170, pe: 70, tam: 64 }, { cx: 126, pe: 62, tam: 64 }, { cx: 214, pe: 60, tam: 64 }],
+  4: [{ cx: 140, pe: 74, tam: 64 }, { cx: 186, pe: 74, tam: 64 }, { cx: 170, pe: 52, tam: 64 },
+      { cx: 216, pe: 52, tam: 64 }],
+  5: [{ cx: 146, pe: 74, tam: 64 }, { cx: 192, pe: 74, tam: 64 }, { cx: 122, pe: 52, tam: 64 },
+      { cx: 168, pe: 52, tam: 64 }, { cx: 214, pe: 52, tam: 64 }],
+};
+const UM_SO = [{ cx: 46, pe: 112, tam: 64 }];
+
 const txt = (k, vars = {}) =>
   String(DB.DUPLA_TEXTO?.[k] || k).replace(/\{(\w+)\}/g, (m, n) => vars[n] ?? m);
 
 export class GrupoBattleScene {
   /** args: { tamanho: 2|3, trainer?, npcKey?, foes? (os bichos prontos, pro
-   *  totem), totem? (a provação, pra saber que não tem bola nem fuga) } */
+   *  totem), totem? (a provação, pra saber que não tem bola nem fuga),
+   *  trainer2? (um segundo treinador do outro lado), aliado? ({ name, sprite,
+   *  party }: um treinador do SEU lado, que a IA joga) }
+   *
+   *  COM `trainer2` OU `aliado` É A BATALHA DE QUATRO TREINADORES (a final da
+   *  LIGA DE BRAGLITCH, src/data/braglitch-liga.js): cada vaga é de um time —
+   *  `v.t` é "p" (você), "a" (o aliado), "f" (o treinador) ou "g" (o segundo) —
+   *  e quem cai é trocado pelo próximo do MESMO time. */
   enter(args = {}) {
     const st = this.game.state;
-    this.n = args.tamanho === 3 ? 3 : 2;
+    prepararBatalha(st);            // as PEDRAS BRAGLITCHIANAS da mochila valem aqui
+    // A HORDA (src/data/config.js, `hordaOdds`): 1 contra 5 selvagens
+    this.horda = !!args.horda;
+    this.n = this.horda ? Math.max(3, Math.min(5, (args.foes || []).length)) : args.tamanho === 3 ? 3 : 2;
+    // onde cada vaga fica na tela
+    this.palco = this.horda ? { f: HORDA[this.n], p: UM_SO } : PALCO[this.n];
     this.trainer = args.trainer || null;
     this.npcKey = args.npcKey || null;
-    this.foeParty = this.trainer
-      ? this.trainer.party.map((p) => createMon(p.id, p.lvl, { corrupt: !!p.corrupt }))
-      : (args.foes || []).filter(Boolean);
+    const montar = (party) => party.map((p) => {
+      const m = createMon(p.id, p.lvl, { corrupt: !!p.corrupt, shiny: !!p.shiny });
+      if (p.mega) m.megaNaEntrada = p.mega;     // MEGA EVOLUI assim que entra
+      return m;
+    });
+    this.foeParty = this.trainer ? montar(this.trainer.party) : (args.foes || []).filter(Boolean);
+    this.trainer2 = args.trainer2 || null;
+    this.aliado = args.aliado || null;
+    this.times = {
+      p: st.party, f: this.foeParty,
+      a: this.aliado ? montar(this.aliado.party) : [],
+      g: this.trainer2 ? montar(this.trainer2.party) : [],
+    };
     this.totem = this.foeParty[0]?.totem || null;
     this.isGlitch = !!args.glitch;
 
-    adiantarMons([...this.foeParty, ...st.party].filter(Boolean)
+    adiantarMons([...this.foeParty, ...st.party, ...this.times.a, ...this.times.g].filter(Boolean)
       .map((m) => DB.SPECIES[m.species]).filter(Boolean)
       .map((sp) => ({ id: sp.id, dex: sp.spriteDex || sp.dex })));
 
     // AS VAGAS. Cada lado tem `n` vagas; cada vaga aponta pra um índice da
     // equipe (ou null, quando ninguém sobrou pra ocupar). Do seu lado saem
     // tantos quanto os do outro — e, se você não tem tantos em pé, sai quem tem.
-    const vagas = (time) => {
+    const vaga = (t, idx) => ({ t, idx, stages: newStages(), sp: this.newSprite(), disp: 0 });
+    const vagas = (t, quantas = this.n) => {
       const out = [];
-      time.forEach((m, i) => { if (out.length < this.n && !isFainted(m)) out.push(i); });
-      while (out.length < this.n) out.push(null);
-      return out.map((idx) => ({ idx, stages: newStages(), sp: this.newSprite(), disp: 0 }));
+      this.times[t].forEach((m, i) => { if (out.length < quantas && !isFainted(m)) out.push(i); });
+      while (out.length < quantas) out.push(null);
+      return out.map((idx) => vaga(t, idx));
     };
-    this.lado = { p: vagas(st.party), f: vagas(this.foeParty) };
+    // com aliado / segundo treinador, cada um põe UM em campo
+    this.lado = {
+      p: this.horda ? vagas("p", 1) : this.aliado ? [...vagas("p", 1), ...vagas("a", 1)] : vagas("p"),
+      f: this.trainer2 ? [...vagas("f", 1), ...vagas("g", 1)] : vagas("f"),
+    };
     for (const k of ["p", "f"]) for (const v of this.lado[k]) v.disp = this.monDe(k, v)?.hp || 0;
     // o totem é grande; os ajudantes não
     if (this.totem) this.lado.f[0].sp.escala = this.n === 3 ? 1.15 : DB.TOTEM?.tamanho || 1.35;
@@ -111,12 +154,13 @@ export class GrupoBattleScene {
     this.showTrainer = !!this.trainer;
     this.tOut = 0;
     trainerArt(this.trainer?.sprite);
+    trainerArt(this.trainer2?.sprite);
     this.cristalUsado = false;
     this.clima = st.player?.map === "tempestade" ? { tipo: "chuva", turnos: Infinity } : null;
     this.escolhas = [];
     this.escolhendo = 0;
     this.xpPendente = 0;
-    for (const m of this.foeParty.slice(0, this.n)) if (m) st.seen[m.species] = true;
+    for (const v of this.lado.f) { const m = this.monDe("f", v); if (m) st.seen[m.species] = true; }
 
     Audio2.playMusic("batalha", DB.MUSIC?.batalha);
     this.run(this.intro());
@@ -129,17 +173,23 @@ export class GrupoBattleScene {
   get st() { return this.game.state; }
 
   // ------------------------------------------------------------ as vagas
-  timeDe(k) { return k === "p" ? this.st.party : this.foeParty; }
-  monDe(k, v) { return v && v.idx != null ? this.timeDe(k)[v.idx] : null; }
+  /** os times de um lado: o seu (e o do aliado), ou o do treinador (e o do segundo) */
+  timesDoLado(k) { return k === "p" ? ["p", "a"] : ["f", "g"]; }
+  monDe(k, v) { return v && v.idx != null ? this.times[v.t || k][v.idx] : null; }
+  /** de quem é a vaga: o nome que aparece no "ENVIOU" */
+  donoDe(t) {
+    return t === "a" ? this.aliado?.name : t === "g" ? this.trainer2?.name : this.trainer?.name || "O TOTEM";
+  }
   /** as vagas com alguém de pé */
   vivas(k) { return this.lado[k].filter((v) => { const m = this.monDe(k, v); return m && !isFainted(m); }); }
   outro(k) { return k === "p" ? "f" : "p"; }
   /** alguém do time ainda pode lutar (na vaga ou no banco)? */
-  temAlguem(k) { return this.timeDe(k).some((m) => m && !isFainted(m)); }
-  /** quem está no banco e pode entrar */
-  banco(k) {
-    const usados = new Set(this.lado[k].map((v) => v.idx));
-    return this.timeDe(k).map((m, i) => ({ m, i })).filter(({ m, i }) => m && !isFainted(m) && !usados.has(i));
+  temAlguem(k) { return this.timesDoLado(k).some((t) => this.times[t].some((m) => m && !isFainted(m))); }
+  /** quem do time `t` está no banco e pode entrar */
+  banco(t) {
+    const k = t === "p" || t === "a" ? "p" : "f";
+    const usados = new Set(this.lado[k].filter((v) => v.t === t).map((v) => v.idx));
+    return this.times[t].map((m, i) => ({ m, i })).filter(({ m, i }) => m && !isFainted(m) && !usados.has(i));
   }
   nomes(lista) { return lista.map((m) => m.nickname); }
 
@@ -167,7 +217,17 @@ export class GrupoBattleScene {
     await this.wait(0.6);
     const T = DB.DUPLA_TEXTO || {};
     const deles = this.nomes(this.lado.f.map((v) => this.monDe("f", v)).filter(Boolean));
-    if (this.trainer) {
+    if (this.trainer && this.trainer2) {
+      await this.say(txt("desafio", { NOME: this.trainer.nomeDupla || `${this.trainer.name} E ${this.trainer2.name}` }));
+      await this.trainerOut();
+      for (const v of this.lado.f) {
+        const m = this.monDe("f", v);
+        if (m) await this.say(this.enviou(this.donoDe(v.t), [m.nickname]));
+      }
+    } else if (this.horda) {
+      Audio2.tone(330, 0.1, "square", 0.4); Audio2.tone(330, 0.1, "square", 0.4);
+      await this.say(txt("horda", { MON: deles[0] }));
+    } else if (this.trainer) {
       await this.say(this.trainer.dupla ? txt("desafio", { NOME: this.trainer.name })
                                         : `${this.trainer.name} QUER BATALHAR!`);
       await this.trainerOut();
@@ -182,8 +242,14 @@ export class GrupoBattleScene {
         for (const nome of deles.slice(1)) await this.say(txt("ajudante", { MON: nome }));
       }
     }
-    const meus = this.nomes(this.lado.p.map((v) => this.monDe("p", v)).filter(Boolean));
-    await this.say(meus.length > 1
+    const meus = this.nomes(this.lado.p.filter((v) => v.t === "p").map((v) => this.monDe("p", v)).filter(Boolean));
+    if (this.aliado) {
+      if (meus.length) await this.say(txt("vaiUm", { A: meus[0] }));
+      for (const v of this.lado.p.filter((x) => x.t === "a")) {
+        const m = this.monDe("p", v);
+        if (m) await this.say(this.enviou(this.aliado.name, [m.nickname]));
+      }
+    } else await this.say(meus.length > 1
       ? (T.vai || "VAI, {A} E {B}!").replace("{A}", meus.slice(0, -1).join(", ")).replace("{B}", meus.at(-1))
       : txt("vaiUm", { A: meus[0] }));
     if (this.clima) await this.say(DB.CLIMA_TEXTO[this.clima.tipo].continua);
@@ -224,6 +290,7 @@ export class GrupoBattleScene {
   async entrou(k, v) {
     const mon = this.monDe(k, v);
     if (!mon || isFainted(mon)) return;
+    if (mon.megaNaEntrada && !mon.megaDe) await this.megaNaEntrada(v, mon);
     const e = entradaDaHabilidade(mon);
     if (!e) return;
     const h = habilidadeDoMon(mon);
@@ -242,6 +309,27 @@ export class GrupoBattleScene {
     }
   }
 
+  /** O treinador MEGA EVOLUI o bicho assim que ele entra (o AERODACTYL da
+   *  campeã DALVA): a fala dele, o clarão e a forma nova. */
+  async megaNaEntrada(v, mon) {
+    const para = mon.megaNaEntrada;
+    delete mon.megaNaEntrada;
+    const dono = v.t === "g" ? this.trainer2 : v.t === "a" ? this.aliado : this.trainer;
+    for (const linha of dono?.falaMega || []) await this.say(linha);
+    await tocarMega(this.game, mon, para);       // a cutscene (src/scenes/mega.js)
+    const r = megaEvoluir(mon, para);
+    if (!r) return;
+    this.flash = 0.6;
+    v.sp.dx = v.t === "p" || v.t === "a" ? -14 : 14;
+    Audio2.tone(520, 0.1, "square", 0.5);
+    Audio2.tone(760, 0.12, "square", 0.5);
+    Audio2.heal();
+    await this.wait(0.45);
+    v.sp.dx = 0;
+    v.disp = mon.hp;
+    await this.say(DB.STORY.mega.evoluiu.replace("{MON}", mon.nickname).replace("{FORMA}", r.forma));
+  }
+
   async mudarClima(tipo) {
     const T = DB.CLIMA_TEXTO;
     if (this.clima?.turnos === Infinity && this.clima.tipo !== tipo) return void (await this.say("A TEMPESTADE NÃO DEIXA."));
@@ -255,9 +343,11 @@ export class GrupoBattleScene {
   /** Começa o turno: cada vaga sua com alguém de pé escolhe, uma depois da outra. */
   comecarEscolha() {
     this.escolhas = [];
+    // só as SUAS vagas escolhem; a do aliado é a IA quem joga
     this.fila = this.lado.p.map((v, i) => i).filter((i) => {
-      const m = this.monDe("p", this.lado.p[i]);
-      return m && !isFainted(m);
+      const v = this.lado.p[i];
+      const m = this.monDe("p", v);
+      return v.t === "p" && m && !isFainted(m);
     });
     this.escolhendo = 0;
     this.zArmado = false;
@@ -314,23 +404,24 @@ export class GrupoBattleScene {
   /** A IA do outro lado: pra cada bicho, o golpe e o alvo que mais prometem.
    *  É a mesma conta do `chooseAiMove` (força x efetividade x STAB, com um
    *  pouco de sorte), só que olhando todos os alvos em vez de um. */
-  escolhaDaIA(v) {
-    const mon = this.monDe("f", v);
-    const alvos = this.vivas("p");
+  escolhaDaIA(v, k = "f") {
+    const mon = this.monDe(k, v);
+    const o = this.outro(k);
+    const alvos = this.vivas(o);
     let melhor = null, nota = -1;
     for (const ref of mon.moves.filter((m) => m.pp > 0)) {
       const mv = DB.MOVES[ref.id];
       if (!mv) continue;
       for (const a of alvos) {
-        const alvo = this.monDe("p", a);
+        const alvo = this.monDe(o, a);
         let s = (mv.power || 25) * DB.effectiveness(mv.type, alvo.types) * (mon.types.includes(mv.type) ? 1.5 : 1);
         if (mv.category === "status") s = 30 + Math.random() * 20;
         if (mv.clima) s = this.clima?.tipo === mv.clima ? 0 : 60 + Math.random() * 20;
         // golpe que pega todo mundo vale pelos dois — menos se acerta o parceiro
         const esp = DB.ESPALHA?.[ref.id];
-        if (esp) s *= (esp === "todos" && this.vivas("f").length > 1 ? 1.1 : 1.5);
+        if (esp) s *= (esp === "todos" && this.vivas(k).length > 1 ? 1.1 : 1.5);
         s *= 0.8 + Math.random() * 0.4;
-        if (s > nota) { nota = s; melhor = { ref, alvo: this.lado.p.indexOf(a) }; }
+        if (s > nota) { nota = s; melhor = { ref, alvo: this.lado[o].indexOf(a) }; }
       }
     }
     return melhor;
@@ -342,6 +433,11 @@ export class GrupoBattleScene {
     for (const v of this.vivas("f")) {
       const e = this.escolhaDaIA(v);
       if (e) acoes.push({ k: "f", vaga: this.lado.f.indexOf(v), tipo: "golpe", ref: e.ref, alvo: e.alvo });
+    }
+    // o ALIADO joga sozinho, com a mesma conta da IA do outro lado
+    for (const v of this.vivas("p").filter((x) => x.t === "a")) {
+      const e = this.escolhaDaIA(v, "p");
+      if (e) acoes.push({ k: "p", vaga: this.lado.p.indexOf(v), tipo: "golpe", ref: e.ref, alvo: e.alvo });
     }
 
     // 1. trocas e poções saem antes de qualquer golpe
@@ -372,7 +468,24 @@ export class GrupoBattleScene {
     if (await this.acabou()) return;
     await this.reporVagas();
     if (await this.acabou()) return;
+    // A HORDA virou um só: a luta passa pra de um contra um, com ele do jeito
+    // que está — e lá as bolas funcionam
+    if (this.horda && this.vivas("f").length === 1 && !this.banco("f").length) return this.sobrouUm();
     this.comecarEscolha();
+  }
+
+  async sobrouUm() {
+    const mon = this.monDe("f", this.vivas("f")[0]);
+    await this.say(txt("hordaSobrou", { MON: mon.nickname }));
+    await this.sairDaCena();
+    this.game.scenes.push(new BattleScene(), { foe: mon });
+  }
+
+  /** da HORDA dá pra fugir (é bicho solto, não treinador) */
+  async fugirDaHorda() {
+    Audio2.tone(523, 0.06); Audio2.tone(392, 0.08);
+    await this.say(txt("hordaFugiu"));
+    await this.finish();
   }
 
   async trocar(i, para) {
@@ -480,6 +593,7 @@ export class GrupoBattleScene {
         if (!(DB.CONFIG?.battleAnim ?? 1)) { Audio2.hit(); this.shake = 0.25; }
         vo.sp.blink = Math.max(vo.sp.blink, 0.45);
         alvo.hp = Math.max(0, alvo.hp - dano);
+        marcarSecreta(alvo, mv, this.st.player.map, ref.id);   // o PARASECTROM (src/data/secretas.js)
         await this.syncHp();
         const devolve = devolveu(user, v.stages, res);       // CONTRA-ATAQUE (o GINGÃO)
         if (devolve) await this.say(devolve);
@@ -554,14 +668,19 @@ export class GrupoBattleScene {
       ? `${this.trainer ? "O " + mon.nickname + " INIMIGO" : mon.nickname} DESMAIOU!`
       : `${mon.nickname} DESMAIOU!`);
     if (k === "f") await this.premiarExp(mon);
+    // a HORDA também vale pro MURAL DE PROCURADOS (src/data/bicos.js)
+    if (k === "f" && this.horda) {
+      const valor = cumprirProcurado(this.st, mon);
+      if (valor) { Audio2.heal(); await this.say(DB.BICOS.textos.pago.replace("{MON}", mon.nickname).replace("{VALOR}", valor)); }
+    }
   }
 
   /** A XP de derrubar um bicho do outro lado. Com o EXP. SHARE ligado ganha a
    *  equipe toda (de pé); sem ele, quem está em campo. */
   async premiarExp(foe) {
-    const xp = Math.floor(xpYieldFor(foe) * (this.trainer ? 1.5 : 1) * fator(this.st, "xp"));
+    const xp = Math.floor(xpYieldFor(foe) * (this.trainer ? 1.5 : 1) * fator(this.st, "xp") * fatorXp());
     const share = DB.CONFIG?.shareXp !== false;
-    const emCampo = this.vivas("p").map((v) => this.monDe("p", v));
+    const emCampo = this.vivas("p").filter((v) => v.t === "p").map((v) => this.monDe("p", v));
     const quem = (share ? this.st.party : emCampo).filter((m) => m && !isFainted(m));
     if (!quem.length) return;
     await this.say(share ? `A EQUIPE GANHOU ${xp} DE EXP.!` : `${this.nomes(emCampo).join(" E ")} GANHARAM ${xp} DE EXP.!`);
@@ -610,21 +729,24 @@ export class GrupoBattleScene {
   /** Quem caiu sai da vaga. Do outro lado entra o próximo da equipe; do seu,
    *  você escolhe quem — e, sem ninguém no banco, a vaga fica vazia. */
   async reporVagas() {
-    for (const v of this.lado.f) {
-      const m = this.monDe("f", v);
+    // do outro lado (e do aliado) entra o próximo do time DAQUELA vaga
+    const automaticas = [...this.lado.f.map((v) => ["f", v]), ...this.lado.p.filter((v) => v.t === "a").map((v) => ["p", v])];
+    for (const [k, v] of automaticas) {
+      const m = this.monDe(k, v);
       if (m && !isFainted(m)) continue;
-      const prox = this.banco("f")[0];
+      const prox = this.banco(v.t)[0];
       if (!prox) { v.idx = null; continue; }
       v.idx = prox.i;
       v.stages = newStages();
       v.sp = this.newSprite();
       v.disp = prox.m.hp;
-      this.st.seen[prox.m.species] = true;
-      await this.say(txt("enviouUm", { NOME: this.trainer?.name || "O TOTEM", A: prox.m.nickname }));
-      await this.entrou("f", v);
+      if (k === "f") this.st.seen[prox.m.species] = true;
+      await this.say(txt("enviouUm", { NOME: this.donoDe(v.t), A: prox.m.nickname }));
+      await this.entrou(k, v);
     }
     for (let i = 0; i < this.lado.p.length; i++) {
       const v = this.lado.p[i];
+      if (v.t !== "p") continue;
       const m = this.monDe("p", v);
       if (m && !isFainted(m)) continue;
       const banco = this.banco("p");
@@ -687,6 +809,15 @@ export class GrupoBattleScene {
         this.st.flags.oakPending = true;
         this.st.flags.escortPending = true;
       }
+      // A LIGA DE BRAGLITCH (src/data/braglitch-liga.js): quem vence vira campeão
+      if (this.trainer.ligaBrag && !this.st.flags.bragCampeao) {
+        const L = DB.LIGA_BRAG;
+        const nome = this.st.player?.name || "VOCÊ";
+        for (const linha of L.vitoria) await this.say(linha.replace("{NOME}", nome));
+        this.st.flags.bragCampeao = true;
+        Audio2.heal();
+        await this.say(L.campeao.replace("{NOME}", nome));
+      }
     } else if (this.npcKey) {
       // o TOTEM: quem paga o cristal é o overworld, olhando esta marca
       (this.st.npcState[this.npcKey] ||= {}).defeated = true;
@@ -706,11 +837,20 @@ export class GrupoBattleScene {
     await this.finish();
   }
 
+  /** fecha a cena sem o resto do `finish` (a HORDA que vira um contra um) */
+  async sairDaCena() {
+    Audio2.stopLoop();
+    this.fadeDir = 1;
+    await this.until(() => this.fadeA >= 1);
+    this.game.scenes.pop();
+  }
+
   async finish() {
-    this.foeParty.forEach(reverterMega);
+    const deles = [...this.foeParty, ...this.times.g, ...this.times.a];
+    deles.forEach(reverterMega);
     reverterTudo(this.st);
     limparTudo(this.st);
-    this.foeParty.forEach(limpar);
+    deles.forEach(limpar);
     Audio2.stopLoop();
     this.fadeDir = 1;
     await this.until(() => this.fadeA >= 1);
@@ -720,7 +860,7 @@ export class GrupoBattleScene {
   // ------------------------------------------------------ cutscene
   centro(k, v) {
     const i = this.lado[k].indexOf(v);
-    const p = PALCO[this.n][k][i];
+    const p = this.palco[k][i];
     return { x: p.cx, y: p.pe - Math.round(p.tam * 0.45) };
   }
 
@@ -812,6 +952,7 @@ export class GrupoBattleScene {
       if (m.index === 0) this.menu = { type: "moves", index: 0 };
       else if (m.index === 1) this.menu = { type: "bag", index: 0 };
       else if (m.index === 2) this.menu = { type: "party", index: 0 };
+      else if (this.horda) { this.menu = null; this.run(this.fugirDaHorda()); }
       else {
         const fala = this.totem ? DB.PROVACOES_TEXTO?.fuga : txt("semFuga");
         this.dlg.say(fala || txt("semFuga"));
@@ -865,7 +1006,7 @@ export class GrupoBattleScene {
       if (Input.consume("b")) { this.menu = { type: "main", index: 2 }; return void Audio2.cancel(); }
       if (!Input.consume("a")) return;
       const alvo = this.st.party[m.index];
-      const emCampo = this.lado.p.some((v) => v.idx === m.index);
+      const emCampo = this.lado.p.some((v) => v.t === "p" && v.idx === m.index);
       const jaVai = this.escolhas.some((e) => e.tipo === "trocar" && e.para === m.index);
       if (emCampo || jaVai || !alvo || isFainted(alvo)) return void Audio2.cancel();
       Audio2.select();
@@ -901,7 +1042,7 @@ export class GrupoBattleScene {
     }
     // as plataformas: uma comprida de cada lado, que cabe o grupo inteiro
     ctx.fillStyle = this.isGlitch ? "#3a1d5c" : "#8fd06a";
-    const pf = PALCO[this.n].f, pp = PALCO[this.n].p;
+    const pf = this.palco.f, pp = this.palco.p;
     const meio = (l) => (Math.min(...l.map((p) => p.cx)) + Math.max(...l.map((p) => p.cx))) / 2;
     const larg = (l) => (Math.max(...l.map((p) => p.cx)) - Math.min(...l.map((p) => p.cx))) / 2 + 34;
     if (isoLigado()) {
@@ -918,7 +1059,9 @@ export class GrupoBattleScene {
 
     const bob = Math.sin(this.t * 2) * 1.5;
     const tart = this.showTrainer ? trainerArt(this.trainer?.sprite) : null;
-    if (tart) ctx.drawImage(tart, Math.round(150 + this.tOut * 110), Math.round(4 + bob), 64, 64);
+    const tart2 = this.showTrainer && this.trainer2 ? trainerArt(this.trainer2.sprite) : null;
+    if (tart2) ctx.drawImage(tart2, Math.round(176 + this.tOut * 110), Math.round(6 + bob), 64, 64);
+    if (tart) ctx.drawImage(tart, Math.round((tart2 ? 124 : 150) + this.tOut * 110), Math.round(4 + bob), 64, 64);
     else {
       // de trás pra frente: a vaga da ponta é desenhada antes da do meio
       const ordem = this.lado.f.map((v, i) => i).sort((a, b) => pf[a].pe - pf[b].pe);
@@ -941,8 +1084,9 @@ export class GrupoBattleScene {
       ctx.beginPath(); ctx.moveTo(p.cx - 5, topo); ctx.lineTo(p.cx + 5, topo); ctx.lineTo(p.cx, topo + 6); ctx.fill();
     }
 
-    if (!this.showTrainer) this.lado.f.forEach((v, i) => this.caixa(ctx, "f", v, 4, 3 + i * 19));
-    const base = 110 - this.n * 19;
+    if (this.horda) this.lado.f.forEach((v, i) => this.barrinha(ctx, v, pf[i]));
+    else if (!this.showTrainer) this.lado.f.forEach((v, i) => this.caixa(ctx, "f", v, 4, 3 + i * 19));
+    const base = 110 - this.lado.p.length * 19;
     this.lado.p.forEach((v, i) => this.caixa(ctx, "p", v, 132, base + i * 19));
     ctx.restore();
 
@@ -981,6 +1125,17 @@ export class GrupoBattleScene {
     if (isoLigado()) emPeIso(ctx, arte, dx, dy, lado, lado, 4);
     else ctx.drawImage(arte, dx, dy, lado, lado);
     ctx.globalAlpha = 1;
+  }
+
+  /** A HORDA: em vez da caixa, uma barrinha de vida embaixo de cada um (o
+   *  nome aparece na hora de escolher o alvo) */
+  barrinha(ctx, v, p) {
+    const mon = this.monDe("f", v);
+    if (!mon || (isFainted(mon) && v.disp <= 0)) return;
+    const pct = Math.max(0, v.disp) / mon.maxHp, x = p.cx - 16, y = p.pe + 1;
+    ctx.fillStyle = "rgba(0,0,0,.55)";
+    ctx.fillRect(x - 1, y - 1, 34, 5);
+    bar(ctx, x, y, 32, 3, pct, hpColor(pct));
   }
 
   /** a caixinha de cada vaga: nome, nível, barra (e os números, do seu lado) */
@@ -1062,7 +1217,7 @@ export class GrupoBattleScene {
       const inicio = Math.max(0, Math.min(itens.length - JANELA, m.index - 1));
       itens.slice(inicio, inicio + JANELA).forEach(({ mon, i }, j) => {
         const y = 116 + j * LINE_H;
-        const emCampo = this.lado.p.some((v) => v.idx === i);
+        const emCampo = this.lado.p.some((v) => v.t === "p" && v.idx === i);
         drawText(ctx, `${mon.nickname}  N${mon.level}  ${mon.hp}/${mon.maxHp}${emCampo ? " *" : ""}`, 16, y,
           isFainted(mon) ? "#b04040" : PAL.ink);
         if (inicio + j === m.index) cursor(ctx, 6, y);
