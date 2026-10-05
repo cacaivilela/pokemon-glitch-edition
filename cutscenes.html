@@ -185,6 +185,16 @@ const CENAS = [
     },
   },
   {
+    nome: "OVO CHOCANDO", dica: "src/scenes/nascer.js",
+    texto: "O ovo balança no ninho, racha com luz vazando, explode em pixels — e os pixels, devagar, vão cada um pro seu lugar até montar o Pokémon. Com a música da evolução num xilofone a 70 bpm.",
+    campos: (el) => {
+      const s = selEspecie("pichu", todos);
+      el.append(s);
+      return { url: () => `index.html?nascercena=${s.value}`, titulo: () => `NASCEU ${nome(s.value)}`,
+               sprites: () => [s.value], sorteia: () => { s.value = sorteia(todos); }, muda: [s] };
+    },
+  },
+  {
     nome: "GUARDA-ROUPA ÚNICO", dica: "src/scenes/vestir.js",
     texto: "O guarda-roupa abre, ele entra, o armário treme e cospe cabide e meia pra todo lado — e ele sai vestindo a FORMA ÚNICA desenhada no UNIQUEMON.",
     campos: (el) => {

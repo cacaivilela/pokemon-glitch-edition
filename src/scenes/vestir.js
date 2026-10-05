@@ -9,6 +9,7 @@
 //
 // A espécie já foi trocada antes de a cena abrir; aqui é só o filme (`de` e
 // `para` dizem qual desenho mostrar em cada parte). A frase fecha no A.
+import { DB } from "../data/index.js";
 import { Assets } from "../core/assets.js";
 import { Audio2 } from "../core/audio.js";
 import { Dialogue } from "../systems/dialogue.js";
@@ -42,7 +43,10 @@ export class VestirScene {
     this.acabou = false;
     this.voando = [];
     this.estrelas = [];
-    Audio2.stopLoop();
+    // a música do desfile (src/data/music.js, `vestir`); quando a cena fecha,
+    // o mapa põe a dele de volta
+    if (DB.MUSIC?.vestir) Audio2.playMusic("vestir", DB.MUSIC.vestir);
+    else Audio2.stopLoop();
     Audio2.tone(392, 0.08, "triangle", 0.35);
   }
 

@@ -10,6 +10,9 @@ export const GUARDA_ROUPA = {
   normal: "{NOME} (NORMAL)",
   vestiu: "{MON} VESTIU {ROUPA}!",
   tirou: "{MON} TIROU A ROUPA E VOLTOU A SER {NOME}.",
-  semRoupa: "NÃO TEM NENHUMA ROUPA DE {NOME} NO GUARDA-ROUPA AINDA. DESENHE UMA NO UNIQUEMON!",
+  semRoupa: "NÃO TEM NENHUMA ROUPA DE {NOME} NO GUARDA-ROUPA AINDA. DESENHAR UMA NO UNIQUEMON?",
+  // abre o UNIQUEMON numa aba nova, já com a espécie dele na bancada
+  desenhar: "DESENHAR NOVA",
+  abriu: "O UNIQUEMON ABRIU NUMA ABA NOVA. DESENHE, PUBLIQUE, E A ROUPA APARECE AQUI!",
   jaEsta: "{MON} JÁ ESTÁ COM ESSA ROUPA.",
 };

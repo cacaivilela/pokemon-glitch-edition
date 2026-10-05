@@ -21,6 +21,7 @@ import { HordaScene } from "./scenes/horda.js";
 import { TrocaNpcScene } from "./scenes/trocanpc.js";
 import { SoltarScene } from "./scenes/soltar.js";
 import { VestirScene } from "./scenes/vestir.js";
+import { NascerScene } from "./scenes/nascer.js";
 import { FusionScene } from "./scenes/fusion.js";
 import { reverterTudo } from "./systems/mega.js";
 import { minutosDaFase } from "./systems/ciclo.js";
@@ -61,6 +62,24 @@ function renomearItens(st) {
     st.items[novo] = Math.min(999, (st.items[novo] || 0) + n);
     delete st.items[antigo];
   }
+}
+
+/** BICHO QUE MUDOU DE NOME (src/data/braglitch.js, `NOMES_NOVOS_BRAG`): o
+ *  id é o mesmo, mas o apelido de quem nunca foi apelidado é o nome antigo
+ *  guardado no save. Ele acompanha o nome novo — apelido de verdade fica. Anda
+ *  pelo save inteiro (equipe, BOX, creche, soltos...) atrás de bicho. */
+function renomearBichos(st) {
+  const visto = new Set();
+  const anda = (o) => {
+    if (!o || typeof o !== "object" || visto.has(o)) return;
+    visto.add(o);
+    if (typeof o.species === "string" && typeof o.nickname === "string") {
+      const sp = DB.SPECIES[o.species];
+      if (sp?.nomeAntigo && o.nickname === sp.nomeAntigo) o.nickname = sp.name;
+    }
+    for (const v of Object.values(o)) anda(v);
+  };
+  anda(st);
 }
 
 /** Onde a jornada começa: KANTO (a casa de Pallet) ou BRAGLITCH (a casa de
@@ -138,6 +157,7 @@ const game = {
     if (!st?.player || !this.isValid(st)) return false;
     this.state = st;
     this.state.badges ||= [];
+    renomearBichos(this.state);
     reverterTudo(this.state);
     this.state.party.forEach(recalc);
     this.state.box?.forEach(recalc);
@@ -183,6 +203,7 @@ const game = {
       this.state = data;
       this.state.badges ||= [];
       renomearItens(this.state);
+      renomearBichos(this.state);
       reverterTudo(this.state);
       Glitch.forced = !!this.state.flags?.glitchWorld;
       this.state.party.forEach(recalc);
@@ -309,6 +330,7 @@ if (stash?.state && !game.isValid(stash.state)) {
   game.scenes.push(new TitleScene());
 } else if (stash?.state) {
   game.state = stash.state;
+  renomearBichos(game.state);
   reverterTudo(game.state);
   game.state.party.forEach(recalc);
   game.state.box?.forEach(recalc);
@@ -651,6 +673,19 @@ if (q.has("soltarcena")) {
     game.scenes.replace(new OverworldScene());
   }
   game.scenes.push(new SoltarScene(), { mon: createMon(id, 20) });
+}
+
+// ?nascercena=pikachu&perfil=teste -> só a cutscene do OVO CHOCANDO
+// (src/scenes/nascer.js): o ovo explode em pixels e eles montam o bicho
+if (q.has("nascercena")) {
+  const id = DB.SPECIES[q.get("nascercena")] ? q.get("nascercena") : "pichu";
+  if (!(game.scenes.top instanceof OverworldScene)) {
+    game.newGame();
+    game.giveStarter("charmander");
+    game.scenes.replace(new OverworldScene());
+  }
+  const mon = createMon(id, 5);
+  game.scenes.push(new NascerScene(), { mon, frase: `O OVO RACHOU... NASCEU ${mon.nickname}!` });
 }
 
 // ?vestircena=pikachu&perfil=teste -> só a cutscene do GUARDA-ROUPA ÚNICO

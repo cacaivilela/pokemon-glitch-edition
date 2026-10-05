@@ -154,6 +154,7 @@ export const Audio2 = {
   _notaEm(freq, quando, dur, tr, vol) {
     if (muted || !freq) return;
     if (tr.guitarra) return this._guitarraEm(freq, quando, dur, tr, vol);
+    if (tr.xilofone) return this._xilofoneEm(freq, quando, tr, vol);
     const c = ac();
     const g = c.createGain();
     const vozes = tr.detune ? [-tr.detune, tr.detune] : [0];   // duas vozes = som mais gordo
@@ -187,6 +188,37 @@ export const Audio2 = {
     g.connect(master);
     if (tr.eco) g.connect(barramentoEco());
     if (tocando.length > 96) tocando = tocando.slice(-96);
+  },
+
+  /** XILOFONE: uma batida na tecla de madeira. A fundamental em seno e o
+   *  harmônico que a tecla de xilofone tem (perto de 4x, um pouco abaixo),
+   *  bem mais curto — é ele que faz o "toc" de madeira. Ataque instantâneo e
+   *  o som morrendo sozinho, do tamanho que for a nota: tecla batida não
+   *  sustenta. tr.acorde: as notas batidas juntas (semitons). */
+  _xilofoneEm(freq, quando, tr, vol) {
+    const c = ac();
+    const g = c.createGain();
+    const soa = tr.soa ?? 0.55;                 // quanto a tecla fica soando
+    for (const semi of tr.acorde || [0]) {
+      const f = freq * Math.pow(2, semi / 12);
+      for (const [mult, ganho, dura] of [[1, 1, soa], [3.93, 0.32, soa * 0.25]]) {
+        const o = c.createOscillator();
+        const v = c.createGain();
+        o.type = "sine";
+        o.frequency.setValueAtTime(f * mult, quando);
+        v.gain.setValueAtTime(0.0001, quando);
+        v.gain.exponentialRampToValueAtTime(ganho, quando + 0.002);
+        v.gain.exponentialRampToValueAtTime(0.0001, quando + dura);
+        o.connect(v).connect(g);
+        o.start(quando);
+        o.stop(quando + dura + 0.02);
+        tocando.push(o);
+      }
+    }
+    g.gain.value = (0.34 * vol) / Math.sqrt((tr.acorde || [0]).length);
+    g.connect(master);
+    if (tr.eco) g.connect(barramentoEco());
+    if (tocando.length > 160) tocando = tocando.slice(-160);
   },
 
   /** GUITARRA: serras desafinadas -> distorção -> passa-baixa (a "caixa" do

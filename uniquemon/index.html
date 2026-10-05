@@ -351,7 +351,12 @@ $("baixar").onclick = () => {
 };
 
 desenharPaleta();
-lerDoJogo().then(() => { $("sortear").click(); });
+// ?especie=<id>: o jogo manda a espécie (o GUARDA-ROUPA ÚNICO, "DESENHAR NOVA")
+const pedida = new URLSearchParams(location.search).get("especie");
+lerDoJogo().then(() => {
+  const e = pedida && lista.find((x) => x.id === pedida);
+  if (e) escolher(rotulo(e)); else $("sortear").click();
+});
 </script>
 </body>
 </html>

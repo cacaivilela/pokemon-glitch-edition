@@ -3,6 +3,7 @@
 // assets/maps/. Os diálogos, encontros e regras vêm de src/data/maps.js.
 import { DB } from "../data/index.js";
 import { Assets, TILE, makeCanvas } from "../core/assets.js";
+import { url } from "../core/base.js";
 import { mapArt, mapArtInteira, mapOverlay, adiantarDoMapa, estatuaArt } from "../core/sprites.js";
 import { Input, Texto } from "../core/input.js";
 import { Audio2 } from "../core/audio.js";
@@ -19,6 +20,7 @@ import { LinkBattleScene } from "./linkbattle.js";
 import { GrupoBattleScene } from "./grupobattle.js";
 import { HordaScene } from "./horda.js";
 import { SoltarScene } from "./soltar.js";
+import { NascerScene } from "./nascer.js";
 import { VestirScene } from "./vestir.js";
 import { roupasDe, vestir, baseDe } from "../systems/unicas.js";
 import { novaEntrega, entregarAqui, novoMural, nomeDoCentro } from "../systems/bicos.js";
@@ -3655,10 +3657,15 @@ export class OverworldScene {
     else { guardarNoBox(this.st, mon); msgs.push(T.box.replace("{MON}", mon.nickname)); }
     this.st.seen[mon.species] = true;
     this.st.caught[mon.species] = true;
-    if (mon.luminoso || mon.shiny) { Glitch.hit(1.6); Audio2.glitch(); }
-    Audio2.heal();
     this.game.autosave?.(true);
-    this.dlg.say(msgs);
+    this.chocarNaTela(mon, msgs);
+  }
+
+  /** A CUTSCENE DO OVO (src/scenes/nascer.js): o ovo explode em pixels e eles
+   *  montam o bicho; as frases vêm no fim dela. O brilho de shiny e luminoso
+   *  também é dela — na hora em que ele fica pronto. */
+  chocarNaTela(mon, msgs) {
+    this.game.scenes.push(new NascerScene(), { mon, frase: msgs, aoFim: () => this.game.music(this.map.music) });
   }
 
   /** O MONTANHISTA: $X e um item da mochila, e ele te põe do outro lado.
@@ -5590,9 +5597,18 @@ export class OverworldScene {
     const nomeBase = DB.SPECIES[base]?.name || base;
     const f = (t, roupa = "") => t.replace("{MON}", mon.nickname).replace("{NOME}", nomeBase).replace("{ROUPA}", roupa);
     const roupas = roupasDe(mon);
-    if (roupas.length <= 1) { Audio2.cancel(); return void this.dlg.say(f(G.semRoupa)); }
+    // DESENHAR NOVA: o UNIQUEMON (uniquemon/) numa aba nova, com a espécie
+    // dele já escolhida — é de lá que vêm as roupas
+    const desenhar = () => {
+      window.open(url(`uniquemon/?especie=${encodeURIComponent(base)}`), "_blank");
+      this.dlg.say(G.abriu);
+    };
+    if (roupas.length <= 1) {
+      return void this.dlg.ask(f(G.semRoupa), [G.desenhar, "VOLTAR"], (i) => { if (i === 0) desenhar(); });
+    }
     const nomes = roupas.map((id) => (id === base ? f(G.normal) : DB.SPECIES[id].name));
-    this.dlg.ask(f(G.pergunta), [...nomes, "VOLTAR"], (i) => {
+    this.dlg.ask(f(G.pergunta), [...nomes, G.desenhar, "VOLTAR"], (i) => {
+      if (i === nomes.length) return void desenhar();
       const id = roupas[i];
       if (!id) return;
       if (id === mon.species) { Audio2.cancel(); return void this.dlg.say(f(G.jaEsta)); }
@@ -5764,12 +5780,8 @@ export class OverworldScene {
     }
     this.st.seen[mon.species] = true;
     this.st.caught[mon.species] = true;
-    // forma rara: a tela treme na medida do que nasceu
-    if (mon.luminoso) { Glitch.hit(2.4); Audio2.glitch(); }
-    else if (mon.shiny || mon.alfa) { Glitch.hit(1.6); Audio2.glitch(); }
-    Audio2.heal();
     this.game.autosave?.(true);
-    this.dlg.say(msgs);
+    this.chocarNaTela(mon, msgs);
   }
 
   /** doce raro: +1 nível por doce, até 999 de uma vez */

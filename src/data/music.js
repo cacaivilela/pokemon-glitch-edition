@@ -1007,3 +1007,62 @@ MUSIC.megaDescontrolada = {
     { wave: "bateria", vol: 0.6, notes: DESC_BATERIA },
   ],
 };
+
+// O GUARDA-ROUPA ÚNICO (src/scenes/vestir.js): um tema de DESFILE em fá maior,
+// saltitante, pra quem entra no armário e sai com roupa nova. Oito compassos
+// (32 tempos, uns 14 s a 140 bpm) que dão a volta enquanto a frase espera o A —
+// a cena inteira cabe no primeiro terço. Todos os canais têm 32 tempos, então
+// a volta é redonda.
+const VESTIR_TEMA = [
+  ["A4", 0.5], ["C5", 0.5], ["F5", 1], ["E5", 0.5], ["F5", 0.5], ["A5", 1],      // F
+  ["G5", 0.5], ["F5", 0.5], ["D5", 1], ["F5", 0.5], ["D5", 0.5], ["A4", 1],      // Dm
+  ["A#4", 0.5], ["D5", 0.5], ["F5", 1], ["G5", 0.5], ["F5", 0.5], ["D5", 1],     // Bb
+  ["E5", 0.5], ["G5", 0.5], ["C6", 1.5], ["-", 0.5], ["-", 1],                   // C: a pose
+  ["A5", 0.5], ["G5", 0.5], ["F5", 0.5], ["A5", 0.5], ["C6", 1], ["A5", 1],      // F
+  ["F5", 0.5], ["E5", 0.5], ["D5", 0.5], ["F5", 0.5], ["A5", 1], ["F5", 1],      // Dm
+  ["G5", 0.5], ["A5", 0.5], ["A#5", 1], ["A5", 0.5], ["G5", 0.5], ["E5", 1],     // Gm C
+  ["F5", 1], ["C5", 0.5], ["A4", 0.5], ["F4", 1], ["-", 1],                      // F
+];
+MUSIC.vestir = {
+  bpm: 140,
+  tracks: [
+    { ...melodia(0.46), notes: VESTIR_TEMA },
+    { ...contra(0.2), notes: [
+      ...contratempo("A4", "C5", "A4", "C5"), ...contratempo("F4", "A4", "F4", "A4"),
+      ...contratempo("D4", "F4", "D4", "F4"), ...contratempo("E4", "G4", "E4", "G4"),
+      ...contratempo("A4", "C5", "A4", "C5"), ...contratempo("F4", "A4", "F4", "A4"),
+      ...contratempo("A#4", "D5", "E4", "G4"), ...contratempo("A4", "C5", "A4", "C5"),
+    ] },
+    { ...baixo(0.52), notes: [
+      ...anda("F2", "C3"), ...anda("D2", "A2"), ...anda("A#1", "F2"), ...anda("C2", "G2"),
+      ...anda("F2", "C3"), ...anda("D2", "A2"),
+      ["G2", 0.5], ["G2", 0.5], ["D3", 0.5], ["G2", 0.5], ["C2", 0.5], ["C2", 0.5], ["G2", 0.5], ["C2", 0.5],
+      ...anda("F2", "C3"),
+    ] },
+    // o brilho: um arpejo lá em cima só na pose (compasso 4) e no fim (8)
+    { wave: "triangle", vol: 0.22, eco: true, legato: 0.5, notes: [
+      ["-", 12], ["C6", 0.25], ["E6", 0.25], ["G6", 0.25], ["C7", 0.25], ["-", 3],
+      ["-", 12], ["F6", 0.25], ["A6", 0.25], ["C7", 0.25], ["F7", 0.25], ["-", 3],
+    ] },
+    bateria(0.34),
+  ],
+};
+
+// O OVO CHOCANDO (src/scenes/nascer.js): a MESMA música da evolução, nota por
+// nota, só que num XILOFONE e a 70 bpm — a mudança de antes vira canção de
+// ninar. Sem bateria: só as teclas. As notas compridas (a base, o fim de cada
+// frase) viram RUFO, que é como o xilofone segura uma nota; o acompanhamento
+// sobe uma oitava, porque xilofone não desce até lá.
+/** nota longa vira rufo: batidas de 1/4 de tempo enquanto ela durar */
+const rufo = (pares, acima = 1) => pares.flatMap(([n, d]) =>
+  n === "-" || d <= acima ? [[n, d]] : Array.from({ length: Math.round(d / 0.25) }, () => [n, 0.25]));
+const oitavaAcima = (pares) => pares.map(([n, d]) => [n === "-" ? n : sobe(n, 12), d]);
+MUSIC.nascimento = {
+  bpm: 70,
+  tracks: [
+    { xilofone: true, vol: 0.7, eco: true, soa: 0.7, notes: frase("E3", SOLO).map(([n, d]) => [n === "-" ? n : sobe(n, 12), d]) },
+    { xilofone: true, vol: 0.22, soa: 0.35, notes: frase("E3", OSTINATO) },
+    { xilofone: true, vol: 0.3, acorde: [0, 7, 12], soa: 0.4, notes: rufo(oitavaAcima(frase("E2", BASE))) },
+    { xilofone: true, vol: 0.45, soa: 0.5, notes: oitavaAcima(frase("E2", BAIXO)) },
+  ],
+};

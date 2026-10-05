@@ -270,6 +270,23 @@ for (const linha of NOVAS.trim().split("\n")) {
   const id = slugify(nome.normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
   registrar(id, +dex, nome, tipos, stats, { dexText: LORE_NOVAS[id] });
 }
+// NOMES NOVOS: pra trocar o nome que aparece de uma espécie daqui sem trocar
+// o ID (é ele que está nos saves, nas evoluções, nos mapas e no nome do
+// sprite). O apelido de quem nunca foi apelidado acompanha (src/main.js,
+// `renomearBichos`). Os nomes da tabela de cima são escolhas do criador do
+// jogo — os iniciais e as linhas deles, BANTEVY, BANGVEET, SANDBASH (o fim da
+// linha SANDSHREW-BRAG) e ZEROGLE (homenagem a um cachorro) não se trocam.
+export const NOMES_NOVOS_BRAG = {
+  capivarinha: "CAPIVIRA",       // a capivara pequena que ainda vira
+  capivarao: "CAPIBARÃO",        // o barão da beira do rio: todo bicho senta do lado
+  beijaflorzinha: "COLIBRILHO",  // COLIBRI + BRILHO (ela é FADA)
+  caranguejinho: "CARANGUEJOULE",// CARANGUEJO + JOULE (ÁGUA/ELÉTRICO; vira MANGUEBIT)
+  fogueirinha: "FAGULHA",        // a faísca de São João que pula de festa em festa
+};
+for (const [id, nome] of Object.entries(NOMES_NOVOS_BRAG)) {
+  const sp = BRAGLITCH_ESPECIES[id];
+  if (sp) { sp.nomeAntigo = sp.name; sp.name = nome; }
+}
 // os iniciais são como os de toda região: 45 de captura (nunca aparecem soltos
 // mesmo), e o SACI é lendário mas se deixa pegar — ele é o fim da história
 for (const id of BRAGLITCH.iniciais) BRAGLITCH_ESPECIES[id].catchRate = 45;
