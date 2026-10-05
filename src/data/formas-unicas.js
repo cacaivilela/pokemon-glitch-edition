@@ -128,5 +128,13 @@ export const FORMAS_UNICAS = {
         "ELÉTRICO"
       ]
     }
+  ],
+  "cranidos": [
+    {
+      "id": "muvfo9po70",
+      "nome": "CRANIDOS ÚNICO",
+      "autor": "CAIO",
+      "sprite": "assets/unicas/cranidos~muvfo9po70.png"
+    }
   ]
 };
