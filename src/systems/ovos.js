@@ -26,6 +26,7 @@ export function poolDoOvo() {
     !sp.mega && !sp.fusao && !sp.megaDe && !sp.crescimento
     && !(sp.types || []).includes("GLITCH")
     && !sp.braglitch            // os de BRAGLITCH só nascem do lado de lá (src/data/braglitch.js)
+    && !sp.unicaDe              // FORMA ÚNICA é roupa (o GUARDA-ROUPA ÚNICO), não nasce de ovo
     && (O.pool !== "kanto" || kanto.has(sp.id)));
 }
 

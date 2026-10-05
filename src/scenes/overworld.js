@@ -7,7 +7,7 @@ import { url } from "../core/base.js";
 import { mapArt, mapArtInteira, mapOverlay, adiantarDoMapa, estatuaArt } from "../core/sprites.js";
 import { Input, Texto } from "../core/input.js";
 import { Audio2 } from "../core/audio.js";
-import { tocarGrito } from "../systems/gritos.js";
+import { tocarGrito, onomatopeias } from "../systems/gritos.js";
 import { Save } from "../core/save.js";
 import { Opcoes } from "../core/opcoes.js";
 import { panel, drawText, cursor, bar, hpColor, fade, sinal, PAL, LINE_H, moeda } from "../core/gfx.js";
@@ -33,7 +33,7 @@ import { Glitch } from "../systems/glitchfx.js";
 import { randRange } from "../core/rng.js";
 import { rollEncounter, rollDimEncounter, rollFlores } from "../systems/encounters.js";
 import {
-  heal, hpPct, gainXp, xpForLevel, createMon, evolutionFor, learnableMoves, recalc,
+  heal, hpPct, gainXp, xpForLevel, createMon, evolutionFor, learnableMoves, recalc, amizade,
 } from "../systems/mon.js";
 import { scatterDimLoot } from "../systems/loot.js";
 import { chocar as chocarOvo } from "../systems/ovos.js";
@@ -95,6 +95,33 @@ const W = 240, H = 160;
 /** Linhas visíveis na lista do GO PARK (a box inteira cabe nela, rolando). */
 const GO_LISTA_VIS = 6;
 const rumoDoSelvagem = new WeakMap();   // selvagem -> { x, y, dir } do último passo (isométrico)
+// OS BALÕES do companheiro (src/data/companheiro.js): 7x7, desenhados pixel a
+// pixel — a fonte do jogo não tem nota nem reticências
+const EMOTES = {
+  "♥": [" ## ## ", "#######", "#######", " ##### ", "  ###  ", "   #   ", "       "],
+  "♪": ["   ### ", "   # ##", "   #   ", "   #   ", " ###   ", "####   ", " ##    "],
+  "!": ["   #   ", "   #   ", "   #   ", "   #   ", "   #   ", "       ", "   #   "],
+  "?": [" ##### ", "##   ##", "    ## ", "   ##  ", "   #   ", "       ", "   #   "],
+  "…": ["       ", "       ", "       ", "       ", "       ", "       ", "# # # "],
+  "Z": ["       ", "#######", "    ## ", "   ##  ", "  ##   ", " ##    ", "#######"],
+};
+const COR_EMOTE = { "♥": "#e0304a", "♪": "#3a6fd0", "!": "#d04020", "?": "#3a6fd0", "…": "#505868", "Z": "#505868" };
+/** o balão: branco com borda escura e a pontinha embaixo, entrando com um "pop" */
+function desenharEmote(ctx, emote, x, y, t = 1) {
+  const m = EMOTES[emote] || EMOTES["!"];
+  const sobe = t < 0.15 ? Math.round((1 - t / 0.15) * 4) : 0;
+  const bx = x - 5, by = y + sobe;
+  ctx.fillStyle = "#283040";
+  ctx.fillRect(bx, by, 13, 11);
+  ctx.fillRect(bx + 3, by + 11, 3, 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(bx + 1, by + 1, 11, 9);
+  ctx.fillRect(bx + 4, by + 10, 1, 2);
+  ctx.fillStyle = COR_EMOTE[emote] || "#283040";
+  m.forEach((linha, j) => {
+    for (let i = 0; i < linha.length; i++) if (linha[i] === "#") ctx.fillRect(bx + 3 + i, by + 2 + j, 1, 1);
+  });
+}
 const pretas = new WeakMap();           // sprite -> a silhueta preta dele (o bando da HORDA)
 /** a silhueta PRETA de um sprite, feita uma vez só (ver `drawSelvagem`) */
 function silhuetaPreta(img) {
@@ -1612,6 +1639,39 @@ export class OverworldScene {
     return this.st.party?.find((m) => m.hp > 0 && !m.eu) || null;
   }
 
+  /** FALAR COM O COMPANHEIRO (src/data/companheiro.js), como em HGSS: ele
+   *  vira pra você, grita, um balão aparece em cima dele e o jogo diz como ele
+   *  está. A primeira situação que bater ganha; senão, uma frase sorteada. */
+  falarComCompanheiro(mon) {
+    const C = DB.COMPANHEIRO;
+    if (!C) return;
+    this.compa.dir = OPPOSITE[this.st.player.dir];
+    const amz = mon.amizade || 0;
+    const reacao = mon.status ? C.passandoMal
+      : mon.hp < mon.maxHp * 0.3 ? C.cansado
+      : mon.corrupt && Math.random() < 0.6 ? C.corrompido
+      : horaDoMundo().noite && Math.random() < 0.4 ? C.sono
+      : (mon.shiny || mon.luminoso) && Math.random() < 0.25 ? C.brilho
+      : amz >= 200 ? C.inseparavel
+      : amz >= 100 && Math.random() < 0.6 ? C.amigo
+      : C.qualquer[Math.floor(Math.random() * C.qualquer.length)];
+    // o carinho aproxima, mas só de vez em quando (não vira máquina de amizade)
+    const agora = Date.now();
+    if (!(mon.carinhoEm > agora - (C.intervalo ?? 300) * 1000)) { amizade(mon, 1); mon.carinhoEm = agora; }
+    this.compaReacao = { t: 0, emote: reacao.emote };
+    tocarGrito(mon);
+    this.dlg.falante = () => this.cabecaNaTela({ x: this.compa.x, y: this.compa.y });
+    // ELE FALA: primeiro uma das três onomatopeias dele (src/data/gritos), a
+    // que combina com o humor (`tom`), saindo da cabeça dele no estilo BALÃO;
+    // depois o jogo conta como ele está
+    const sons = onomatopeias(mon.species);
+    const som = reacao.tom === "alegre" && sons[1] ? sons[1]
+      : reacao.tom === "baixo" && sons[2] ? sons[2]
+      : sons[Math.floor(Math.random() * sons.length)];
+    const falas = [...(som ? [`${mon.nickname}: ${som}`] : []), reacao.texto.replace("{MON}", mon.nickname)];
+    this.dlg.say(falas, () => { this.compaReacao = null; });
+  }
+
   /** O passo do companheiro começa no MESMO quadro que o seu.
    *
    *  O GANCHO FICA NO DESENHO, e não no update, porque o movimento é CRIADO no
@@ -2189,6 +2249,12 @@ export class OverworldScene {
     const p = this.st.player;
     const f = this.facing();
     const [dx, dy] = DIRS[p.dir];
+
+    // O COMPANHEIRO: virado pra ele, o A é com ele (src/data/companheiro.js)
+    if (this.compa && this.compa.x === f.x && this.compa.y === f.y && !this.st.capturado) {
+      const mon = this.quemSegue();
+      if (mon && !this.st.surfando && !this.st.voando) return this.falarComCompanheiro(mon);
+    }
 
     let npc = this.npcAt(f.x, f.y);
     // atendente do outro lado do balcão
@@ -2973,8 +3039,10 @@ export class OverworldScene {
   }
 
   openGive() {
-    // sem as formas MEGA: elas só existem dentro da batalha
-    const lista = Object.values(DB.SPECIES).filter((sp) => !sp.mega && !sp.fusao)
+    // sem as formas MEGA: elas só existem dentro da batalha. E sem as FORMAS
+    // ÚNICAS (o UNIQUEMON): elas se vestem pelo GUARDA-ROUPA ÚNICO ou chegam
+    // evoluindo, não se ganham prontas — a mesma regra do giveglitch/ do site
+    const lista = Object.values(DB.SPECIES).filter((sp) => !sp.mega && !sp.fusao && !sp.unicaDe)
       .sort((a, b) => (a.dex || 999) - (b.dex || 999));
     // `cor`: 0 comum, 1 shiny, 2 luminoso — o C gira entre as três
     this.menu = { type: "give", index: 0, top: 0, lvl: 5, cor: 0, lista };
@@ -7009,8 +7077,13 @@ export class OverworldScene {
     const k = this.move ? this.move.n / this.move.total : 1;
     const x = (c.de.x + (c.x - c.de.x) * k) * TILE - cx;
     const y = (c.de.y + (c.y - c.de.y) * k) * TILE - cy;
-    const pulo = this.move ? Math.abs(Math.sin(k * Math.PI)) * 2 : 0;
+    // falando com ele: um pulinho de alegria (e o balão em cima, até a fala fechar)
+    const r = this.compaReacao;
+    if (r) r.t = (r.t || 0) + 1 / 60;
+    const pulo = this.move ? Math.abs(Math.sin(k * Math.PI)) * 2
+      : r && r.t < 0.5 ? Math.abs(Math.sin(r.t * Math.PI * 4)) * 4 : 0;
     ctx.drawImage(reduzido(img, 28), Math.round(x - 6), Math.round(y - 12 - pulo), 28, 28);
+    if (r) desenharEmote(ctx, r.emote, Math.round(x + 8), Math.round(y - 26), r.t);
   }
 
   drawNpc(ctx, n, cx, cy) {

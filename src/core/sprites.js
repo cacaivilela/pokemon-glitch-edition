@@ -246,6 +246,11 @@ const talvezHackear = (id, img, lado) =>
 /** Pede o sprite daquela espécie (frente e costas), uma vez só. Enquanto ele
  *  não chega, quem desenha usa a arte provisória — nada fica preto. */
 export function pedirMon(id, dex) {
+  // A FORMA ÚNICA tem o desenho dela num caminho próprio. Sem isto, quem
+  // adianta sprite em lote (adiantarOResto, adiantarDoMapa) pedia o da
+  // Pokédex — o da espécie original — e ele ocupava o lugar do desenho.
+  const desenho = DB.SPECIES?.[id]?.spriteUrl;
+  if (desenho) return pedirMonUrl(id, desenho);
   if (!id || pedidos.has(id)) return;
   pedidos.add(id);
   findMon("pokemon", id, dex).then((img) => {

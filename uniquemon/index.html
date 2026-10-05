@@ -112,10 +112,25 @@ import { ESPECIES } from "../fusionglitch/especies.js";
 // de fora, aponta pro jogo publicado.
 const DENTRO_DO_JOGO = location.protocol !== "file:";
 const JOGO = DENTRO_DO_JOGO ? ".." : "http://cacaivilela.github.io/pokemon-glitch-edition";
-const L = 64;
+// O TAMANHO DA TELA acompanha o sprite da espécie: os do jogo têm 64, 80 ou
+// 96 pixels (o PALKIA tem 80, e ocupa tudo). Uma tela fixa de 64 cortava as
+// pontas dos grandes; encolher estragaria a pixel art. Nunca menor que 64.
+let L = 64;
 const $ = (id) => document.getElementById(id);
 const tela = $("tela"), ctx = tela.getContext("2d", { willReadFrequently: true });
 ctx.imageSmoothingEnabled = false;
+function mudarTamanho(n) {
+  if (n === L) return;
+  L = n;
+  tela.width = tela.height = n;                 // (mudar o tamanho limpa a tela)
+  tela.setAttribute("aria-label", `tela de desenho, ${n} por ${n} pixels`);
+  ctx.imageSmoothingEnabled = false;
+  for (const [id, zoom] of [["p1", 1], ["p2", 2]]) {
+    const c = $(id);
+    c.width = c.height = n;
+    c.style.width = c.style.height = `${n * zoom}px`;
+  }
+}
 
 const PALETA = ["#000000","#ffffff","#5a6270","#a8b0bc","#e0524a","#f5a05a","#f0c419","#8a5a2f",
                 "#4cd06a","#1f7a3a","#4f8ce0","#1c3f8a","#b455ff","#ff0066","#00ffcc","#f2d0b0"];
@@ -180,6 +195,7 @@ async function escolher(txt) {
   const img = new Image();
   img.crossOrigin = "anonymous";
   img.onload = () => {
+    mudarTamanho(Math.max(64, img.width, img.height));
     ctx.clearRect(0, 0, L, L);
     ctx.drawImage(img, (L - img.width) / 2, (L - img.height) / 2);
     original = ctx.getImageData(0, 0, L, L);
@@ -188,6 +204,7 @@ async function escolher(txt) {
     recado(`${e.nome} na bancada. Redesenha à vontade!`);
   };
   img.onerror = () => {
+    mudarTamanho(64);
     ctx.clearRect(0, 0, L, L);
     original = ctx.getImageData(0, 0, L, L);
     previa();

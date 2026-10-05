@@ -26,3 +26,5 @@ import { GRITOS as P5 } from "./gritos/parte5.js";
 import { GRITOS as P6 } from "./gritos/parte6.js";
 
 export const GRITOS = { ...P1, ...P2, ...P3, ...P4, ...P5, ...P6 };
+// as cores do PARASECTROM (src/data/secretas.js) gritam como ele
+GRITOS.parasectromazul = GRITOS.parasectromamarelo = GRITOS.parasectrom;

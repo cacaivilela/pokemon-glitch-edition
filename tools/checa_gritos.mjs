@@ -1,12 +1,14 @@
 // Confere os gritos (src/data/gritos/parte*.js).
 //   node tools/checa_gritos.mjs                      -> todas as partes, só o formato
 //   node tools/checa_gritos.mjs 3 lista.json         -> a parte 3 contra a lista de ids
+//   node tools/checa_gritos.mjs 3 --mais             -> e exige as 3 onomatopeias de cada um
 // lista.json: [[{id,...}, ...], ...] (famílias) ou [{id}, ...]
 import fs from "fs";
 import path from "path";
 
 const raiz = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
-const [, , so, lista] = process.argv;
+const exigeMais = process.argv.includes("--mais");
+const [, , so, lista] = process.argv.filter((a) => a !== "--mais");
 const ONDAS = new Set(["q", "p", "f", "t", "s", "o", "n", "_"]);
 let erros = 0;
 const erro = (m) => { erros++; if (erros <= 60) console.log("ERRO", m); };
@@ -20,6 +22,20 @@ for (const n of partes) {
     if (vistos.has(id)) erro(`${id} está na parte ${vistos.get(id)} e na ${n}`);
     vistos.set(id, n);
     if (typeof g?.som !== "string" || !g.som.trim()) erro(`${id}: sem "som"`);
+    // AS OUTRAS DUAS onomatopeias (opcional enquanto não estão todas escritas;
+    // `--mais` exige): duas, diferentes entre si e da principal, até 24 letras
+    if (g?.mais !== undefined || exigeMais) {
+      const m = g?.mais;
+      if (!Array.isArray(m) || m.length !== 2) erro(`${id}: "mais" precisa ser uma lista de 2`);
+      else {
+        for (const t of m) {
+          if (typeof t !== "string" || !t.trim()) erro(`${id}: "mais" com texto vazio`);
+          else if (t.length > 24) erro(`${id}: "${t}" tem ${t.length} letras (máx. 24)`);
+          else if (t !== t.toUpperCase()) erro(`${id}: "${t}" precisa ser em MAIÚSCULAS`);
+        }
+        if (new Set([g.som, ...m]).size !== 3) erro(`${id}: as três onomatopeias precisam ser diferentes`);
+      }
+    }
     if (!Array.isArray(g?.s) || !g.s.length) { erro(`${id}: "s" vazio`); continue; }
     if (g.s.length > 12) erro(`${id}: ${g.s.length} sílabas (máx. 12)`);
     let total = 0;

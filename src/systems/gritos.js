@@ -24,12 +24,23 @@ function doNome(id) {
 export function gritoDe(id) {
   if (GRITOS[id]) return GRITOS[id];
   const sp = DB.SPECIES?.[id];
+  // a FORMA ÚNICA é roupa: por baixo ela é a espécie original, e grita como ela
+  if (sp?.unicaDe) return gritoDe(sp.unicaDe);
   if (sp?.fusao) {
     const a = gritoDe(sp.fusao.cabeca), b = gritoDe(sp.fusao.corpo);
     const meio = (x) => Math.ceil(x.s.length / 2);
     return { som: "", s: [...a.s.slice(0, meio(a)), ...b.s.slice(meio(b))] };
   }
   return doNome(id);
+}
+
+/** AS TRÊS ONOMATOPEIAS de uma espécie: a principal (`som`) e as duas do
+ *  `mais` — a primeira alegre, a segunda em outro clima (cansado, bravo,
+ *  sonolento...). Quem ainda não tem as outras devolve só a principal; quem
+ *  não tem nem ela (a fusão), nada. */
+export function onomatopeias(id) {
+  const g = gritoDe(id);
+  return [g?.som, ...(g?.mais || [])].filter(Boolean);
 }
 
 /** Toca o grito do Pokémon (`mon` ou id da espécie). Devolve a duração em s. */

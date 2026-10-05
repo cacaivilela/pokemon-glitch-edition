@@ -73,6 +73,8 @@ const secretas = await import("./secretas.js" + V);
 // AS FORMAS ÚNICAS (src/data/formas-unicas.js): os desenhos do UNIQUEMON
 const unicas = await import("./formas-unicas.js" + V);
 const guardaRoupa = await import("./guarda-roupa.js" + V);
+// FALAR COM O COMPANHEIRO (src/data/companheiro.js)
+const companheiro = await import("./companheiro.js" + V);
 // O ASH, o campeão secreto (src/data/ash.js)
 const ash = await import("./ash.js" + V);
 // OS BICOS: entregas e procurados (src/data/bicos.js)
@@ -659,6 +661,7 @@ function montarDB() {
     MARCAS_SECRETAS: secretas.MARCAS_SECRETAS,
     COGUMELOS: secretas.COGUMELOS,
     GUARDA_ROUPA: guardaRoupa.GUARDA_ROUPA,
+    COMPANHEIRO: companheiro.COMPANHEIRO,
     ASH: ash.ASH,
     BICOS: bicos.BICOS,
     GEMEO: rival.GEMEO,

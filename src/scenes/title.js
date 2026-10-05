@@ -5,6 +5,7 @@ import { Input } from "../core/input.js";
 import { Audio2 } from "../core/audio.js";
 import { Save } from "../core/save.js";
 import { Opcoes } from "../core/opcoes.js";
+import { url } from "../core/base.js";
 import { Assets, nullmonSprite } from "../core/assets.js";
 import { drawText, panel, cursor, PAL, LINE_H } from "../core/gfx.js";
 import { Glitch } from "../systems/glitchfx.js";
@@ -35,6 +36,7 @@ export class TitleScene {
     // com uma partida gravada: o presente precisa de um save pra entrar.
     this.items = this.hasSave ? ["CONTINUAR", "NOVO JOGO", DB.GIFT_TEXTO.titulo] : ["NOVO JOGO"];
     this.items.push(DB.STORY.comandos.titulo);
+    this.items.push("UNIQUEMON");   // o site de desenhar FORMA ÚNICA (uniquemon/), numa aba nova
     this.items.push("IDIOMA");   // dá pra escolher antes de começar qualquer coisa
     Glitch.level = DB.CONFIG?.glitchMode ? 45 : 0;
     // o fundo: duas evoluções sorteadas ao mesmo tempo (src/scenes/fundo-evolucoes.js)
@@ -57,6 +59,7 @@ export class TitleScene {
       Audio2.unlock();
       Audio2.select();
       if (this.items[this.index] === "IDIOMA") return this.trocaIdioma();
+      if (this.items[this.index] === "UNIQUEMON") return void window.open(url("uniquemon/"), "_blank");
       if (this.items[this.index] === DB.STORY.comandos.titulo) {
         this.tela = "comandos";
         this.topo = 0;
