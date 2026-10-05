@@ -96,5 +96,17 @@ export const FORMAS_UNICAS = {
       "sprite": "assets/unicas/spinarak~muv2pgb45b.png",
       "evoluiPra": "ariados"
     }
+  ],
+  "palkia": [
+    {
+      "id": "muv32qcbfr",
+      "nome": "PALKIA ESTÈREO",
+      "autor": "CAIO",
+      "sprite": "assets/unicas/palkia~muv32qcbfr.png",
+      "tipos": [
+        "ELÉTRICO",
+        "DRAGÃO"
+      ]
+    }
   ]
 };
