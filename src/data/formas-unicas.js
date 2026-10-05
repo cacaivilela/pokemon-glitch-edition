@@ -87,5 +87,14 @@ export const FORMAS_UNICAS = {
       "autor": "CRIADOR DO JOGO",
       "sprite": "assets/unicas/clodsire~muu9951u5v.png"
     }
+  ],
+  "spinarak": [
+    {
+      "id": "muv2pgb45b",
+      "nome": "SPINARAK SMURF",
+      "autor": "CAIO",
+      "sprite": "assets/unicas/spinarak~muv2pgb45b.png",
+      "evoluiPra": "ariados"
+    }
   ]
 };
