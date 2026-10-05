@@ -108,5 +108,13 @@ export const FORMAS_UNICAS = {
         "DRAGÃO"
       ]
     }
+  ],
+  "exeggutoralola": [
+    {
+      "id": "muv3f3aww7",
+      "nome": "EXEGGUTOR DO SUCO",
+      "autor": "CAIO",
+      "sprite": "assets/unicas/exeggutoralola~muv3f3aww7.png"
+    }
   ]
 };
