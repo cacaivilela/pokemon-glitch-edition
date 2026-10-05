@@ -116,5 +116,17 @@ export const FORMAS_UNICAS = {
       "autor": "CAIO",
       "sprite": "assets/unicas/exeggutoralola~muv3f3aww7.png"
     }
+  ],
+  "dialga": [
+    {
+      "id": "muv3irk7mv",
+      "nome": "DIALGA ESTÈREO",
+      "autor": "CAIO",
+      "sprite": "assets/unicas/dialga~muv3irk7mv.png",
+      "tipos": [
+        "AÇO",
+        "ELÉTRICO"
+      ]
+    }
   ]
 };
