@@ -36,6 +36,9 @@ _git_lock = threading.Lock()
 # pedia, entao a fusao ficava so no arquivo e ninguem sabia. Desligue aqui se
 # um dia quiser publicar a mao.
 AUTO_PUBLICAR = True
+# Pra testar o REGIOMAKER sem commit nem push: SEM_PUBLICAR=1 ./run.sh
+if os.environ.get("SEM_PUBLICAR"):
+    AUTO_PUBLICAR = False
 
 # A SENHA DA FAXINA. Apagar fusao so acontece com ela na mao: o site da faxina
 # (faxinamissingno/) pergunta antes de mostrar qualquer botao, e a rota que apaga

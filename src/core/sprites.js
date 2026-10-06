@@ -347,17 +347,6 @@ export function adiantarOResto(porVez = 6, intervalo = 200) {
   setTimeout(passo, intervalo);
 }
 
-/** A FOLHA DE UMA SKIN DE REGIÃO CRIADA (src/data/regioes.js): personagem com
- *  caminho próprio, pedido uma vez, na primeira vez que alguém vai vestir. */
-const folhasPedidas = new Set();
-export function pedirFolha(nome, caminho) {
-  if (!nome || !caminho || folhasPedidas.has(nome)) return;
-  folhasPedidas.add(nome);
-  loadImage(url(caminho)).then((img) => {
-    if (img) { SpriteStore.overworld[nome] = sliceActorSheet(img); SpriteStore.loaded++; }
-  });
-}
-
 /** Roda em segundo plano; o jogo já está rodando enquanto isso.
  *  Aqui ficam só os que são precisos SEMPRE: os personagens do mapa e os
  *  tiles. Pokémon é pedido por `pedirMon`, quando aparece. */
