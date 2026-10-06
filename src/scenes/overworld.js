@@ -44,6 +44,7 @@ import { distorcaoDeAgora, distorcaoAqui, ondeEla } from "../systems/distorcoes.
 import { ZONA, naZona, entradasDoMapa, entradaEm, abrirZona, garantirZona, vaoDaZona,
          cedeu, esbarrar, alcance, tileCedido, desenharVao } from "../systems/glitchzones.js";
 import { quemDesce, noTopo } from "../systems/descida.js";
+import { Regioes } from "../core/regioes.js";
 import { oMaisRapido, ganhaDaBike, aindaEstao, ehMotoqueiro }
   from "../systems/motoqueiros.js";
 import { montarChefe, temPortal, abrirPortal, portalAberto, fecharPortal, corrupcaoDoPortal, pertoDoPortal }
@@ -4334,7 +4335,9 @@ export class OverworldScene {
   /** As nove regiões. Nove cabem na caixa de escolha; vinte e sete não caberiam,
    *  e é por isso que a escolha é em dois passos e não numa lista só. */
   escolherRegiao(state) {
-    const regioes = DB.REGIOES || [];
+    // As nove do jogo MAIS as que quem joga inventou no menu do título
+    // (src/core/regioes.js). As criadas entram no fim, depois das de sempre.
+    const regioes = Regioes.todas(DB.REGIOES);
     this.dlg.ask("DE QUE REGIÃO?", [...regioes.map((r) => r.nome), "VOLTAR"], (i) => {
       const r = regioes[i];
       if (!r) return;

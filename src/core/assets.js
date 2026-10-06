@@ -2,7 +2,7 @@
 // Trocar por PNGs depois e so mudar Assets.tiles / Assets.mons.
 import { makeRng } from "./rng.js";
 import { DB } from "../data/index.js";
-import { SpriteStore, pedirMon, pedirMonShiny, pedirMonUrl } from "./sprites.js";
+import { SpriteStore, pedirMon, pedirMonShiny, pedirMonUrl, pedirFolha } from "./sprites.js";
 import { url as arquivo } from "./base.js";
 import { corpoBombado, CORPO } from "./diglettbombado.js";
 
@@ -729,8 +729,24 @@ export const Assets = {
   actor(kind, deQuemJoga = true) {
     // "hero" é QUEM JOGA: a menina usa a folha da heroína (main.js define isso).
     // O outro jogador online passa `false`: o "hero" dele é dele, não o seu.
-    if (kind === "hero" && deQuemJoga) { const j = this.jogador?.(); if (j && SpriteStore.overworld[j]) kind = j; }
+    if (kind === "hero" && deQuemJoga) {
+      const j = this.jogador?.();
+      if (j) this.pedirSkin(j);
+      if (j && SpriteStore.overworld[j]) kind = j;
+    }
+    this.pedirSkin(kind);
     return SpriteStore.overworld[kind] || this.actors[kind] || this.actors.hero;
+  },
+
+  /** "regiao:<id>:menino|menina" — a skin de uma REGIÃO CRIADA (src/data/regioes.js):
+   *  o PNG vem do caminho que a região diz, e só é pedido quando alguém veste.
+   *  Vale pro jogador e pros outros da sala online (o nome viaja igual). */
+  pedirSkin(kind) {
+    if (typeof kind !== "string" || !kind.startsWith("regiao:") || SpriteStore.overworld[kind]) return;
+    const [, rid, g] = kind.split(":");
+    const R = (DB.REGIOES_CRIADAS || []).find((r) => r.id === rid);
+    const caminho = R?.skins?.[g === "menina" ? "menina" : "menino"];
+    if (caminho) pedirFolha(kind, caminho);
   },
 
   /** A COR SHINY INVENTADA: a mesma arte com o matiz girado.

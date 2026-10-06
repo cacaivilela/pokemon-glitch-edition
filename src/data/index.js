@@ -75,6 +75,9 @@ const unicas = await import("./formas-unicas.js" + V);
 const guardaRoupa = await import("./guarda-roupa.js" + V);
 // FALAR COM O COMPANHEIRO (src/data/companheiro.js)
 const companheiro = await import("./companheiro.js" + V);
+// AS REGIÕES CRIADAS POR JOGADORES (o REGIOMAKER): os dados e o montador
+const regioesCriadas = await import("./regioes-criadas.js" + V);
+const regioes = await import("./regioes.js" + V);
 // O ASH, o campeão secreto (src/data/ash.js)
 const ash = await import("./ash.js" + V);
 // OS BICOS: entregas e procurados (src/data/bicos.js)
@@ -476,6 +479,20 @@ const BRAG_CONTEUDO = Object.fromEntries(Object.entries({ ...brag.BRAGLITCH_MAPS
   lockedWarps: { ...(BRAG_PLACAS[id]?.lockedWarps || {}), ...(m.lockedWarps || {}) },
 }]));
 
+/** As espécies de todas as tabelas, antes do `buildSpecies` (as regiões
+ *  criadas precisam saber o que existe pra montar os times delas). */
+const ESPECIES_BASE = { ...gen1.GEN1, ...extra.EXTRA, ...reg.REGIONAIS, ...eras.ERAS_ESPECIES,
+  ...iniciais.INICIAIS_ESPECIES, ...bones.BONES_ESPECIES, ...decamark.DECAMARK_ESPECIE, ...mais.MAIS,
+  ...hack.HACKEANAS, ...brag.BRAGLITCH_ESPECIES, ...rotom.ROTOM_FORMAS, ...mega.MEGA_FORMS,
+  ...secretas.SECRETAS_ESPECIES };
+/** AS REGIÕES CRIADAS (src/data/regioes.js): mapas, conteúdo e espécies. O
+ *  que vem de jogador é conferido contra o que existe no jogo. */
+const RC = regioes.montarRegioesCriadas(kanto, regioesCriadas.REGIOES_CRIADAS, {
+  especie: (id) => !!ESPECIES_BASE[id] && !ESPECIES_BASE[id].mega && !ESPECIES_BASE[id].megaDe,
+  golpe: (id) => !!moves.MOVES[id],
+  tipo: (t) => !!types.TYPE_COLOR[t],
+});
+
 /** true quando a ilha está sendo desenhada aqui, e não veio do decomp */
 export const ILHA_GERADA = !kanto?.birth_island;
 
@@ -508,12 +525,7 @@ function montarDB() {
     PESOS: pesos.PESOS,
     GEN1: gen1.GEN1,
     DEX_ORDER: gen1.DEX_ORDER,
-    SPECIES: species.buildSpecies(
-      { ...gen1.GEN1, ...extra.EXTRA, ...reg.REGIONAIS, ...eras.ERAS_ESPECIES,
-        ...iniciais.INICIAIS_ESPECIES, ...bones.BONES_ESPECIES, ...decamark.DECAMARK_ESPECIE, ...mais.MAIS,
-        ...hack.HACKEANAS, ...brag.BRAGLITCH_ESPECIES, ...rotom.ROTOM_FORMAS, ...mega.MEGA_FORMS,
-        ...secretas.SECRETAS_ESPECIES },
-      types.TYPE_COLOR, textos.DEX_TEXTOS),
+    SPECIES: species.buildSpecies({ ...ESPECIES_BASE, ...RC.especies }, types.TYPE_COLOR, textos.DEX_TEXTOS),
     EXTRA: extra.EXTRA,
     // as formas regionais entram na fenda junto com o resto que vaza pra lá
     // ...e AS QUE FALTAVAM (src/data/mais.js) também, com o mesmo peso TOTAL da
@@ -526,7 +538,7 @@ function montarDB() {
     REGIONAIS: reg.REGIONAIS,
     // AS FORMAS HACKEANAS entram no mesmo rótulo de região das regionais: pra
     // quem lê a Pokédex, "HACK" é de onde aquele bicho veio (src/data/hackeanas.js)
-    REGIAO: { ...reg.REGIAO, ...hack.REGIAO_HACKEANAS, ...brag.REGIAO_ESPECIES },
+    REGIAO: { ...reg.REGIAO, ...hack.REGIAO_HACKEANAS, ...brag.REGIAO_ESPECIES, ...RC.rotulos },
     HACKEANAS: hack.HACKEANAS,
     HACK_BASE_DE: hack.BASE_DE,
     PEDRA_GELO: reg.PEDRA_GELO,
@@ -579,7 +591,7 @@ function montarDB() {
     DIM_LOOT: loot.DIM_LOOT,
     DIM_LOOT_COUNT: loot.DIM_LOOT_COUNT,
     DIM_LOOT_SPREAD: loot.DIM_LOOT_SPREAD,
-    EVOLUTIONS: evo.EVOLUTIONS,
+    EVOLUTIONS: { ...evo.EVOLUTIONS, ...RC.evolucoes },
     EVO_ITEMS: evo.EVO_ITEMS,
     PRE_EVOLUCAO: evo.PRE_EVOLUCAO,
     STONES: evo.STONES,
@@ -633,12 +645,14 @@ function montarDB() {
     GIFT_CODES: gifts.GIFT_CODES,
     GIFT_TEXTO: gifts.GIFT_TEXTO,
     MAPS: mergeMaps({ ...kanto, ...ilhaFallback, glitchdim: dimensionMap(story.STORY),
-                     tempestade: stormMap(story.STORY), ...MAPAS_ERAS, ...MAPAS_BRAGLITCH, ...MAPAS_VOID },
-                    { ...maps.MAPS, ...BRAG_CONTEUDO, ...vazio.CONTEUDO_VOID }),
+                     tempestade: stormMap(story.STORY), ...MAPAS_ERAS, ...MAPAS_BRAGLITCH, ...MAPAS_VOID, ...RC.geos },
+                    { ...maps.MAPS, ...BRAG_CONTEUDO, ...vazio.CONTEUDO_VOID, ...RC.conteudo }),
     STORY: story.STORY,
     TRUNFO_TEXTO: story.TRUNFO_TEXTO,
     KANTO: { ...(kanto || {}), ...ilhaFallback, glitchdim: dimensionMap(story.STORY),
-             tempestade: stormMap(story.STORY), ...MAPAS_ERAS, ...MAPAS_BRAGLITCH, ...MAPAS_VOID },
+             tempestade: stormMap(story.STORY), ...MAPAS_ERAS, ...MAPAS_BRAGLITCH, ...MAPAS_VOID, ...RC.geos },
+    // AS REGIÕES CRIADAS: a lista (balsa, skins, campeão) — src/data/regioes.js
+    REGIOES_CRIADAS: RC.lista,
     GINASIO_VOID: vazio.GINASIO_VOID,
     LENDAS_VOID: vazio.LENDAS_VOID,
     GUIA_VOID: vazio.GUIA_VOID,

@@ -1,0 +1,73 @@
+{
+  "id": "pixelvale",
+  "nome": "VALE DOS PIXELS",
+  "autor": "TESTE",
+  "inicio": "cidade",
+  "skins": null,
+  "pokemon": [
+    { "id": "pixelinho", "nome": "PIXELINHO", "tipos": ["NORMAL"], "stats": [45, 50, 45, 40, 40, 60],
+      "golpes": [[1, "investida"], [1, "grito"], [8, "ataquerapido"], [15, "mordida"]],
+      "dex": "UM PIXEL QUE FUGIU DA TELA E GOSTOU DO MATO.",
+      "sprite": "assets/unicas/pikachu~muu6tu3bkg.png", "evolui": { "para": "pixelao", "nivel": 20 } },
+    { "id": "pixelao", "nome": "PIXELÃO", "tipos": ["NORMAL", "LUTADOR"], "stats": [80, 95, 75, 60, 65, 90],
+      "golpes": [[1, "investida"], [1, "mordida"], [25, "ataquerapido"]],
+      "dex": "QUANDO MUITOS PIXELS SE JUNTAM, VIRA UM DESTES.",
+      "sprite": "assets/unicas/pikachu~muu6tu3bkg.png" }
+  ],
+  "mapas": [
+    {
+      "id": "cidade", "nome": "PIXELÓPOLIS", "tema": "mata", "musica": "saolucario",
+      "planta": [
+        "##########PP############",
+        "#.........PP...........#",
+        "#..CCCC...PP...MMMM....#",
+        "#..CCCC...PP...MMMM....#",
+        "#..CCCC...PP...MMMM....#",
+        "#...D.....PP.....D.....#",
+        "#PPPPPPPPPPPPPPPPPPPPP.#",
+        "#.....1....PP..........#",
+        "#..GGGGGG..PP...HHHH...#",
+        "#..GGGGGG..PP...HHHH...#",
+        "#..GGGGGG..PP...HHHH...#",
+        "#..GGGGGG..PP...HHHH...#",
+        "#.....D....PP.....D....#",
+        "#..FFF.....PP.....F....#",
+        "#.......aaaaaaaa.......#",
+        "########################"
+      ],
+      "liga": { "up": "rota" },
+      "placas": { "1": "GINÁSIO DE PIXELÓPOLIS\nLÍDER: BIT." },
+      "npcs": [ { "x": 13, "y": 13, "sprite": "youngster", "fala": ["AQUI TUDO É FEITO DE PIXEL.", "ATÉ EU."] } ],
+      "ginasio": { "sala": "celadon_city_gym", "insignia": "INSÍGNIA BYTE",
+        "lider": { "nome": "BIT", "sprite": "superf", "fala": ["EU SOU A BIT. VAMOS VER SE VOCÊ COMPILA."],
+                   "time": [["rc:pixelinho", 14], ["rattata", 12]] },
+        "treinadores": [ { "nome": "ESTAGIÁRIO", "sprite": "youngster", "time": [["rattata", 9]] } ] }
+    },
+    {
+      "id": "rota", "nome": "ROTA DO PIXEL", "tema": "cerrado",
+      "planta": [
+        "##########PP############",
+        "#....2....PP.......YY..#",
+        "#..,,,,,..PP...,,,,,...#",
+        "#..,,,,,..PP...,,,,,...#",
+        "#..,,,,,..PP...,,,,,...#",
+        "#.........PP...........#",
+        "#~~~~.....PP......oo...#",
+        "#~~~~.....PP...........#",
+        "#.........PP..,,,,,,...#",
+        "#..,,,,...PP..,,,,,,...#",
+        "#..,,,,...PP..,,,,,,...#",
+        "#.........PP...........#",
+        "#....1....PP...........#",
+        "##########PP############"
+      ],
+      "liga": { "down": "cidade" },
+      "encontros": [["rc:pixelinho", 40], ["rattata", 60]], "niveis": [3, 7],
+      "placas": { "1": "ROTA DO PIXEL\nPIXELÓPOLIS AO SUL.", "2": "O CAMPEÃO ESPERA NO FIM DA ROTA." },
+      "treinadores": [ { "x": 8, "y": 9, "dir": "right", "nome": "MOÇA DO MATO", "sprite": "lass",
+                         "time": [["rc:pixelinho", 6]] } ]
+    }
+  ],
+  "campeao": { "mapa": "rota", "x": 11, "y": 2, "dir": "down", "nome": "MEGABYTE", "sprite": "gentleman",
+               "fala": ["EU SOU O CAMPEÃO DO VALE DOS PIXELS."], "time": [["rc:pixelao", 30], ["pikachu", 28]] }
+}

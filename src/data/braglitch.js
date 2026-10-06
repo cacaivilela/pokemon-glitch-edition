@@ -543,7 +543,7 @@ const PORTA_FECHADA = {
   I: ["A IGREJINHA SÓ ABRE NO DOMINGO. NA PORTA TEM UM AVISO:", "\"QUERMESSE ADIADA ATÉ A LUZ VOLTAR DIREITO.\""],
 };
 
-const TAG_DE = {
+export const TAG_DE = {
   "#": 1, ".": 0, ",": 2, P: 0, "~": 3, "=": 0, a: 0, F: 0, Y: 1, o: 1, B: 1,
   H: 1, h: 1, L: 1, C: 1, M: 1, I: 1, K: 1, G: 1, D: 0,
   // o ARCEUS REDENTOR de RIO DE JANEEVEE (a base inteira segura)

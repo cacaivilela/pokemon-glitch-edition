@@ -184,7 +184,7 @@ function plantaDaEstrada(e) {
 }
 
 /** Um tile de chão livre perto de (x0,y0), fora do caminho. */
-function chaoPerto(planta, x0, y0, evita = new Set()) {
+export function chaoPerto(planta, x0, y0, evita = new Set()) {
   for (let r = 0; r < 12; r++) {
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
@@ -199,7 +199,7 @@ function chaoPerto(planta, x0, y0, evita = new Set()) {
 
 /** Onde os treinadores da estrada ficam: do lado do caminho, olhando pra ele,
  *  em alturas espalhadas. */
-function lugaresDeTreinador(planta, quantos) {
+export function lugaresDeTreinador(planta, quantos) {
   const H = planta.length, out = [], usados = new Set();
   for (let i = 0; i < quantos; i++) {
     const y = Math.round(H * (0.25 + (0.5 * i) / Math.max(1, quantos - 1)));
@@ -602,7 +602,7 @@ export function saidaDe(planta, lado) {
 
 /** Abre uma saída de 2 tiles num lado que não tinha: caminho da borda pra dentro
  *  até encontrar caminho (ou 16 tiles), sem atravessar prédio, água ou placa. */
-function abrirSaida(planta, lado, pos) {
+export function abrirSaida(planta, lado, pos) {
   const g = planta.map((l) => l.split(""));
   const H = g.length, W = g[0].length;
   const passa = (c) => "#.,FYo".includes(c);
@@ -619,7 +619,7 @@ function abrirSaida(planta, lado, pos) {
 }
 
 /** Fecha uma saída que não leva mais a lugar nenhum (vira mata). */
-function fecharSaida(planta, lado) {
+export function fecharSaida(planta, lado) {
   const g = planta.map((l) => l.split(""));
   const H = g.length, W = g[0].length;
   for (let k = 0; k < (lado === "up" || lado === "down" ? W : H); k++) {
@@ -679,7 +679,7 @@ for (const l of LUGARES_NOVOS) {
 
 /** Onde cada coisa fica dentro de cada sala de ginásio copiada — as posições
  *  são as dos treinadores de Kanto naquela mesma sala. */
-const SALA = {
+export const SALA = {
   pewter_city_gym: { lider: { x: 6, y: 5 }, treinadores: [{ x: 3, y: 8, dir: "right" }, { x: 9, y: 8, dir: "left" }], guia: { x: 9, y: 13 } },
   // na sala da piscina o caminho é um corredor de um tile só: o guia fica no
   // canto da entrada e o segundo treinador no bolsinho abaixo do corredor de

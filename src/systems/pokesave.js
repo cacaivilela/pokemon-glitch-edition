@@ -402,8 +402,23 @@ export function desenharPokemon(ctx, ps, x, y, dir, k = 0, escala = 28, vista = 
 /** A folha de quem joga: hero (menino) ou heroina (menina), e em mapa de
  *  BRAGLITCH os gêmeos de lá, CAIO e LARA (hero_brag / heroina_brag, tools/sprite_caio_lara.py). */
 export function folhaDoJogador(st) {
-  const base = st?.player?.genero === "menina" ? "heroina" : "hero";
-  return DB.KANTO?.[st?.player?.map]?.regiao === "braglitch" ? `${base}_brag` : base;
+  const menina = st?.player?.genero === "menina";
+  const base = menina ? "heroina" : "hero";
+  const regiaoDe = (rid) => (DB.REGIOES_CRIADAS || []).find((r) => r.id === rid);
+  const skinDe = (rid) => `regiao:${rid}:${menina ? "menina" : "menino"}`;
+  // DENTRO DE UMA REGIÃO CRIADA que tem skins: a dela, sozinha (como o _brag)
+  const aqui = DB.KANTO?.[st?.player?.map];
+  if (aqui?.regiaoCriada && regiaoDe(aqui.regiaoCriada)?.skins) return skinDe(aqui.regiaoCriada);
+  // A ROUPA escolhida nas OPÇÕES (src/scenes/overworld.js): "kanto", "brag" ou
+  // "regiao:<id>" — esta só vale se foi desbloqueada (chegando lá)
+  const roupa = st?.player?.roupa;
+  if (roupa === "kanto") return base;
+  if (roupa === "brag") return `${base}_brag`;
+  if (roupa?.startsWith("regiao:")) {
+    const rid = roupa.slice(7);
+    if (st?.roupas?.[rid] && regiaoDe(rid)?.skins) return skinDe(rid);
+  }
+  return aqui?.regiao === "braglitch" ? `${base}_brag` : base;
 }
 
 /** O que a sala online recebe como sprite: "mon:vulpixalola:shiny". */
