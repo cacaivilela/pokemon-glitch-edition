@@ -12,7 +12,6 @@ import { Glitch } from "../systems/glitchfx.js";
 import { OverworldScene } from "./overworld.js";
 import { FundoDeEvolucoes } from "./fundo-evolucoes.js";
 import { GiftScene } from "./online.js";
-import { RegioesScene } from "./regioes.js";
 
 /** As duas portas de entrada do jogo novo (ver `newGame` em src/main.js). */
 const REGIOES_INICIO = [
@@ -39,10 +38,7 @@ export class TitleScene {
     this.items.push(DB.STORY.comandos.titulo);
     this.items.push("UNIQUEMON");   // o site de desenhar FORMA ÚNICA (uniquemon/), numa aba nova
     this.items.push("IDIOMA");   // dá pra escolher antes de começar qualquer coisa
-    // CRIAR REGIÃO fica aqui, no menu, e não dentro da partida: a região que
-    // você inventa serve pra ESCOLHER O INICIAL, que é a primeira coisa que
-    // acontece num jogo novo. Dentro da partida ela chegaria tarde.
-    this.items.push("CRIAR REGIÃO");
+    this.items.push("CRIAR REGIÃO");   // abre o REGIOMAKER (regiomaker/), numa aba nova
     Glitch.level = DB.CONFIG?.glitchMode ? 45 : 0;
     // o fundo: duas evoluções sorteadas ao mesmo tempo (src/scenes/fundo-evolucoes.js)
     this.fundo = new FundoDeEvolucoes();
@@ -65,7 +61,9 @@ export class TitleScene {
       Audio2.select();
       if (this.items[this.index] === "IDIOMA") return this.trocaIdioma();
       if (this.items[this.index] === "UNIQUEMON") return void window.open(url("uniquemon/"), "_blank");
-      if (this.items[this.index] === "CRIAR REGIÃO") return void this.game.scenes.push(new RegioesScene());
+      // O REGIOMAKER (regiomaker/) é quem faz região de verdade: mapas, casas,
+      // laboratório, ginásios, campeão. Abre numa aba, como o UNIQUEMON.
+      if (this.items[this.index] === "CRIAR REGIÃO") return void window.open(url("regiomaker/"), "_blank");
       if (this.items[this.index] === DB.STORY.comandos.titulo) {
         this.tela = "comandos";
         this.topo = 0;
