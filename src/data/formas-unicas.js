@@ -136,5 +136,13 @@ export const FORMAS_UNICAS = {
       "autor": "CAIO",
       "sprite": "assets/unicas/cranidos~muvfo9po70.png"
     }
+  ],
+  "snorlax": [
+    {
+      "id": "muwp8vy4ta",
+      "nome": "SNORLAX NATALINO",
+      "autor": "CAIO",
+      "sprite": "assets/unicas/snorlax~muwp8vy4ta.png"
+    }
   ]
 };
