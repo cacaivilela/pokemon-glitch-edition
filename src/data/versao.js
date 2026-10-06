@@ -11,7 +11,7 @@
 // O jogo compara este número com o do servidor (buscado sem cache) e avisa
 // quando a página está velha, em vez de deixar o jogador achar que quebrou.
 // Suba um número aqui a cada publicação que valha um aviso.
-export const VERSAO = "2026-10-04.4";
+export const VERSAO = "2026-10-04.5";
 
 /** O VOLUME do jogo, o que aparece na tela de título. Não é o número técnico
  *  de cima: aquele sobe a cada publicação; este sobe quando o jogo ganha uma
