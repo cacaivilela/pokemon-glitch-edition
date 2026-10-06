@@ -1,0 +1,46 @@
+<!doctype html>
+<!-- AS SILHUETAS DA HORDA: abre a Rota 1 com ?hordas=1 (todo selvagem comum
+     nasce com horda), espera eles nascerem e tira um retrato do mato. Depois
+     encosta num deles e retrata a cutscene. Uso: /dev/hordacheck.html -->
+<meta charset="utf-8">
+<title>hordacheck</title>
+<style>
+  body { background: #111; color: #ddd; font: 13px monospace; margin: 8px; }
+  img { width: 480px; height: 320px; image-rendering: pixelated; display: inline-block; margin: 4px; }
+  iframe { position: absolute; left: -2000px; width: 240px; height: 160px; }
+</style>
+<pre id="log"></pre>
+<script type="module">
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const log = (t) => (document.getElementById("log").textContent += t + "\n");
+const f = document.createElement("iframe");
+// perfil próprio: NUNCA gravar no save.json de quem joga
+f.src = "../index.html?map=route1&hordas=1&perfil=hordacheck";
+document.body.appendChild(f);
+for (let i = 0; i < 50 && !f.contentDocument?.getElementById("screen"); i++) await espera(100);
+await espera(2500);
+for (let i = 0; i < 6; i++) {
+  await espera(400);
+  for (const type of ["keydown", "keyup"]) f.contentWindow.dispatchEvent(new f.contentWindow.KeyboardEvent(type, { code: "Enter", key: "Enter" }));
+}
+const retrato = (nome, texto) => {
+  const dataUrl = f.contentDocument.getElementById("screen").toDataURL();
+  fetch("/__capture", { method: "POST", body: JSON.stringify({ name: nome, dataUrl, log: texto }) }).catch(() => {});
+  const img = new Image(); img.src = dataUrl; document.body.appendChild(img);
+};
+const cena = () => f.contentWindow.game.scenes.stack.find((s) => s.selvagens);
+for (let i = 0; i < 40 && (cena()?.selvagens.length || 0) < 4; i++) await espera(500);
+const ow = cena();
+const info = (ow?.selvagens || []).map((b) => `${b.mon.species} nv${b.mon.level} horda=${b.horda ? b.horda.length : "-"}${b.bravo ? " bravo" : ""}`);
+log("selvagens: " + info.join(" | "));
+retrato("horda_mato", info.join(" | "));
+const alvo = ow?.selvagens.find((b) => b.horda);
+if (alvo) {
+  ow.encontrarSelvagem(alvo);
+  await espera(2600);
+  const topo = f.contentWindow.game.scenes.top.constructor.name;
+  log("depois de encostar: " + topo + " com " + alvo.horda.length);
+  retrato("horda_cena", topo);
+} else log("nenhum com horda!");
+document.title = "hordacheck pronto";
+</script>
