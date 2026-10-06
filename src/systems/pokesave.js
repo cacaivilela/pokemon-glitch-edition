@@ -404,15 +404,11 @@ export function desenharPokemon(ctx, ps, x, y, dir, k = 0, escala = 28, vista = 
 export function folhaDoJogador(st) {
   const menina = st?.player?.genero === "menina";
   const base = menina ? "heroina" : "hero";
-  // A ROUPA escolhida nas OPÇÕES (src/scenes/overworld.js): "kanto", "brag" ou
-  // "regiao:<id>" — esta só vale se foi desbloqueada (chegando lá)
+  const aqui = DB.KANTO?.[st?.player?.map];
+  // A ROUPA escolhida nas OPÇÕES (src/scenes/overworld.js): "kanto" ou "brag"
   const roupa = st?.player?.roupa;
   if (roupa === "kanto") return base;
   if (roupa === "brag") return `${base}_brag`;
-  if (roupa?.startsWith("regiao:")) {
-    const rid = roupa.slice(7);
-    if (st?.roupas?.[rid] && regiaoDe(rid)?.skins) return skinDe(rid);
-  }
   return aqui?.regiao === "braglitch" ? `${base}_brag` : base;
 }
 
