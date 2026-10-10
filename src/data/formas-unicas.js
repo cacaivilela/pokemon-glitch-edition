@@ -144,5 +144,17 @@ export const FORMAS_UNICAS = {
       "autor": "CAIO",
       "sprite": "assets/unicas/snorlax~muwp8vy4ta.png"
     }
+  ],
+  "shieldon": [
+    {
+      "id": "mv2xsbplzt",
+      "nome": "SHEIDON DE GALAR",
+      "autor": "CAIO",
+      "sprite": "assets/unicas/shieldon~mv2xsbplzt.png",
+      "tipos": [
+        "AÇO",
+        "LUTADOR"
+      ]
+    }
   ]
 };
