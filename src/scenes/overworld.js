@@ -89,6 +89,7 @@ import { FusaoEditorScene } from "./fusaoeditor.js";
 import { ConcursoScene } from "./concurso.js";
 import { reduzido } from "../core/reduzir.js";
 import { puloDoIcone } from "../systems/animon.js";
+import { sortearDaTroca } from "../systems/trocasorteio.js";
 import { DIFICULDADES, dificuldadeDe, mudarDificuldade } from "../systems/dificuldade.js";
 import { desenharItem, adiantarItens } from "../core/itens.js";
 import { isoLigado, alternarIso, origem, naTela, noChao, coluna, tilesVisiveis, relevo, chaoEm, vistaIso, espelhar, sombra, comEspessura, fontesDoTeto } from "../core/isometrico.js";
@@ -5768,6 +5769,7 @@ export class OverworldScene {
   /** TROCA COM NPC (src/data/trocas.js): ele pede uma espécie e dá a dele,
    *  com apelido. Uma vez só por troca. */
   trocarComNpc(t) {
+    if (t.aleatoria) return this.trocaSurpresa(t);
     const st = this.st, F = t.falas, flag = `troca_${t.id}`;
     if (st.flags[flag]) return void this.dlg.say(F.depois);
     const meus = st.party.filter((m) => m.species === t.pede);
@@ -5779,6 +5781,33 @@ export class OverworldScene {
       this.dlg.ask(F.qual, [...nomes, "VOLTAR"], (k) => {
         if (meus[k]) this.fazerTroca(t, meus[k]);
         else this.dlg.say(F.recusou);
+      });
+    }));
+  }
+
+  /** A TROCA SURPRESA (o SEU SORTEIO de SÃO LUCARIO): qualquer um da equipe
+   *  por um sorteado (src/systems/trocasorteio.js), quantas vezes quiser. */
+  trocaSurpresa(t) {
+    const st = this.st, F = t.falas;
+    this.dlg.say(F.oferta, () => this.dlg.ask(F.pergunta, ["SIM", "NÃO"], (i) => {
+      if (i !== 0) return void this.dlg.say(F.recusou);
+      const nomes = st.party.map((m) => `${m.nickname} N${m.level}`);
+      this.dlg.ask(F.qual, [...nomes, "VOLTAR"], (k) => {
+        const meu = st.party[k];
+        if (!meu) return void this.dlg.say(F.recusou);
+        this.dlg.ask(F.certeza.replace("{MON}", meu.nickname), ["SIM", "NÃO"], (c) => {
+          if (c !== 0) return void this.dlg.say(F.recusou);
+          const novo = sortearDaTroca(meu);
+          novo.ot = t.dono;
+          novo.trocado = true;
+          st.party[st.party.indexOf(meu)] = novo;
+          st.seen[novo.species] = true;
+          st.caught[novo.species] = true;
+          this.game.autosave?.(true);
+          const fim = F.feito.map((l) => l.replace("{MON}", novo.nickname));
+          if (novo.shiny || novo.luminoso) fim.splice(1, 0, F.brilhou);
+          this.game.scenes.push(new TrocaNpcScene(), { meu, novo, dono: t.dono, onDone: () => this.dlg.say(fim) });
+        });
       });
     }));
   }

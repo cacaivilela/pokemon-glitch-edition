@@ -9,6 +9,24 @@
 //   dono      o nome dele, que fica marcado no bicho (`ot`)
 export const TROCAS = [
   {
+    // O TROCA-TROCA de SÃO LUCARIO: troca QUALQUER Pokémon seu por um
+    // SORTEADO (src/systems/trocasorteio.js), no mesmo nível, quantas vezes
+    // você quiser. Fica no cantinho de cima da cidade, do lado da saída.
+    id: "surpresa", aleatoria: true, mapa: "sao_lucario", x: 1, y: 1, dir: "down", sprite: "maniaco",
+    dono: "SEU SORTEIO",
+    falas: {
+      oferta: ["PSIU! AQUI É O TROCA-TROCA DO SEU SORTEIO!",
+               "VOCÊ ME DÁ QUALQUER POKÉMON, E EU TE DOU UM POKÉMON SURPRESA. DO MESMO NÍVEL.",
+               "PODE VIR UM RATTATA. PODE VIR UM DRAGONITE. NEM EU SEI O QUE TEM AQUI DENTRO!"],
+      pergunta: "VAMOS TROCAR?",
+      qual: "QUAL VOCÊ VAI MANDAR?",
+      certeza: "{MON} VAI EMBORA DE VEZ. TEM CERTEZA?",
+      recusou: ["TÁ COM MEDO, É? A SORTE NÃO ESPERA, HEIN!"],
+      feito: ["SAIU UM {MON}! A SORTE FALOU!", "VOLTA QUANDO QUISER. O SEU SORTEIO NÃO FECHA NUNCA."],
+      brilhou: "E OLHA SÓ: ELE BRILHA! NEM EU ESPERAVA ESSA!",
+    },
+  },
+  {
     // o roqueiro da praça de VIRIDIAN: o RATTATA DE ALOLA dele se chama
     // BEGGIN', por causa da música — o refrão faz "RA-TA-TA-TA", que é o nome
     // do bicho cantado
