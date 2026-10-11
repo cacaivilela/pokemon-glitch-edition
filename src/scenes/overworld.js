@@ -88,6 +88,8 @@ import { FusionScene } from "./fusion.js";
 import { FusaoEditorScene } from "./fusaoeditor.js";
 import { ConcursoScene } from "./concurso.js";
 import { reduzido } from "../core/reduzir.js";
+import { puloDoIcone } from "../systems/animon.js";
+import { DIFICULDADES, dificuldadeDe, mudarDificuldade } from "../systems/dificuldade.js";
 import { desenharItem, adiantarItens } from "../core/itens.js";
 import { isoLigado, alternarIso, origem, naTela, noChao, coluna, tilesVisiveis, relevo, chaoEm, vistaIso, espelhar, sombra, comEspessura, fontesDoTeto } from "../core/isometrico.js";
 
@@ -6391,7 +6393,7 @@ export class OverworldScene {
     }
     if (m.type === "optsFala") return this.menuFala(m);
     if (m.type === "opts") {
-      const n = 9;
+      const n = 10;
       if (Input.consume("up")) m.index = (m.index + n - 1) % n;
       if (Input.consume("down")) m.index = (m.index + 1) % n;
       if (Input.consume("b")) {
@@ -6403,6 +6405,8 @@ export class OverworldScene {
       if (lado && m.index === 2) this.mudaVelocidade(lado);
       if (lado && m.index === 3) this.mudaIdioma(lado);
       if (lado && m.index === 6) this.mudaIso();
+      // DIFICULDADE (é do save): ← → anda, Z vai pra próxima
+      if (lado && m.index === 8) { mudarDificuldade(this.st, lado); Audio2.blip(); }
       if (Input.consume("a")) {
         Audio2.select();
         if (m.index === 0) Glitch.scanlines = !Glitch.scanlines;
@@ -6414,6 +6418,11 @@ export class OverworldScene {
         else if (m.index === 5) this.st.flags.todasDuplas = !this.st.flags.todasDuplas;
         else if (m.index === 6) this.mudaIso();
         else if (m.index === 7) this.menu = { type: "optsFala", index: 0 };
+        else if (m.index === 8) {
+          // Z dá a volta: do QUASE IMPOSSÍVEL volta pro BEBÊ
+          const i = DIFICULDADES.indexOf(dificuldadeDe(this.st));
+          this.st.dificuldade = DIFICULDADES[(i + 1) % DIFICULDADES.length].id;
+        }
         else { Save.clear(); this.menu = null; this.dlg.say("SAVE APAGADO. RECARREGUE A PÁGINA."); }
       }
     }
@@ -7312,7 +7321,9 @@ export class OverworldScene {
       this.st.party.forEach((mon, i) => {
         const y = 24 + i * 24;
         if (i === m.index) cursor(ctx, 8, y + 7);
-        ctx.drawImage(reduzido(Assets.comCor(Assets.mon(mon.species, mon.seed), mon), 24), 16, y - 2, 24, 24);
+        // o ícone pula como nos jogos (src/systems/animon.js)
+        const pulo = puloDoIcone(performance.now() / 1000, i === m.index, mon.hp <= 0);
+        ctx.drawImage(reduzido(Assets.comCor(Assets.mon(mon.species, mon.seed), mon), 24), 16, y - 2 + pulo, 24, 24);
         drawText(ctx, mon.nickname, 46, y + 2, PAL.ink);
         drawText(ctx, `N${mon.level}`, 152, y + 2, PAL.ink);
         bar(ctx, 46, y + 14, 76, 4, hpPct(mon), hpColor(hpPct(mon)));
@@ -7893,13 +7904,14 @@ export class OverworldScene {
         [DB.DUPLA_TEXTO?.opcao || "BATALHA DUPLA", this.st.flags?.todasDuplas ? "ON" : "OFF"],
         ["ISOMÉTRICO", isoLigado() ? "ON" : "OFF"],
         ["FALA", "..."],
+        ["DIFICULDADE", dificuldadeDe(this.st).curto],
         ["LIMPAR SAVE", ""],
       ];
-      // 9 linhas: o painel sobe pra dica de baixo não cair dentro dele
-      panel(ctx, 30, 14, 180, linhas.length * LINE_H + 32);
-      drawText(ctx, `CORRUPÇÃO: ${Math.round(this.st.corruption)}%`, 40, 20, PAL.glitch);
+      // 10 linhas: o painel sobe pra dica de baixo não cair dentro dele
+      panel(ctx, 30, 4, 180, linhas.length * LINE_H + 32);
+      drawText(ctx, `CORRUPÇÃO: ${Math.round(this.st.corruption)}%`, 40, 10, PAL.glitch);
       linhas.forEach(([rot, val], i) => {
-        const y = 36 + i * LINE_H;
+        const y = 26 + i * LINE_H;
         drawText(ctx, rot, 50, y, PAL.ink);
         drawText(ctx, val, 140, y, PAL.glitch);
         if (i === m.index) cursor(ctx, 40, y);
@@ -7911,6 +7923,10 @@ export class OverworldScene {
       else if (m.index === 5) drawText(ctx, (DB.DUPLA_TEXTO?.opcaoDica || "").slice(0, 38), 12, 150, PAL.glitch);
       else if (m.index === 6) drawText(ctx, "O MUNDO VISTO DE QUINA.", 12, 150, PAL.glitch);
       else if (m.index === 7) drawText(ctx, "CAIXA OU BALÃO, VELOCIDADE, SOM...", 12, 150, PAL.glitch);
+      else if (m.index === 8) {
+        const d = dificuldadeDe(this.st);
+        drawText(ctx, `${d.nome}: ${d.dica}`.slice(0, 38), 12, 150, PAL.glitch);
+      }
       else if (aviso) drawText(ctx, aviso.slice(0, 38), 12, 150, PAL.ink2);
     }
   }

@@ -141,6 +141,11 @@ export const Audio2 = {
   hit() { this.noise(0.1, 0.9); },
   faint() { for (let i = 0; i < 6; i++) setTimeout(() => this.tone(500 - i * 70, 0.09, "sawtooth", 0.6), i * 55); },
   heal() { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => this.tone(f, 0.1), i * 70)); },
+  /** O PLIM DO SHINY: um brilho subindo bem agudo, e o eco dele mais baixo */
+  shiny() {
+    [2093, 2637, 3136, 4186, 3136, 4186].forEach((f, i) => setTimeout(() => this.tone(f, 0.07, "triangle", 0.55), i * 45));
+    [2637, 3136, 4186].forEach((f, i) => setTimeout(() => this.tone(f, 0.09, "square", 0.18), 330 + i * 60));
+  },
   glitch() {
     if (muted) return;
     for (let i = 0; i < 8; i++) {

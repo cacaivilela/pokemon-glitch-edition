@@ -96,7 +96,7 @@ function mapaInicial(regiao) {
 const NOME_DO_GENERO = { menino: "VERMELHO", menina: "FOLHA" };
 const NOME_BRAGLITCH = { menino: "CAIO", menina: "LARA" };
 
-function newState(regiao, genero = "menino") {
+function newState(regiao, genero = "menino", dificuldade = "medio") {
   const inicio = mapaInicial(regiao);
   if (!NOME_DO_GENERO[genero]) genero = "menino";
   return {
@@ -120,6 +120,9 @@ function newState(regiao, genero = "menino") {
     // descansando na barraca — nos mesmos lugares que curam a equipe.
     vida: null,        // preenchido no primeiro quadro (ver `vidaMax` no config)
     respawn: { map: inicio, ...DB.MAPS[inicio].spawn },
+    // A DIFICULDADE da partida (src/systems/dificuldade.js): escolhida no jogo
+    // novo, trocável no OPÇÕES. Save sem ela joga no MÉDIO.
+    dificuldade,
   };
 }
 
@@ -128,10 +131,11 @@ const game = {
   scenes: null,
   debug: false,
 
-  /** `regiao`: "kanto" ou "braglitch"; `genero`: "menino" ou "menina" (as
-   *  duas escolhas da tela de título). */
-  newGame(regiao, genero) {
-    this.state = newState(regiao, genero);
+  /** `regiao`: "kanto" ou "braglitch"; `genero`: "menino" ou "menina";
+   *  `dificuldade`: o id de src/systems/dificuldade.js (as três escolhas da
+   *  tela de título). */
+  newGame(regiao, genero, dificuldade) {
+    this.state = newState(regiao, genero, dificuldade);
     setTextVars({ NOME: this.state.player.name });
     Glitch.level = this.state.corruption;
     return this.state;
@@ -425,7 +429,8 @@ if (ASH_TESTE && !q.has("map")) {
   if (!q.has("flags")) q.set("flags", "bragCampeao");
 }
 if (q.has("map") || q.has("battle") || q.has("era")) {
-  game.newGame(GEMEO_TESTE || LIGA_TESTE != null ? "braglitch" : undefined, q.get("genero") || undefined);
+  // &dificuldade=bebe|muitofacil|facil|medio|dificil|quaseimpossivel
+  game.newGame(GEMEO_TESTE || LIGA_TESTE != null ? "braglitch" : undefined, q.get("genero") || undefined, q.get("dificuldade") || undefined);
   {
     const [sid, slvl] = (q.get("starter") || "charmander").split(":");
     const mon = game.giveStarter(sid);
@@ -602,7 +607,8 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
     }
   }
   if (q.has("battle")) {
-    const foe = createMon(q.get("battle"), +(q.get("lvl") || 5));
+    // &shiny=1 -> o selvagem vem SHINY (o brilho de quando ele aparece); &luminoso=1, LUMINOSO
+    const foe = createMon(q.get("battle"), +(q.get("lvl") || 5), { shiny: q.has("shiny"), luminoso: q.has("luminoso") });
     if (q.has("foegolpes")) {   // &foegolpes=ondadechoque -> o selvagem só com esses golpes
       const ids = q.get("foegolpes").split(",").map((g) => g.trim()).filter((g) => DB.MOVES[g]).slice(0, 4);
       if (ids.length) foe.moves = ids.map((id) => ({ id, pp: DB.MOVES[id].pp, ppMax: DB.MOVES[id].pp }));

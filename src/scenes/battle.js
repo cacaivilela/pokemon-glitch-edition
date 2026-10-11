@@ -22,6 +22,7 @@ import { bater, podeCapturar, premio as premioRaid, RAID } from "../systems/raid
 import { GLITCHBOOSTER } from "../data/glitch.js";
 import { hpPct, isFainted, gainXp, xpYieldFor, xpForLevel, heal, createMon } from "../systems/mon.js";
 import { prepararBatalha, fatorCaptura, fatorXp } from "../systems/pedras.js";
+import { ajustarInimigo, fatorDano } from "../systems/dificuldade.js";
 import {
   calcDamage, accuracyCheck, applyMoveEffects, statusTickDamage, effText,
   chooseAiMove, catchAttempt, catchGlitchball, chanceDeCaptura, canFlee, newStages, effectiveStat,
@@ -29,6 +30,7 @@ import {
 } from "../systems/battle-engine.js";
 import { habilidadeDoMon, entrada as entradaDaHabilidade, contato as contatoDaHabilidade, curaDoTurno, ficaNaBola } from "../systems/habilidades.js";
 import { opcoesMega, megaEvoluir, reverterMega, reverterTudo } from "../systems/mega.js";
+import { ajustarForma, saiuDaLuta } from "../systems/formas.js";
 import { tocarMega } from "./mega.js";
 import { marcarSecreta } from "../systems/secretas.js";
 import { cumprirProcurado } from "../systems/bicos.js";
@@ -51,6 +53,8 @@ export class BattleScene {
     this.foeParty = this.trainer
       ? this.trainer.party.map((p) => createMon(p.id, p.lvl, { corrupt: !!p.corrupt, shiny: !!p.shiny }))
       : [args.foe];
+    // a DIFICULDADE da partida mexe no nível de quem está do lado de lá
+    this.foeParty.forEach((m) => ajustarInimigo(m));
     this.foeIdx = 0;
     // pede os sprites de quem vai lutar ANTES da transição de entrada: ela leva
     // quase um segundo, e nesse tempo o arquivo chega — senão o bicho aparece
@@ -186,6 +190,52 @@ export class BattleScene {
     }
   }
 
+  /** O BRILHO DO SHINY (e do LUMINOSO): duas ondas de estrelas saindo dele,
+   *  umas faíscas por cima do corpo e o plim (Audio2.shiny). Uma vez por
+   *  entrada: o sprite novo de cada entrada (`newSprite`) zera a marca. */
+  async brilhar(who) {
+    const mon = who === "p" ? this.mine : this.foe;
+    const sp = this.sp[who];
+    if (!(mon?.shiny || mon?.luminoso) || sp.brilhou) return;
+    sp.brilhou = true;
+    const c = who === "f" ? { x: 178, y: 38 } : { x: 46, y: 80 };
+    const cores = mon.luminoso ? ["#ffffff", "#fff3b0", "#e8f6ff"] : ["#fff8c0", "#ffe060", "#ffffff"];
+    const cor = () => cores[Math.floor(Math.random() * cores.length)];
+    Audio2.shiny();
+    for (let onda = 0; onda < 2; onda++) {
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 + onda * 0.39;
+        const v = 48 + onda * 14;
+        this.fx.push({ t: 0, vida: 0.6, fade: false, forma: "estrela", cor: cor(), r: 4 - onda,
+                       x: c.x + Math.cos(a) * 5, y: c.y + Math.sin(a) * 5,
+                       vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: 0, gira: 0, ang: 0 });
+      }
+      // faíscas piscando em cima do corpo
+      for (let i = 0; i < 5; i++) {
+        this.fx.push({ t: 0, vida: 0.45, fade: false, forma: "estrela", cor: cor(), r: 2 + Math.round(Math.random() * 2),
+                       x: c.x + (Math.random() - 0.5) * 40, y: c.y + (Math.random() - 0.5) * 36,
+                       vx: 0, vy: -10, g: 0, gira: 0, ang: 0 });
+      }
+      await this.wait(0.28);
+    }
+    await this.wait(0.4);
+  }
+
+  /** AS FORMAS DE BATALHA (src/systems/formas.js): se for a hora, troca, com
+   *  o clarão e o tremidinho de quem muda de corpo. */
+  async trocaDeForma(who) {
+    const mon = who === "p" ? this.mine : this.foe;
+    const texto = ajustarForma(mon);
+    if (!texto) return;
+    this.flash = 0.5;
+    this.sp[who].dx = who === "p" ? -10 : 10;
+    Audio2.tone(392, 0.08, "square", 0.5);
+    Audio2.tone(587, 0.12, "square", 0.5);
+    this.disp[who] = mon.hp;
+    await this.wait(0.35);
+    await this.say(texto);
+  }
+
   /** golpe: o sprite avança e volta */
   async lunge(who) {
     if (!DB.CONFIG?.battleAnim) return;
@@ -260,6 +310,7 @@ export class BattleScene {
       await this.say(DB.STORY.glitch.raidBugado.replace("{NOME}", this.foe.nickname));
     } else if (this.isGlitch) {
       Glitch.hit(2);
+      if (this.foe.shiny || this.foe.luminoso) { await this.wait(0.5); await this.brilhar("f"); }
       await this.say(`UM ${this.foe.nickname} SELVAGEM APARECEU!`);
       const sp = DB.SPECIES[this.foe.species];
       if (this.foe.luminoso) await this.say("A LUZ DELE NÃO VEM DE LUGAR NENHUM. ELE É A LUZ.");
@@ -269,6 +320,8 @@ export class BattleScene {
       else if (sp?.foreign) await this.say("ESTE POKÉMON NÃO É DE KANTO. NEM DESTE MUNDO.");
       else if (!this.foe.shiny && !this.foe.luminoso) await this.say("ESTE POKÉMON NÃO CONSTA NA POKÉDEX. NEM NO CARTUCHO.");
     } else {
+      // o SHINY brilha assim que chega, antes de qualquer texto
+      if (this.foe.shiny || this.foe.luminoso) { await this.wait(0.5); await this.brilhar("f"); }
       await this.say(`UM ${this.foe.nickname}${this.foe.alfa ? " ALFA" : ""} SELVAGEM APARECEU!`);
       // um que VOCÊ SOLTOU (src/systems/soltos.js): é ele mesmo, de volta
       if (this.foe.soltoId) await this.say(`ESPERA... É O ${this.foe.nickname} QUE VOCÊ SOLTOU AQUI!`);
@@ -305,7 +358,9 @@ export class BattleScene {
    *  INTIMIDAR derruba o ATAQUE do outro (src/data/habilidades.js). */
   async entrou(who) {
     const mon = who === "p" ? this.mine : this.foe;
-    tocarGrito(mon);          // todo Pokémon que entra em campo grita (src/data/gritos.js)
+    await this.brilhar(who);  // shiny entra brilhando, antes do grito
+    tocarGrito(mon);
+    await this.trocaDeForma(who);   // WISHIWASHI vira CARDUME, PALAFIN volta HERÓI          // todo Pokémon que entra em campo grita (src/data/gritos.js)
     const outro = who === "p" ? this.foe : this.mine;
     const oStages = who === "p" ? this.fStages : this.pStages;
     const e = entradaDaHabilidade(mon);
@@ -645,7 +700,8 @@ export class BattleScene {
       // o SANDUÍCHE PICANTE bate mais forte — e só do seu lado da tela
       // o PICANTE bate mais forte no seu turno; o UMAMI segura o que vem no do
       // outro. Os dois só valem pro seu lado da tela.
-      let dano = Math.max(1, Math.round(res.dmg * (who === "p"
+      // ...e a DIFICULDADE mexe nos dois sentidos (src/systems/dificuldade.js)
+      let dano = Math.max(1, Math.round(res.dmg * fatorDano(who === "p") * (who === "p"
         ? fator(this.st, "ataque")
         : fator(this.st, "defesa"))));
 
@@ -801,6 +857,8 @@ export class BattleScene {
         if (doce) await this.say(doce);
       }
     }
+    // o CARDUME do WISHIWASHI se confere no fim de cada turno
+    for (const who of ["p", "f"]) await this.trocaDeForma(who);
     // o clima conta os turnos dele (a TEMPESTADE tem Infinity: não acaba)
     if (this.clima && this.clima.turnos !== Infinity) {
       this.clima.turnos--;
@@ -1492,6 +1550,7 @@ export class BattleScene {
     this.menu = null;
     this.megaArmada = null;      // a pedra reage com quem estava na frente
     await this.say(`VOLTE, ${this.mine.nickname}!`);
+    saiuDaLuta(this.mine);       // o PALAFIN que sai volta HERÓI
     this.playerIdx = idx;
     this.pStages = newStages();
     this.disp.p = this.mine.hp;
@@ -1563,16 +1622,21 @@ export class BattleScene {
     // A escala cresce a partir dos PÉS e do centro: o bicho incha no lugar em
     // vez de escorregar pro canto de cima, que é o que dá se a gente só mudar a
     // largura e a altura do drawImage.
-    const drawMon = (img, x, y, sp, dir) => {
+    // `nativo`: o quadro ANIMADO do Black/White (Assets.monAnim) vem no tamanho
+    // dele, não no 64x64 — fica de pé no mesmo chão, centrado no mesmo lugar.
+    const drawMon = (img, x, y, sp, dir, nativo = false) => {
       if (sp.blink > 0 && Math.floor(sp.blink * 22) % 2 === 0) return;
       const l = sp.lunge > 0 ? Math.sin((0.3 - sp.lunge) / 0.3 * Math.PI) * 12 * dir : 0;
       const e = sp.escala ?? 1;
-      const lado = 64 * e;
+      // os animados enormes (o CARDUME, o PYROAR) encolhem pra caber em 80: maior
+      // que isso cobre a caixa do outro lado
+      const cabe = nativo ? Math.min(1, 80 / Math.max(img.width, img.height)) : 1;
+      const w = Math.round((nativo ? img.width : 64) * e * cabe), h = Math.round((nativo ? img.height : 64) * e * cabe);
       ctx.globalAlpha = sp.alpha;
-      const dx = Math.round(x + sp.dx + l + (64 - lado) / 2), dy = Math.round(y + sp.dy + (64 - lado));
+      const dx = Math.round(x + sp.dx + l + 32 - w / 2), dy = Math.round(y + sp.dy + 64 - h);
       // no ISOMÉTRICO o Pokémon é a plaquinha grossa em pé, como os do mapa
-      if (isoLigado()) emPeIso(ctx, img, dx, dy, lado, lado);
-      else ctx.drawImage(img, dx, dy, lado, lado);
+      if (isoLigado()) emPeIso(ctx, img, dx, dy, w, h);
+      else ctx.drawImage(img, dx, dy, w, h);
       ctx.globalAlpha = 1;
     };
     const tart = this.showTrainer ? trainerArt(this.trainer?.sprite) : null;
@@ -1591,14 +1655,17 @@ export class BattleScene {
           ctx.fillStyle = g;
           ctx.fillRect(122, -12, 112, 104);
         }
-        drawMon(Assets.comCor(fimg, this.foe), 146,
-                4 + bob + (this.raid ? RAID.desce : 0), this.sp.f, -1);
+        // animado, ele já se mexe sozinho: o sobe-e-desce é só de quem é parado
+        const fa = Assets.monAnim(this.foe, false, this.t * 1000 + 500);
+        drawMon(fa || Assets.comCor(fimg, this.foe), 146,
+                4 + (fa ? 0 : bob) + (this.raid ? RAID.desce : 0), this.sp.f, -1, !!fa);
       }
     }
     if (this.ballAnim) this.drawBall(ctx);
     if (this.sp.p.alpha > 0) {
       const pimg = Assets.monBack(this.mine.species, this.mine.seed);
-      drawMon(Assets.comCor(pimg, this.mine, true), 14, 46 - bob, this.sp.p, 1);
+      const pa = Assets.monAnim(this.mine, true, this.t * 1000);
+      drawMon(pa || Assets.comCor(pimg, this.mine, true), 14, 46 - (pa ? 0 : bob), this.sp.p, 1, !!pa);
     }
 
     if (this.fx.length) this.drawFx(ctx);
@@ -1670,6 +1737,16 @@ export class BattleScene {
         ctx.stroke();
       } else if (e.forma === "barra") {
         ctx.fillRect(x, y, e.w, e.h);
+      } else if (e.forma === "estrela") {
+        // a estrelinha de 4 pontas do shiny: cresce e some piscando
+        const s = Math.round((e.r || 3) * Math.sin(Math.min(1, e.t / e.vida) * Math.PI));
+        if (s > 0) {
+          ctx.fillRect(x - s, y, s * 2 + 1, 1);
+          ctx.fillRect(x, y - s, 1, s * 2 + 1);
+          if (s > 1) { ctx.fillRect(x - 1, y - 1, 3, 3); }
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(x, y, 1, 1);
+        }
       }
     }
     ctx.globalAlpha = 1;
@@ -1696,7 +1773,9 @@ export class BattleScene {
     const marca = mon.luminoso ? "☼" : mon.shiny ? "*" : "";
     drawText(ctx, marca + mon.nickname.slice(0, 10), x + 6, y + 5,
       mon.luminoso ? "#fff3b0" : mon.shiny ? "#d8a828" : mon.corrupt ? PAL.glitch : PAL.ink);
-    if (mon.megaDe) drawText(ctx, "M", x + w - 34, y + 5, PAL.glitch);
+    // o "M" é da MEGA; as formas de batalha (CARDUME, HERÓI) usam o mesmo
+    // caminho e não são MEGA
+    if (mon.megaDe && !DB.SPECIES[mon.species]?.formaDe) drawText(ctx, "M", x + w - 34, y + 5, PAL.glitch);
     else if (mon.alfa) drawText(ctx, "A", x + w - 34, y + 5, "#e0242a");
     drawText(ctx, `N${mon.level}`, x + w - 24, y + 5, PAL.ink);
     drawText(ctx, "HP", x + 6, y + 16, PAL.ink2);

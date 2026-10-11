@@ -821,6 +821,29 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         pra = str(forma.get("evoluiPra") or "")
         if re.fullmatch(r"[a-z0-9]+(:[a-z0-9]+)?", pra):
             nova["evoluiPra"] = pra
+        # A ANIMAÇÃO (opcional) que o jogador desenhou no UNIQUEMON: uma folha
+        # de quadros em grade (w x h cada, `col` por linha) e o tempo de cada
+        # quadro. O PNG é conferido pelo cabeçalho: o tamanho tem que bater.
+        anim = forma.get("animacao") or {}
+        folha = str(anim.get("folha") or "")
+        if folha.startswith("data:image/png;base64,"):
+            try:
+                fpng = base64.b64decode(folha.split(",", 1)[1])
+                w, h, col = int(anim.get("w")), int(anim.get("h")), int(anim.get("col"))
+                ms = [max(40, min(1000, int(x))) for x in anim.get("ms") or []]
+            except (ValueError, TypeError):
+                fpng, ms = b"", []
+            import struct
+            ok = (fpng.startswith(b"\x89PNG") and len(fpng) <= 2_000_000 and 2 <= len(ms) <= 32
+                  and 1 <= w <= 128 and 1 <= h <= 128 and 1 <= col <= 16)
+            if ok:
+                fw, fh = struct.unpack(">II", fpng[16:24])
+                ok = fw == w * min(col, len(ms)) and fh == h * -(-len(ms) // col)
+            if ok:
+                arq_anim = f"{especie}~{fid}-anim.png"
+                with open(os.path.join(pasta, arq_anim), "wb") as fh_:
+                    fh_.write(fpng)
+                nova["animacao"] = {"sprite": f"assets/unicas/{arq_anim}", "w": w, "h": h, "col": col, "ms": ms}
         lista.append(nova)
         atual[especie] = lista
         cabecalho = (

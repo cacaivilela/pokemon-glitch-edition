@@ -1,0 +1,58 @@
+<!doctype html>
+<!-- AS FORMAS -BRAG E O SHINY DE CADA UMA, lado a lado: o sprite de sempre e
+     o shiny exatamente como o jogo desenha (Assets.shiny — elas não têm arte
+     shiny oficial, então é o filtro). Uso: http://localhost:5173/dev/shinybrag.html -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shiny das -BRAG</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 16px; background: #0b0d10; color: #d6dde6; font: 13px ui-monospace, Menlo, Consolas, monospace; }
+  h1 { font-size: 18px; margin: 0 0 4px; } h1 span { color: #b455ff; }
+  p { color: #6b7684; margin: 0 0 14px; }
+  .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+  .cartao { background: #151a21; border: 1px solid #232a34; border-radius: 8px; padding: 8px; }
+  .nome { font-weight: bold; margin-bottom: 6px; }
+  .nome small { color: #6b7684; font-weight: normal; }
+  .par { display: flex; gap: 6px; }
+  .par div { flex: 1; text-align: center; border-radius: 6px; padding: 4px 0;
+             background: linear-gradient(#9fd8f0, #dff0f8 65%, #8fd06a 65%); }
+  .par canvas { width: 96px; height: 96px; image-rendering: pixelated; display: block; margin: 0 auto; }
+  .par span { color: #1a1f28; font-size: 11px; }
+  .par .sh span { color: #8a5a00; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Shiny das <span>-BRAG</span></h1>
+<p id="info">carregando...</p>
+<div class="grade" id="grade"></div>
+<script type="module">
+import { DB } from "../src/data/index.js";
+import { Assets } from "../src/core/assets.js";
+
+const brag = Object.values(DB.SPECIES).filter((sp) => /-BRAG/.test(sp.name || "") && sp.spriteDex);
+document.getElementById("info").textContent =
+  `${brag.length} formas -BRAG. À esquerda o normal, à direita o SHINY como aparece no jogo.`;
+const carregar = (src) => new Promise((ok) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = src; });
+const tela = (img) => {
+  const c = document.createElement("canvas");
+  c.width = img.width; c.height = img.height;
+  const g = c.getContext("2d"); g.imageSmoothingEnabled = false; g.drawImage(img, 0, 0);
+  return c;
+};
+for (const sp of brag) {
+  const img = await carregar(`../assets/sprites/pokemon/${String(sp.spriteDex).padStart(3, "0")}.png`);
+  if (!img) continue;
+  const cartao = document.createElement("div");
+  cartao.className = "cartao";
+  cartao.innerHTML = `<div class="nome">${sp.name} <small>${(sp.types || []).join("/")}</small></div>
+    <div class="par"><div class="n"><span>NORMAL</span></div><div class="sh"><span>★ SHINY</span></div></div>`;
+  cartao.querySelector(".n").prepend(tela(img));
+  cartao.querySelector(".sh").prepend(tela(Assets.shiny(img)));
+  document.getElementById("grade").append(cartao);
+}
+</script>
+</body>
+</html>

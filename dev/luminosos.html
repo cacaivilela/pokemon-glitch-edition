@@ -1,0 +1,59 @@
+<!doctype html>
+<!-- O LUMINOSO É O SHINY REPAGINADO: o de sempre, o shiny e o luminoso lado a
+     lado, exatamente como o jogo desenha (Assets.comCor). O MIMIKYU tem a
+     pintura própria (LUMINOSO_PINTURA). Uso: http://localhost:5173/dev/luminosos.html -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Luminosos</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 16px; background: #0b0d10; color: #d6dde6; font: 13px ui-monospace, Menlo, Consolas, monospace; }
+  h1 { font-size: 18px; margin: 0 0 12px; } h1 span { color: #ffe060; }
+  .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; }
+  .cartao { background: #151a21; border: 1px solid #232a34; border-radius: 8px; padding: 8px; }
+  .nome { font-weight: bold; margin-bottom: 6px; }
+  .tres { display: flex; gap: 6px; }
+  .tres div { flex: 1; text-align: center; border-radius: 6px; padding: 4px 0; background: linear-gradient(#9fd8f0, #dff0f8 65%, #8fd06a 65%); }
+  .tres canvas { width: 96px; height: 96px; image-rendering: pixelated; display: block; margin: 0 auto; }
+  .tres span { color: #1a1f28; font-size: 11px; }
+</style>
+</head>
+<body>
+<h1>O <span>LUMINOSO</span>: o shiny repaginado</h1>
+<div class="grade" id="grade"></div>
+<script type="module">
+import { DB } from "../src/data/index.js";
+import { Assets } from "../src/core/assets.js";
+import { SpriteStore, pedirMon } from "../src/core/sprites.js";
+
+const ESPECIES = ["mimikyu", "lucario", "bulbasaur", "ivysaur", "venusaur", "charmander", "charmeleon", "charizard",
+                  "squirtle", "wartortle", "blastoise", "pikachu", "raichu", "eevee", "gengar", "gyarados", "dragonite",
+                  "snorlax", "jigglypuff", "psyduck", "umbreon", "magikarp", "mewtwo"];
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+// pede tudo e espera chegar
+for (const id of ESPECIES) { const sp = DB.SPECIES[id]; pedirMon(id, sp.spriteDex || sp.dex); Assets.monShiny(id); }
+for (let i = 0; i < 40 && ESPECIES.some((id) => !SpriteStore.pokemon[id] || !SpriteStore.pokemonShiny[id]); i++) await espera(100);
+const tela = (img) => {
+  const c = document.createElement("canvas");
+  c.width = img.width; c.height = img.height;
+  const g = c.getContext("2d"); g.imageSmoothingEnabled = false; g.drawImage(img, 0, 0);
+  return c;
+};
+for (const id of ESPECIES) {
+  const img = SpriteStore.pokemon[id];
+  if (!img) continue;
+  const cartao = document.createElement("div");
+  cartao.className = "cartao";
+  cartao.innerHTML = `<div class="nome">${DB.SPECIES[id].name}</div>
+    <div class="tres"><div><span>NORMAL</span></div><div><span>SHINY</span></div><div><span>☼ LUMINOSO</span></div></div>`;
+  const [a, b, c] = cartao.querySelectorAll(".tres div");
+  a.prepend(tela(img));
+  b.prepend(tela(Assets.comCor(img, { species: id, shiny: true })));
+  c.prepend(tela(Assets.comCor(img, { species: id, luminoso: true })));
+  document.getElementById("grade").append(cartao);
+}
+</script>
+</body>
+</html>

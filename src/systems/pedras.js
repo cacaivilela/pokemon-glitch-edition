@@ -6,6 +6,7 @@
 // (`prepararBatalha`). A marca é um WeakSet, e não um campo no Pokémon: um
 // campo iria parar no save, e o bônus é da mochila, não do bicho.
 import { DB } from "../data/index.js";
+import { entrarNaBatalha, naBatalha } from "./dificuldade.js";
 
 const DO_JOGADOR = new WeakSet();
 let ativas = [];
@@ -14,6 +15,7 @@ let ativas = [];
 export function prepararBatalha(st) {
   ativas = (DB.PEDRAS_BRAG || []).filter((p) => st?.items?.[p.item] > 0);
   for (const m of st?.party || []) DO_JOGADOR.add(m);
+  entrarNaBatalha(st);      // a DIFICULDADE da partida (src/systems/dificuldade.js)
 }
 
 const produto = (campo) => ativas.reduce((f, p) => f * (p[campo] || 1), 1);
@@ -26,7 +28,9 @@ export const fatorAtributo = (mon, key) =>
 export const fatorDanoRecebido = (def) => (DO_JOGADOR.has(def) ? produto("dano") : 1);
 
 /** Multiplicador da Poké Bola (entra no `ballBonus` da captura). */
-export const fatorCaptura = () => produto("captura");
+export const fatorCaptura = () => produto("captura") * naBatalha().captura;
+/** é do time de quem joga? (a IA do lado de lá muda com a dificuldade; a do seu bicho, não) */
+export const doJogador = (mon) => DO_JOGADOR.has(mon);
 
 /** Multiplicador da experiência que a sua equipe ganha. */
-export const fatorXp = () => produto("xp");
+export const fatorXp = () => produto("xp") * naBatalha().xp;

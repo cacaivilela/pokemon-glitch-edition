@@ -12,6 +12,7 @@ import { Glitch } from "../systems/glitchfx.js";
 import { OverworldScene } from "./overworld.js";
 import { FundoDeEvolucoes } from "./fundo-evolucoes.js";
 import { GiftScene } from "./online.js";
+import { DIFICULDADES } from "../systems/dificuldade.js";
 
 /** As duas portas de entrada do jogo novo (ver `newGame` em src/main.js). */
 const REGIOES_INICIO = [
@@ -53,6 +54,7 @@ export class TitleScene {
     if (this.tela === "comandos") return this.updateComandos();
     if (this.tela === "regiao") return this.updateRegiao();
     if (this.tela === "genero") return this.updateGenero();
+    if (this.tela === "dificuldade") return this.updateDificuldade();
     if (Input.consume("up")) { this.index = (this.index + this.items.length - 1) % this.items.length; Audio2.blip(); }
     if (Input.consume("down")) { this.index = (this.index + 1) % this.items.length; Audio2.blip(); }
     if (Input.consume("a")) {
@@ -108,9 +110,35 @@ export class TitleScene {
     if (Input.consume("b")) { this.tela = "regiao"; Audio2.cancel(); return; }
     if (Input.consume("a")) {
       Audio2.select();
-      this.game.newGame(REGIOES_INICIO[this.regiaoIdx].id, GENEROS[this.generoIdx].id);
+      this.tela = "dificuldade";
+      this.difIdx = DIFICULDADES.findIndex((d) => d.id === "medio");
+    }
+  }
+
+  /** A DIFICULDADE: a terceira pergunta (src/systems/dificuldade.js). Dá pra
+   *  trocar depois no OPÇÕES, então não prende ninguém. */
+  updateDificuldade() {
+    const n = DIFICULDADES.length;
+    if (Input.consume("up")) { this.difIdx = (this.difIdx + n - 1) % n; Audio2.blip(); }
+    if (Input.consume("down")) { this.difIdx = (this.difIdx + 1) % n; Audio2.blip(); }
+    if (Input.consume("b")) { this.tela = "genero"; Audio2.cancel(); return; }
+    if (Input.consume("a")) {
+      Audio2.select();
+      this.game.newGame(REGIOES_INICIO[this.regiaoIdx].id, GENEROS[this.generoIdx].id, DIFICULDADES[this.difIdx].id);
       this.comecar();
     }
+  }
+
+  renderDificuldade(ctx) {
+    panel(ctx, 8, 52, 224, 104);
+    drawText(ctx, "DIFICULDADE? (MUDA NO OPÇÕES)", 16, 56, PAL.glitch);
+    DIFICULDADES.forEach((d, i) => {
+      const y = 68 + i * LINE_H;
+      drawText(ctx, d.nome, 30, y, i === DIFICULDADES.length - 1 ? PAL.glitch : PAL.ink);
+      if (i === this.difIdx) cursor(ctx, 20, y);
+    });
+    drawText(ctx, DIFICULDADES[this.difIdx].dica, 16, 68 + 6 * LINE_H + 2, PAL.ink2);
+    drawText(ctx, "Z ESCOLHE   X VOLTA", 16, 146, PAL.ink2);
   }
 
   renderGenero(ctx) {
@@ -196,6 +224,7 @@ export class TitleScene {
     if (this.tela === "comandos") return this.renderComandos(ctx);
     if (this.tela === "regiao") return this.renderRegiao(ctx);
     if (this.tela === "genero") return this.renderGenero(ctx);
+    if (this.tela === "dificuldade") return this.renderDificuldade(ctx);
 
     const w = 96, x = 120 - w / 2, y = 114 - (this.items.length - 3) * LINE_H;
     panel(ctx, x, y, w, this.items.length * LINE_H + 8);

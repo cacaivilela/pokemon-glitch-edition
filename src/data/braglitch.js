@@ -31,6 +31,7 @@ import { FORMAS_ILHA as FI5 } from "./braglitch-formas-ilha5.js";
 import { FORMAS_ILHA as FI6 } from "./braglitch-formas-ilha6.js";
 import { FORMAS_ILHA as FI7 } from "./braglitch-formas-ilha7.js";
 import { FORMAS_ILHA as FI8 } from "./braglitch-formas-ilha8.js";
+import { EVOLUCOES_ILHA as EVO_I1 } from "./braglitch-evolucoes-ilha1.js";
 
 // ------------------------------------------------------------- A REGIÃO
 export const BRAGLITCH = {
@@ -331,9 +332,14 @@ registrar("orbeetlebrag", 826, "ORBEETLE-BRAG", "ELÉTRICO/AÇO", "60 50 110 115
   dexText: "ABAJUR DE JOANINHA. ACENDE SOZINHO QUANDO FICA BRAVO, E ELE FICA BRAVO COM TUDO. DÁ CHOQUE EM QUEM TENTA DESLIGAR.",
 });
 
-// AS FORMAS DAS ILHAS: essas não evoluem — a forma -BRAG é um estágio só.
+// AS FORMAS DAS ILHAS: nasceram como estágio único (as que contam pra ilha).
 for (const f of [...FI1, ...FI2, ...FI3, ...FI4, ...FI5, ...FI6, ...FI7, ...FI8]) {
   registrar(f.id, f.base, f.nome, f.tipos, f.stats, { spriteDex: f.sprite, dexText: f.dexText, formaIlha: true });
+}
+// ...e AS EVOLUÇÕES DELAS (braglitch-evolucoes-ilha1.js). Não são `formaIlha`:
+// evolução não conta como forma nova da ilha.
+for (const f of EVO_I1) {
+  registrar(f.id, f.base, f.nome, f.tipos, f.stats, { spriteDex: f.sprite, dexText: f.dexText });
 }
 
 // O VICTREEBEL DE BRAGLITCH é uma CUIA — e tem duas formas, como a bebida:
@@ -420,6 +426,10 @@ export const EVO_BRAGLITCH = {
   ekansbrag: [{ lvl: 22, to: "arbokbrag" }],
   goldeenbrag: [{ lvl: 33, to: "seakingbrag" }],
 };
+// AS EVOLUÇÕES DAS ILHAS: cada uma traz a regra de quem ela vem (`de`)
+for (const f of EVO_I1) {
+  (EVO_BRAGLITCH[f.de] ||= []).push(f.item ? { item: f.item, to: f.id } : { lvl: f.lvl, to: f.id });
+}
 
 // ------------------------------------------------------------ OS MAPAS
 // A PLANTA de cada mapa aberto, um caractere por tile. É daqui que saem a

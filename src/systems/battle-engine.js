@@ -1,7 +1,8 @@
 // Regras de batalha (sem render): dano, stages, status, captura e IA.
 import { DB } from "../data/index.js";
 import { bonusDoAtributo } from "./glitchboost.js";
-import { fatorAtributo, fatorDanoRecebido } from "./pedras.js";
+import { fatorAtributo, fatorDanoRecebido, doJogador } from "./pedras.js";
+import { naBatalha } from "./dificuldade.js";
 import { pick, chance, clamp, randRange } from "../core/rng.js";
 import { isFainted } from "./mon.js";
 import { efeitoNoGolpe, semCrit, semStatus, semQueda, fatorVelocidade, habilidadeDoMon } from "./habilidades.js";
@@ -149,10 +150,27 @@ export function statusTickDamage(mon) {
 export const effText = (eff) =>
   eff === 0 ? "NÃO AFETA O ALVO..." : eff > 1.9 ? "É SUPER EFETIVO!" : eff > 1 ? "É EFETIVO." : eff < 0.6 ? "NÃO É MUITO EFETIVO..." : null;
 
-/** IA simples: prioriza o golpe com maior dano esperado. */
+/** IA simples: prioriza o golpe com maior dano esperado. Do lado de lá ela
+ *  segue a DIFICULDADE (src/systems/dificuldade.js): boba, meio, normal,
+ *  esperta ou cruel. O seu bicho (ordem do dono) usa sempre a normal. */
 export function chooseAiMove(foe, player, fStages, pStages, clima = null) {
   const usable = foe.moves.filter((m) => m.pp > 0);
   if (!usable.length) return null;
+  const ia = doJogador(foe) ? "normal" : naBatalha().ia;
+  if (ia === "boba" || (ia === "meio" && Math.random() < 0.4)) return pick(usable);
+  // CRUEL: se algum golpe derruba agora, é esse
+  if (ia === "cruel") {
+    let mata = null;
+    for (const m of usable) {
+      const mv = DB.MOVES[m.id];
+      if (!mv.power) continue;
+      const { dmg } = calcDamage(foe, player, m.id, fStages, pStages, clima);
+      // dos que derrubam, o que mais acerta
+      if (dmg >= player.hp && (!mata || (mv.acc ?? 100) > (DB.MOVES[mata.id].acc ?? 100))) mata = m;
+    }
+    if (mata) return mata;
+  }
+  const ruido = ia === "esperta" || ia === "cruel" ? 0 : ia === "meio" ? 0.8 : 0.4;
   let best = usable[0], bestScore = -1;
   for (const m of usable) {
     const mv = DB.MOVES[m.id];
@@ -165,7 +183,7 @@ export function chooseAiMove(foe, player, fStages, pStages, clima = null) {
       const gosta = habilidadeDoMon(foe)?.gosta === mv.clima;
       score = clima === mv.clima ? 0 : gosta ? 999 : 60 + Math.random() * 20;
     }
-    score *= 0.8 + Math.random() * 0.4;
+    score *= 1 - ruido / 2 + Math.random() * ruido;
     if (score > bestScore) { bestScore = score; best = m; }
   }
   return best;

@@ -72,6 +72,7 @@ const descontroladas = await import("./descontroladas.js" + V);
 const secretas = await import("./secretas.js" + V);
 // AS FORMAS ÚNICAS (src/data/formas-unicas.js): os desenhos do UNIQUEMON
 const unicas = await import("./formas-unicas.js" + V);
+const formasBatalha = await import("./formas-batalha.js" + V);   // WISHIWASHI CARDUME, PALAFIN HERÓI
 const guardaRoupa = await import("./guarda-roupa.js" + V);
 // FALAR COM O COMPANHEIRO (src/data/companheiro.js)
 const companheiro = await import("./companheiro.js" + V);
@@ -482,7 +483,7 @@ const BRAG_CONTEUDO = Object.fromEntries(Object.entries({ ...brag.BRAGLITCH_MAPS
 const ESPECIES_BASE = { ...gen1.GEN1, ...extra.EXTRA, ...reg.REGIONAIS, ...eras.ERAS_ESPECIES,
   ...iniciais.INICIAIS_ESPECIES, ...bones.BONES_ESPECIES, ...decamark.DECAMARK_ESPECIE, ...mais.MAIS,
   ...hack.HACKEANAS, ...brag.BRAGLITCH_ESPECIES, ...rotom.ROTOM_FORMAS, ...mega.MEGA_FORMS,
-  ...secretas.SECRETAS_ESPECIES };
+  ...secretas.SECRETAS_ESPECIES, ...formasBatalha.FORMAS_BATALHA };
 /** true quando a ilha está sendo desenhada aqui, e não veio do decomp */
 export const ILHA_GERADA = !kanto?.birth_island;
 
@@ -704,7 +705,10 @@ function aplicarUnicas(db, todas) {
       const tipos = (Array.isArray(f.tipos) ? f.tipos : []).filter((t) => db.TYPE_COLOR?.[t]).slice(0, 2);
       db.SPECIES[id] = { ...sp, id, name: f.nome || sp.name, unicaDe: base, autor: f.autor || "",
                          types: tipos.length ? tipos : sp.types,
-                         spriteUrl: f.sprite, spriteDex: undefined, soEvolucao: true };
+                         spriteUrl: f.sprite, spriteDex: undefined, soEvolucao: true,
+                         // a ANIMAÇÃO que o jogador desenhou no UNIQUEMON (opcional):
+                         // { sprite, w, h, col, ms: [...] } — sem ela, a gerada
+                         ...(f.animacao?.sprite ? { animacao: f.animacao } : {}) };
       (db.UNICAS_DE[base] ||= []).push(id);
       // a forma evolui como a original (uma CÓPIA das regras: a ligação abaixo
       // mexe nelas, e mexer na lista da original mudaria a original também)

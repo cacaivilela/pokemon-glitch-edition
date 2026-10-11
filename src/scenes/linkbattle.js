@@ -441,9 +441,14 @@ export class LinkBattleScene {
   desenhaMon(ctx, foto, x, y, tam, meuLado) {
     if (!foto) return;
     const img = meuLado ? Assets.monBack(foto.species, foto.seed) : Assets.mon(foto.species, foto.seed);
-    const arte = Assets.comCor(img, foto, !!meuLado);
+    // o quadro ANIMADO do Black/White, quando tem (desmaiado fica parado)
+    const anim = foto.hp > 0 ? Assets.monAnim(foto, !!meuLado, performance.now() + (meuLado ? 0 : 500) + x * 37) : null;
+    const arte = anim || Assets.comCor(img, foto, !!meuLado);
     if (foto.hp <= 0) ctx.globalAlpha = 0.35;
-    ctx.drawImage(arte, x, y, tam, tam);
+    if (anim) {
+      const w = Math.round(anim.width * tam / 64), h = Math.round(anim.height * tam / 64);
+      ctx.drawImage(arte, Math.round(x + tam / 2 - w / 2), y + tam - h, w, h);
+    } else ctx.drawImage(arte, x, y, tam, tam);
     ctx.globalAlpha = 1;
   }
 

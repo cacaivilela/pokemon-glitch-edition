@@ -6,6 +6,8 @@
 //   assets/sprites/pokemon/back/025.png       costas
 //   assets/sprites/pokemon/shiny/025.png      a cor SHINY de verdade (opcional)
 //   assets/sprites/pokemon/shiny/back/025.png
+//   assets/sprites/pokemon/anim/025.png       os quadros ANIMADOS do Black/White
+//   assets/sprites/pokemon/anim/back/025.png  (tools/fetch_bw_anim.py; índice em anim/quadros.json)
 //   assets/sprites/overworld/hero.png     folha 4 colunas x 3 linhas (baixo/cima/esquerda)
 //   assets/sprites/tiles/grama.png        tile de 16x16
 import { url } from "./base.js";
@@ -16,6 +18,7 @@ export const SpriteStore = {
   pokemonBack: {},
   pokemonShiny: {},     // id -> a arte shiny oficial, quando o PNG existe
   pokemonShinyBack: {},
+  anim: {},         // id -> {f, c}: os quadros animados do B/W, quando existem
   overworld: {},    // nome -> {down,up,left,right} com 4 frames cada
   trainers: {},     // nome -> retrato de batalha 64x64
   estatuas: {},     // nome -> a figura de uma estátua (assets/sprites/estatuas/)
@@ -271,6 +274,78 @@ export function pedirMonUrl(id, caminho) {
     if (img) { SpriteStore.pokemon[id] = img; SpriteStore.loaded++; }
     else SpriteStore.missing.add(id);
   });
+}
+
+/** OS SPRITES ANIMADOS DO BLACK/WHITE. O canvas não toca GIF, então
+ *  tools/fetch_bw_anim.py deixou cada GIF numa folha de quadros e o tempo de
+ *  cada quadro em anim/quadros.json. Aqui a folha vira um canvas por quadro
+ *  (um objeto por quadro: o filtro de cor de assets.js guarda cache por ele).
+ *  Quem não está no índice simplesmente não anima. */
+let indiceAnim = null;
+const pedidosAnim = new Set();
+
+// `dex`: o número da Pokédex/forma, ou já a chave do índice ("u/<nome>" é uma
+// FORMA ÚNICA, animada por tools/anima_proprios.py)
+export function pedirAnim(id, dex) {
+  if (!id || !dex || pedidosAnim.has(id)) return;
+  pedidosAnim.add(id);
+  indiceAnim ||= fetch(url("assets/sprites/pokemon/anim/quadros.json"))
+    .then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+  indiceAnim.then(async (indice) => {
+    const chave = typeof dex === "string" ? dex : pad3(dex);
+    const e = indice[chave];
+    if (!e) return;
+    const out = {};
+    for (const [lado, dir] of [["f", "anim"], ["c", "anim/back"]]) {
+      if (!e[lado]) continue;
+      const img = await loadImage(url(`assets/sprites/pokemon/${dir}/${chave}.png`));
+      if (img) out[lado] = fatiar(img, e[lado]);
+    }
+    SpriteStore.anim[id] = out;
+  });
+}
+
+/** folha em grade -> um canvas por quadro, com o fim de cada um no tempo.
+ *  Os tempos vêm por quadro ([100, 100, 200...]) ou em blocos de tempo igual
+ *  ([[100, 55], [200, 1]] = 55 quadros de 100 ms e um de 200; é assim que
+ *  tools/compacta_anim.py guarda, pra o índice ficar pequeno). */
+function fatiar(img, [w, h, col, crus]) {
+  const tempos = Array.isArray(crus[0]) ? crus.flatMap(([ms, n]) => Array(n).fill(ms)) : crus;
+  const quadros = tempos.map((_, i) => {
+    const cv = document.createElement("canvas");
+    cv.width = w; cv.height = h;
+    const c = cv.getContext("2d");
+    c.imageSmoothingEnabled = false;
+    c.drawImage(img, (i % col) * w, Math.floor(i / col) * h, w, h, 0, 0, w, h);
+    return cv;
+  });
+  let soma = 0;
+  return { quadros, fim: tempos.map((ms) => (soma += ms)), total: soma };
+}
+
+/** A ANIMAÇÃO QUE O JOGADOR DESENHOU no UNIQUEMON pra forma única dele
+ *  (`animacao` em src/data/formas-unicas.js): a folha mora junto da forma, em
+ *  assets/unicas/, e ganha da animação gerada. */
+export function pedirAnimDoJogador(id, anim) {
+  if (!id || pedidosAnim.has(id)) return;
+  pedidosAnim.add(id);
+  loadImage(url(anim.sprite)).then((img) => {
+    if (!img) return;
+    const ms = (anim.ms || []).map((n) => Math.max(40, Math.min(1000, +n || 100)));
+    SpriteStore.anim[id] = { f: fatiar(img, [anim.w, anim.h, anim.col, ms]) };
+  });
+}
+
+/** o quadro daquele instante (`ms`, em milissegundos), ou null sem animação.
+ *  `frenteServe`: sem costas, vale a frente (a FORMA ÚNICA só tem a frente) */
+export function quadroAnim(id, costas, ms, frenteServe = false) {
+  const tem = SpriteStore.anim[id];
+  const a = tem?.[costas ? "c" : "f"] || (frenteServe ? tem?.f : null);
+  if (!a) return null;
+  const t = ((ms % a.total) + a.total) % a.total;
+  let i = 0;
+  while (a.fim[i] <= t) i++;
+  return a.quadros[i];
 }
 
 /** A ARTE SHINY, pedida só quando um shiny precisa ser desenhado.

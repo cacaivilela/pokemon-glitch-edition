@@ -18,6 +18,7 @@
 // coisa de um contra um.
 import { DB } from "../data/index.js";
 import { prepararBatalha, fatorXp } from "../systems/pedras.js";
+import { ajustarInimigo, fatorDano, naBatalha } from "../systems/dificuldade.js";
 import { Assets } from "../core/assets.js";
 import { trainerArt, adiantarMons } from "../core/sprites.js";
 import { Input } from "../core/input.js";
@@ -114,6 +115,8 @@ export class GrupoBattleScene {
       a: this.aliado ? montar(this.aliado.party) : [],
       g: this.trainer2 ? montar(this.trainer2.party) : [],
     };
+    // a DIFICULDADE mexe no nível do lado de lá (f e g); o aliado fica como é
+    for (const m of [...this.times.f, ...this.times.g]) ajustarInimigo(m);
     this.totem = this.foeParty[0]?.totem || null;
     this.isGlitch = !!args.glitch;
 
@@ -408,8 +411,17 @@ export class GrupoBattleScene {
     const mon = this.monDe(k, v);
     const o = this.outro(k);
     const alvos = this.vivas(o);
+    // a DIFICULDADE (src/systems/dificuldade.js) manda na IA do lado de lá; o
+    // aliado (k "p") pensa do jeito de sempre
+    const ia = k === "p" ? "normal" : naBatalha().ia;
+    const usaveis = mon.moves.filter((m) => m.pp > 0);
+    if (usaveis.length && alvos.length && (ia === "boba" || (ia === "meio" && Math.random() < 0.4))) {
+      return { ref: usaveis[Math.floor(Math.random() * usaveis.length)],
+               alvo: this.lado[o].indexOf(alvos[Math.floor(Math.random() * alvos.length)]) };
+    }
+    const ruido = ia === "esperta" || ia === "cruel" ? 0 : ia === "meio" ? 0.8 : 0.4;
     let melhor = null, nota = -1;
-    for (const ref of mon.moves.filter((m) => m.pp > 0)) {
+    for (const ref of usaveis) {
       const mv = DB.MOVES[ref.id];
       if (!mv) continue;
       for (const a of alvos) {
@@ -420,7 +432,9 @@ export class GrupoBattleScene {
         // golpe que pega todo mundo vale pelos dois — menos se acerta o parceiro
         const esp = DB.ESPALHA?.[ref.id];
         if (esp) s *= (esp === "todos" && this.vivas(k).length > 1 ? 1.1 : 1.5);
-        s *= 0.8 + Math.random() * 0.4;
+        // CRUEL: o golpe que derruba esse alvo agora vale mais que tudo
+        if (ia === "cruel" && mv.power && alvo.hp <= calcDamage(mon, alvo, ref.id, v.stages, a.stages, this.clima?.tipo).dmg) s *= 10;
+        s *= 1 - ruido / 2 + Math.random() * ruido;
         if (s > nota) { nota = s; melhor = { ref, alvo: this.lado[o].indexOf(a) }; }
       }
     }
@@ -588,8 +602,10 @@ export class GrupoBattleScene {
       if (res.dmg > 0) {
         let dano = res.dmg * (espalhou ? (DB.FORCA_ESPALHADA ?? 0.75) : 1);
         // os sanduíches do acampamento valem pro SEU lado, como no um contra um
-        dano = Math.max(1, Math.round(dano * (k === "p" ? fator(this.st, "ataque") : 1)
-                                          / (ko === "p" ? fator(this.st, "defesa") : 1)));
+        // ...e a DIFICULDADE: quem joga bate e apanha diferente (dificuldade.js)
+        dano = Math.max(1, Math.round(dano * (k === "p" ? fator(this.st, "ataque") * fatorDano(true) : 1)
+                                          / (ko === "p" ? fator(this.st, "defesa") : 1)
+                                          * (ko === "p" ? fatorDano(false) : 1)));
         if (!(DB.CONFIG?.battleAnim ?? 1)) { Audio2.hit(); this.shake = 0.25; }
         vo.sp.blink = Math.max(vo.sp.blink, 0.45);
         alvo.hp = Math.max(0, alvo.hp - dano);
@@ -1114,16 +1130,19 @@ export class GrupoBattleScene {
         this.n === 3 ? 0.55 : 0.68);
     }
     const img = k === "f" ? Assets.mon(mon.species, mon.seed) : Assets.monBack(mon.species, mon.seed);
-    const arte = Assets.comCor(img, mon, k === "p");
+    // o quadro ANIMADO do Black/White, quando tem (na escala da vaga: p.tam/64)
+    const anim = Assets.monAnim(mon, k === "p", this.t * 1000 + (k === "f" ? 500 : 0) + p.cx * 37);
+    const arte = anim || Assets.comCor(img, mon, k === "p");
     const lado = Math.round(p.tam * (s.escala || 1));
+    const w = anim ? Math.round(anim.width * lado / 64) : lado, h = anim ? Math.round(anim.height * lado / 64) : lado;
     // (só o totem sai do 64, e ele CRESCE — crescer não perde pixel)
     const dir = k === "p" ? 1 : -1;
     const l = s.lunge > 0 ? Math.sin((0.3 - s.lunge) / 0.3 * Math.PI) * 10 * dir : 0;
     ctx.globalAlpha = s.alpha;
-    const dx = Math.round(p.cx - lado / 2 + s.dx + l), dy = Math.round(p.pe - lado + s.dy + bob + pulo);
+    const dx = Math.round(p.cx - w / 2 + s.dx + l), dy = Math.round(p.pe - h + s.dy + (anim ? 0 : bob) + pulo);
     // no ISOMÉTRICO: a plaquinha grossa em pé (src/core/isometrico.js)
-    if (isoLigado()) emPeIso(ctx, arte, dx, dy, lado, lado, 4);
-    else ctx.drawImage(arte, dx, dy, lado, lado);
+    if (isoLigado()) emPeIso(ctx, arte, dx, dy, w, h, 4);
+    else ctx.drawImage(arte, dx, dy, w, h);
     ctx.globalAlpha = 1;
   }
 
