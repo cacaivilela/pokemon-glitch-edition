@@ -104,7 +104,7 @@ def mais_dex():
 # Pokédex é o "zero", que é um FINIZEN com uma mancha na barriga — a forma que
 # todo mundo conhece é a HERÓI (id de forma 10256). Aqui: nº da Pokédex -> id
 # de forma que vale como arte da espécie.
-FORMA_DA_ESPECIE = {964: 10256}
+FORMA_DA_ESPECIE = {}   # (o PALAFIN é o ZERO; o HERÓI é a forma 10256, src/data/formas-batalha.js)
 # ESPÉCIES QUE NÃO VÊM DAQUI. O sprite do SPINDA é montado por
 # tools/fetch_spinda.py: o desenho tem que ser o LIMPO, sem mancha, porque as
 # manchas dele são carimbadas na hora pelo valor de personalidade. O da PokeAPI

@@ -94,6 +94,13 @@ def png_paleta(w, h, px):
 def compacta(caminho, so_ver=False):
     """Devolve (bytes antes, bytes depois). Reescreve o arquivo se valer a pena."""
     antes = os.path.getsize(caminho)
+    # PNG de 16 BITS por canal (alguns sprites modernos vêm assim): o png_io lê
+    # errado e o desenho sumia inteiro — 252 sprites em branco na primeira vez.
+    # Esses ficam como estão.
+    with open(caminho, "rb") as fh:
+        cabeca = fh.read(29)
+    if len(cabeca) < 29 or cabeca[24] > 8:
+        return antes, antes
     try:
         w, h, px = read_png(caminho)
     except Exception:
