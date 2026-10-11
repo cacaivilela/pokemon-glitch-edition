@@ -14,7 +14,7 @@
 // APERTAR QUALQUER COISA PULA. Abertura que não se pula vira castigo na segunda
 // vez, e ninguém assiste oitenta segundos de fanfarra pra continuar um save.
 import { DB } from "../data/index.js";
-import { Assets, nullmonSprite } from "../core/assets.js";
+import { Assets } from "../core/assets.js";
 import { trainerArt } from "../core/sprites.js";
 import { Input } from "../core/input.js";
 import { Audio2 } from "../core/audio.js";
@@ -90,7 +90,7 @@ export class AberturaScene {
     // começa em arte provisória e vai virando desenho de verdade no meio — que
     // é justamente a coisa que a abertura não pode fazer.
     for (const id of [...DESFILE, ...LENDARIOS, "rapidash", "nidorino", "gengar",
-                      "pidgeot", "fearow", "charmander", "bulbasaur", "squirtle"]) {
+                      "pidgeot", "fearow", "charmander", "bulbasaur", "squirtle", "missingno"]) {
       Assets.mon(id, 7);
     }
     Assets.monBack("nidorino", 7);
@@ -703,12 +703,25 @@ export class AberturaScene {
     }
     ctx.globalAlpha = 1;
 
-    // o que sobrou de um sprite: o NULLMON, trocando de forma sem parar
-    const nm = nullmonSprite(Math.floor(this.t * 9) * 37 + 11);
-    if (nm) {
-      const tam = Math.round(64 + Math.sin(this.t * 7) * 10);
-      ctx.drawImage(nm, Math.round(120 - tam / 2), Math.round(76 - tam / 2), tam, tam);
+    // O MISSINGNO. (o sprite do RED, src/core/assets.js) PISCANDO no meio da
+    // tela e VAZANDO DADO: zeros e uns saem dele pra todo lado e somem
+    const cx = 120, cy = 74;
+    for (let i = 0; i < 46; i++) {
+      const vida = 1.3;
+      const idade = (this.t + fixo(i, 61) * vida) % vida;
+      const ang = fixo(i, 62) * Math.PI * 2;
+      const vel = 28 + fixo(i, 63) * 60;
+      const x = cx + Math.cos(ang) * (10 + vel * idade);
+      const y = cy + Math.sin(ang) * (8 + vel * idade * 0.8);
+      const bit = fixo(i, Math.floor((this.t - idade) * 10) + 64) < 0.5 ? "0" : "1";
+      ctx.globalAlpha = Math.max(0, 1 - idade / vida);
+      drawText(ctx, bit, Math.round(x - 3), Math.round(y - 4), i % 3 ? "#59d99b" : "#b455ff");
     }
+    ctx.globalAlpha = 1;
+    // parado, piscando o olho (src/core/assets.js, `missingnoDoRed`)
+    const miss = Assets.mon("missingno", 7);
+    if (miss) ctx.drawImage(miss, cx - 40, cy - 40, 80, 80);
+
 
     // e um dos do desfile piscando por trás, como se a fita voltasse sozinha
     if (Math.floor(this.t * 6) % 4 === 0) {

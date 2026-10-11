@@ -123,6 +123,15 @@ const MISSINGNO = {
   lore: true,
 };
 
+const FORMAS_MISSINGNO = [
+  ["missingnoambar", "ÂMBAR", "missingno_ambar",
+   "FORMA ÂMBAR. LEU O FÓSSIL DO MUSEU DE PEWTER NO LUGAR DO PRÓPRIO DESENHO. OS OSSOS NÃO SÃO DELE."],
+  ["missingnodomo", "DOMO", "missingno_domo",
+   "FORMA DOMO. VESTIU O ESQUELETO DE UM KABUTOPS QUE NINGUÉM DESENTERROU. A CARCAÇA ANDA SOZINHA."],
+  ["missingnofantasma", "FANTASMA", "missingno_fantasma",
+   "FORMA FANTASMA. É O ESPÍRITO DA TORRE POKÉMON, MAS SEM NINGUÉM DENTRO. NEM O SILPH SCOPE MOSTRA QUEM É."],
+];
+
 function autoLearnset(types) {
   const pool = POOLS[types[0]] || POOLS[types[1]] || POOLS.NORMAL;
   return [[1, pool[0]], [1, pool[1]], [7, pool[2]], [16, pool[3]]];
@@ -150,6 +159,15 @@ export function buildSpecies(GEN1, TYPE_COLOR = {}, TEXTOS = {}) {
     };
   }
   out.missingno = MISSINGNO;
+  // AS FORMAS DO MISSINGNO.: no RED ele às vezes lia o desenho de outro lugar
+  // — o FÓSSIL DE AERODACTYL do museu de Pewter (a forma ÂMBAR), o FÓSSIL DE
+  // KABUTOPS (a forma DOMO) e o FANTASMA da Torre Pokémon sem o Silph Scope.
+  // Mesmo bicho, mesmos números, o desenho de quem ele leu. Sorteadas no mato
+  // (src/systems/encounters.js, `formaDoMissingno`).
+  for (const [id, forma, arquivo, frase] of FORMAS_MISSINGNO) {
+    out[id] = { ...MISSINGNO, id, forma, formaDe: "missingno",
+                spriteUrl: `assets/sprites/pokemon/${arquivo}.png`, dexText: frase };
+  }
   // As formas MEGA aprendem o que a espécie de origem aprende: subir de nível
   // no meio da batalha, já megado, não pode ensinar outra coisa.
   for (const sp of Object.values(out)) {

@@ -597,7 +597,9 @@ export const STORY = {
     fitaLendo: "LENDO CARTUCHO",
     fitaCerto: "POKEMON FIRE RED (BR)",
     fitaErrado: "POKEMON GL1TCH ED1T10N",
-    fitaErro: "SETOR 0X1A CORROMPIDO",
+    // 000: o número que a Pokédex do RED mostra pro MISSINGNO. — o erro da
+    // fita já é ele, antes de ele aparecer
+    fitaErro: "NU. 000 CORROMPIDO",
     // As legendas do meio da abertura, uma por fase
     mundo: "KANTO",
     lendarios: "ELES AINDA ESTÃO LÁ FORA",

@@ -1,6 +1,6 @@
 // BRAGLITCH — O SUL: quatro lugares novos (formato em dev/LUGARES.md).
 //
-// CURITYRANITAR (Curitiba) — a capital fria: araucária, pinhão, a estufa do
+// CURITIMBURR (Curitiba) — a capital fria: araucária, pinhão, a estufa do
 //   Jardim Botânico e a estação-tubo.
 // FLORIPACHIRISU (Florianópolis) — a ilha: chega-se pela ponte Hercílio Luz,
 //   tem a Lagoa da Conceição e a praia da Joaquina no pé.
@@ -12,7 +12,7 @@
 export const LUGARES = [
   {
     id: "curitiba",
-    nome: "CURITYRANITAR",
+    nome: "CURITIMBURR",
     tipo: "cidade",
     tema: "serra",
     musica: "saolucario",
@@ -57,12 +57,12 @@ export const LUGARES = [
         lines: ["AS CAPIVARAS DO BARIGUI NÃO TÊM MEDO DE NADA.", "UMA ROUBOU MEU PASTEL E AINDA PEDIU O TROCO."] },
     ],
     placas: {
-      1: "CURITYRANITAR — A CAPITAL MAIS FRIA DE BRAGLITCH.\nTRAGA CASACO. TRAGA OUTRO CASACO.",
+      1: "CURITIMBURR — A CAPITAL MAIS FRIA DE BRAGLITCH.\nTRAGA CASACO. TRAGA OUTRO CASACO.",
       2: "ESTUFA DO JARDIM BOTÂNICO.\nDEPOIS DO APAGÃO, ELA PASSOU A CULTIVAR NEBLINA.",
       3: "ESTAÇÃO-TUBO — LINHA LIGEIRINHO.\nPRÓXIMO ÔNIBUS: QUANDO O GLITCH DEIXAR.",
       4: "LARGO DA ORDEM. FEIRINHA AOS DOMINGOS.\nPROIBIDO VENDER PINHÃO PRA PINECO.",
     },
-    centro: "BEM-VINDO AO CENTRO POKÉMON DE CURITYRANITAR! PODE TIRAR O CASACO. ...NÃO? TUDO BEM.",
+    centro: "BEM-VINDO AO CENTRO POKÉMON DE CURITIMBURR! PODE TIRAR O CASACO. ...NÃO? TUDO BEM.",
   },
 
   {

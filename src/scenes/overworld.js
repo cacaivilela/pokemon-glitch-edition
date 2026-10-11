@@ -90,6 +90,8 @@ import { ConcursoScene } from "./concurso.js";
 import { reduzido } from "../core/reduzir.js";
 import { puloDoIcone } from "../systems/animon.js";
 import { sortearDaTroca } from "../systems/trocasorteio.js";
+import { CRIANCA_PRETO } from "../data/crianca-preto.js";
+import { PEDRA_BUGADA } from "../data/pedra-bugada.js";
 import { DIFICULDADES, dificuldadeDe, mudarDificuldade } from "../systems/dificuldade.js";
 import { desenharItem, adiantarItens } from "../core/itens.js";
 import { isoLigado, alternarIso, origem, naTela, noChao, coluna, tilesVisiveis, relevo, chaoEm, vistaIso, espelhar, sombra, comEspessura, fontesDoTeto } from "../core/isometrico.js";
@@ -544,6 +546,15 @@ export class OverworldScene {
     const balsa = this.marinheiroSevii();
     if (balsa) extra.push(balsa);
     extra.push(...this.braglitchNpcs());
+    // A CRIANÇA PRESA NO PRETO (src/data/crianca-preto.js): no preto até você
+    // trazer um doce; correndo, ela está onde a corrida está
+    const CP = CRIANCA_PRETO;
+    if (mapa === CP.mapa) {
+      const salva = !!this.st.flags.criancaPretoSalva;
+      const y = this.criancaCorre ? this.criancaCorre.y : salva ? CP.salva : CP.presa;
+      extra.push({ id: "crianca_preto", x: CP.x, y, dir: "down", sprite: CP.sprite,
+                   lines: salva ? CP.depois : [CP.grito] });
+    }
     // AS TROCAS COM NPC (src/data/trocas.js)
     for (const t of DB.TROCAS || []) {
       if (t.mapa === mapa) extra.push({ id: `troca_${t.id}`, x: t.x, y: t.y, dir: t.dir, sprite: t.sprite, troca: t, lines: ["..."] });
@@ -1186,6 +1197,8 @@ export class OverworldScene {
     if (this.viagemBondinho) return this.andarDeBondinho(dt);
     // na LANCHA também não: a IPÊ dirige
     if (this.viagemLancha) return this.andarDeLancha(dt);
+    // nem enquanto a CRIANÇA DO PRETO corre até você
+    if (this.criancaCorre) return this.correrCrianca(dt);
     this.banner = Math.max(0, this.banner - dt);
     // O OBJETIVO aparece depois de 1 s parado: sem passo, sem conversa, sem menu
     const parado = !this.move && !this.dlg.active && !this.menu && !this.fx && !(this.fadeA > 0) && !(this.banner > 0);
@@ -1409,7 +1422,51 @@ export class OverworldScene {
     // O SORTEIO INVISÍVEL POR PASSO NÃO EXISTE MAIS, aqui nem na fenda. O que
     // começa batalha selvagem é encostar: você num bicho, ou um bravo em você.
     this.talvezRasgar();
+    if (this.criancaDoPreto()) return;
     this.checkTrainerSight();
+  }
+
+  /** A CRIANÇA PRESA NO PRETO (src/data/crianca-preto.js), a cada passo em
+   *  SÃO LUCARIO: perto, você ouve o grito (uma vez por visita); parado em
+   *  (18, 3) com um DOCE RARO, ela vem correndo. */
+  criancaDoPreto() {
+    const CP = CRIANCA_PRETO, st = this.st, p = st.player;
+    if (p.map !== CP.mapa || st.flags.criancaPretoSalva || this.dlg.active) return false;
+    if (p.x === CP.gatilho.x && p.y === CP.gatilho.y && (st.items[CP.item] || 0) > 0) {
+      this.gritouCrianca = true;
+      Audio2.tone(988, 0.07); Audio2.tone(1319, 0.12);
+      this.dlg.say(CP.viu, () => { this.criancaCorre = { y: CP.presa, t: 0 }; });
+      return true;
+    }
+    if (!this.gritouCrianca && Math.abs(p.x - CP.x) <= CP.ouvir && p.y - CP.presa <= CP.ouvir + 1) {
+      this.gritouCrianca = true;
+      Glitch.hit(0.4);
+      this.dlg.say(CP.grito);
+      return true;
+    }
+    return false;
+  }
+
+  /** ela sai do preto correndo, um tile por vez, até parar na sua frente */
+  correrCrianca(dt) {
+    const CP = CRIANCA_PRETO, c = this.criancaCorre;
+    c.t += dt;
+    if (c.t < 0.16) return;
+    c.t = 0;
+    c.y++;
+    Audio2.tone(c.y % 2 ? 330 : 392, 0.03, "square", 0.4);   // os passinhos
+    if (c.y < CP.salva) return;
+    this.criancaCorre = null;
+    const st = this.st;
+    st.flags.criancaPretoSalva = true;
+    st.player.dir = "up";
+    this.dlg.say(CP.salvo, () => {
+      if ((st.items[CP.item] || 0) > 0) this.spend(CP.item, 1);
+      st.items[CP.premio.item] = (st.items[CP.premio.item] || 0) + CP.premio.qtd;
+      Audio2.heal();
+      this.game.autosave?.(true);
+      this.dlg.say(CP.ganhou);
+    });
   }
 
   // ------------------------------------------------- SELVAGENS À VISTA
@@ -2023,6 +2080,7 @@ export class OverworldScene {
   }
 
   afterTravel() {
+    this.gritouCrianca = false;     // voltou pra SÃO LUCARIO: a criança do preto grita de novo
     // o último lugar ao ar livre com mato: é pra lá que vai quem é solto no PC
     if ((this.map?.encounters || []).length && temCeu(this.map)) this.st.ultimoComMato = this.st.player.map;
     // trocou de mapa: o preto ficou pra trás — menos quando a porta de onde você
@@ -5647,6 +5705,7 @@ export class OverworldScene {
     if (item === DB.GUARDA_ROUPA?.item) return this.usarGuardaRoupa(mon);
     if (item === DB.CATALOGO_ROTOM?.item) return this.usarCatalogo(mon);
     if (item === DB.CUBO_ZYGARDE?.item) return this.usarCubo(mon);
+    if (item === PEDRA_BUGADA.item) return this.usarPedraBugada(mon);
     if (item === "poção") {
       if (mon.hp <= 0) return void this.dlg.say(`${mon.nickname} ESTÁ DESMAIADO. POÇÃO NÃO RESOLVE.`);
       const missing = mon.maxHp - mon.hp;
@@ -5806,7 +5865,8 @@ export class OverworldScene {
           this.game.autosave?.(true);
           const fim = F.feito.map((l) => l.replace("{MON}", novo.nickname));
           if (novo.shiny || novo.luminoso) fim.splice(1, 0, F.brilhou);
-          this.game.scenes.push(new TrocaNpcScene(), { meu, novo, dono: t.dono, onDone: () => this.dlg.say(fim) });
+          // misterio: ele vem tapado de "?" e só aparece quando a troca acaba
+          this.game.scenes.push(new TrocaNpcScene(), { meu, novo, dono: t.dono, misterio: true, onDone: () => this.dlg.say(fim) });
         });
       });
     }));
@@ -5827,6 +5887,32 @@ export class OverworldScene {
     // o filme da troca (src/scenes/trocanpc.js); o agradecimento vem depois
     this.game.scenes.push(new TrocaNpcScene(), {
       meu, novo, dono: t.dono, onDone: () => this.dlg.say(t.falas.feito),
+    });
+  }
+
+  /** A PEDRA BUGADA (src/data/pedra-bugada.js): o MISSINGNO. escolhe que
+   *  desenho ler — NORMAL, ÂMBAR, DOMO ou FANTASMA. Não se gasta. */
+  usarPedraBugada(mon) {
+    const P = PEDRA_BUGADA;
+    if (!P.aceita.includes(mon.species)) {
+      Audio2.cancel();
+      return void this.dlg.say(P.nada.replace("{MON}", mon.nickname));
+    }
+    const opcoes = P.opcoes.filter(([id]) => DB.SPECIES[id]);
+    this.dlg.ask(P.pergunta.replace("{MON}", mon.nickname), [...opcoes.map(([, nome]) => nome), "VOLTAR"], (i) => {
+      const escolha = opcoes[i];
+      if (!escolha) return;
+      const [nova, nome] = escolha;
+      if (nova === mon.species) return void this.dlg.say(P.jaE.replace("{MON}", mon.nickname));
+      const hpAntes = mon.maxHp ? mon.hp / mon.maxHp : 1;
+      mon.species = nova;
+      recalc(mon);
+      mon.hp = Math.max(mon.hp > 0 ? 1 : 0, Math.round(mon.maxHp * hpAntes));
+      Glitch.hit(2);
+      Audio2.glitch();
+      this.game.autosave?.(true);
+      this.dlg.say(nova === "missingno" ? P.normal.replace("{MON}", mon.nickname)
+        : P.virou.replace("{MON}", mon.nickname).replace("{FORMA}", nome));
     });
   }
 
@@ -6078,6 +6164,7 @@ export class OverworldScene {
         // a CUIA TÉRMICA, o CATÁLOGO ROTOM, o CUBO ZYGARDE e os COGUMELOS do
         // PARASECT também escolhem um bicho
         const cuia = item === DB.CUIA?.item || item === DB.CATALOGO_ROTOM?.item || item === DB.CUBO_ZYGARDE?.item
+          || item === PEDRA_BUGADA.item
           || !!DB.COGUMELOS?.itens?.[item] || item === DB.GUARDA_ROUPA?.item;
         if ((DB.EVO_ITEMS?.[item] || cuia) && owned > 0 && this.st.party.length) {
           Audio2.select();                       // item de evolução: um por vez
@@ -6422,7 +6509,7 @@ export class OverworldScene {
     }
     if (m.type === "optsFala") return this.menuFala(m);
     if (m.type === "opts") {
-      const n = 10;
+      const n = 11;
       if (Input.consume("up")) m.index = (m.index + n - 1) % n;
       if (Input.consume("down")) m.index = (m.index + 1) % n;
       if (Input.consume("b")) {
@@ -6436,6 +6523,8 @@ export class OverworldScene {
       if (lado && m.index === 6) this.mudaIso();
       // DIFICULDADE (é do save): ← → anda, Z vai pra próxima
       if (lado && m.index === 8) { mudarDificuldade(this.st, lado); Audio2.blip(); }
+      // BATALHA: POR TURNO ou TEMPO REAL (src/systems/batalhareal.js, é do save)
+      if (lado && m.index === 9) { this.st.flags.batalhaReal = !this.st.flags.batalhaReal; Audio2.blip(); }
       if (Input.consume("a")) {
         Audio2.select();
         if (m.index === 0) Glitch.scanlines = !Glitch.scanlines;
@@ -6452,6 +6541,7 @@ export class OverworldScene {
           const i = DIFICULDADES.indexOf(dificuldadeDe(this.st));
           this.st.dificuldade = DIFICULDADES[(i + 1) % DIFICULDADES.length].id;
         }
+        else if (m.index === 9) this.st.flags.batalhaReal = !this.st.flags.batalhaReal;
         else { Save.clear(); this.menu = null; this.dlg.say("SAVE APAGADO. RECARREGUE A PÁGINA."); }
       }
     }
@@ -7934,13 +8024,14 @@ export class OverworldScene {
         ["ISOMÉTRICO", isoLigado() ? "ON" : "OFF"],
         ["FALA", "..."],
         ["DIFICULDADE", dificuldadeDe(this.st).curto],
+        ["BATALHA", this.st.flags?.batalhaReal ? "TEMPO REAL" : "POR TURNO"],
         ["LIMPAR SAVE", ""],
       ];
-      // 10 linhas: o painel sobe pra dica de baixo não cair dentro dele
-      panel(ctx, 30, 4, 180, linhas.length * LINE_H + 32);
-      drawText(ctx, `CORRUPÇÃO: ${Math.round(this.st.corruption)}%`, 40, 10, PAL.glitch);
+      // 11 linhas: o painel sobe e aperta pra dica de baixo não cair dentro dele
+      panel(ctx, 30, 2, 180, linhas.length * LINE_H + 22);
+      drawText(ctx, `CORRUPÇÃO: ${Math.round(this.st.corruption)}%`, 40, 7, PAL.glitch);
       linhas.forEach(([rot, val], i) => {
-        const y = 26 + i * LINE_H;
+        const y = 20 + i * LINE_H;
         drawText(ctx, rot, 50, y, PAL.ink);
         drawText(ctx, val, 140, y, PAL.glitch);
         if (i === m.index) cursor(ctx, 40, y);
@@ -7956,6 +8047,7 @@ export class OverworldScene {
         const d = dificuldadeDe(this.st);
         drawText(ctx, `${d.nome}: ${d.dica}`.slice(0, 38), 12, 150, PAL.glitch);
       }
+      else if (m.index === 9) drawText(ctx, "TEMPO REAL: ANDE, DESVIE E ATAQUE SEM TURNO.", 4, 150, PAL.glitch);
       else if (aviso) drawText(ctx, aviso.slice(0, 38), 12, 150, PAL.ink2);
     }
   }

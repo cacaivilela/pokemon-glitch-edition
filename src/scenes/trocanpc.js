@@ -12,6 +12,10 @@
 //      chove estrela dourada
 //
 // `onDone` roda quando a cena fecha (o NPC agradece depois disso).
+//
+// `misterio` (a TROCA SURPRESA do SEU SORTEIO): o que vem é segredo até o
+// fim — chega como uma sombra coberta de "?", os "?" acompanham ele pela
+// troca inteira, e só estouram (e ele aparece, e grita) quando a troca acaba.
 import { Assets, makeCanvas } from "../core/assets.js";
 import { Audio2 } from "../core/audio.js";
 import { Glitch } from "../systems/glitchfx.js";
@@ -54,9 +58,10 @@ function pixelsDe(img) {
 }
 
 export class TrocaNpcScene {
-  enter({ meu, novo, dono, onDone }) {
+  enter({ meu, novo, dono, onDone, misterio = false }) {
     this.meu = meu;              // o seu, que vai embora
     this.novo = novo;            // o que você recebe
+    this.misterio = misterio;
     this.dono = dono;
     this.onDone = onDone;
     this.dlg = new Dialogue();
@@ -79,7 +84,8 @@ export class TrocaNpcScene {
     Audio2.stopLoop();
     if (DB.MUSIC?.troca) Audio2.playSong(DB.MUSIC.troca);
     tocarGrito(meu);
-    setTimeout(() => tocarGrito(novo), 800);
+    // o grito entregaria quem é: no mistério ele só grita quando aparece
+    if (!misterio) setTimeout(() => tocarGrito(novo), 800);
   }
 
   exit() { Glitch.burst = 0; Audio2.stopLoop(); }
@@ -88,10 +94,66 @@ export class TrocaNpcScene {
   get k() { return prende(this.tf / FASES[this.i][1]); }
   sprite(mon) { return Assets.comCor(Assets.mon(mon.species, mon.seed), mon); }
 
+  /** o que se VÊ do bicho: no mistério, o que vem é só uma sombra até o fim */
+  visto(mon) {
+    const img = this.sprite(mon);
+    if (!this.misterio || mon !== this.novo || this.fase === "pronto" || !img) return img;
+    if (this._sombra?.de === img) return this._sombra.cv;
+    const { cv, ctx } = makeCanvas(img.width, img.height);
+    ctx.drawImage(Assets.silhueta(img), 0, 0);
+    ctx.globalCompositeOperation = "source-in";
+    ctx.fillStyle = "#3a2470";
+    ctx.fillRect(0, 0, cv.width, cv.height);
+    this._sombra = { de: img, cv };
+    return cv;
+  }
+
+  /** onde os "?" estão: em cima de quem vem, pela troca inteira */
+  centroDoMisterio() {
+    const f = this.fase, k = this.k;
+    if (f === "mostra" || f === "racha" || f === "desfaz") return ESQ;
+    if (f === "mistura") return ESQ + (MEIO - ESQ) * suave(k);
+    if (f === "separa") return MEIO + (DIR - MEIO) * suave(k);
+    if (f === "pronto") return DIR;
+    return MEIO;
+  }
+
+  /** OS "?" TAPANDO: pulam em volta do bicho; na revelação estouram pra fora e somem */
+  desenhaInterrogacoes(ctx) {
+    if (!this.misterio) return;
+    const cx = this.centroDoMisterio();
+    const pronto = this.fase === "pronto";
+    const estouro = pronto ? this.tf / 0.8 : 0;
+    if (estouro >= 1) return;
+    const cores = ["#ffe060", "#ff80ff", "#80e0ff", "#ffffff", "#a0ff80"];
+    // um ENXAME: três anéis girando pra lados diferentes, cobrindo o bicho todo
+    const n = 34;
+    for (let i = 0; i < n; i++) {
+      const anel = i % 3;
+      const a = (i / n) * Math.PI * 2 * 3 + this.t * (anel === 1 ? -1.1 : 0.8 + anel * 0.3);
+      const raio = 4 + anel * 11 + (i % 5) * 2 + estouro * 80;
+      const x = Math.round(cx + Math.cos(a) * raio - 3);
+      const y = Math.round(CY + Math.sin(a) * raio * 0.8 - 4 + Math.sin(this.t * 5 + i) * 2);
+      ctx.globalAlpha = (this.fase === "mostra" ? Math.min(1, this.k * 2) : 1) * (1 - estouro);
+      drawText(ctx, "?", x + 1, y + 1, "#000");
+      drawText(ctx, "?", x, y, cores[i % cores.length]);
+    }
+    // os "?" grandões, por cima de tudo: o do meio e dois do lado
+    if (!pronto) {
+      for (const [ox, oy, fase] of [[0, -2, 0], [-12, 8, 1.7], [12, 6, 3.1]]) {
+        const pula = Math.round(Math.sin(this.t * 4 + fase) * 2);
+        const x = cx - 3 + ox, y = CY - 6 + oy + pula;
+        for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) drawText(ctx, "?", x + dx, y + dy, "#000");
+        drawText(ctx, "?", x, y, ox ? "#ff80ff" : "#ffe060");
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
   /** monta os pixels: cada um sabe de onde sai, pra onde espalha, onde fica
    *  no BIZARRO e onde termina */
   montaPixels() {
-    const lado = (mon, de, para, espelha) => pixelsDe(this.sprite(mon)).map((p) => {
+    const lado = (mon, de, para, espelha) => pixelsDe(this.visto(mon)).map((p) => {
       const ang = Math.atan2(p.dy, p.dx) + (Math.random() - 0.5) * 1.2;
       const dist = 14 + Math.random() * 34;
       return {
@@ -227,7 +289,7 @@ export class TrocaNpcScene {
   }
 
   desenhaMon(ctx, mon, cx, escala = 1, branco = 0) {
-    const img = this.sprite(mon);
+    const img = this.visto(mon);
     if (!img) return;
     const lado = Math.round(LADO * escala);
     const flutua = Math.round(Math.sin(this.t * 2.2 + cx) * 2);
@@ -319,7 +381,7 @@ export class TrocaNpcScene {
     } else if (f === "racha") {
       // o contorno de luz pulsando em volta dos dois enquanto racham
       for (const [mon, cx] of [[this.novo, ESQ], [this.meu, DIR]]) {
-        const sil = Assets.silhueta(this.sprite(mon));
+        const sil = Assets.silhueta(this.visto(mon));
         if (!sil) continue;
         ctx.globalAlpha = k * (0.5 + 0.5 * Math.sin(this.t * 18));
         for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(sil, cx - LADO / 2 + dx, CY - LADO / 2 + dy, LADO, LADO);
@@ -341,6 +403,7 @@ export class TrocaNpcScene {
       this.desenhaPixels(ctx);
     }
 
+    this.desenhaInterrogacoes(ctx);
     for (const a of this.aneis) {
       ctx.strokeStyle = `rgba(255,255,255,${a.a})`;
       ctx.lineWidth = 2;

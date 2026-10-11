@@ -613,7 +613,7 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
       const ids = q.get("foegolpes").split(",").map((g) => g.trim()).filter((g) => DB.MOVES[g]).slice(0, 4);
       if (ids.length) foe.moves = ids.map((id) => ({ id, pp: DB.MOVES[id].pp, ppMax: DB.MOVES[id].pp }));
     }
-    const bs = game.scenes.push(new BattleScene(), { foe, glitch: q.get("battle") === "missingno" });
+    const bs = game.scenes.push(new BattleScene(), { foe, glitch: q.get("battle").startsWith("missingno") });
     bs.fadeA = 0; bs.fadeDir = 0;
   }
   if (q.get("debug")) game.debug = true;

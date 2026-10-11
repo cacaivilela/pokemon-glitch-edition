@@ -33,6 +33,7 @@ export const DIM_LOOT = [
 
 /** texto que aparece ao achar um item estrangeiro pela primeira vez */
 export const ITEM_LORE = {
+  "pedra bugada": "UMA PEDRA QUE NÃO RENDERIZA DIREITO: CADA VEZ QUE VOCÊ OLHA, ELA TEM OUTRO DESENHO. SÓ UM MISSINGNO. SABE LER.",
   "up-grade": "UM DISPOSITIVO ESTRANHO CHEIO DE DADOS. NÃO FOI FEITO EM KANTO.",
   "dubious disc": "UM DISCO TRANSPARENTE COM DADOS SUSPEITOS DENTRO. PISCA SOZINHO.",
   "bilhete voo": "UM BILHETE DE VOO COM O CAMPO \"PARA\" EM BRANCO. VALE PRA KANTO INTEIRA.",

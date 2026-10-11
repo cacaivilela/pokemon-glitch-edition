@@ -31,6 +31,8 @@ import {
 import { habilidadeDoMon, entrada as entradaDaHabilidade, contato as contatoDaHabilidade, curaDoTurno, ficaNaBola } from "../systems/habilidades.js";
 import { opcoesMega, megaEvoluir, reverterMega, reverterTudo } from "../systems/mega.js";
 import { ajustarForma, saiuDaLuta } from "../systems/formas.js";
+import { PEDRA_BUGADA } from "../data/pedra-bugada.js";
+import { podeSerReal, iniciar as iniciarReal, atualizar as atualizarReal, desenhar as desenharReal } from "../systems/batalhareal.js";
 import { tocarMega } from "./mega.js";
 import { marcarSecreta } from "../systems/secretas.js";
 import { cumprirProcurado } from "../systems/bicos.js";
@@ -126,6 +128,8 @@ export class BattleScene {
     else Audio2.playMusic(this.isGlitch ? "batalhaGlitch" : "batalha",
                           this.isGlitch ? DB.MUSIC?.batalhaGlitch : DB.MUSIC?.batalha);
 
+    // TEMPO REAL (OPÇÕES, src/systems/batalhareal.js): no lugar do menu de turno, a arena
+    this.modoReal = podeSerReal(this);
     this.run(this.intro());
   }
 
@@ -188,6 +192,18 @@ export class BattleScene {
       // cena que esconde alguém e quebra no meio não pode deixar o bicho sumido
       if (!this.sp[who].faint) this.sp[who].alpha = 1;
     }
+  }
+
+  /** é o MISSINGNO. (ou o megado dele)? */
+  ehMissingno() { return /missingno|m155ingno/.test(this.foe?.species || ""); }
+
+  /** um 0 ou um 1 saindo do MISSINGNO., pra qualquer lado, caindo devagar */
+  soltarBit(forca = 1) {
+    const ang = Math.random() * Math.PI * 2, v = (20 + Math.random() * 45) * forca;
+    this.fx.push({ t: 0, vida: 0.9 + Math.random() * 0.5, fade: true, forma: "bit",
+                   txt: Math.random() < 0.5 ? "0" : "1", cor: Math.random() < 0.66 ? "#59d99b" : "#b455ff",
+                   x: 178 + (Math.random() - 0.5) * 30, y: 36 + (Math.random() - 0.5) * 30,
+                   vx: Math.cos(ang) * v, vy: Math.sin(ang) * v * 0.8, g: 18, gira: 0, ang: 0 });
   }
 
   /** O BRILHO DO SHINY (e do LUMINOSO): duas ondas de estrelas saindo dele,
@@ -310,6 +326,7 @@ export class BattleScene {
       await this.say(DB.STORY.glitch.raidBugado.replace("{NOME}", this.foe.nickname));
     } else if (this.isGlitch) {
       Glitch.hit(2);
+      if (this.ehMissingno()) for (let i = 0; i < 40; i++) this.soltarBit(2.2);   // a rajada da chegada
       if (this.foe.shiny || this.foe.luminoso) { await this.wait(0.5); await this.brilhar("f"); }
       await this.say(`UM ${this.foe.nickname} SELVAGEM APARECEU!`);
       const sp = DB.SPECIES[this.foe.species];
@@ -659,6 +676,9 @@ export class BattleScene {
   }
 
   async useMove(who, moveRef) {
+    // em TEMPO REAL o inimigo ataca sozinho na arena: a "vez dele" depois de
+    // uma bola, poção ou troca não existe
+    if (this.modoReal && who === "f") return;
     const user = who === "p" ? this.mine : this.foe;
     const target = who === "p" ? this.foe : this.mine;
     const uStages = who === "p" ? this.pStages : this.fStages;
@@ -1255,6 +1275,13 @@ export class BattleScene {
    *  é um jeito só de errar. */
   async guardarCapturado() {
     if (!this.trainer) await this.pagarProcurado();   // capturar também vale pro MURAL
+    // o PRIMEIRO MISSINGNO. capturado (qualquer forma) traz a PEDRA BUGADA junto
+    if (this.ehMissingno() && !(this.st.items[PEDRA_BUGADA.item] > 0)) {
+      this.st.items[PEDRA_BUGADA.item] = 1;
+      Glitch.hit(1);
+      Audio2.heal();
+      await this.say(PEDRA_BUGADA.ganhou);
+    }
     // espécie nova: a POKÉDEX anota, e diz que anotou (src/data/pokedex.js)
     const novo = !this.st.caught[this.foe.species] && !!this.st.flags?.pokedex;
     this.st.caught[this.foe.species] = true;
@@ -1406,6 +1433,11 @@ export class BattleScene {
     this.flash = Math.max(0, this.flash - dt * 1.6);
     if (this.tOut > 0 && this.tOut < 1) this.tOut = Math.min(1, this.tOut + dt * 4);
 
+    // O MISSINGNO. VAZA DADO: enquanto ele está em campo, sai 0 e 1 dele sem parar
+    if (this.ehMissingno() && !this.sp.f.faint && !this.showTrainer && this.sp.f.alpha > 0) {
+      this.bitsT = (this.bitsT || 0) + dt;
+      while (this.bitsT > 0.07) { this.bitsT -= 0.07; this.soltarBit(); }
+    }
     for (let i = this.fx.length - 1; i >= 0; i--) {
       const e = this.fx[i];
       e.t += dt;
@@ -1444,6 +1476,12 @@ export class BattleScene {
     }
 
     if (this.dlg.update(dt)) return;
+    // TEMPO REAL: toda vez que a batalha chegaria no menu de turno, é a arena
+    if (this.modoReal) {
+      if (this.menu?.type === "main") { this.menu = null; iniciarReal(this); }
+      if (!this.busy && this.arena) atualizarReal(this, dt);
+      return;
+    }
     if (this.busy || !this.menu) return;
     this.updateMenu();
   }
@@ -1564,6 +1602,7 @@ export class BattleScene {
 
   // ---------------------------------------------------------- render
   render(ctx) {
+    if (this.modoReal && this.arena) return this.renderReal(ctx);
     const sx = this.shake > 0 ? Math.round(Math.sin(this.t * 90) * 3 * (this.shake / 0.25)) : 0;
     ctx.save();
     ctx.translate(sx, 0);
@@ -1696,6 +1735,17 @@ export class BattleScene {
   /** Desenha os efeitos das cutscenes. Um lugar só, seis formas: assim uma cena
    *  nova são dez linhas em src/systems/cutscenes.js, e nunca um render novo.
    *  Nada de antialias — em 240x160 borda borrada vira sujeira. */
+  /** a arena do TEMPO REAL (src/systems/batalhareal.js), com a fala e o fade de sempre por cima */
+  renderReal(ctx) {
+    ctx.save();
+    if (this.shake > 0) ctx.translate(Math.round((Math.random() - 0.5) * 4), Math.round((Math.random() - 0.5) * 4));
+    desenharReal(this, ctx);
+    ctx.restore();
+    this.dlg.render(ctx);
+    if (this.flash > 0) fade(ctx, this.flash, "#ffffff");
+    if (this.fadeA > 0) fade(ctx, this.fadeA);
+  }
+
   drawFx(ctx) {
     for (const e of this.fx) {
       ctx.globalAlpha = e.fade ? Math.max(0, 1 - e.t / e.vida) : 1;
@@ -1737,6 +1787,9 @@ export class BattleScene {
         ctx.stroke();
       } else if (e.forma === "barra") {
         ctx.fillRect(x, y, e.w, e.h);
+      } else if (e.forma === "bit") {
+        // o 0 ou o 1 que vaza do MISSINGNO.
+        drawText(ctx, e.txt, x - 3, y - 4, e.cor || "#59d99b");
       } else if (e.forma === "estrela") {
         // a estrelinha de 4 pontas do shiny: cresce e some piscando
         const s = Math.round((e.r || 3) * Math.sin(Math.min(1, e.t / e.vida) * Math.PI));

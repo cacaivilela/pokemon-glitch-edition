@@ -231,7 +231,7 @@ igrejinha, coreto na praça, praia com coqueiro e um píer com um barquinho.
 
   | Onde | Lugar | O que tem |
   |---|---|---|
-  | Sul | CURITYRANITAR | araucárias, a estufa do Jardim Botânico |
+  | Sul | CURITIMBURR | araucárias, a estufa do Jardim Botânico |
   | Sul | FLORIPACHIRISU | a ilha, a ponte Hercílio Luz, a Lagoa da Conceição |
   | Sul | CARVORIÚ (praia) | os prédios na beira-mar, CARVANHA no mato |
   | Sul | PRAIA DO LARVANJAL | a lagoa, o píer e o doce de Pelotas |

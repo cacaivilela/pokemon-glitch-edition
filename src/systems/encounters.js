@@ -56,7 +56,14 @@ export function rollDimEncounter(terrain, state) {
  *  que MISSINGNO. encosta — a flor é o pedaço de tela mais velho do cartucho. */
 export function rollFlores(min = 5, max = 12) {
   if (!DB.SPECIES?.missingno) return null;
-  return { mon: createMon("missingno", randRange(min, max), { corrupt: true }), glitch: true };
+  return { mon: createMon(formaDoMissingno(), randRange(min, max), { corrupt: true }), glitch: true };
+}
+
+/** QUAL MISSINGNO. VEM: o de sempre, ou uma das formas que leram o desenho de
+ *  outro lugar (src/data/species.js, FORMAS_MISSINGNO) — 10% cada uma. */
+function formaDoMissingno() {
+  const r = Math.random();
+  return r < 0.1 ? "missingnoambar" : r < 0.2 ? "missingnodomo" : r < 0.3 ? "missingnofantasma" : "missingno";
 }
 
 /** `sorte` vem do SANDUÍCHE AMARGO do acampamento: multiplica a chance de shiny. */
@@ -83,7 +90,7 @@ export function rollEncounter(mapId, corruption = 0, glitchOn = false, sorte = 1
   const brilho = brilhoForcado || sortearBrilho({ sorte });
   if (chance(glitchChance)) {
     const lvl = randRange(5, 12);
-    return { mon: createMon("missingno", lvl, { corrupt: true, ...brilho }), glitch: true };
+    return { mon: createMon(formaDoMissingno(), lvl, { corrupt: true, ...brilho }), glitch: true };
   }
 
   // A FUSÃO SELVAGEM: raríssima, com ENDEREÇO (`mapas`, em extra.js), e antes da

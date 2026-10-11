@@ -7,7 +7,7 @@ Cada grupo de lugares novos mora num arquivo próprio em `src/data/`
 export const LUGARES = [
   {
     id: "curitiba",                 // minúsculo, sem acento: é o nome do mapa no save
-    nome: "CURITYRANITAR",          // o que aparece na tela (MAIÚSCULO, com acento)
+    nome: "CURITIMBURR",          // o que aparece na tela (MAIÚSCULO, com acento)
     tipo: "cidade",                 // "cidade" | "rota" | "praia"
     tema: "mata",                   // cor do chão: "mata" | "litoral" | "sertao" | "cerrado" | "serra"
     musica: "saolucario",           // "saolucario" (cidade/praia) | "br101" (rota)
@@ -16,7 +16,7 @@ export const LUGARES = [
     niveis: [9, 14],                // nível do mato alto (obrigatório se tiver mato)
     mato: [["sauvinha", 20], ["acaizinho", 12]],   // [espécie, peso]
     npcs: [ /* ver "Os NPCs" */ ],
-    placas: { 1: "CURITYRANITAR — ...\nSEGUNDA LINHA." },   // texto de cada dígito da planta
+    placas: { 1: "CURITIMBURR — ...\nSEGUNDA LINHA." },   // texto de cada dígito da planta
     centro: "BEM-VINDO AO CENTRO POKÉMON DE ...!",         // só cidade com C (fala da enfermeira)
   },
 ];

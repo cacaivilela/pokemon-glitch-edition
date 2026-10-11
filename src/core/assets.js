@@ -2,7 +2,7 @@
 // Trocar por PNGs depois e so mudar Assets.tiles / Assets.mons.
 import { makeRng } from "./rng.js";
 import { DB } from "../data/index.js";
-import { SpriteStore, pedirMon, pedirMonShiny, pedirMonUrl, pedirAnim, pedirAnimDoJogador, quadroAnim } from "./sprites.js";
+import { SpriteStore, loadImage, pedirMon, pedirMonShiny, pedirMonUrl, pedirAnim, pedirAnimDoJogador, quadroAnim } from "./sprites.js";
 import { url as arquivo } from "./base.js";
 import { corpoBombado, CORPO } from "./diglettbombado.js";
 
@@ -438,6 +438,116 @@ export function nullmonSprite(seed = 1) {
   return cv;
 }
 
+/** O MISSINGNO. DO RED: o "L" de trás pra frente — um bloco de 7x7 quadrados
+ *  de 8 pixels com o canto de cima-esquerda vazio — cheio de LIXO DE MEMÓRIA
+ *  nos quatro cinzas do Game Boy. É o desenho que sobrou de ler o sprite de um
+ *  lugar que não era sprite.
+ *
+ *  E ELE MEXE: são `n` quadros, e de um pro outro só ALGUNS quadrados mudam
+ *  (um padrão novo, um que copia o vizinho, uma fileira que escorrega) — o
+ *  resto fica. Parece memória sendo reescrita, não uma tela piscando. */
+const CINZAS_GB = ["#f8f8f8", "#a8a8a8", "#585858", "#181818"];
+function missingnoQuadros(seed = 7, n = 10) {
+  const r = makeRng(seed);
+  const T = 7, L = 8;
+  const dentro = (tx, ty) => !(tx < 3 && ty < 3);          // o vão do "L"
+  // um quadrado de lixo: BLOCADO, não granulado — a memória lida como
+  // desenho sai em pedaços de 2 pixels ou mais: cheio, listra grossa, metade,
+  // tijolinho de 2x2. Branco e preto dominam, os cinzas são a junta.
+  const cor = () => [0, 0, 0, 3, 3, 1, 2][r.int(7)];
+  const novo = () => {
+    const a = cor(), b = (a + 1 + r.int(3)) % 4, tipo = r.int(10);
+    return Array.from({ length: L * L }, (_, i) => {
+      const x = i % L, y = i >> 3;
+      if (tipo < 3) return a;                                  // cheio
+      if (tipo < 5) return (y >> 1) % 2 ? a : b;               // listra deitada
+      if (tipo < 6) return (x >> 1) % 2 ? a : b;               // listra em pé
+      if (tipo < 8) return y < 4 ? a : b;                      // metade
+      return ((x >> 1) + (y >> 1) * 3 + seed) % 5 < 2 ? b : a; // tijolinho 2x2
+    });
+  };
+  let tiles = Array.from({ length: T * T }, () => novo());
+  const quadros = [];
+  for (let q = 0; q < n; q++) {
+    if (q > 0) {
+      tiles = tiles.slice();
+      for (let k = 0; k < 6; k++) {
+        const i = r.int(T * T), o = r.int(3);
+        if (o === 0) tiles[i] = novo();                       // padrão novo
+        else if (o === 1) tiles[i] = tiles[(i + 1 + r.int(T * T - 1)) % (T * T)];   // copia outro
+        else {                                                // a fileira escorrega
+          const ty = Math.floor(i / T), fila = tiles.slice(ty * T, ty * T + T);
+          fila.unshift(fila.pop());
+          tiles.splice(ty * T, T, ...fila);
+        }
+      }
+    }
+    const { cv, ctx } = makeCanvas(64, 64);
+    for (let ty = 0; ty < T; ty++) {
+      for (let tx = 0; tx < T; tx++) {
+        if (!dentro(tx, ty)) continue;
+        const t = tiles[ty * T + tx];
+        for (let p = 0; p < L * L; p++) {
+          ctx.fillStyle = CINZAS_GB[t[p]];
+          ctx.fillRect(4 + tx * L + (p % L), 8 + ty * L + Math.floor(p / L), 1, 1);
+        }
+      }
+    }
+    quadros.push(cv);
+  }
+  return quadros;
+}
+
+/** O MISSINGNO. DE VERDADE: o sprite do RED (assets/sprites/pokemon/missingno_rb.png,
+ *  56x56, com as cores do Super Game Boy). Os quadrados de 8x8 todos brancos são
+ *  o fundo (ficam transparentes); o resto é o desenho, parado como no RED.
+ *
+ *  E ELE PISCA O OLHO: o "olho" é a faixa de pontinhos escuros no alto da
+ *  coluna, do lado esquerdo (no desenho, x 40-47, y 4-8). São dois quadros —
+ *  aberto e fechado — e o fechado aparece por um instante a cada ~3 s.
+ *  Enquanto o PNG não chegou, vale o desenhado (`missingnoQuadros`). */
+let quadrosRB = null, pedindoRB = false;
+const OLHO = { x: 40, y: 4, w: 8, h: 5 };       // no desenho de 56x56
+function missingnoDoRed() {
+  if (quadrosRB) return quadrosRB;
+  if (!pedindoRB) {
+    pedindoRB = true;
+    loadImage(arquivo("assets/sprites/pokemon/missingno_rb.png")).then((img) => {
+      if (!img) return;
+      quadrosRB = montarRB(img);
+      glitchCache.clear();                       // quem já desenhou o provisório troca
+    });
+  }
+  return null;
+}
+function montarRB(img) {
+  const { cv: aberto, ctx: b } = makeCanvas(64, 64);
+  b.drawImage(img, 4, 8);
+  const d = b.getImageData(0, 0, 64, 64);
+  // os quadrados 8x8 todos brancos são o fundo
+  for (let ty = 0; ty < 7; ty++) {
+    for (let tx = 0; tx < 7; tx++) {
+      const x0 = 4 + tx * 8, y0 = 8 + ty * 8;
+      let branco = true;
+      for (let y = y0; y < y0 + 8 && branco; y++) for (let x = x0; x < x0 + 8; x++) {
+        const i = (y * 64 + x) * 4;
+        if (d.data[i] < 240 || d.data[i + 1] < 240 || d.data[i + 2] < 240) { branco = false; break; }
+      }
+      if (branco) for (let y = y0; y < y0 + 8; y++) for (let x = x0; x < x0 + 8; x++) d.data[(y * 64 + x) * 4 + 3] = 0;
+    }
+  }
+  b.putImageData(d, 0, 0);
+  // o olho FECHADO: a área do olho vira a cor clara, com a pálpebra (uma linha escura) no meio
+  const { cv: fechado, ctx: f } = makeCanvas(64, 64);
+  f.drawImage(aberto, 0, 0);
+  const ox = 4 + OLHO.x, oy = 8 + OLHO.y;
+  f.fillStyle = "#f8e8f8";
+  f.fillRect(ox, oy, OLHO.w, OLHO.h);
+  f.fillStyle = "#181010";
+  f.fillRect(ox, oy + Math.floor(OLHO.h / 2), OLHO.w, 1);
+  return { aberto, fechado };
+}
+
 /** MISSINGNO. megado. A pedra não encaixou nele: sobrescreveu. É o mesmo bloco,
  *  só que cheio até a borda, com as colunas de 255 passando por cima, as linhas
  *  zeradas abertas no meio e as fatias rasgando pro lado. */
@@ -471,8 +581,8 @@ export function megaNullmonSprite(seed = 1) {
 // Os bichos de dado solto são desenhados na hora, e o desenho é pedido a cada
 // quadro. Guardamos os quadros por semente: sem isso cada frame criaria um
 // canvas novo (e os caches de shiny/silhueta, que são por imagem, cresceriam
-// sem parar). O MISSINGNO. normal tem um quadro só — ele é sempre igual;
-// o megado tem seis e fica trocando, porque esse não para quieto.
+// sem parar). O MISSINGNO. normal é o sprite do RED piscando o olho
+// (`missingnoDoRed`); o megado tem seis e fica trocando, porque esse não para quieto.
 const MEGA_QUADROS = 6;
 const glitchCache = new Map();
 function glitchSprite(mega, seed) {
@@ -480,13 +590,17 @@ function glitchSprite(mega, seed) {
   let quadros = glitchCache.get(chave);
   if (!quadros) {
     if (glitchCache.size > 48) glitchCache.clear();   // sessão longa: recomeça do zero
+    // o do RED: parado, só pisca o olho (um quadro fechado a cada ~3 s)
+    const rb = !mega && missingnoDoRed();
+    if (rb) return performance.now() % 2800 < 170 ? rb.fechado : rb.aberto;
     quadros = mega
       ? Array.from({ length: MEGA_QUADROS }, (_, i) => megaNullmonSprite(seed * 31 + i * 977 + 1))
-      : [nullmonSprite(seed)];
+      : missingnoQuadros(seed);
     glitchCache.set(chave, quadros);
   }
   if (quadros.length === 1) return quadros[0];
-  return quadros[((performance.now() / 110) | 0) % quadros.length];
+  // o megado troca rápido (não para quieto); o do RED se reescreve mais devagar
+  return quadros[((performance.now() / (mega ? 110 : 160)) | 0) % quadros.length];
 }
 
 // recolore mantendo o sombreado (blend "color" + mascara pelo alfa original)
