@@ -172,6 +172,9 @@ export function buildSpecies(GEN1, TYPE_COLOR = {}, TEXTOS = {}) {
   // no meio da batalha, já megado, não pode ensinar outra coisa.
   for (const sp of Object.values(out)) {
     if (sp.megaDe && out[sp.megaDe]) sp.learnset = out[sp.megaDe].learnset;
+    // `learnsetDe`: aprende o que outra espécie aprende (a FORMA PURA dos
+    // fósseis, src/data/fosseis-puros.js), mais os `learnsetExtra` dela
+    if (sp.learnsetDe && out[sp.learnsetDe]) sp.learnset = [...out[sp.learnsetDe].learnset, ...(sp.learnsetExtra || [])];
   }
   return out;
 }

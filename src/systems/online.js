@@ -368,7 +368,7 @@ export const Online = {
     return {
       species: mon.species, nickname: mon.nickname, level: mon.level, xp: mon.xp,
       ivs: mon.ivs, moves: (mon.moves || []).map((m) => ({ id: m.id, pp: m.pp, ppMax: m.ppMax })),
-      status: mon.status || null, shiny: !!mon.shiny, luminoso: !!mon.luminoso,
+      status: mon.status || null, shiny: !!mon.shiny,
       corrupt: !!mon.corrupt,
       seed: mon.seed | 0, hp: mon.hp,
     };
@@ -400,8 +400,7 @@ export const Online = {
         ivs,
         moves: golpes.length ? golpes.map((g) => g.id) : undefined,
         nickname: String(cru.nickname || sp.name).slice(0, 12),
-        shiny: !!cru.shiny,
-        luminoso: !!cru.luminoso,
+        shiny: !!(cru.shiny || cru.luminoso),   // luminoso de quem ainda joga a versão antiga vira shiny
         corrupt: !!cru.corrupt,
         seed: Math.max(0, Math.min(9999, cru.seed | 0)),
       });

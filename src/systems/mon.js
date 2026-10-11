@@ -30,7 +30,6 @@ export function createMon(speciesId, level, opts = {}) {
     status: null,
     corrupt: !!opts.corrupt,
     shiny: !!opts.shiny,
-    luminoso: !!opts.luminoso,
     alfa: !!opts.alfa,               // maior, mais forte, sempre bravo (ver config.js)
     // O SEED É O VALOR DE PERSONALIDADE. Além de semear a arte (a variação da
     // fusão, o ruído do glitch) e de ser a chave do bicho na creche, é ele que
@@ -46,21 +45,27 @@ export function createMon(speciesId, level, opts = {}) {
   return mon;
 }
 
-/** A COR DO BICHO QUE ACABOU DE APARECER. São três, e só uma por Pokémon:
- *  comum, SHINY (1 em 1024) e LUMINOSO (1 em 9999).
+/** A COR DO BICHO QUE ACABOU DE APARECER: comum ou SHINY (1 em 1024).
  *
- *  O luminoso é sorteado PRIMEIRO e, se sair, apaga o shiny. Sorteando o shiny
- *  antes, a cor mais rara do jogo só apareceria em cima de um shiny — ela
- *  viraria um enfeite de outra raridade em vez de ser uma raridade. E os dois
- *  sorteios são independentes: a chance de um luminoso é 1 em 9999 sempre, não
- *  1 em 9999 dos que já não eram shiny.
- *
- *  `sorte` é o SANDUÍCHE AMARGO do acampamento, que multiplica as duas — quem
- *  caça cor caça as duas cores. `shiny` já vem decidido de fora quando quem
- *  chama tem regra própria (na fenda é 1 a cada N vistos, e não um sorteio). */
+ *  `sorte` é o SANDUÍCHE AMARGO do acampamento, que multiplica a chance.
+ *  `shiny` já vem decidido de fora quando quem chama tem regra própria (na
+ *  fenda é 1 a cada N vistos, e não um sorteio). */
 export function sortearBrilho({ sorte = 1, shiny = false } = {}) {
-  if (chance((DB.CONFIG?.luminosoOdds ?? 0) * sorte)) return { luminoso: true, shiny: false };
-  return { luminoso: false, shiny: shiny || chance((DB.CONFIG?.shinyOdds ?? 0) * sorte) };
+  return { shiny: shiny || chance((DB.CONFIG?.shinyOdds ?? 0) * sorte) };
+}
+
+/** O LUMINOSO SAIU DO JOGO (out/2026): quem tinha um no save fica com ele
+ *  SHINY — a cor que ele repaginava. Vale pra qualquer bicho guardado em
+ *  qualquer canto do save (equipe, box, creche, fusão, POKÉSAVE...). */
+export function tirarLuminosos(obj, vistos = new Set()) {
+  if (!obj || typeof obj !== "object" || vistos.has(obj)) return obj;
+  vistos.add(obj);
+  if ("luminoso" in obj && !Array.isArray(obj)) {
+    if (obj.luminoso) obj.shiny = true;
+    delete obj.luminoso;
+  }
+  for (const v of Object.values(obj)) tirarLuminosos(v, vistos);
+  return obj;
 }
 
 export function recalc(mon) {

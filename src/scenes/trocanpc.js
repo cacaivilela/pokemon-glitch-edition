@@ -207,7 +207,7 @@ export class TrocaNpcScene {
     else Audio2.heal();
     // a fanfarra acabou e a fala ainda está na tela: a festa da evolução
     setTimeout(() => { if (!this.saindo && DB.MUSIC?.evolucao_festa) Audio2.playSong(DB.MUSIC.evolucao_festa); }, 3000);
-    if (this.novo.shiny || this.novo.luminoso) {
+    if (this.novo.shiny) {
       [1568, 2093, 2637].forEach((f, k) => setTimeout(() => Audio2.tone(f, 0.12, "triangle", 0.5), 500 + k * 90));
       for (let k = 0; k < 24; k++) this.estrelas.push(this.estrela());
     }
@@ -257,7 +257,7 @@ export class TrocaNpcScene {
     this.aneis = this.aneis.filter((a) => a.a > 0);
     for (const e of this.estrelas) { e.y += e.vy * dt; e.gira += dt * 6; if (e.y > H + 10) e.vida = 0; }
     this.estrelas = this.estrelas.filter((e) => e.vida > 0);
-    if ((this.novo.shiny || this.novo.luminoso) && this.fase === "pronto" && Math.random() < dt * 6) this.estrelas.push(this.estrela());
+    if (this.novo.shiny && this.fase === "pronto" && Math.random() < dt * 6) this.estrelas.push(this.estrela());
   }
 
   // ------------------------------------------------------------ desenho

@@ -477,7 +477,7 @@ export class GiftScene {
       if (!DB.SPECIES[m.id]) continue;
       const nv = Math.max(1, Math.min(100, m.nv | 0 || 5));
       const mon = createMon(m.id, nv,
-        { shiny: !!m.shiny, luminoso: !!m.luminoso, nickname: m.apelido || undefined });
+        { shiny: !!(m.shiny || m.luminoso), nickname: m.apelido || undefined });   // luminoso antigo vira shiny
       if (this.st.party.length < 6) {
         this.st.party.push(mon);
         falas.push(gtxt("recebeuMon", { MON: mon.nickname }));

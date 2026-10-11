@@ -7,7 +7,7 @@
 // e os míticos (a lista de src/data/leilao.js, e todo mundo de total 570 pra
 // cima — fora os PSEUDO-LENDÁRIOS, que são bicho de mato), as
 // formas que só existem em batalha (MEGA, CARDUME, HERÓI), fusão, hackeana e
-// FORMA ÚNICA (essas têm dono). Shiny e LUMINOSO saem com a sorte normal.
+// FORMA ÚNICA (essas têm dono). O shiny sai com a sorte normal.
 import { DB } from "../data/index.js";
 import { LENDARIOS } from "../data/leilao.js";
 import { createMon, sortearBrilho } from "./mon.js";

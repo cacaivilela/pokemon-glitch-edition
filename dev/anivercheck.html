@@ -137,7 +137,6 @@ try {
   teste("SHINY: vem shiny, do tipo pedido, no nível certo",
         shiny.mon.shiny && shiny.especie.types.includes("ÁGUA") && shiny.mon.level === 30,
         `${shiny.especie.name}`);
-  teste("SHINY: não vem luminoso junto", !shiny.mon.luminoso);
 
   const bomba = A.montarPresente(stp, "PLANTA", "golpe");
   const sabe = bomba.mon.moves.some((m) => m.id === bomba.golpe);

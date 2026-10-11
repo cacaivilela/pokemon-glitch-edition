@@ -20,8 +20,7 @@ export function rollDimEncounter(terrain, state) {
   // você vai e virou uma coisa que vaza pra cá.
 
   state.dimSeen = (state.dimSeen || 0) + 1;
-  // aqui o shiny é contado, não sorteado; o luminoso é sorteado como em todo
-  // lugar — e quando sai, é ele que aparece
+  // aqui o shiny é contado, não sorteado
   const brilho = sortearBrilho({ shiny: state.dimSeen % (DB.SHINY_EVERY || 2956) === 0 });
 
   // o intruso não olha terreno nenhum
@@ -85,8 +84,8 @@ export function rollEncounter(mapId, corruption = 0, glitchOn = false, sorte = 1
   // MISSINGNO. só existe com o modo glitch ligado (src/data/config.js)
   const on = glitchOn || DB.CONFIG?.glitchMode;
   const glitchChance = !on || corruption < 25 ? 0 : Math.min(0.35, (corruption - 25) / 200);
-  // a cor do bicho: comum, shiny ou luminoso — ou o que um DLC já decidiu
-  // (a SHINY ZONE manda a cor pronta, pra mexer no shiny sem inflar o luminoso)
+  // a cor do bicho: comum ou shiny — ou o que um DLC já decidiu (a SHINY
+  // ZONE manda a cor pronta)
   const brilho = brilhoForcado || sortearBrilho({ sorte });
   if (chance(glitchChance)) {
     const lvl = randRange(5, 12);

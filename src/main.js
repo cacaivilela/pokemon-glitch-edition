@@ -13,7 +13,7 @@ import { initHot } from "./core/hot.js";
 import { Glitch } from "./systems/glitchfx.js";
 import { abrirPortal } from "./systems/raid.js";
 import { ZONA, abrirZona, garantirZona, zonaDoCodigo, entrarNaZona } from "./systems/glitchzones.js";
-import { createMon, recalc } from "./systems/mon.js";
+import { createMon, recalc, tirarLuminosos } from "./systems/mon.js";
 import { EvolutionScene } from "./scenes/evolution.js";
 import { MegaScene } from "./scenes/mega.js";
 import { GrupoBattleScene } from "./scenes/grupobattle.js";
@@ -209,6 +209,7 @@ const game = {
       renomearItens(this.state);
       renomearBichos(this.state);
       reverterTudo(this.state);
+      tirarLuminosos(this.state);
       Glitch.forced = !!this.state.flags?.glitchWorld;
       this.state.party.forEach(recalc);
       this.state.box?.forEach(recalc);
@@ -607,8 +608,8 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
     }
   }
   if (q.has("battle")) {
-    // &shiny=1 -> o selvagem vem SHINY (o brilho de quando ele aparece); &luminoso=1, LUMINOSO
-    const foe = createMon(q.get("battle"), +(q.get("lvl") || 5), { shiny: q.has("shiny"), luminoso: q.has("luminoso") });
+    // &shiny=1 -> o selvagem vem SHINY (o brilho de quando ele aparece)
+    const foe = createMon(q.get("battle"), +(q.get("lvl") || 5), { shiny: q.has("shiny") });
     if (q.has("foegolpes")) {   // &foegolpes=ondadechoque -> o selvagem só com esses golpes
       const ids = q.get("foegolpes").split(",").map((g) => g.trim()).filter((g) => DB.MOVES[g]).slice(0, 4);
       if (ids.length) foe.moves = ids.map((id) => ({ id, pp: DB.MOVES[id].pp, ppMax: DB.MOVES[id].pp }));
@@ -767,7 +768,7 @@ if (q.has("presente")) {
       for (const m of cartao.mons || []) {
         if (!DB.SPECIES[m.id]) continue;
         const mon = createMon(m.id, Math.max(1, Math.min(100, m.nv | 0 || 5)),
-          { shiny: !!m.shiny, luminoso: !!m.luminoso, nickname: m.apelido || undefined });
+          { shiny: !!(m.shiny || m.luminoso), nickname: m.apelido || undefined });   // luminoso de cartão antigo vira shiny
         if (st.party.length < 6) st.party.push(mon);
         else if (!boxCheio(st)) guardarNoBox(st, mon);
         else continue;

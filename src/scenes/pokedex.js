@@ -175,8 +175,7 @@ export class PokedexScene {
     const e = estado(this.st, id);
     if (e) {
       const sp = DB.SPECIES[id];
-      const img = Assets.comCor(Assets.mon(id, 1), {});
-      if (img) ctx.drawImage(img, 156, 34, 64, 64);
+      Assets.desenhaVivo(ctx, { species: id, seed: 1 }, 156, 34, 64);   // animado, quando tem
       sp.types.forEach((t, j) => drawText(ctx, t, 148, 102 + j * 11, DB.TYPE_COLOR?.[t] || PAL.ink));
       drawText(ctx, e === "pego" ? "PEGO" : "VISTO", 196, 124, e === "pego" ? "#2a8a3a" : PAL.ink2);
     } else {
@@ -198,8 +197,7 @@ export class PokedexScene {
 
     panel(ctx, 4, 23, 232, 122);
     if (pagina === 0) {
-      const img = Assets.comCor(Assets.mon(id, 1), {});
-      if (img) ctx.drawImage(img, 12, 26, 64, 64);
+      Assets.desenhaVivo(ctx, { species: id, seed: 1 }, 12, 26, 64);
       sp.types.forEach((t, j) => drawText(ctx, t, 88, 30 + j * 11, DB.TYPE_COLOR?.[t] || PAL.ink));
       const regiao = DB.REGIAO?.[id] || (sp.dex <= 151 && sp.dex >= 1 ? "KANTO" : sp.foreign ? "DE FORA" : "KANTO");
       drawText(ctx, `REGIÃO ${regiao}`, 88, 54, PAL.ink2);

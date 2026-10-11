@@ -1626,7 +1626,7 @@ export class OverworldScene {
    *  em cima dele — é o que você luta. Devolve a horda (3 a 5), ou null. */
   talvezHorda(b) {
     const C = DB.CONFIG || {}, m = b.mon;
-    if (!m || b.bravo || b.glitch || m.alfa || m.shiny || m.luminoso || m.corrupt || m.totem || m.soltoId) return null;
+    if (!m || b.bravo || b.glitch || m.alfa || m.shiny || m.corrupt || m.totem || m.soltoId) return null;
     if (this.st.player.map === "glitchdim" || Math.random() >= (C.hordaOdds ?? 0)) return null;
     const [a, z] = C.hordaNiveis || [1, 4];
     const [min, max] = C.hordaTamanho || [3, 5];
@@ -1663,7 +1663,7 @@ export class OverworldScene {
     }
     if (st.player.map !== "glitchdim") {
       // a cor do bicho pode ser reescrita por um DLC — a SHINY ZONE. O gancho
-      // devolve outra `sorte` (número) ou a cor pronta ({ shiny, luminoso })
+      // devolve outra `sorte` (número) ou a cor pronta ({ shiny })
       // o AMULETO BRILHANTE (a Pokédex de Kanto completa) soma na mesma conta
       let sorte = fator(st, "sorte") * fatorAmuleto(st), brilho = null;
       for (const f of DB.GANCHOS?.brilho || []) {
@@ -1711,7 +1711,7 @@ export class OverworldScene {
       : mon.hp < mon.maxHp * 0.3 ? C.cansado
       : mon.corrupt && Math.random() < 0.6 ? C.corrompido
       : horaDoMundo().noite && Math.random() < 0.4 ? C.sono
-      : (mon.shiny || mon.luminoso) && Math.random() < 0.25 ? C.brilho
+      : mon.shiny && Math.random() < 0.25 ? C.brilho
       : amz >= 200 ? C.inseparavel
       : amz >= 100 && Math.random() < 0.6 ? C.amigo
       : C.qualquer[Math.floor(Math.random() * C.qualquer.length)];
@@ -2451,6 +2451,18 @@ export class OverworldScene {
     }
     if (npc.shop) {
       state.talked = true;
+      // o VENDEDOR DE OVOS dos centros dá o PURIFICADOR uma vez (o primeiro
+      // que você encontrar; src/data/fosseis-puros.js)
+      const P = DB.PURIFICADOR;
+      if (npc.id === "ovos" && P && !this.st.flags.ganhouPurificador) {
+        this.st.flags.ganhouPurificador = true;
+        return void this.dlg.say(P.vendedor, () => {
+          this.st.items[P.item] = (this.st.items[P.item] || 0) || 1;
+          Audio2.heal();
+          this.game.autosave?.(true);
+          this.dlg.say([P.ganhou, P.dica]);
+        });
+      }
       // o balconista de VIRIDIAN entrega a PICARETA uma vez: com ela na
       // mochila dá pra cavar em qualquer lugar (src/scenes/mineracao.js)
       if (npc.picareta && !state.deuPicareta) {
@@ -3105,7 +3117,7 @@ export class OverworldScene {
     // evoluindo, não se ganham prontas — a mesma regra do giveglitch/ do site
     const lista = Object.values(DB.SPECIES).filter((sp) => !sp.mega && !sp.fusao && !sp.unicaDe)
       .sort((a, b) => (a.dex || 999) - (b.dex || 999));
-    // `cor`: 0 comum, 1 shiny, 2 luminoso — o C gira entre as três
+    // `cor`: 0 comum, 1 shiny — o C troca
     this.menu = { type: "give", index: 0, top: 0, lvl: 5, cor: 0, lista };
     Audio2.select();
   }
@@ -3113,7 +3125,7 @@ export class OverworldScene {
   /** baixa o Pokémon escolhido pro time (ou pro box, se estiver cheio) */
   baixarMon(m) {
     const sp = m.lista[m.index];
-    const mon = createMon(sp.id, m.lvl, { shiny: m.cor === 1, luminoso: m.cor === 2 });
+    const mon = createMon(sp.id, m.lvl, { shiny: m.cor === 1 });
     const box = this.st.party.length >= 6;
     (box ? this.st.box : this.st.party).push(mon);
     this.st.seen[sp.id] = true;
@@ -3502,10 +3514,33 @@ export class OverworldScene {
     this.dlg.say(T.cavaAqui, () => this.game.scenes.push(new MineracaoScene()));
   }
 
+  /** O PURIFICADOR da mochila: escolhe um fóssil e ele vira o fóssil PURO
+   *  (src/data/fosseis-puros.js). O purificador fica; o fóssil é trocado. */
+  usarPurificador() {
+    const P = DB.PURIFICADOR, M = DB.PURIFICAVEIS || {};
+    const tem = Object.keys(M).filter((f) => (this.st.items[f] || 0) > 0);
+    if (!tem.length) return void this.dlg.say(P.nenhum);
+    this.menu = null;
+    this.dlg.ask(P.pergunta, tem.map((f) => f.toUpperCase()), (i) => {
+      const f = tem[i], puro = M[f];
+      this.spend(f, 1);
+      this.st.items[puro] = (this.st.items[puro] || 0) + 1;
+      Glitch.hit?.(0.4);
+      Audio2.heal();
+      this.game.autosave?.(true);
+      this.dlg.say([P.feito.replace("{FOSSIL}", f.toUpperCase()).replace("{PURO}", puro.toUpperCase()), P.dica]);
+    });
+  }
+
   /** A PALEONTÓLOGA de CINNABAR: troca um fóssil da mochila pelo bicho vivo. */
   talkPaleontologa() {
-    const T = DB.MINERACAO.MINA_TEXTO, F = DB.MINERACAO.FOSSEIS, O = DB.OVO_TEXTO;
+    const T = DB.MINERACAO.MINA_TEXTO, F = DB.MINERACAO.FOSSEIS, O = DB.OVO_TEXTO, P = DB.PURIFICADOR;
     const tenho = (f) => (this.st.items[f] || 0) > 0;
+    // sem PURIFICADOR ainda: ela conta quem tem (o vendedor de ovos, uma vez)
+    if (P && !tenho(P.item) && !this.st.flags.ganhouPurificador && !this._contouPurificador) {
+      this._contouPurificador = true;
+      return void this.dlg.say(P.ondeTem, () => this.talkPaleontologa());
+    }
     // o que dá pra ligar: um fóssil inteiro, ou as duas metades de um de Galar
     const tem = Object.keys(F).filter((f) => (F[f].precisa || [f]).every(tenho));
     if (!tem.length) {
@@ -3514,13 +3549,19 @@ export class OverworldScene {
       return void this.dlg.say(metade ? T.labMetade : T.labOferta);
     }
     if (this.st.party.length >= 6 && boxCheio(this.st)) return void this.dlg.say(T.labSemVaga);
+    // duas METADES PURAS na mochila: ela avisa que não cola (e revive uma por vez)
+    const metadesPuras = tem.filter((f) => f.includes(" de ") && f.endsWith(" puro"));
+    const aviso = metadesPuras.length >= 2 && !this._avisouPuras ? P?.labDuasPuras : null;
+    if (aviso) { this._avisouPuras = true; return void this.dlg.say(aviso, () => this.talkPaleontologa()); }
+    this._avisouPuras = false;
     this.dlg.ask(T.labTem, tem.map((f) => f.toUpperCase()), (i) => {
       const item = tem[i], { especie, nivel, precisa } = F[item];
       for (const gasto of precisa || [item]) this.spend(gasto, 1);
       const mon = createMon(especie, nivel);
-      const msgs = (precisa ? T.labColado : T.labFeito).map((l) => l.replace("{MON}", mon.nickname).replace("{NIVEL}", nivel));
-      if (mon.luminoso) msgs.push(O.formas.luminoso);
-      else if (mon.shiny) msgs.push(O.formas.shiny);
+      // o fóssil PURO tem fala própria: a forma pura, ou a metade que virou bicho inteiro
+      const fala = !item.endsWith(" puro") ? null : item.includes(" de ") ? P.labMetadePura : P.labPuro;
+      const msgs = (fala || (precisa ? T.labColado : T.labFeito)).map((l) => l.replace("{MON}", mon.nickname).replace("{NIVEL}", nivel));
+      if (mon.shiny) msgs.push(O.formas.shiny);
       if (this.st.party.length < 6) { this.st.party.push(mon); msgs.push(T.labEquipe.replace("{MON}", mon.nickname)); }
       else { guardarNoBox(this.st, mon); msgs.push(T.labBox.replace("{MON}", mon.nickname)); }
       this.st.seen[mon.species] = true;
@@ -3780,8 +3821,7 @@ export class OverworldScene {
     if (!mon) { Audio2.cancel(); return; }
     this.spend(item, 1);
     const msgs = [C.rachou.replace("{OVO}", item.toUpperCase()), C.nasceu.replace("{MON}", mon.nickname).replace("{NIVEL}", mon.level)];
-    if (mon.luminoso) msgs.push(T.formas.luminoso);
-    else if (mon.shiny) msgs.push(T.formas.shiny);
+    if (mon.shiny) msgs.push(T.formas.shiny);
     if (this.st.party.length < 6) { this.st.party.push(mon); msgs.push(T.equipe.replace("{MON}", mon.nickname)); }
     else { guardarNoBox(this.st, mon); msgs.push(T.box.replace("{MON}", mon.nickname)); }
     this.st.seen[mon.species] = true;
@@ -3791,7 +3831,7 @@ export class OverworldScene {
   }
 
   /** A CUTSCENE DO OVO (src/scenes/nascer.js): o ovo explode em pixels e eles
-   *  montam o bicho; as frases vêm no fim dela. O brilho de shiny e luminoso
+   *  montam o bicho; as frases vêm no fim dela. O brilho do shiny
    *  também é dela — na hora em que ele fica pronto. */
   chocarNaTela(mon, msgs) {
     this.game.scenes.push(new NascerScene(), { mon, frase: msgs, aoFim: () => this.game.music(this.map.music) });
@@ -5864,7 +5904,7 @@ export class OverworldScene {
           st.caught[novo.species] = true;
           this.game.autosave?.(true);
           const fim = F.feito.map((l) => l.replace("{MON}", novo.nickname));
-          if (novo.shiny || novo.luminoso) fim.splice(1, 0, F.brilhou);
+          if (novo.shiny) fim.splice(1, 0, F.brilhou);
           // misterio: ele vem tapado de "?" e só aparece quando a troca acaba
           this.game.scenes.push(new TrocaNpcScene(), { meu, novo, dono: t.dono, misterio: true, onDone: () => this.dlg.say(fim) });
         });
@@ -6135,6 +6175,10 @@ export class OverworldScene {
           Audio2.select();                       // item-chave: cava onde estiver
           this.menu = null;
           return void this.cavarAqui();
+        }
+        if (item === DB.PURIFICADOR?.item && owned > 0) {
+          Audio2.select();                       // PURIFICADOR: escolhe o fóssil
+          return void this.usarPurificador();
         }
         if (DB.MINERACAO?.MINA_LORE?.[item] && owned > 0) {
           Audio2.select();                       // achado da mina: só se olha
@@ -6439,7 +6483,7 @@ export class OverworldScene {
       if (Input.consume("down")) { m.index = (m.index + 1) % n; Audio2.blip(); }
       if (Input.consume("left")) { m.lvl = Math.max(1, m.lvl - passo); Audio2.blip(); }
       if (Input.consume("right")) { m.lvl = Math.min(100, m.lvl + passo); Audio2.blip(); }
-      if (Input.consume("select")) { m.cor = (m.cor + 1) % 3; Audio2.select(); }   // tecla C
+      if (Input.consume("select")) { m.cor = (m.cor + 1) % 2; Audio2.select(); }   // tecla C
       m.top = Math.min(Math.max(m.top, m.index - 5), m.index);                // rolagem
       if (Input.consume("b")) { this.menu = null; Audio2.cancel(); }
       if (Input.consume("a")) this.baixarMon(m);
@@ -6523,8 +6567,9 @@ export class OverworldScene {
       if (lado && m.index === 6) this.mudaIso();
       // DIFICULDADE (é do save): ← → anda, Z vai pra próxima
       if (lado && m.index === 8) { mudarDificuldade(this.st, lado); Audio2.blip(); }
-      // BATALHA: POR TURNO ou TEMPO REAL (src/systems/batalhareal.js, é do save)
-      if (lado && m.index === 9) { this.st.flags.batalhaReal = !this.st.flags.batalhaReal; Audio2.blip(); }
+      // BATALHA: POR TURNO, TEMPO REAL (src/systems/batalhareal.js) ou EXPLOSIVA
+      // (src/systems/batalhaexplosiva.js) — é do save
+      if (lado && m.index === 9) { this.mudaEstiloBatalha(lado); Audio2.blip(); }
       if (Input.consume("a")) {
         Audio2.select();
         if (m.index === 0) Glitch.scanlines = !Glitch.scanlines;
@@ -6541,7 +6586,7 @@ export class OverworldScene {
           const i = DIFICULDADES.indexOf(dificuldadeDe(this.st));
           this.st.dificuldade = DIFICULDADES[(i + 1) % DIFICULDADES.length].id;
         }
-        else if (m.index === 9) this.st.flags.batalhaReal = !this.st.flags.batalhaReal;
+        else if (m.index === 9) this.mudaEstiloBatalha(1);
         else { Save.clear(); this.menu = null; this.dlg.say("SAVE APAGADO. RECARREGUE A PÁGINA."); }
       }
     }
@@ -6867,6 +6912,7 @@ export class OverworldScene {
     if (rumo.x !== b.x || rumo.y !== b.y) {
       rumo.dir = b.x > rumo.x ? "right" : b.x < rumo.x ? "left" : b.y > rumo.y ? "down" : "up";
       rumo.x = b.x; rumo.y = b.y;
+      rumo.andouEm = performance.now();
     }
     rumoDoSelvagem.set(b, rumo);
     return rumo.dir;
@@ -6911,6 +6957,16 @@ export class OverworldScene {
   }
 
   /** ISOMÉTRICO liga/desliga (é do aparelho, como a velocidade) */
+  /** OPÇÕES > BATALHA: POR TURNO -> TEMPO REAL -> EXPLOSIVA (e volta) */
+  mudaEstiloBatalha(lado = 1) {
+    const f = this.st.flags;
+    const estilos = ["turno", "real", "explosiva"];
+    const agora = f.batalhaExplosiva ? 2 : f.batalhaReal ? 1 : 0;
+    const novo = estilos[(agora + lado + 3) % 3];
+    f.batalhaReal = novo === "real";
+    f.batalhaExplosiva = novo === "explosiva";
+  }
+
   mudaIso() {
     alternarIso();
     Audio2.blip();
@@ -7143,7 +7199,7 @@ export class OverworldScene {
   drawSelvagem(ctx, b, cx, cy) {
     const bruto = Assets.mon(b.mon.species, b.mon.seed);
     if (!bruto) return;
-    // shiny no mato aparece shiny, e luminoso aparece luminoso: o brilho é a
+    // shiny no mato aparece shiny: o brilho é a
     // informação que faz alguém atravessar a rota correndo, e escondê-la até a
     // batalha seria escondê-la
     // no isométrico ele olha pra onde anda: o selvagem não guarda direção,
@@ -7176,7 +7232,17 @@ export class OverworldScene {
       }
       ctx.restore();
     }
-    ctx.drawImage(reduzido(img, lado), x, y, lado, lado);
+    // ANDANDO no mapa, virado pra onde vai (Assets.monAndando); o passo só
+    // anda enquanto ele anda (parado, o quadro parado). Quem não tem o sprite
+    // de andar fica com o de batalha pulando, como antes
+    const rumo = !v && this.rumoDoSelvagem(b);
+    const andando = rumo && performance.now() - (rumoDoSelvagem.get(b).andouEm || -1e9) < 450;
+    const passo = rumo && Assets.monAndando(b.mon, rumo,
+      andando ? performance.now() * (caca || corre ? 1.6 : 1) + b.x * 137 : 0);
+    if (passo) {
+      const e = b.mon.alfa ? 1.35 : 1, w = Math.round(passo.width * e), h = Math.round(passo.height * e);
+      ctx.drawImage(passo, Math.round(b.x * TILE - cx + 8 - w / 2), Math.round(b.y * TILE - cy + 15 - h - (caca || corre ? pulo : 0)), w, h);
+    } else ctx.drawImage(reduzido(img, lado), x, y, lado, lado);
     // e o AVISO em cima dele. Perseguidor sem aviso é armadilha: quem toma uma
     // batalha que não pediu tem que ter tido a chance de ver ela chegando.
     if (caca && Math.floor(performance.now() / 220) % 2 === 0) {
@@ -7210,7 +7276,14 @@ export class OverworldScene {
     if (r) r.t = (r.t || 0) + 1 / 60;
     const pulo = this.move ? Math.abs(Math.sin(k * Math.PI)) * 2
       : r && r.t < 0.5 ? Math.abs(Math.sin(r.t * Math.PI * 4)) * 4 : 0;
-    ctx.drawImage(reduzido(img, 28), Math.round(x - 6), Math.round(y - 12 - pulo), 28, 28);
+    // fora do isométrico ele ANDA: virado pra onde vai, com o passo (o sprite
+    // de andar, Assets.monAndando); parado, fica parado (o quadro 0). Sem
+    // sprite de andar, o desenho de batalha animado (Assets.desenhaVivo).
+    const dir = this.compa?.dir || "down";
+    const passo = !this.vistaMon(dir) && Assets.monAndando(mon, dir, this.move ? performance.now() : 0);
+    if (passo) ctx.drawImage(passo, Math.round(x + 8 - passo.width / 2), Math.round(y + 15 - passo.height - pulo));
+    else if (this.vistaMon(dir)) ctx.drawImage(reduzido(img, 28), Math.round(x - 6), Math.round(y - 12 - pulo), 28, 28);
+    else Assets.desenhaVivo(ctx, mon, Math.round(x - 6), Math.round(y - 12 - pulo), 28);
     if (r) desenharEmote(ctx, r.emote, Math.round(x + 8), Math.round(y - 26), r.t);
   }
 
@@ -7410,7 +7483,7 @@ export class OverworldScene {
       ctx.fillRect(bx, by, 26, 26);
       ctx.fillStyle = "#0a0614";
       ctx.fillRect(bx + 1, by + 1, 24, 24);
-      if (mon) ctx.drawImage(reduzido(Assets.mon(mon.species, mon.seed), 24), bx + 1, by + 1, 24, 24);
+      if (mon) Assets.desenhaVivo(ctx, mon, bx + 1, by + 1, 24);
     };
     const p = this.st.party;
     cx(x, y, p[0]);
@@ -7442,7 +7515,7 @@ export class OverworldScene {
         if (i === m.index) cursor(ctx, 8, y + 7);
         // o ícone pula como nos jogos (src/systems/animon.js)
         const pulo = puloDoIcone(performance.now() / 1000, i === m.index, mon.hp <= 0);
-        ctx.drawImage(reduzido(Assets.comCor(Assets.mon(mon.species, mon.seed), mon), 24), 16, y - 2 + pulo, 24, 24);
+        Assets.desenhaVivo(ctx, mon, 16, y - 2 + pulo, 24);      // animado (Assets.desenhaVivo)
         drawText(ctx, mon.nickname, 46, y + 2, PAL.ink);
         drawText(ctx, `N${mon.level}`, 152, y + 2, PAL.ink);
         bar(ctx, 46, y + 14, 76, 4, hpPct(mon), hpColor(hpPct(mon)));
@@ -7474,7 +7547,7 @@ export class OverworldScene {
         if (i >= m.itens.length) break;
         const it = m.itens[i], y = 26 + k * 18;
         if (i === m.index) cursor(ctx, 8, y + 4);
-        ctx.drawImage(reduzido(Assets.comCor(Assets.mon(it.mon.species, it.mon.seed), it.mon), 20), 16, y - 3, 20, 20);
+        Assets.desenhaVivo(ctx, it.mon, 16, y - 3, 20);
         drawText(ctx, it.rotulo, 40, y + 2, PAL.ink, { maxChars: 30 });
       }
       if (m.itens.length > GO_LISTA_VIS) {
@@ -7623,7 +7696,7 @@ export class OverworldScene {
         const y = 26 + i * 18;
         if (y > 118) return;
         if (i === m.index) cursor(ctx, 8, y + 4);
-        ctx.drawImage(reduzido(Assets.mon(mon.species, mon.seed), 18), 16, y, 18, 18);
+        Assets.desenhaVivo(ctx, mon, 16, y, 18);
         drawText(ctx, mon.nickname.slice(0, 11), 38, y + 5, ehFusao(mon) ? PAL.glitch : PAL.ink);
         drawText(ctx, `N${mon.level}`, 112, y + 5, PAL.ink2);
       });
@@ -7812,7 +7885,7 @@ export class OverworldScene {
       this.st.party.forEach((mon, i) => {
         const y = 26 + i * 20;
         if (i === m.index) cursor(ctx, 8, y + 4);
-        ctx.drawImage(reduzido(Assets.mon(mon.species, mon.seed), 20), 16, y - 2, 20, 20);
+        Assets.desenhaVivo(ctx, mon, 16, y - 2, 20);
         drawText(ctx, mon.nickname, 42, y + 2, PAL.ink);
         drawText(ctx, `N${mon.level}`, 150, y + 2, PAL.ink2);
         drawText(ctx, `${mon.moves.length}/4`, 190, y + 2, PAL.ink2);
@@ -7873,7 +7946,7 @@ export class OverworldScene {
       if (sel) {
         // encolhido pelo redutor de pixel art (src/core/reduzir.js): sem ele a
         // pupila some e o bicho muda de cara
-        ctx.drawImage(reduzido(Assets.comCor(Assets.mon(sel.species, sel.seed), sel), 28), 6, 126, 28, 28);
+        Assets.desenhaVivo(ctx, sel, 6, 126, 28);
         drawText(ctx, sel.nickname, 38, 130, PAL.ink);
         drawText(ctx, `N${sel.level}  ${sel.hp}/${sel.maxHp}`, 38, 142, PAL.ink2);
       } else drawText(ctx, B.titulo, 8, 136, PAL.ink2);
@@ -7950,14 +8023,14 @@ export class OverworldScene {
       // ficha do escolhido
       const img = Assets.mon(sp.id, 7);
       // a prévia sai NA COR escolhida: o menu mostra o que vai baixar
-      const cor = { species: sp.id, shiny: m.cor === 1, luminoso: m.cor === 2 };
+      const cor = { species: sp.id, shiny: m.cor === 1 };
       // 64 -> 48 pelo redutor de pixel art: desenhado direto, a escala
       // quebrada jogava fora pixel no chute e o olho de todo bicho estragava
       ctx.drawImage(reduzido(Assets.comCor(img, cor), 48), 158, 22, 48, 48);
       drawText(ctx, sp.types.join("/").slice(0, 12), 150, 74, PAL.ink2);
       drawText(ctx, `NÍVEL ${String(m.lvl).padStart(3, " ")}`, 150, 86, PAL.ink);
-      drawText(ctx, ["COR: COMUM", "COR: SHINY", "COR: LUMINOSA"][m.cor], 150, 98,
-        [PAL.ink2, "#d8a828", "#fff3b0"][m.cor]);
+      drawText(ctx, ["COR: COMUM", "COR: SHINY"][m.cor], 150, 98,
+        [PAL.ink2, "#d8a828"][m.cor]);
       // a ajuda em duas linhas: numa só ela passava da borda e cortava o fim
       drawText(ctx, "CIMA/BAIXO ESCOLHE  LADOS NÍVEL", 12, 132, PAL.ink2);
       drawText(ctx, "SHIFT +10  Z BAIXA  X SAI  C COR", 12, 142, PAL.ink2);
@@ -8024,7 +8097,7 @@ export class OverworldScene {
         ["ISOMÉTRICO", isoLigado() ? "ON" : "OFF"],
         ["FALA", "..."],
         ["DIFICULDADE", dificuldadeDe(this.st).curto],
-        ["BATALHA", this.st.flags?.batalhaReal ? "TEMPO REAL" : "POR TURNO"],
+        ["BATALHA", this.st.flags?.batalhaExplosiva ? "EXPLOSIVA" : this.st.flags?.batalhaReal ? "TEMPO REAL" : "POR TURNO"],
         ["LIMPAR SAVE", ""],
       ];
       // 11 linhas: o painel sobe e aperta pra dica de baixo não cair dentro dele

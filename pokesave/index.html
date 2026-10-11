@@ -76,7 +76,7 @@
     <div class="previa"><canvas id="previa" width="96" height="96"></canvas>
       <div class="quem"><b id="quem">ninguém ainda</b><span id="tipos" class="sub"></span></div></div>
     <div class="linha"><label for="cor">Cor</label>
-      <select id="cor"><option value="comum">comum</option><option value="shiny">shiny</option><option value="luminoso">luminoso</option></select></div>
+      <select id="cor"><option value="comum">comum</option><option value="shiny">shiny</option></select></div>
     <div class="linha"><label for="nome">Seu nome</label><input type="text" id="nome" maxlength="10" placeholder="(o da espécie)"></div>
     <div class="linha"><label for="nivel">Nível</label><input type="number" id="nivel" min="1" max="100" value="5" style="flex:0 0 80px"></div>
     <div class="linha"><label for="mapa">Nasce em</label><select id="mapa"></select></div>
@@ -161,7 +161,7 @@ async function previa() {
   }
   if (minha !== previaN) return;
   const cor = $("cor").value;
-  const img = Assets.comCor(Assets.mon(sp.id, 7), { shiny: cor === "shiny", luminoso: cor === "luminoso" });
+  const img = Assets.comCor(Assets.mon(sp.id, 7), { shiny: cor === "shiny" });
   c.fillRect(0, 0, 96, 96); c.drawImage(img, 16, 16, 64, 64);
 }
 

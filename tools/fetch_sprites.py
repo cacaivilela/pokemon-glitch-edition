@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Baixa os sprites de batalha da geração III (FireRed/LeafGreen) para
+"""Baixa os sprites de batalha do BLACK/WHITE (o mesmo traço das animações;
+os do FireRed/LeafGreen foram tirados, out/2026) para
 assets/sprites/pokemon/. Só stdlib.
 
     python3 tools/fetch_sprites.py                 # 151 de Kanto, frente + costas
@@ -21,10 +22,10 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 ROOT_SPRITES = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions"
-DEFAULT_BASE = f"{ROOT_SPRITES}/generation-iii/firered-leafgreen"
+BLACK_WHITE = f"{ROOT_SPRITES}/generation-v/black-white"
+DEFAULT_BASE = BLACK_WHITE
 EMERALD = f"{ROOT_SPRITES}/generation-iii/emerald"
 PLATINUM = f"{ROOT_SPRITES}/generation-iv/platinum"
-BLACK_WHITE = f"{ROOT_SPRITES}/generation-v/black-white"
 # pós-gen V não tem sprite 2D por geração: cai no sprite padrão da PokeAPI
 MODERN = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon"
 
@@ -185,8 +186,7 @@ def main():
         elif a.extra or a.regionais or a.mais or a.only:
             # da geração de estreia pra frente, até achar (as antigas não têm
             # sprite de costas em Esmeralda, por exemplo)
-            bases = ([DEFAULT_BASE] if dex <= 151 else []) + \
-                    [b for b, hi in ((EMERALD, 386), (PLATINUM, 493), (BLACK_WHITE, 649))
+            bases = [b for b, hi in ((BLACK_WHITE, 649),)
                      if dex <= hi] + [MODERN]
         forma = FORMA_DA_ESPECIE.get(dex)
         if forma:

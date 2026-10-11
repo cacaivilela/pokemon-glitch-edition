@@ -112,7 +112,7 @@ function escrever(caminho, valor) {
 
 /** Registra um gancho: `viajar(st)` depois de trocar de mapa, `encontrar(st, bicho)`
  *  quando um selvagem vira batalha, `brilho(st, sorte)` na hora de sortear a
- *  cor de um selvagem (devolve outra sorte, ou a cor pronta { shiny, luminoso }),
+ *  cor de um selvagem (devolve outra sorte, ou a cor pronta { shiny }),
  *  `hud(ctx, st, g)` pra desenhar por cima do
  *  mapa (g traz panel, drawText, bar, PAL, W, H) (src/scenes/overworld.js). */
 function gancho(quando, f) { (DB.GANCHOS ||= { viajar: [], encontrar: [], brilho: [], hud: [] })[quando]?.push(f); }

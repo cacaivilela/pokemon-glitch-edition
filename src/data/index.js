@@ -73,6 +73,7 @@ const secretas = await import("./secretas.js" + V);
 // AS FORMAS ÚNICAS (src/data/formas-unicas.js): os desenhos do UNIQUEMON
 const unicas = await import("./formas-unicas.js" + V);
 const formasBatalha = await import("./formas-batalha.js" + V);   // WISHIWASHI CARDUME, PALAFIN HERÓI
+const puros = await import("./fosseis-puros.js" + V);            // os FÓSSEIS PURIFICADOS: a FORMA PURA e o TURBOZOLT
 const guardaRoupa = await import("./guarda-roupa.js" + V);
 // FALAR COM O COMPANHEIRO (src/data/companheiro.js)
 const companheiro = await import("./companheiro.js" + V);
@@ -483,7 +484,7 @@ const BRAG_CONTEUDO = Object.fromEntries(Object.entries({ ...brag.BRAGLITCH_MAPS
 const ESPECIES_BASE = { ...gen1.GEN1, ...extra.EXTRA, ...reg.REGIONAIS, ...eras.ERAS_ESPECIES,
   ...iniciais.INICIAIS_ESPECIES, ...bones.BONES_ESPECIES, ...decamark.DECAMARK_ESPECIE, ...mais.MAIS,
   ...hack.HACKEANAS, ...brag.BRAGLITCH_ESPECIES, ...rotom.ROTOM_FORMAS, ...mega.MEGA_FORMS,
-  ...secretas.SECRETAS_ESPECIES, ...formasBatalha.FORMAS_BATALHA };
+  ...secretas.SECRETAS_ESPECIES, ...formasBatalha.FORMAS_BATALHA, ...puros.FOSSEIS_PUROS_ESPECIES };
 /** true quando a ilha está sendo desenhada aqui, e não veio do decomp */
 export const ILHA_GERADA = !kanto?.birth_island;
 
@@ -610,6 +611,8 @@ function montarDB() {
     GLITCH_ZONES: zonas.GLITCH_ZONES,
     OVOS: ovos.OVOS,
     MINERACAO: mina,
+    PURIFICADOR: puros.PURIFICADOR,
+    PURIFICAVEIS: puros.PURIFICAVEIS,
     GO_PARK: gopark.GO_PARK, CPM: gopark.CPM, MINIJOGOS_GO: gopark.MINIJOGOS_GO, MINIJOGO_POR_TIPO: gopark.MINIJOGO_POR_TIPO,
     PREMIO_GO: gopark.PREMIO_GO, GO_TEXTO: gopark.GO_TEXTO, GO_PARQUE_NOME: gopark.GO_PARQUE_NOME,
     SPINDA_MANCHAS: spinda.SPINDA_MANCHAS, SPINDA_CORPO: spinda.SPINDA_CORPO, SPINDA_MANCHA: spinda.SPINDA_MANCHA,

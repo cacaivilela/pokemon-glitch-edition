@@ -97,7 +97,7 @@ async function renderPresentes() {
     for (const [codigo, c] of cartoes) {
       const link = `${location.origin}${url("")}?dlc=${d.id}&presente=${codigo}`;
       const row = document.createElement("div"); row.className = "linha"; row.style.marginTop = "6px";
-      const conteudo = [...(c.mons || []).map((m) => `${m.id.toUpperCase()} nv${m.nv}${m.shiny ? " shiny" : ""}${m.luminoso ? " luminoso" : ""}`),
+      const conteudo = [...(c.mons || []).map((m) => `${m.id.toUpperCase()} nv${m.nv}${m.shiny || m.luminoso ? " shiny" : ""}`),
                         ...(c.itens || []).map((i) => `${i.qtd}x ${i.item}`)].join(", ");
       row.innerHTML = `<div style="flex:1;min-width:200px"><b>${codigo}</b> · ${c.titulo}<div class="tem">${conteudo}</div></div>
         <a href="${link}" target="_blank" style="font-size:11px">abrir</a><button data-l="${link}" style="padding:4px 8px;font-size:11px">copiar link</button>`;

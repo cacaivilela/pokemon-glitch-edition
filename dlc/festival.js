@@ -81,12 +81,8 @@ export default {
       // cada sorteio é um spawn: conta pro medidor
       const z = (st.shinyZone ||= { comum: 100 });
       z.spawns = (z.spawns || 0) + 1;
-      // A COR SAI PRONTA DAQUI. Só o shiny sobe com a conta do festival; o
-      // luminoso continua 1 em 9999 (vezes o sanduíche, como sempre) — inflar
-      // a sorte inteira fazia TODO spawn virar luminoso depois de um tempo, e
-      // luminoso é a cor que tem que continuar sendo história de pescador.
-      const luminoso = Math.random() < (DB.CONFIG?.luminosoOdds ?? 0) * sorte;
-      return { luminoso, shiny: !luminoso && Math.random() < chanceShiny(st, sorte) };
+      // A COR SAI PRONTA DAQUI: o shiny sobe com a conta do festival
+      return { shiny: Math.random() < chanceShiny(st, sorte) };
     });
     // O MEDIDOR, no canto de cima à direita: a chance de agora, quantos spawns
     // faltam na média até um shiny (1 / chance) e quantos já nasceram.

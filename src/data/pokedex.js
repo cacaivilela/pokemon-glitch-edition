@@ -68,7 +68,7 @@ export const MARCOS = [
 ];
 
 /** O PRÊMIO DE COMPLETAR KANTO: com ele na mochila, a chance de um selvagem
- *  nascer shiny (ou luminoso) triplica. É o mesmo número que o SANDUÍCHE
+ *  nascer shiny triplica. É o mesmo número que o SANDUÍCHE
  *  AMARGO do acampamento usa — e os dois somam na mesma conta. */
 export const AMULETO = {
   item: "amuleto brilhante",

@@ -5,3 +5,7 @@ __pycache__/
 assets/sprites/.cache/
 save/
 online/
+
+# o repositório do endereço curto do FUSIONGLITCH (github.com/cacaivilela/fusionglitch),
+# guardado aqui junto com o jogo; ele publica sozinho, não entra neste repositório
+fusionglitch-endereco/

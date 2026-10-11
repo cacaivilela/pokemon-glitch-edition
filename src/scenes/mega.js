@@ -70,7 +70,7 @@ export class MegaScene {
   get duracao() { return FASES[this.i]?.[1] || 0; }
   get k() { return prende(this.tf / (this.duracao || 1)); }
 
-  /** a arte do bicho, já com a cor dele (shiny, luminoso) */
+  /** a arte do bicho, já com a cor dele (shiny) */
   arte(id) {
     const img = Assets.mon(id, this.mon.seed);
     return img ? Assets.comCor(img, { ...this.mon, species: id }) : null;

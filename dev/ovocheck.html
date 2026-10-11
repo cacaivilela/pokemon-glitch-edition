@@ -33,7 +33,7 @@ try {
   ok("DB.OVOS existe", !!DB.OVOS && DB.OVOS === OVOS);
   ok("mystery egg custa $500", OVOS.tipos["mystery egg"].preco === 500);
   ok("o super custa mais", OVOS.tipos["super mystery egg"].preco > 500);
-  ok("as seis formas têm flags", ["comum", "shiny", "alfa", "shiny alfa", "luminoso", "luminalfa"].every((f) => f in OVOS.flags));
+  ok("as quatro formas têm flags", ["comum", "shiny", "alfa", "shiny alfa"].every((f) => f in OVOS.flags));
   ok("lore dos dois ovos", !!DB.ITEM_LORE["mystery egg"] && !!DB.ITEM_LORE["super mystery egg"]);
   ok("o balcão compra de volta", precoDeVenda("mystery egg") === 250);
 
@@ -102,7 +102,7 @@ try {
       const { mon, forma } = chocar(item);
       c[forma] = (c[forma] || 0) + 1;
       const f = OVOS.flags[forma];
-      if (!!mon.shiny !== !!f.shiny || !!mon.luminoso !== !!f.luminoso || !!mon.alfa !== !!f.alfa) c.erro = (c.erro || 0) + 1;
+      if (!!mon.shiny !== !!f.shiny || !!mon.alfa !== !!f.alfa) c.erro = (c.erro || 0) + 1;
       if (mon.alfa ? mon.level <= OVOS.nivel : mon.level !== OVOS.nivel) alfaMaior = false;
     }
     return { c, alfaMaior };
@@ -113,17 +113,14 @@ try {
   p(`super: ${JSON.stringify(B.c)}`);
   ok("a forma sorteada é a forma do bicho", !A.c.erro && !B.c.erro);
   ok("o alfa nasce em nível maior; o resto no nível do ovo", A.alfaMaior && B.alfaMaior);
-  ok("as seis formas saem do ovo comum", Object.keys(A.c).length === 6);
-  ok("o luminalfa é luminoso E alfa", (() => { const m = chocar("super mystery egg"); return true; })());
+  ok("as quatro formas saem do ovo comum", Object.keys(A.c).length === 4);
   const pct = (c, f) => (c[f] || 0) / N;
   ok("o super dá mais shiny", pct(B.c, "shiny") > pct(A.c, "shiny") * 2);
-  ok("o super dá mais luminoso", pct(B.c, "luminoso") > pct(A.c, "luminoso") * 2);
-  ok("o super dá mais luminalfa", pct(B.c, "luminalfa") > pct(A.c, "luminalfa") * 2);
   ok("mas o comum ainda é maioria no ovo comum", pct(A.c, "comum") > 0.8);
 
   h("O TEXTO");
   const T = DB.OVO_TEXTO;
-  ok("tem fala pra cada forma rara", ["shiny", "alfa", "shiny alfa", "luminoso", "luminalfa"].every((f) => typeof T.formas[f] === "string"));
+  ok("tem fala pra cada forma rara", ["shiny", "alfa", "shiny alfa"].every((f) => typeof T.formas[f] === "string"));
   ok("e as de sempre", ["semVaga", "rachou", "nasceu", "equipe", "box"].every((k) => typeof T[k] === "string"));
 
   // -------------------------------------------------------------------------

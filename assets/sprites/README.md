@@ -12,8 +12,8 @@ assets/sprites/pokemon/001.png     ← número da Pokédex com 3 dígitos
 assets/sprites/pokemon/bulbasaur.png   ← ou o slug do nome (as duas formas valem)
 ```
 
-Tamanho recomendado: 64x64 com fundo transparente (é o tamanho dos sprites de
-batalha do FireRed). O jogo escala pra caber sozinho.
+Tamanho recomendado: 96x96 com fundo transparente (é o tamanho dos sprites de
+batalha do Black/White). O jogo escala pra caber sozinho.
 
 ## Pokémon (costas)
 

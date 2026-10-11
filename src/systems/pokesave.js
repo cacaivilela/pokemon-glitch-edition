@@ -1,7 +1,7 @@
 // POKÉSAVE: uma partida em que VOCÊ É UM POKÉMON.
 //
 // Você escolhe a espécie (qualquer uma do jogo, forma regional inclusive), a
-// cor (comum, shiny ou luminoso) e um nome, e a partida começa com você no
+// cor (comum ou shiny) e um nome, e a partida começa com você no
 // mato — sem casa, sem mãe, sem professor — andando por Kanto como um selvagem
 // que resolveu virar treinador: o desenho no mapa é o sprite do Pokémon
 // (frente, costas quando sobe, espelhado quando vai pra direita), e o Pokémon
@@ -9,7 +9,7 @@
 // distingue dos outros. Ele luta como qualquer um, sobe de nível, evolui — e
 // quando evolui, você evolui: o mapa passa a desenhar a forma nova.
 //
-// O save guarda `st.pokesave = { species, shiny, luminoso }` — é só isso que o
+// O save guarda `st.pokesave = { species, shiny }` — é só isso que o
 // mapa olha pra decidir o que desenhar. A página pokesave/ monta o link
 // (`?pokesave=especie.cor.nome`) que cria a partida (src/main.js).
 import { DB } from "../data/index.js";
@@ -17,7 +17,7 @@ import { Assets } from "../core/assets.js";
 import { createMon, evolutionFor } from "./mon.js";
 import { relogio } from "./ciclo.js";
 
-export const CORES = ["comum", "shiny", "luminoso"];
+export const CORES = ["comum", "shiny"];
 
 /** Onde dá pra nascer: os mapas de fora (rota, cidade, ilha), e nenhum dos
  *  gerados em código (a fenda, a zona, as eras). */
@@ -35,7 +35,7 @@ export function lerCodigo(codigo) {
   const partes = String(codigo || "").split(".");
   const [species, cor = "comum"] = partes;
   if (!DB.SPECIES?.[species] || DB.SPECIES[species].mega || DB.SPECIES[species].fusao) return null;
-  const c = CORES.includes(cor) ? cor : "comum";
+  const c = cor === "luminoso" ? "shiny" : CORES.includes(cor) ? cor : "comum";   // código antigo com luminoso
   let nivel = 5, mapa = "route1", resto = partes.slice(2);
   if (/^\d+$/.test(resto[0] || "")) {                 // formato novo: nível e mapa antes do nome
     nivel = Math.max(1, Math.min(100, +resto[0]));
@@ -51,13 +51,13 @@ export const codigo = (species, cor, nivel, mapa, nome) => [species, cor, nivel,
 /** Monta a partida: o estado já veio de `newGame()`. Devolve o Pokémon que
  *  você é. Começa na ROTA 1 — é mato, e é o começo de tudo. */
 export function criarPokesave(st, { species, cor, nome, nivel = 5, mapa = "route1" }) {
-  const mon = createMon(species, nivel, { shiny: cor === "shiny", luminoso: cor === "luminoso", nickname: nome });
+  const mon = createMon(species, nivel, { shiny: cor === "shiny", nickname: nome });
   mon.eu = true;
   st.party.push(mon);
   st.caught[species] = true;
   st.seen[species] = true;
   st.player.name = nome;
-  st.pokesave = { species, shiny: mon.shiny, luminoso: mon.luminoso };
+  st.pokesave = { species, shiny: mon.shiny };
   st.flags.starterChosen = true;      // o professor não tem o que te dar
   st.flags.momGift = true;            // nem a mãe
   // Onde nascer: o mapa escolhido, no `spawn` dele — e a cena desencalha se o
@@ -282,7 +282,7 @@ export function andarCacador(st, cena, dt, selvagens = []) {
   // te enfrentar ainda) — ou quando um está do lado dele, que aí ele pega de
   // passagem. Entre os selvagens ele prefere o que VALE: shiny, alfa e nível
   // alto pesam mais que distância curta.
-  const valor = (b) => dist(b) - (b.mon.shiny || b.mon.luminoso ? 6 : 0) - (b.mon.alfa ? 5 : 0) - b.mon.level / 8;
+  const valor = (b) => dist(b) - (b.mon.shiny ? 6 : 0) - (b.mon.alfa ? 5 : 0) - b.mon.level / 8;
   let alvo = st.voando || !aguenta || dist(p) > visao ? null : p, alvoBicho = null;
   const doLado = selvagens.find((b) => dist(b) === 1);
   if (doLado) { alvo = doLado; alvoBicho = doLado; }
@@ -385,7 +385,7 @@ function espelhado(img) {
  *  fração do passo (0..1) pro pulinho; `dir` decide frente, costas ou espelho.
  *  Serve pra você e pros outros jogadores da sala (drawPeer). */
 export function desenharPokemon(ctx, ps, x, y, dir, k = 0, escala = 28, vista = null) {
-  const fake = { species: ps.species, shiny: !!ps.shiny, luminoso: !!ps.luminoso };
+  const fake = { species: ps.species, shiny: !!ps.shiny };
   const seed = 7;
   // `vista`: no isométrico quem diz frente/costas e espelho é a diagonal
   // (src/core/isometrico.js, vistaIso); fora dele, a regra de sempre
@@ -416,15 +416,15 @@ export function folhaDoJogador(st) {
 export function spriteOnline(st) {
   const ps = st?.pokesave;
   if (!ps) return folhaDoJogador(st);
-  return `mon:${ps.species}:${ps.luminoso ? "luminoso" : ps.shiny ? "shiny" : "comum"}`;
+  return `mon:${ps.species}:${ps.shiny ? "shiny" : "comum"}`;
 }
 
-/** O contrário: de "mon:..." pra { species, shiny, luminoso } (ou null). */
+/** O contrário: de "mon:..." pra { species, shiny } (ou null). */
 export function pokesaveDoSprite(sprite) {
   if (typeof sprite !== "string" || !sprite.startsWith("mon:")) return null;
   const [, species, cor] = sprite.split(":");
   if (!DB.SPECIES?.[species]) return null;
-  return { species, shiny: cor === "shiny", luminoso: cor === "luminoso" };
+  return { species, shiny: cor === "shiny" || cor === "luminoso" };   // "luminoso": quem joga a versão antiga
 }
 
 // ------------------------------------------------------------ O CATIVEIRO

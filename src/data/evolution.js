@@ -14,6 +14,7 @@ import { EVO_MAIS } from "./mais.js";
 import { EVO_HACKEANAS } from "./hackeanas.js";
 import { EVO_BRAGLITCH } from "./braglitch.js";
 import { EVO_SECRETAS } from "./secretas.js";
+import { EVO_PUROS } from "./fosseis-puros.js";
 
 export const EVOLUTIONS = {
   // OS INICIAIS DAS OUTRAS REGIÕES. As regras saem de src/data/iniciais.js,
@@ -205,6 +206,9 @@ for (const [id, regras] of Object.entries(EVO_BRAGLITCH)) {
 for (const [id, regras] of Object.entries(EVO_SECRETAS)) {
   EVOLUTIONS[id] = [...regras, ...(EVOLUTIONS[id] || [])];
 }
+
+// A FORMA PURA dos fósseis (src/data/fosseis-puros.js) evolui dentro da forma
+for (const [id, regras] of Object.entries(EVO_PUROS)) EVOLUTIONS[id] = regras;
 
 /** espécie -> a que vem ANTES dela na linha (o contrário da tabela). É por
  *  aqui que a creche acha a forma mínima de um ovo: RAI KANTO -> PIKA KANTO ->

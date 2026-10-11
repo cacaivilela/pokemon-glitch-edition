@@ -33,6 +33,7 @@ import { opcoesMega, megaEvoluir, reverterMega, reverterTudo } from "../systems/
 import { ajustarForma, saiuDaLuta } from "../systems/formas.js";
 import { PEDRA_BUGADA } from "../data/pedra-bugada.js";
 import { podeSerReal, iniciar as iniciarReal, atualizar as atualizarReal, desenhar as desenharReal } from "../systems/batalhareal.js";
+import { podeSerExplosiva, iniciar as iniciarExplosiva, atualizar as atualizarExplosiva, desenhar as desenharExplosiva } from "../systems/batalhaexplosiva.js";
 import { tocarMega } from "./mega.js";
 import { marcarSecreta } from "../systems/secretas.js";
 import { cumprirProcurado } from "../systems/bicos.js";
@@ -130,6 +131,8 @@ export class BattleScene {
 
     // TEMPO REAL (OPÇÕES, src/systems/batalhareal.js): no lugar do menu de turno, a arena
     this.modoReal = podeSerReal(this);
+    // EXPLOSIVA (OPÇÕES, src/systems/batalhaexplosiva.js): a arena de lado, tudo destrutível
+    this.modoExplosivo = !this.modoReal && podeSerExplosiva(this);
     this.run(this.intro());
   }
 
@@ -206,16 +209,16 @@ export class BattleScene {
                    vx: Math.cos(ang) * v, vy: Math.sin(ang) * v * 0.8, g: 18, gira: 0, ang: 0 });
   }
 
-  /** O BRILHO DO SHINY (e do LUMINOSO): duas ondas de estrelas saindo dele,
+  /** O BRILHO DO SHINY: duas ondas de estrelas saindo dele,
    *  umas faíscas por cima do corpo e o plim (Audio2.shiny). Uma vez por
    *  entrada: o sprite novo de cada entrada (`newSprite`) zera a marca. */
   async brilhar(who) {
     const mon = who === "p" ? this.mine : this.foe;
     const sp = this.sp[who];
-    if (!(mon?.shiny || mon?.luminoso) || sp.brilhou) return;
+    if (!mon?.shiny || sp.brilhou) return;
     sp.brilhou = true;
     const c = who === "f" ? { x: 178, y: 38 } : { x: 46, y: 80 };
-    const cores = mon.luminoso ? ["#ffffff", "#fff3b0", "#e8f6ff"] : ["#fff8c0", "#ffe060", "#ffffff"];
+    const cores = ["#fff8c0", "#ffe060", "#ffffff"];
     const cor = () => cores[Math.floor(Math.random() * cores.length)];
     Audio2.shiny();
     for (let onda = 0; onda < 2; onda++) {
@@ -327,24 +330,22 @@ export class BattleScene {
     } else if (this.isGlitch) {
       Glitch.hit(2);
       if (this.ehMissingno()) for (let i = 0; i < 40; i++) this.soltarBit(2.2);   // a rajada da chegada
-      if (this.foe.shiny || this.foe.luminoso) { await this.wait(0.5); await this.brilhar("f"); }
+      if (this.foe.shiny) { await this.wait(0.5); await this.brilhar("f"); }
       await this.say(`UM ${this.foe.nickname} SELVAGEM APARECEU!`);
       const sp = DB.SPECIES[this.foe.species];
-      if (this.foe.luminoso) await this.say("A LUZ DELE NÃO VEM DE LUGAR NENHUM. ELE É A LUZ.");
-      else if (this.foe.shiny) await this.say("A COR DELE ESTÁ ERRADA. OU CERTA DEMAIS. ELE BRILHA.");
+      if (this.foe.shiny) await this.say("A COR DELE ESTÁ ERRADA. OU CERTA DEMAIS. ELE BRILHA.");
       // cada espécie da fenda tem a frase dela (src/data/extra.js -> LORE)
       if (sp?.lore) await this.say(sp.dexText);
       else if (sp?.foreign) await this.say("ESTE POKÉMON NÃO É DE KANTO. NEM DESTE MUNDO.");
-      else if (!this.foe.shiny && !this.foe.luminoso) await this.say("ESTE POKÉMON NÃO CONSTA NA POKÉDEX. NEM NO CARTUCHO.");
+      else if (!this.foe.shiny) await this.say("ESTE POKÉMON NÃO CONSTA NA POKÉDEX. NEM NO CARTUCHO.");
     } else {
       // o SHINY brilha assim que chega, antes de qualquer texto
-      if (this.foe.shiny || this.foe.luminoso) { await this.wait(0.5); await this.brilhar("f"); }
+      if (this.foe.shiny) { await this.wait(0.5); await this.brilhar("f"); }
       await this.say(`UM ${this.foe.nickname}${this.foe.alfa ? " ALFA" : ""} SELVAGEM APARECEU!`);
       // um que VOCÊ SOLTOU (src/systems/soltos.js): é ele mesmo, de volta
       if (this.foe.soltoId) await this.say(`ESPERA... É O ${this.foe.nickname} QUE VOCÊ SOLTOU AQUI!`);
       if (this.foe.alfa) { Glitch.hit(0.6); await this.say("ELE É MAIOR QUE O NORMAL. E NÃO VAI FUGIR."); }
-      if (this.foe.luminoso) await this.say("ESSE NÃO TEM COR: TEM LUZ. UM EM 9999 NASCE ASSIM.");
-      else if (this.foe.shiny) await this.say("A COR DELE NÃO É A DE SEMPRE. ESSE AÍ É RARO.");
+      if (this.foe.shiny) await this.say("A COR DELE NÃO É A DE SEMPRE. ESSE AÍ É RARO.");
     }
     await this.say(`VAI, ${this.mine.nickname}!`);
     if (this.clima) await this.say(DB.CLIMA_TEXTO[this.clima.tipo].continua);
@@ -458,7 +459,7 @@ export class BattleScene {
     }
     let chance = pct < 0.15 ? 0.9 : pct < 0.3 ? 0.6 : pct < 0.5 ? 0.3 : 0;
     if (this.foe.status) chance += 0.2;
-    if (this.foe.shiny || this.foe.luminoso || this.foe.alfa) chance += 0.2;
+    if (this.foe.shiny || this.foe.alfa) chance += 0.2;
     return Math.random() < chance;
   }
 
@@ -678,7 +679,7 @@ export class BattleScene {
   async useMove(who, moveRef) {
     // em TEMPO REAL o inimigo ataca sozinho na arena: a "vez dele" depois de
     // uma bola, poção ou troca não existe
-    if (this.modoReal && who === "f") return;
+    if ((this.modoReal || this.modoExplosivo) && who === "f") return;
     const user = who === "p" ? this.mine : this.foe;
     const target = who === "p" ? this.foe : this.mine;
     const uStages = who === "p" ? this.pStages : this.fStages;
@@ -1477,6 +1478,11 @@ export class BattleScene {
 
     if (this.dlg.update(dt)) return;
     // TEMPO REAL: toda vez que a batalha chegaria no menu de turno, é a arena
+    if (this.modoExplosivo) {
+      if (this.menu?.type === "main") { this.menu = null; iniciarExplosiva(this); }
+      if (!this.busy && this.explosiva) atualizarExplosiva(this, dt);
+      return;
+    }
     if (this.modoReal) {
       if (this.menu?.type === "main") { this.menu = null; iniciarReal(this); }
       if (!this.busy && this.arena) atualizarReal(this, dt);
@@ -1603,6 +1609,7 @@ export class BattleScene {
   // ---------------------------------------------------------- render
   render(ctx) {
     if (this.modoReal && this.arena) return this.renderReal(ctx);
+    if (this.modoExplosivo && this.explosiva) return this.renderExplosiva(ctx);
     const sx = this.shake > 0 ? Math.round(Math.sin(this.t * 90) * 3 * (this.shake / 0.25)) : 0;
     ctx.save();
     ctx.translate(sx, 0);
@@ -1736,6 +1743,16 @@ export class BattleScene {
    *  nova são dez linhas em src/systems/cutscenes.js, e nunca um render novo.
    *  Nada de antialias — em 240x160 borda borrada vira sujeira. */
   /** a arena do TEMPO REAL (src/systems/batalhareal.js), com a fala e o fade de sempre por cima */
+  renderExplosiva(ctx) {
+    ctx.save();
+    if (this.shake > 0) ctx.translate(Math.round((Math.random() - 0.5) * 5), Math.round((Math.random() - 0.5) * 5));
+    desenharExplosiva(this, ctx);
+    ctx.restore();
+    this.dlg.render(ctx);
+    if (this.flash > 0) fade(ctx, this.flash, "#ffffff");
+    if (this.fadeA > 0) fade(ctx, this.fadeA);
+  }
+
   renderReal(ctx) {
     ctx.save();
     if (this.shake > 0) ctx.translate(Math.round((Math.random() - 0.5) * 4), Math.round((Math.random() - 0.5) * 4));
@@ -1823,9 +1840,9 @@ export class BattleScene {
     const w = showHp ? 112 : 100;
     const h = showHp ? 40 : 30;
     panel(ctx, x, y, w, h);
-    const marca = mon.luminoso ? "☼" : mon.shiny ? "*" : "";
+    const marca = mon.shiny ? "*" : "";
     drawText(ctx, marca + mon.nickname.slice(0, 10), x + 6, y + 5,
-      mon.luminoso ? "#fff3b0" : mon.shiny ? "#d8a828" : mon.corrupt ? PAL.glitch : PAL.ink);
+      mon.shiny ? "#d8a828" : mon.corrupt ? PAL.glitch : PAL.ink);
     // o "M" é da MEGA; as formas de batalha (CARDUME, HERÓI) usam o mesmo
     // caminho e não são MEGA
     if (mon.megaDe && !DB.SPECIES[mon.species]?.formaDe) drawText(ctx, "M", x + w - 34, y + 5, PAL.glitch);

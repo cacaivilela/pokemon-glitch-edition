@@ -2,7 +2,8 @@
 // Trocar por PNGs depois e so mudar Assets.tiles / Assets.mons.
 import { makeRng } from "./rng.js";
 import { DB } from "../data/index.js";
-import { SpriteStore, loadImage, pedirMon, pedirMonShiny, pedirMonUrl, pedirAnim, pedirAnimDoJogador, quadroAnim } from "./sprites.js";
+import { reduzido } from "./reduzir.js";
+import { SpriteStore, loadImage, pedirMon, pedirMonShiny, pedirMonUrl, pedirAnim, pedirAnimDoJogador, quadroAnim, pedirAndar, quadroAndar } from "./sprites.js";
 import { url as arquivo } from "./base.js";
 import { corpoBombado, CORPO } from "./diglettbombado.js";
 
@@ -783,183 +784,6 @@ function fusaoSprite(sp, lado, seed) {
 /** "#de8b4a" -> [222, 139, 74] */
 const corDeHex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 
-// ---------------------------------------------------------- o LUMINOSO
-function paraHsl(r, g, b) {
-  r /= 255; g /= 255; b /= 255;
-  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
-  if (mx === mn) return [0, 0, l];
-  const d = mx - mn, s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
-  const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
-  return [h * 60, s, l];
-}
-function deHsl(h, s, l) {
-  const f = (n) => {
-    const k = (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
-    return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))));
-  };
-  return [f(0), f(8), f(4)];
-}
-
-/** O REPAGINADO: as cores do shiny mais claras e mais vivas; o contorno (quase
- *  preto) e o branco ficam como estão, pra o desenho não virar borrão. */
-function repaginar(px) {
-  for (let i = 0; i < px.length; i += 4) {
-    if (!px[i + 3]) continue;
-    const [h, s, l] = paraHsl(px[i], px[i + 1], px[i + 2]);
-    if (l < 0.16 || l > 0.94) continue;
-    const [r, g, b] = deHsl(h, Math.min(1, s * 1.35 + 0.08), Math.min(0.9, l * 0.8 + 0.2));
-    px[i] = r; px[i + 1] = g; px[i + 2] = b;
-  }
-}
-
-/** Troca as cores por FAIXA DE MATIZ: cada regra pega os pixels daquela cor
- *  (`h`: [de, até] em graus, `s`: saturação mínima) e põe na rampa dela, do
- *  claro pro escuro, pela luz do pixel. O resto (contorno, cinza, olho) fica. */
-function pintarPorMatiz(px, regras) {
-  for (let i = 0; i < px.length; i += 4) {
-    if (!px[i + 3]) continue;
-    const [hh, ss, ll] = paraHsl(px[i], px[i + 1], px[i + 2]);
-    // `cinza`: [luz mínima, máxima] pega os cinzas e pretos (sem cor), deixando
-    // de fora o contorno mais escuro e o branco
-    const r = regras.find((g) => (g.cinza
-      ? ss < 0.12 && ll >= g.cinza[0] && ll <= g.cinza[1]
-      : hh >= g.h[0] && hh <= g.h[1] && ss >= (g.s ?? 0.2)));
-    if (!r) continue;
-    const k = ll > 0.55 ? 0 : ll > 0.33 ? 1 : ll > 0.2 ? 2 : 3;
-    const nova = r.rampa[Math.min(k, r.rampa.length - 1)];
-    px[i] = nova[0]; px[i + 1] = nova[1]; px[i + 2] = nova[2];
-  }
-}
-
-/** As LUMINOSAS PINTADAS À MÃO: o que cada cor do sprite de sempre vira. Vale
- *  pra qualquer desenho da espécie (o parado, o de costas, o animado), porque
- *  separa as partes pela cor — não pela posição exata do pixel. */
-// as rampas (do claro pro escuro) que as pinturas usam
-const RAMPA = {
-  indigo: [[100, 116, 236], [66, 74, 200], [44, 46, 152], [30, 30, 104]],
-  chamaAzul: [[206, 244, 255], [124, 212, 248], [70, 160, 222]],
-  ouro: [[255, 216, 92], [228, 172, 40], [172, 118, 24], [120, 80, 16]],
-  jade: [[124, 232, 174], [62, 192, 132], [32, 142, 98], [20, 96, 66]],
-  cascoVermelho: [[255, 228, 156], [204, 72, 62], [144, 40, 44], [96, 26, 30]],
-  verdeEscuro: [[72, 150, 72], [44, 112, 52], [28, 80, 38], [18, 56, 26]],
-  vermelho: [[240, 92, 80], [200, 48, 48], [150, 30, 36], [100, 20, 26]],
-  azul: [[120, 176, 255], [62, 112, 232], [36, 70, 170]],
-  rosa: [[255, 176, 214], [238, 124, 182], [192, 82, 142], [140, 54, 104]],
-  magenta: [[252, 146, 204], [228, 92, 164], [172, 58, 122], [120, 36, 86]],
-  lavanda: [[238, 218, 255], [204, 176, 242], [160, 130, 210]],
-  celeste: [[146, 204, 255], [94, 162, 238], [62, 116, 192], [42, 80, 142]],
-  perola: [[255, 242, 250], [242, 204, 228], [212, 164, 198]],
-  abobora: [[255, 172, 74], [240, 130, 42], [192, 88, 28], [132, 58, 20]],
-  verdeLuz: [[170, 255, 128], [96, 222, 84], [56, 160, 50]],
-  lilas: [[242, 194, 255], [214, 152, 242], [170, 112, 212], [122, 78, 162]],
-  morango: [[252, 124, 144], [216, 72, 102], [162, 44, 72], [112, 28, 50]],
-  chantilly: [[255, 248, 238], [242, 222, 208], [212, 188, 172]],
-  menta: [[186, 255, 216], [124, 232, 182], [72, 182, 142]],
-  roxo: [[204, 144, 255], [154, 94, 222], [110, 60, 172]],
-  marinho: [[74, 84, 146], [48, 54, 108], [32, 36, 76], [22, 24, 54]],
-  violeta: [[202, 142, 255], [162, 98, 232], [118, 62, 182], [82, 42, 132]],
-  ciano: [[164, 242, 255], [94, 204, 242], [52, 152, 204]],
-  ouroClaro: [[255, 244, 212], [238, 214, 160], [198, 170, 110], [152, 126, 80]],
-  carmim: [[242, 92, 112], [202, 52, 82], [142, 32, 58]],
-  nuvem: [[192, 220, 255], [146, 186, 246], [100, 142, 220], [60, 88, 168]],
-};
-const faixa = (de, ate, rampa, s = 0.2) => ({ h: [de, ate], s, rampa: RAMPA[rampa] });
-
-export const LUMINOSO_PINTURA = {
-  // ---- a CHAMA AZUL: o fogo da linha CHARMANDER queimando frio
-  charmander(px) { pintarPorMatiz(px, [faixa(28, 62, "chamaAzul"), faixa(0, 28, "indigo"), faixa(345, 360, "indigo")]); },
-  charmeleon(px) { pintarPorMatiz(px, [faixa(28, 62, "chamaAzul"), faixa(0, 28, "indigo"), faixa(345, 360, "indigo")]); },
-  /** o DRAGÃO DA MEIA-NOITE: corpo índigo, chama e barriga azul-gelo, e o
-   *  dentro das asas dourado */
-  charizard(px) { pintarPorMatiz(px, [faixa(170, 215, "ouro"), faixa(28, 62, "chamaAzul"), faixa(0, 28, "indigo"), faixa(345, 360, "indigo")]); },
-  // ---- a TARTARUGA DE JADE: pele verde-jade, casco vermelho e barriga creme
-  squirtle(px) { pintarPorMatiz(px, [faixa(140, 275, "jade"), faixa(5, 62, "cascoVermelho")]); },
-  wartortle(px) { pintarPorMatiz(px, [faixa(140, 275, "jade"), faixa(5, 62, "cascoVermelho")]); },
-  blastoise(px) { pintarPorMatiz(px, [faixa(170, 275, "jade"), faixa(5, 62, "cascoVermelho")]); },
-  // ---- a linha do BULBASAUR do jeito que você escolheu: verde-escuro, planta vermelha, flor azul
-  ivysaur(px) { pintarPorMatiz(px, [faixa(150, 205, "verdeEscuro", 0.15), faixa(65, 115, "vermelho"), faixa(320, 360, "azul", 0.3), faixa(0, 15, "azul", 0.4)]); },
-  venusaur(px) { pintarPorMatiz(px, [faixa(120, 175, "verdeEscuro", 0.15), faixa(80, 120, "vermelho"), faixa(340, 360, "azul", 0.3), faixa(0, 28, "azul", 0.3)]); },
-  /** PIKACHU DE ALGODÃO-DOCE: rosa, as listras roxas e a bochecha de choque azul */
-  pikachu(px) { pintarPorMatiz(px, [faixa(40, 70, "rosa"), faixa(22, 40, "roxo"), faixa(0, 15, "ciano", 0.4)]); },
-  raichu(px) { pintarPorMatiz(px, [faixa(22, 40, "magenta"), faixa(40, 65, "lavanda"), faixa(0, 22, "ciano", 0.4)]); },
-  /** EEVEE CELESTE: azul-céu com a gola de pérola */
-  eevee(px) { pintarPorMatiz(px, [faixa(15, 40, "celeste"), faixa(40, 65, "perola", 0.1)]); },
-  /** GENGAR ABÓBORA: laranja de Halloween e os olhos verdes acesos */
-  gengar(px) { pintarPorMatiz(px, [faixa(280, 360, "abobora"), faixa(0, 15, "verdeLuz", 0.4)]); },
-  /** GYARADOS DE JADE E OURO */
-  gyarados(px) { pintarPorMatiz(px, [faixa(190, 255, "jade"), faixa(40, 70, "ouro")]); },
-  /** DRAGONITE LILÁS de asas douradas */
-  dragonite(px) { pintarPorMatiz(px, [faixa(160, 200, "ouro"), faixa(25, 70, "lilas")]); },
-  /** SNORLAX MORANGO COM CHANTILLY */
-  snorlax(px) { pintarPorMatiz(px, [faixa(125, 175, "morango", 0.12), faixa(25, 70, "chantilly", 0.1)]); },
-  /** JIGGLYPUFF DE NUVEM: azul bem clarinho, de algodão, com os olhos rosa */
-  jigglypuff(px) { pintarPorMatiz(px, [faixa(225, 270, "rosa"), faixa(0, 25, "nuvem"), faixa(340, 360, "nuvem")]); },
-  /** PSYDUCK LILÁS */
-  psyduck(px) { pintarPorMatiz(px, [faixa(20, 65, "lilas")]); },
-  /** UMBREON DA MADRUGADA: o preto vira azul-marinho, os anéis rosa e os olhos dourados */
-  umbreon(px) { pintarPorMatiz(px, [{ cinza: [0.12, 0.6], rampa: RAMPA.marinho }, faixa(30, 70, "magenta"), faixa(0, 15, "ouro", 0.4)]); },
-  /** MAGIKARP VIOLETA de barbatanas ciano */
-  magikarp(px) { pintarPorMatiz(px, [faixa(40, 75, "ciano"), faixa(0, 30, "violeta"), faixa(345, 360, "violeta")]); },
-  /** MEWTWO DOURADO de cauda carmim */
-  mewtwo(px) { pintarPorMatiz(px, [faixa(255, 310, "carmim"), faixa(200, 255, "ouroClaro", 0.08)]); },
-
-  /** BULBASAUR: o corpo verde-escuro, o bulbo vermelho, e os olhos e a boca
-   *  (que são vermelhos) azuis. */
-  bulbasaur(px) {
-    pintarPorMatiz(px, [
-      { h: [135, 205], s: 0.15, rampa: [[72, 150, 72], [44, 112, 52], [28, 80, 38], [18, 56, 26]] },
-      { h: [65, 115], s: 0.2, rampa: [[240, 92, 80], [200, 48, 48], [150, 30, 36], [100, 20, 26]] },
-      { h: [0, 15], s: 0.4, rampa: [[120, 176, 255], [62, 112, 232], [36, 70, 170]] },
-      { h: [340, 360], s: 0.4, rampa: [[120, 176, 255], [62, 112, 232], [36, 70, 170]] },
-    ]);
-  },
-  /** LUCARIO: o azul virou verde, o pelo creme do peito, amarelo, e o preto da
-   *  máscara e das patas, azul-claro, e os olhos vermelhos, rosa. O contorno fica. */
-  lucario(px) {
-    pintarPorMatiz(px, [
-      { cinza: [0.15, 0.6], rampa: [[150, 214, 250], [104, 180, 236], [70, 142, 210], [52, 108, 176]] },
-      // os olhos vermelhos, rosa
-      { h: [0, 15], s: 0.4, rampa: [[255, 156, 206], [236, 96, 164], [182, 58, 122]] },
-      { h: [340, 360], s: 0.4, rampa: [[255, 156, 206], [236, 96, 164], [182, 58, 122]] },
-      { h: [180, 245], s: 0.3, rampa: [[120, 222, 92], [58, 168, 62], [26, 104, 44], [16, 66, 30]] },
-      { h: [45, 75], s: 0.25, rampa: [[252, 228, 70], [224, 180, 32], [156, 114, 20]] },
-    ]);
-  },
-  /** MIMIKYU: o disfarce virou um PIKACHU de verdade — o pano no amarelo do
-   *  PIKACHU, as bochechas vermelhas, e o rabo amarelo com a base marrom, do
-   *  jeitinho do rabo do PIKACHU. */
-  mimikyu(px, w, h) {
-    const AMARELO = [[250, 214, 40], [222, 172, 20], [150, 104, 14]];   // claro, sombra, escuro
-    const VERMELHO = [[232, 52, 44], [168, 30, 30]];
-    const MARROM = [[150, 92, 40], [104, 62, 26], [70, 42, 18]];
-    // o RABO é o marrom de madeira: acha onde ele começa e termina
-    const ehRabo = (hh, ss, ll) => hh >= 15 && hh <= 40 && ss >= 0.25 && ll >= 0.12 && ll <= 0.55;
-    let x0 = w, x1 = -1;
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4;
-      if (!px[i + 3]) continue;
-      const [hh, ss, ll] = paraHsl(px[i], px[i + 1], px[i + 2]);
-      if (ehRabo(hh, ss, ll)) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); }
-    }
-    // a base do rabo é o lado que encosta no corpo: o do meio do desenho
-    const baseEsq = Math.abs(x0 - w / 2) < Math.abs(x1 - w / 2);
-    const corte = baseEsq ? x0 + (x1 - x0) * 0.35 : x1 - (x1 - x0) * 0.35;
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4;
-      if (!px[i + 3]) continue;
-      const [hh, ss, ll] = paraHsl(px[i], px[i + 1], px[i + 2]);
-      let nova = null;
-      const tom = (rampa) => rampa[ll > 0.62 ? 0 : ll > 0.4 ? 1 : 2] || rampa[rampa.length - 1];
-      if (ehRabo(hh, ss, ll)) {
-        const naBase = baseEsq ? x < corte : x > corte;
-        nova = naBase ? MARROM[ll > 0.4 ? 0 : ll > 0.25 ? 1 : 2] : tom(AMARELO);
-      } else if (hh >= 15 && hh <= 35 && ss > 0.7 && ll > 0.3) nova = VERMELHO[ll > 0.45 ? 0 : 1];   // bochecha
-      else if (hh >= 35 && hh <= 70 && ss > 0.15 && ll > 0.2) nova = tom(AMARELO);                  // o pano
-      if (nova) { px[i] = nova[0]; px[i + 1] = nova[1]; px[i + 2] = nova[2]; }
-    }
-  },
-};
-
 export const Assets = {
   tiles: null, actors: null, shapes: null, ball: null, rustle: null, rocha: null, bloco: null,
   init() {
@@ -1051,47 +875,6 @@ export const Assets = {
     return cv;
   },
 
-  /** versao LUMINOSA: o SHINY REPAGINADO, aceso.
-   *
-   *  É 1 em 9999, então ele parte do shiny (a cor rara) e vai além: as cores
-   *  do shiny ficam mais claras e mais vivas, o contorno continua escuro, e a
-   *  luz vaza pela borda. Quando aparece no mato, num sprite de 32 pixels, do
-   *  outro lado da tela, tem que dar pra ver de longe — senão a cor mais rara
-   *  do jogo passa despercebida, que é o mesmo que não existir.
-   *
-   *  `pintura` (LUMINOSO_PINTURA, abaixo): algumas espécies têm a luminosa
-   *  pintada à mão, cor por cor, em cima do sprite de sempre — o MIMIKYU é um
-   *  PIKACHU de verdade. Sem ela, é o repaginado.
-   *
-   *  O halo é a silhueta borrada POR BAIXO: só aparece onde o bicho não
-   *  cobre, então o desenho continua sendo o desenho, com luz em volta. */
-  luminoso(img, pintura = null) {
-    if (!img) return img;
-    if (!this._lum) this._lum = new Map();
-    const chave = pintura ? `${pintura}` : "repaginado";
-    let porImg = this._lum.get(img);
-    if (!porImg) this._lum.set(img, (porImg = {}));
-    if (porImg[chave]) return porImg[chave];
-    // as cores primeiro, num canvas à parte
-    const { cv: cor, ctx: c2 } = makeCanvas(img.width, img.height);
-    c2.drawImage(img, 0, 0);
-    try {
-      const d = c2.getImageData(0, 0, img.width, img.height);
-      (LUMINOSO_PINTURA[pintura] || repaginar)(d.data, img.width, img.height);
-      c2.putImageData(d, 0, 0);
-    } catch { /* canvas sem leitura de pixel: fica a cor que veio */ }
-    // e o halo por baixo
-    const { cv, ctx } = makeCanvas(img.width, img.height);
-    ctx.globalAlpha = 0.85;
-    ctx.filter = "blur(2px)";
-    ctx.drawImage(this.silhueta(img), 0, 0);
-    ctx.globalAlpha = 1;
-    ctx.filter = "none";
-    ctx.drawImage(cor, 0, 0);
-    porImg[chave] = cv;
-    return cv;
-  },
-
   /** O SPINDA: as quatro manchas carimbadas pelo valor de personalidade.
    *
    *  É a conta do jogo original (DrawSpindaSpots, no decomp), e está explicada
@@ -1166,16 +949,7 @@ export const Assets = {
    *  próprias e não dá pra adivinhar isso olhando o canvas. */
   comCor(img, mon, costas = false) {
     let out = img;
-    if (mon?.luminoso) {
-      // o LUMINOSO é o shiny repaginado: parte da arte shiny (a oficial, ou o
-      // filtro). Quem tem pintura própria (o MIMIKYU) pinta em cima da de sempre.
-      // Os escolhidos à mão (LUMINOSO_PINTURA: MIMIKYU, LUCARIO, BULBASAUR) têm a
-      // pintura deles, em cima da arte de sempre; o resto é o shiny repaginado.
-      const base = mon.megaDe || mon.species;
-      if (LUMINOSO_PINTURA[base]) out = this.luminoso(img, base);
-      else out = this.luminoso((mon.species && this.monShiny(mon.species, costas)) || this.shiny(img));
-    }
-    else if (mon?.shiny) {
+    if (mon?.shiny) {
       // o SPINDA shiny é carimbado na rampa verde; só a frente, como no original
       const spinda = mon.species === "spinda" && !costas ? this.spinda(mon.seed, true) : null;
       out = spinda || (mon.species && this.monShiny(mon.species, costas)) || this.shiny(img);
@@ -1254,7 +1028,7 @@ export const Assets = {
     return this.placeholder(id, seed);
   },
 
-  /** O QUADRO ANIMADO do Pokémon agora, já com a cor dele (luminoso, alfa) —
+  /** O QUADRO ANIMADO do Pokémon agora, já com a cor dele (shiny, alfa) —
    *  ou null, e quem desenha usa o sprite parado. Os quadros vêm do B/W e do
    *  Showdown (tools/fetch_bw_anim.py) ou foram gerados do desenho parado
    *  (tools/anima_proprios.py: -BRAG, FORMA ÚNICA). Ficam de fora: fusão,
@@ -1262,17 +1036,136 @@ export const Assets = {
    *  o shiny (a arte shiny é a parada). */
   monAnim(mon, costas, ms) {
     const sp = mon && DB.SPECIES[mon.species];
-    if (!sp || sp.fusao || sp.hack || mon.shiny || mon.species === "spinda") return null;
-    // o LUMINOSO é o shiny repaginado, e o shiny é parado; só quem tem pintura
-    // própria (MIMIKYU, LUCARIO...) anima, porque a pintura separa as partes pela cor
-    if (mon.luminoso && !LUMINOSO_PINTURA[mon.megaDe || mon.species]) return null;
+    if (!sp || sp.fusao || sp.hack || mon.species === "spinda") return null;
+    // o SHINY anima com a cor trocada quadro a quadro (shinyAnimado)
     // a FORMA ÚNICA é achada pelo nome do arquivo dela (assets/unicas/<nome>.png)
     const unica = sp.spriteUrl ? "u/" + sp.spriteUrl.split("/").pop().replace(/\.png$/, "") : null;
     // a animação que o próprio jogador desenhou (UNIQUEMON) vem antes da gerada
     if (sp.animacao) pedirAnimDoJogador(sp.id || mon.species, sp.animacao);
     else pedirAnim(sp.id || mon.species, unica || sp.spriteDex || sp.dex);
     const q = quadroAnim(sp.id || mon.species, costas, ms, !!unica);
-    return q ? this.comCor(q, mon, costas) : null;
+    if (!q) return null;
+    if (!mon.shiny) return this.comCor(q, mon, costas);
+    // de costas a forma única usa a frente (frenteServe), e a troca também
+    const lado = costas && SpriteStore.anim[sp.id || mon.species]?.c ? true : false;
+    const s = this.shinyAnimado(q, sp.id || mon.species, lado);
+    if (!s) return null;                 // a troca ainda não dá: fica o shiny parado
+    return mon.alfa ? this.alfa(s) : s;
+  },
+
+  /** O SHINY ANDANDO: a animação do B/W só existe na cor de sempre, mas o
+   *  sprite PARADO tem as duas (comum e shiny), pixel por pixel o mesmo
+   *  desenho. Comparando os dois sai a troca de cor (cada cor comum -> a cor
+   *  shiny que mais aparece no lugar dela), e ela é aplicada em cada quadro.
+   *  Cor do quadro que o parado não tem vai pela mais próxima. Sem o par (ou
+   *  com desenhos de tamanhos diferentes), null: fica o shiny parado. */
+  shinyAnimado(quadro, id, costas) {
+    const mapa = this.trocaShiny(id, costas);
+    // sem arte shiny nenhuma pra comparar: o filtro de sempre, em cada quadro
+    if (!mapa) return SpriteStore.semShiny?.has(`${id}:${costas ? "c" : "f"}`) ? this.shiny(quadro) : null;
+    if (!this._shinyAnim) this._shinyAnim = new Map();
+    const hit = this._shinyAnim.get(quadro);
+    if (hit) return hit;
+    const { cv, ctx } = makeCanvas(quadro.width, quadro.height);
+    ctx.drawImage(quadro, 0, 0);
+    const dados = ctx.getImageData(0, 0, cv.width, cv.height);
+    const d = dados.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (!d[i + 3]) continue;
+      const c = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+      let n = mapa.troca.get(c);
+      if (n === undefined) {
+        // a mais próxima entre as cores que o parado tem (e guarda o achado)
+        let melhor = Infinity;
+        for (const [k, v] of mapa.lista) {
+          const dr = (k >> 16) - d[i], dg = ((k >> 8) & 255) - d[i + 1], db = (k & 255) - d[i + 2];
+          const dist = dr * dr * 3 + dg * dg * 4 + db * db * 2;
+          if (dist < melhor) { melhor = dist; n = v; }
+        }
+        mapa.troca.set(c, n);
+      }
+      d[i] = n >> 16; d[i + 1] = (n >> 8) & 255; d[i + 2] = n & 255;
+    }
+    ctx.putImageData(dados, 0, 0);
+    this._shinyAnim.set(quadro, cv);
+    return cv;
+  },
+
+  /** a troca comum -> shiny de uma espécie (um lado), lida do par de PNGs parados */
+  trocaShiny(id, costas) {
+    if (!this._trocaShiny) this._trocaShiny = new Map();
+    const chave = `${id}:${costas ? "c" : "f"}`;
+    if (this._trocaShiny.has(chave)) return this._trocaShiny.get(chave);
+    const brilho = this.monShiny(id, costas);
+    const comum = costas ? SpriteStore.pokemonBack[id] : SpriteStore.pokemon[id];
+    if (!comum) this.mon(id);                                   // pede o comum também
+    if (!brilho || !comum) return null;                         // ainda chegando: tenta de novo depois
+    let mapa = null;
+    if (brilho.width === comum.width && brilho.height === comum.height) {
+      const ler = (img) => {
+        const { ctx } = makeCanvas(img.width, img.height);
+        ctx.drawImage(img, 0, 0);
+        return ctx.getImageData(0, 0, img.width, img.height).data;
+      };
+      const a = ler(comum), b = ler(brilho);
+      const votos = new Map();
+      let iguais = 0, total = 0;
+      for (let i = 0; i < a.length; i += 4) {
+        if (!a[i + 3] || !b[i + 3]) continue;
+        const ca = (a[i] << 16) | (a[i + 1] << 8) | a[i + 2];
+        const cb = (b[i] << 16) | (b[i + 1] << 8) | b[i + 2];
+        let v = votos.get(ca);
+        if (!v) votos.set(ca, (v = new Map()));
+        v.set(cb, (v.get(cb) || 0) + 1);
+        total++;
+      }
+      const troca = new Map();
+      for (const [ca, v] of votos) {
+        let melhor = 0, cor = ca;
+        for (const [cb, n] of v) if (n > melhor) { melhor = n; cor = cb; }
+        troca.set(ca, cor);
+        iguais += melhor;
+      }
+      // desenhos que não batem (a maioria dos pixels discordando) não servem
+      if (total && iguais / total > 0.8) mapa = { troca, lista: [...troca] };
+    }
+    this._trocaShiny.set(chave, mapa);
+    return mapa;
+  },
+
+  /** O POKÉMON ANDANDO NO MAPA (companheiro, selvagens): o quadro dele virado
+   *  pra `dir` (down/up/left/right) naquele instante, com a cor dele — ou null
+   *  (quem não tem: forma -BRAG, MEGA, regional, fusão, forma única...). A cor
+   *  é o filtro em cima do quadro: a arte shiny oficial é de batalha. */
+  monAndando(mon, dir, ms) {
+    const sp = mon && DB.SPECIES[mon.species];
+    if (!sp || sp.fusao || sp.hack || sp.spriteUrl || mon.species === "spinda") return null;
+    const dex = sp.spriteDex || sp.dex;
+    if (!dex || dex > 1025) return null;
+    const id = sp.id || mon.species;
+    pedirAndar(id, dex);
+    const q = quadroAndar(id, { down: "baixo", up: "cima", left: "esq", right: "dir" }[dir] || "baixo", ms);
+    if (!q) return null;
+    const out = mon.shiny ? this.shiny(q) : q;
+    return mon.alfa ? this.alfa(out) : out;
+  },
+
+  /** O POKÉMON VIVO FORA DA BATALHA (menu EQUIPE, PC, Pokédex, companheiro):
+   *  desenha `mon` na caixa `lado` x `lado` em (x, y). Com animação, é o quadro
+   *  de agora, na proporção dele e com os pés no chão da caixa (cada bicho no
+   *  seu compasso, pelo seed); sem, o desenho parado de sempre, com a cor dele. */
+  desenhaVivo(ctx, mon, x, y, lado, costas = false) {
+    if (!mon) return;
+    const anim = this.monAnim(mon, costas, performance.now() + ((mon.seed || 0) % 997) * 7);
+    if (anim) {
+      const k = lado / 64;
+      let w = Math.max(1, Math.round(anim.width * k)), h = Math.max(1, Math.round(anim.height * k));
+      if (w > lado || h > lado) { const f = lado / Math.max(w, h); w = Math.round(w * f); h = Math.round(h * f); }
+      ctx.drawImage(reduzido(anim, w, h), Math.round(x + (lado - w) / 2), Math.round(y + lado - h), w, h);
+      return;
+    }
+    const base = costas ? this.monBack(mon.species, mon.seed) : this.mon(mon.species, mon.seed);
+    if (base) ctx.drawImage(reduzido(this.comCor(base, mon, costas), lado), x, y, lado, lado);
   },
 
   /** sprite de costas (do jogador na batalha) */

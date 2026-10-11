@@ -281,8 +281,7 @@ export class LinkBattleScene {
       ...(lado.ativos ? { ativos: lado.ativos } : {}),
       time: lado.time.map((m) => ({
         species: m.species, nickname: m.nickname, level: m.level,
-        hp: m.hp, maxHp: m.maxHp, status: m.status, shiny: !!m.shiny,
-        luminoso: !!m.luminoso, seed: m.seed,
+        hp: m.hp, maxHp: m.maxHp, status: m.status, shiny: !!(m.shiny || m.luminoso), seed: m.seed,
         pps: (m.moves || []).map((g) => g.pp),
       })),
     });

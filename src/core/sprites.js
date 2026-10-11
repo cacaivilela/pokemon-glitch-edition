@@ -19,6 +19,7 @@ export const SpriteStore = {
   pokemonShiny: {},     // id -> a arte shiny oficial, quando o PNG existe
   pokemonShinyBack: {},
   anim: {},         // id -> {f, c}: os quadros animados do B/W, quando existem
+  andar: {},        // id -> {baixo, cima, esq, dir}: andando no mapa (PMD, tools/fetch_andar.py)
   overworld: {},    // nome -> {down,up,left,right} com 4 frames cada
   trainers: {},     // nome -> retrato de batalha 64x64
   estatuas: {},     // nome -> a figura de uma estátua (assets/sprites/estatuas/)
@@ -323,6 +324,51 @@ function fatiar(img, [w, h, col, crus]) {
   return { quadros, fim: tempos.map((ms) => (soma += ms)), total: soma };
 }
 
+/** OS POKÉMON ANDANDO NO MAPA (tools/fetch_andar.py, sprites do PMD
+ *  SpriteCollab): uma folha com 4 linhas — baixo, cima, esquerda, direita —
+ *  de `n` quadros cada, e o tempo de cada quadro em andar/andar.json. */
+let indiceAndar = null;
+const pedidosAndar = new Set();
+const LINHAS_ANDAR = ["baixo", "cima", "esq", "dir"];
+
+export function pedirAndar(id, dex) {
+  if (!id || !dex || pedidosAndar.has(id)) return;
+  pedidosAndar.add(id);
+  indiceAndar ||= fetch(url("assets/sprites/pokemon/andar/andar.json"))
+    .then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+  indiceAndar.then(async (indice) => {
+    const e = indice[pad3(dex)];
+    if (!e) return;
+    const img = await loadImage(url(`assets/sprites/pokemon/andar/${pad3(dex)}.png`));
+    if (!img) return;
+    const [w, h, n, tempos] = e;
+    const out = {};
+    LINHAS_ANDAR.forEach((lado, linha) => {
+      const quadros = Array.from({ length: n }, (_, i) => {
+        const cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        const c = cv.getContext("2d");
+        c.imageSmoothingEnabled = false;
+        c.drawImage(img, i * w, linha * h, w, h, 0, 0, w, h);
+        return cv;
+      });
+      let soma = 0;
+      out[lado] = { quadros, fim: tempos.map((ms) => (soma += ms)), total: soma };
+    });
+    SpriteStore.andar[id] = out;
+  });
+}
+
+/** o quadro andando pra `lado` (baixo/cima/esq/dir) naquele instante, ou null */
+export function quadroAndar(id, lado, ms) {
+  const a = SpriteStore.andar[id]?.[lado];
+  if (!a) return null;
+  const t = ((ms % a.total) + a.total) % a.total;
+  let i = 0;
+  while (a.fim[i] <= t) i++;
+  return a.quadros[i];
+}
+
 /** A ANIMAÇÃO QUE O JOGADOR DESENHOU no UNIQUEMON pra forma única dele
  *  (`animacao` em src/data/formas-unicas.js): a folha mora junto da forma, em
  *  assets/unicas/, e ganha da animação gerada. */
@@ -361,9 +407,11 @@ export function pedirMonShiny(id, dex) {
   pedidosShiny.add(id);
   findMon("pokemon/shiny", id, dex).then((img) => {
     if (img) SpriteStore.pokemonShiny[id] = img;
+    else (SpriteStore.semShiny ||= new Set()).add(`${id}:f`);
   });
   findMon("pokemon/shiny/back", id, dex).then((img) => {
     if (img) SpriteStore.pokemonShinyBack[id] = img;
+    else (SpriteStore.semShiny ||= new Set()).add(`${id}:c`);
   });
 }
 

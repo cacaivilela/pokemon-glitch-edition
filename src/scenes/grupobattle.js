@@ -1165,7 +1165,7 @@ export class GrupoBattleScene {
     const vez = k === "p" && this.menu && !this.busy && this.vagaAtual === v;
     panel(ctx, x, y, w, h);
     if (vez) { ctx.fillStyle = "#ffd166"; ctx.fillRect(x + 2, y + 2, 2, h - 4); }
-    const cor = mon.luminoso ? "#fff3b0" : mon.shiny ? "#d8a828" : mon.corrupt ? PAL.glitch : PAL.ink;
+    const cor = mon.shiny ? "#d8a828" : mon.corrupt ? PAL.glitch : PAL.ink;
     drawText(ctx, mon.nickname.slice(0, 9), x + 6, y + 3, cor);
     drawText(ctx, `N${mon.level}`, x + w - 26, y + 3, PAL.ink);
     const pct = Math.max(0, v.disp) / mon.maxHp;

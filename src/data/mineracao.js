@@ -1,3 +1,5 @@
+import { FOSSEIS_PUROS, PUROS_LORE, PURIFICADOR } from "./fosseis-puros.js";
+
 // A MINERAÇÃO: a parede de pedra do MONTE LUA, a picareta, o martelo e os
 // fósseis que estão lá dentro.
 //
@@ -55,6 +57,8 @@ export const ACHADOS = [
   { item: "fóssil de ave",    w: 3, cor: "#e8d8c0", desenho: "metade", forma: [[0, 0], [1, 0]] },
   { item: "fóssil de peixe",  w: 3, cor: "#80b0d0", desenho: "metade", forma: [[0, 0], [1, 0]] },
   { item: "fóssil de dragão", w: 3, cor: "#a0d0a0", desenho: "metade", forma: [[0, 0], [0, 1]] },
+  // a luz que tira a pedra dos fósseis (src/data/fosseis-puros.js); não se gasta
+  { item: "purificador",      w: 2, cor: "#f4f8ff", desenho: "estrela", forma: [[0, 0]] },
   // o resto: `qtd` é quantos saem de uma vez (sem ela, um)
   { item: "pepita",        w: 10, cor: "#f0d048", desenho: "pepita", forma: [[0, 0]] },
   { item: "pepita grande", w: 2,  cor: "#ffe860", desenho: "pepita", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] },
@@ -91,6 +95,9 @@ export const FOSSEIS = {
   "fóssil pluma": { especie: "archen", nivel: 20 },
   "ave + dragão": { especie: "dracozolt", nivel: 25, precisa: ["fóssil de ave", "fóssil de dragão"] },
   "peixe + dragão": { especie: "dracovish", nivel: 25, precisa: ["fóssil de peixe", "fóssil de dragão"] },
+  // os PURIFICADOS (src/data/fosseis-puros.js): a FORMA PURA, e as metades
+  // de Galar que revivem sozinhas
+  ...FOSSEIS_PUROS,
 };
 
 /** O que a mochila diz de cada coisa que sai da mina. */
@@ -111,6 +118,8 @@ export const MINA_LORE = {
   "pepita": "UM TORRÃO DE OURO PURO. NÃO SERVE PRA NADA A NÃO SER VENDER, E VENDE BEM.",
   "pepita grande": "UM TORRÃO DE OURO DO TAMANHO DE UM PUNHO. VENDE POR UMA FORTUNA.",
   "estrela": "UM PEDAÇO DE ESTRELA QUE CAIU NA MINA. VENDE POR UM BOM PREÇO.",
+  [PURIFICADOR.item]: PURIFICADOR.lore,
+  ...PUROS_LORE,
 };
 
 /** Preço de venda dos achados que nenhuma loja vende. */

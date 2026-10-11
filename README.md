@@ -299,15 +299,17 @@ o ginásio de CELADON...). Em Braglitch, duas fecham a saída norte da MATA DO
 SACI: é o ROÇADOR, do PANDEIRO DO MATO, que abre o caminho pras cidades.
 Derrubada, fica derrubada.
 
-## A cor: comum, shiny e LUMINOSO
+## A cor: comum e shiny
 
-Todo Pokémon que aparece tem uma cor, e são três:
+Todo Pokémon que aparece tem uma cor, e são duas:
 
 | cor | quanto | como é |
 |---|---|---|
 | comum | o resto | a arte de sempre |
 | **shiny** | 1 em 1024 | a **cor shiny de verdade** quando existe PNG dela; senão, a arte com o matiz girado |
-| **LUMINOSO** | **1 em 9999** | a mesma arte **acesa**, com o brilho vazando pela borda |
+
+O LUMINOSO (1 em 9999) saiu do jogo em out/2026: quem tinha um no save fica com
+ele shiny (`tirarLuminosos`, em `src/systems/mon.js`).
 
 **A cor do shiny.** Ela era sempre inventada: um filtro
 (`hue-rotate(150deg) saturate(1.6) brightness(1.1)`) igual pra todo mundo. Isso
@@ -324,21 +326,9 @@ jogo original, e agora mudam pouco aqui também. `dev/shinycheck.html` mede isso
 mostra comum e shiny lado a lado com o ΔE de cada espécie, e é de lá que sai a
 lista de quem precisa de arte própria.
 
-O luminoso é sorteado **antes** do shiny e ganha dele: um Pokémon é comum,
-shiny **ou** luminoso, nunca dois. Se fosse ao contrário, a cor mais rara do
-jogo só apareceria em cima de um shiny — ela viraria um enfeite de outra
-raridade em vez de ser uma raridade.
-
-E ele não é uma troca de matiz como o shiny, de propósito: as cores dele são as
-mesmas do bicho comum, só que **claras e com um halo**. Um em 9999 aparece uma
-vez na vida de quem joga, e tem que dar pra ver de longe, no mato, num sprite de
-32 pixels — senão passa despercebido, que é o mesmo que não existir. Na etiqueta
-da batalha ele leva um **☼** antes do nome (o shiny leva `*`).
-
 Onde a cor conta: no bicho andando na **grama**, na batalha (sua e a do link),
-na **fusão** — a luz pega igual ao brilho, e ganha dele — e no **leilão**, onde
-o shiny paga o dobro e o luminoso paga **cinco vezes**. O **sanduíche amargo**
-do acampamento multiplica as duas chances.
+na **fusão** — o brilho pega nos dois — e no **leilão**, onde o shiny paga o
+dobro. O **sanduíche amargo** do acampamento multiplica a chance.
 
 ## O SPINDA: 4.294.967.296 desenhos
 
@@ -394,6 +384,22 @@ $300) pra quem ainda não tem a picareta. A **paleontóloga** na porta do
 laboratório de **Cinnabar** ressuscita os fósseis (nível 20; os colados de
 Galar, 25). As tabelas estão em `src/data/mineracao.js`, a tela em
 `src/scenes/mineracao.js`.
+
+**Os fósseis PURIFICADOS.** O **vendedor de MYSTERY EGG** (o do lado da
+JOY, em qualquer Centro Pokémon) dá o **PURIFICADOR** na primeira conversa —
+achou dentro de um ovo —, e ele também sai, raro, da parede da mina. Usado na mochila,
+ele escolhe um fóssil e tira dele a pedra e o tempo: o fóssil vira **fóssil
+puro** (o purificador não se gasta). No laboratório, cada fóssil puro revive
+na **FORMA PURA** — OMANYTE de madrepérola, KABUTO de âmbar, AERODACTYL de
+cristal, LILEEP branco, ANORITH de opala, CRANIDOS de marfim, SHIELDON de gelo,
+TIRTOUGA de coral, ARCHEN de penas coloridas —, com tipo novo, e ela evolui
+dentro da forma. As **metades de Galar puras** revivem SOZINHAS (uma basta;
+duas não colam, cada uma lembra que era um bicho inteiro) em três bichos que
+só existem aqui: **TURBOZOLT** (ave: o velocirraptor com a cabeça do
+DRACOZOLT), **ABISSOVISH** (peixe: o tubarão do fundo com a cabeça do
+DRACOVISH) e **DRACOSSAURO** (dragão: o pescoçudo de cauda longa). Tudo em
+`src/data/fosseis-puros.js`; os sprites em `tools/fosseis_puros/`
+(`python3 tools/fosseis_puros_sprites.py`).
 
 ## O GO PARK COMPLEX
 
@@ -460,11 +466,9 @@ do jogo onde as cruzas com o ALFA saem de propósito:
 | forma | MYSTERY EGG | SUPER |
 |---|---|---|
 | comum | 90% | 50% |
-| shiny | 5% | 20% |
+| shiny | 5,3% | 23,5% |
 | ALFA | 4% | 18% |
-| **SHINY ALFA** | 0,6% | 7% |
-| LUMINOSO | 0,3% | 3,5% |
-| **LUMINALFA** (luminoso + alfa) | 0,1% | 1,5% |
+| **SHINY ALFA** | 0,7% | 8,5% |
 
 O alfa nasce nos mesmos `alfaNiveis` acima do nível do ovo que o alfa
 selvagem (ver `src/data/config.js`), e vem com tudo que um alfa tem: tamanho,
@@ -662,8 +666,8 @@ na próxima vez que você abrir, e manda um presente, uma vez cada:
 | 120 | 10 ULTRA BALLS |
 | 151 | o **AMULETO BRILHANTE** |
 
-O **AMULETO BRILHANTE** triplica a chance de um selvagem nascer shiny (e
-luminoso) — na mesma conta do SANDUÍCHE AMARGO, então os dois somam.
+O **AMULETO BRILHANTE** triplica a chance de um selvagem nascer shiny —
+na mesma conta do SANDUÍCHE AMARGO, então os dois somam.
 
 `src/data/pokedex.js` (falas, marcos e o amuleto), `src/systems/pokedex.js`
 (as listas, visto/pego, onde vive, a evolução, os marcos) e
@@ -684,10 +688,8 @@ faz três coisas:
 - **O BRILHO PEGA** — fundir um **shiny** com um comum não deixa a cor rara pra
   trás: a fusão sai shiny e os **dois** que ficam guardados lá dentro saem shiny
   também, então separar depois devolve os dois brilhando. É a única coisa que a
-  máquina escreve por cima do que entrou — e não tem volta. **A luz pega
-  igual**: fundir um **luminoso** com qualquer coisa devolve tudo luminoso, e a
-  luz ganha do shiny (um luminoso + um shiny sai luminoso, e os dois de dentro
-  saem luminosos também). Ninguém sai da máquina valendo menos do que entrou.
+  máquina escreve por cima do que entrou — e não tem volta. Ninguém sai da
+  máquina valendo menos do que entrou.
 - **SEPARAR** — desfaz. Os dois originais ficam **guardados inteiros** dentro da
   fusão (`mon.fusao`), então voltam com apelido, IVs e golpes que tinham — no
   nível que a fusão alcançou. Se a equipe estiver cheia, o segundo vai pro PC.
@@ -1605,7 +1607,7 @@ combina com todos:
 | salgado | presunto, queijo, bacon | cura a equipe inteira, na hora |
 | picante | pimenta, wasabi | +15% de dano seu, 15 min |
 | azedo | limão, picles | fugir fica bem mais fácil, 20 min |
-| amargo | café, jiló | 3x mais chance de shiny **e de luminoso** na grama, 15 min |
+| amargo | café, jiló | 3x mais chance de shiny na grama, 15 min |
 | umami | cogumelo, azeitona | -15% no dano que você toma (piso -40%), 15 min |
 | fresco | hortelã | metade dos encontros na grama (piso -65%), 15 min |
 
@@ -1631,8 +1633,7 @@ um bicho na grama não é mato calmo, é o mato desligado, e um item que desliga
 parte do jogo não é um prêmio.
 
 O efeito **vale de verdade**, não é texto: entra no cálculo de XP da batalha, no
-dano dos seus golpes, na conta de fuga e no sorteio de cor do mato (shiny e
-luminoso). Ele vence
+dano dos seus golpes, na conta de fuga e no sorteio de cor do mato (shiny). Ele vence
 sozinho pelo relógio, aparece num selo no canto da tela enquanto dura, e comer
 de novo **troca** o de antes — não empilha.
 
@@ -1704,7 +1705,7 @@ dano até quebrar e deixar o resto passar.
 
 A página [`pokesave/`](pokesave/) monta uma partida em que **você é um
 Pokémon**: escolhe a espécie (qualquer uma do jogo, forma regional inclusive),
-a cor (comum, shiny ou luminoso), o nome, **o nível** e **onde nascer**
+a cor (comum ou shiny), o nome, **o nível** e **onde nascer**
 (qualquer mapa de fora), e COMEÇAR abre `?pokesave=especie.cor.nivel.mapa.nome`
 — uma partida **nova** (apaga a atual), sem casa, mãe nem professor
 (`starterChosen` e `momGift` já marcados; a ROTA 1 tem ponto próprio, porque o
@@ -1741,7 +1742,7 @@ ele perde a equipe e some por 150 s. Voando, ele não te alcança. Mora no
 save em `st.cacador`.
 
 **Ele pensa.** No mapa, entre os selvagens ele prefere o que vale (shiny,
-luminoso, alfa, nível alto pesam mais que distância), só parte pra cima de
+alfa, nível alto pesam mais que distância), só parte pra cima de
 você quando tem com que te enfrentar (três bichos, ou a equipe no seu nível
 menos três — antes disso caça mato até ficar forte; o fugitivo não pensa), e
 perto de um alvo corre (o passo encurta pra 60%). Dando ordens, usa a mesma
@@ -1977,8 +1978,7 @@ Cada DLC é um módulo ES em `dlc/` que exporta um objeto com seções — `espe
 registra funções que a cena chama ao trocar de mapa (`viajar`), quando um
 selvagem vira batalha (`encontrar`) e ao sortear a cor de um selvagem
 (`brilho`, que recebe a `sorte` e devolve outra, ou a cor pronta
-`{ shiny, luminoso }` — a SHINY ZONE manda a cor pronta, senão inflar a sorte
-inflava o luminoso junto e depois de um tempo todo spawn era luminoso); é assim
+`{ shiny }` — a SHINY ZONE manda a cor pronta); é assim
 que a SHINY ZONE existe sem o jogo saber dela. `src/systems/dlc.js`
 tem o catálogo, carrega os ligados **depois que o DB é montado e antes de
 qualquer cena** e aplica de novo **a cada hot-swap** (`applyData`), senão o
@@ -2484,7 +2484,7 @@ No laboratório, o **computador do Prof. Carvalho** — o monitor e a torre bran
 ao lado dele, na parede do fundo (tiles `2,1` e `3,1`; encoste em `2,2` olhando
 pra cima) — roda um programa que não é dele: uma lista com **todos** os
 Pokémon do jogo e um botão de baixar. Cima/baixo escolhe, os lados mudam o nível
-(SHIFT anda de 10 em 10), C gira a cor (COMUM → SHINY → LUMINOSA, e a prévia
+(SHIFT anda de 10 em 10), C troca a cor (COMUM ↔ SHINY, e a prévia
 já sai na cor escolhida), Z baixa pro time — box, se estiver
 cheio — e X sai. As espécies da fenda aparecem em roxo.
 

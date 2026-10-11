@@ -1,8 +1,7 @@
 // OS MYSTERY EGGS. Um ovo que ninguém sabe de onde veio e que vende em TODO
 // CENTRO POKÉMON de Kanto, no balcão do lado da SRTA. JOY. Dentro tem um dos
 // 151 — qualquer um, sorteado na hora de rachar — e a FORMA dele também sai de
-// sorteio: comum, shiny, alfa, LUMINOSO, e as duas cruzas que só existem aqui,
-// o SHINY ALFA e o LUMINALFA (luminoso + alfa, a coisa mais rara do jogo).
+// sorteio: comum, shiny, alfa, e a cruza que só existe aqui, o SHINY ALFA.
 //
 // O SUPER MYSTERY EGG é o mesmo ovo com o sorteio puxado: metade do que sai
 // dele já vem com alguma coisa. Ele custa seis vezes mais, e é isso que segura
@@ -35,28 +34,24 @@ export const OVOS = {
       label: "MYSTERY EGG",
       preco: 500,
       lendario: 1 / 20,       // cada lendário pesa 1/20 de um bicho comum
-      // 90% comum · 5% shiny · 4% alfa · 0,6% shiny alfa · 0,3% luminoso · 0,1% luminalfa
+      // 90% comum · 5,3% shiny · 4% alfa · 0,7% shiny alfa
       formas: [
         { forma: "comum",      w: 900 },
-        { forma: "shiny",      w: 50 },
+        { forma: "shiny",      w: 53 },
         { forma: "alfa",       w: 40 },
-        { forma: "shiny alfa", w: 6 },
-        { forma: "luminoso",   w: 3 },
-        { forma: "luminalfa",  w: 1 },
+        { forma: "shiny alfa", w: 7 },
       ],
     },
     "super mystery egg": {
       label: "SUPER MYSTERY EGG",
       preco: 3000,
       lendario: 1 / 5,
-      // 50% comum · 20% shiny · 18% alfa · 7% shiny alfa · 3,5% luminoso · 1,5% luminalfa
+      // 50% comum · 23,5% shiny · 18% alfa · 8,5% shiny alfa
       formas: [
         { forma: "comum",      w: 500 },
-        { forma: "shiny",      w: 200 },
+        { forma: "shiny",      w: 235 },
         { forma: "alfa",       w: 180 },
-        { forma: "shiny alfa", w: 70 },
-        { forma: "luminoso",   w: 35 },
-        { forma: "luminalfa",  w: 15 },
+        { forma: "shiny alfa", w: 85 },
       ],
     },
   },
@@ -67,8 +62,6 @@ export const OVOS = {
     "shiny":      { shiny: true },
     "alfa":       { alfa: true },
     "shiny alfa": { shiny: true, alfa: true },
-    "luminoso":   { luminoso: true },
-    "luminalfa":  { luminoso: true, alfa: true },
   },
 };
 
@@ -104,8 +97,6 @@ export const OVO_TEXTO = {
     "shiny":      "E A COR DELE ESTÁ TROCADA. É UM SHINY!",
     "alfa":       "E ELE É GRANDE. GRANDE DEMAIS PRA UM OVO. É UM ALFA!",
     "shiny alfa": "ELE É GRANDE E A COR ESTÁ TROCADA. UM SHINY ALFA!",
-    "luminoso":   "A LUZ QUE SAI DA CASCA NÃO APAGA. É ELE. UM LUMINOSO!",
-    "luminalfa":  "A CASCA NÃO RACHOU: DERRETEU. ELE É GRANDE E ACENDE. UM LUMINALFA — 1 EM 1000 DOS OVOS COMUNS.",
   },
   equipe: "{MON} ENTROU NA SUA EQUIPE.",
   box: "{MON} FOI PRO BOX: SUA EQUIPE ESTÁ CHEIA.",
