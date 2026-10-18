@@ -26,6 +26,7 @@ import { LUGARES as CENTRO } from "./braglitch-centro.js";
 import { LUGARES as LIGA } from "./braglitch-liga.js";
 // AS CINCO ILHAS da história (src/data/braglitch-ilhas.js): só se chega na lancha da IPÊ
 import { LUGARES as ILHAS, ILHAS as ILHAS_DA_HISTORIA } from "./braglitch-ilhas.js";
+import { OURO_GASTLY_MINA } from "./fosseis-brag.js";
 export const LUGARES_NOVOS = [...SUL, ...NORTE, ...CENTRO, ...ILHAS, ...LIGA];
 
 // ------------------------------------------------------- as plantas-molde
@@ -394,7 +395,7 @@ export const ESTRADAS = [
     mato: [["macacoeira", 18], ["tatubola", 14], ["beijaflorzinha", 12], ["caranguejinho", 12], ["piranhita", 10], ["biquinho", 10]],
     treinadores: [["CAPOEIRISTA NENEM", "lutador", [["macacoeira", 21]]], ["BAIANA DO ACARAJÉ", "velha", [["beijaflorzinha", 20], ["tatubola", 21]]]] },
   { id: "br324", nome: "BR-324", semente: 324, deitada: true, tema: "sertao", niveis: [23, 28],
-    mato: [["fogueirinha", 18], ["balaozinho", 14], ["mandacaru", 14], ["tatubola", 12], ["macacoeira", 10], ["tratorao", 1]],
+    mato: [["fogueirinha", 18], ["balaozinho", 14], ["mandacaru", 14], ["tatubola", 12], ["macacoeira", 10], ["spinda", 10], ["tratorao", 1]],
     treinadores: [["VAQUEIRO TONHO", "montanhista", [["tatubola", 25], ["mandacaru", 26]]], ["FORROZEIRA DIDA", "garota", [["fogueirinha", 26]]]] },
   { id: "br116", nome: "BR-116", semente: 116, tema: "cerrado", niveis: [28, 33],
     mato: [["gatonet", 16], ["orelhao", 12], ["araraio", 10], ["bantevy", 8], ["balaozinho", 10], ["capivarao", 8], ["tucanacu", 10], ["catorbis", 1]],
@@ -708,11 +709,20 @@ export function conteudoDoMundo(geos) {
   CIDADES.forEach((c, i) => {
     const planta = PLANTAS_MUNDO[c.id];
     const usados = new Set();
-    const npcs = c.povo.map(([sprite, lines], k) => {
+    const npcs = c.povo.map(([sprite, lines, extra], k) => {
       const p = chaoPerto(planta, k ? 22 : 8, k ? 14 : 7, usados);
       usados.add(`${p.x},${p.y}`);
-      return { id: `povo${k}`, x: p.x, y: p.y, dir: "down", sprite, lines, wander: k === 1 };
+      return { id: `povo${k}`, x: p.x, y: p.y, dir: "down", sprite, lines, wander: k === 1, ...extra };
     });
+    // OURO GASTLY, a cidade das minas: o MINEIRO e o PALEONTÓLOGO dos fósseis
+    // de Braglitch (src/data/fosseis-brag.js), lado a lado
+    if (c.id === "ouropreto") {
+      OURO_GASTLY_MINA.forEach(([sprite, lines, extra], k) => {
+        const p = chaoPerto(planta, 16 + k * 2, 12, usados);
+        usados.add(`${p.x},${p.y}`);
+        npcs.push({ id: `mina${k}`, x: p.x, y: p.y, dir: "down", sprite, lines, ...extra });
+      });
+    }
     // O LIVRO DAS COORDENADAS DA LENDA, largado no chão de SALVADITTO (ver
     // `lerLivroDasLendas` em src/scenes/overworld.js)
     if (c.id === "salvador") {

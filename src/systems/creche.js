@@ -20,7 +20,7 @@
 // então o senhor fica NA FRENTE dela, na rota — e é ele quem cuida de tudo.
 import { DB } from "../data/index.js";
 import { LENDARIOS } from "../data/leilao.js";
-import { gainXp, createMon, sortearBrilho } from "./mon.js";
+import { gainXp, createMon, sortearBrilho, amizade } from "./mon.js";
 import { partes } from "./fusao.js";
 import { chance } from "../core/rng.js";
 
@@ -147,7 +147,7 @@ export function andou(st) {
     st.amizadePassos = 0;
     for (const mon of st.party || []) {
       const antes = mon.amizade || 0;
-      mon.amizade = Math.min(255, antes + CRECHE.amizade.porPasso);
+      amizade(mon, CRECHE.amizade.porPasso);
       const r = (DB.EVOLUTIONS?.[mon.species] || []).find((x) => x.amizade);
       if (r && antes < r.amizade && mon.amizade >= r.amizade) out.amigos.push(mon);
     }
@@ -157,7 +157,7 @@ export function andou(st) {
 
 /** vitória: quem lutou gosta mais de você */
 export function venceu(mon) {
-  if (mon) mon.amizade = Math.min(255, (mon.amizade || 0) + CRECHE.amizade.porVitoria);
+  amizade(mon, CRECHE.amizade.porVitoria);
 }
 
 /** o senhor entrega o ovo que estava segurando: vira item na mochila */

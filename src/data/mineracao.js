@@ -1,4 +1,6 @@
 import { FOSSEIS_PUROS, PUROS_LORE, PURIFICADOR } from "./fosseis-puros.js";
+import { FOSSEIS_BRAG, ACHADOS_BRAG, LORE_BRAG } from "./fosseis-brag.js";
+export { LAB_BRAG_TEXTO } from "./fosseis-brag.js";
 
 // A MINERAÇÃO: a parede de pedra do MONTE LUA, a picareta, o martelo e os
 // fósseis que estão lá dentro.
@@ -76,6 +78,8 @@ export const ACHADOS = [
   { item: "up-grade",            w: 2, cor: "#60e0e0", desenho: "disco", forma: [[0, 0], [1, 0]] },
   { item: "dubious disc",        w: 1, cor: "#c0f0ff", desenho: "disco", forma: [[0, 0], [1, 0]] },
   { item: "mystery egg",         w: 2, cor: "#f8f0e0", desenho: "ovo", forma: [[0, 0], [0, 1]] },
+  // os de Braglitch (src/data/fosseis-brag.js): `onde` = só sai na parede de lá
+  ...ACHADOS_BRAG,
 ];
 
 /** Os fósseis e o que sai deles no laboratório. `precisa` é a lista de itens
@@ -98,6 +102,8 @@ export const FOSSEIS = {
   // os PURIFICADOS (src/data/fosseis-puros.js): a FORMA PURA, e as metades
   // de Galar que revivem sozinhas
   ...FOSSEIS_PUROS,
+  // os de Braglitch (src/data/fosseis-brag.js)
+  ...FOSSEIS_BRAG,
 };
 
 /** O que a mochila diz de cada coisa que sai da mina. */
@@ -120,6 +126,7 @@ export const MINA_LORE = {
   "estrela": "UM PEDAÇO DE ESTRELA QUE CAIU NA MINA. VENDE POR UM BOM PREÇO.",
   [PURIFICADOR.item]: PURIFICADOR.lore,
   ...PUROS_LORE,
+  ...LORE_BRAG,
 };
 
 /** Preço de venda dos achados que nenhuma loja vende. */

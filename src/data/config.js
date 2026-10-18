@@ -105,6 +105,19 @@ export const CONFIG = {
   // (dentro da fenda a regra é outra: 1 a cada SHINY_EVERY vistos, em extra.js)
   shinyOdds: 1 / 1024,
 
+  // OS SPINDAS RAROS: o TODO BRANCO (nenhuma mancha) e o TODO VERMELHO (o corpo
+  // inteiro da cor das manchas). Nos jogos de verdade nenhum dos dois existe —
+  // aqui, cada Spinda que nasce tem esta chance de ser um deles. Eles são
+  // marcados pelo valor de personalidade (o `seed`): é um desses dois números
+  // que o desenho reconhece (src/core/assets.js, `spinda`).
+  spindaRaros: {
+    branco: { chance: 1 / 64, seed: 0x0b4a4c0 },
+    vermelho: { chance: 1 / 64, seed: 0xe0e0e0e },
+    // o DOS UNOWN (as manchas são as 28 letras, src/data/spinda-unown.js) não
+    // nasce no mato: é o prêmio da ARQUEÓLOGA de CARUARU (missão "spinda-unown")
+    unown: { chance: 0, seed: 0x0dd0d0d0 },
+  },
+
   // Fragmentos de portal glitch espalhados pelo mundo
   fragmentChance: 0.3,     // chance de aparecer um ao entrar num mapa
   fragmentSeconds: 180,    // 3 minutos dentro da dimensão antes dela fechar

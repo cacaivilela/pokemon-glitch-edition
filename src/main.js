@@ -14,10 +14,12 @@ import { Glitch } from "./systems/glitchfx.js";
 import { abrirPortal } from "./systems/raid.js";
 import { ZONA, abrirZona, garantirZona, zonaDoCodigo, entrarNaZona } from "./systems/glitchzones.js";
 import { createMon, recalc, tirarLuminosos } from "./systems/mon.js";
+import { lugarDoEncontro } from "./systems/amigos.js";
 import { EvolutionScene } from "./scenes/evolution.js";
 import { MegaScene } from "./scenes/mega.js";
 import { GrupoBattleScene } from "./scenes/grupobattle.js";
 import { HordaScene } from "./scenes/horda.js";
+import { TirinhaScene } from "./scenes/tirinha.js";
 import { TrocaNpcScene } from "./scenes/trocanpc.js";
 import { SoltarScene } from "./scenes/soltar.js";
 import { VestirScene } from "./scenes/vestir.js";
@@ -274,7 +276,7 @@ const PAPEIS_FIXOS = [
   "enfermeira", "balconista", "rival", "gentleman", "cientista", "cacador", "policial", "pescador",
   "motoqueiro", "marinheiro", "montanhista", "rocket", "rocketf", "lutador", "superm", "superf",
   "tecnico", "tecnica", "canalizadora", "maniaco", "roqueiro", "ipe",
-  "hero_brag", "heroina_brag", "ash",
+  "hero_brag", "heroina_brag", "ash", "vitor", "andre",
 ];
 const ATORES = [...new Set([
   ...PAPEIS_FIXOS,
@@ -395,6 +397,17 @@ if (GEMEO_TESTE && !q.has("map")) {
   const lvl = { lab: 5, belem: 14, salvador: 25, sampa: 36, rio: 46, brasilia: 53 }[GEMEO_TESTE.id] || 20;
   if (!q.has("starter")) q.set("starter", `tronky:${lvl}`);
 }
+// ?amigos=recife&perfil=teste -> BRAGLITCH na frente do VÍTOR e do ANDRÉ
+// (src/data/amigos.js) naquele encontro: saida, ilha1, recife, ilha3, caruaru,
+// ilha5, ouropreto, ilha7, ilha8, liga ou campeao — com as insígnias, ilhas e
+// marcas que ele pede
+const AMIGOS_TESTE = q.has("amigos") && (DB.AMIGOS?.encontros || []).find((e) => e.id === q.get("amigos"));
+if (AMIGOS_TESTE && !q.has("map")) {
+  const l = lugarDoEncontro(AMIGOS_TESTE);
+  q.set("map", l.mapa); q.set("x", l.x + 2); q.set("y", l.y + 2); q.set("dir", "up");
+  const lvl = [8, 12, 20, 25, 30, 35, 42, 47, 52, 60, 60][AMIGOS_TESTE.etapa] || 30;
+  if (!q.has("starter")) q.set("starter", `tronky:${lvl}`);
+}
 // ?liga=0&genero=menino&perfil=teste -> a ESPLANADA DA LIGA de Braglitch
 // (src/data/braglitch-liga.js) com as 8 insígnias e o MISSINGNO vencido: 0 na
 // frente do guarda, 1..4 na frente do próximo quiz com N já passados (4 = na
@@ -431,7 +444,8 @@ if (ASH_TESTE && !q.has("map")) {
 }
 if (q.has("map") || q.has("battle") || q.has("era")) {
   // &dificuldade=bebe|muitofacil|facil|medio|dificil|quaseimpossivel
-  game.newGame(GEMEO_TESTE || LIGA_TESTE != null ? "braglitch" : undefined, q.get("genero") || undefined, q.get("dificuldade") || undefined);
+  // &regiao=braglitch -> a jornada de BRAGLITCH (CAIO/LARA), mesmo num mapa de Kanto
+  game.newGame(GEMEO_TESTE || AMIGOS_TESTE || LIGA_TESTE != null || q.get("regiao") === "braglitch" ? "braglitch" : undefined, q.get("genero") || undefined, q.get("dificuldade") || undefined);
   {
     const [sid, slvl] = (q.get("starter") || "charmander").split(":");
     const mon = game.giveStarter(sid);
@@ -464,6 +478,18 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
     game.state.bragBadges = (DB.INSIGNIAS_BRAG || []).map((b) => b.id);
     if (LIGA_TESTE > 0) game.state.flags.ligaPortao = true;
     for (let i = 0; i < LIGA_TESTE; i++) game.state.flags[`ligaQuiz${i}`] = true;
+    game.state.items["poção"] = 20;
+  }
+  if (AMIGOS_TESTE) {
+    const r = AMIGOS_TESTE.requer || {};
+    Object.assign(game.state.flags, { starterChosen: true, bragMissao: true, bragIlhas: true });
+    if (r.flag) game.state.flags[r.flag] = true;
+    if (r.flag === "bragCampeao") game.state.flags.bragMissingnoVencido = true;
+    const fim = AMIGOS_TESTE.etapa >= 9;
+    game.state.bragBadges = [
+      ...(DB.INSIGNIAS_BRAG || []).slice(0, fim ? 8 : r.ginasios ?? r.ilhas ?? 0).map((b) => b.id),
+      ...(DB.ILHAS_BRAG || []).slice(0, fim ? 8 : r.ilhas ?? (r.ginasios || 0)).map((i) => `ilha_${i.id}`),
+    ];
     game.state.items["poção"] = 20;
   }
   if (GEMEO_TESTE) {
@@ -504,6 +530,30 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
       foes, aoFim: () => game.scenes.push(new GrupoBattleScene(), { foes, horda: true }),
     }), 300);
   }
+  // ?tirinha=1 -> abre o caderno do VÍTOR na tirinha N (src/data/amigos.js); ao
+  // fechar uma, vem a próxima, até a última
+  if (q.has("tirinha") && DB.TIRINHAS) {
+    const L = DB.TIRINHAS.lista;
+    const abrir = (n) => n < L.length && game.scenes.push(new TirinhaScene(), {
+      tirinha: L[n], numero: n + 1, onDone: () => abrir(n + 1) });
+    setTimeout(() => abrir(Math.max(0, Math.min(L.length - 1, (+q.get("tirinha") || 1) - 1))), 300);
+  }
+  // ?estilo=real|explosiva|turno -> o estilo de batalha do OPÇÕES já escolhido
+  if (q.has("estilo")) {
+    game.state.flags.batalhaReal = q.get("estilo") === "real";
+    game.state.flags.batalhaExplosiva = q.get("estilo") === "explosiva";
+  }
+  // ?dupla=clefairy:14,jigglypuff:14 -> a primeira coisa é uma BATALHA DUPLA contra
+  // esse time (3+ bichos e &trio=1 vira trio). Junto com &estilo= dá a arena em grupo
+  if (q.has("dupla")) {
+    const party = q.get("dupla").split(",").map((x) => x.trim().split(":"))
+      .filter(([id]) => DB.SPECIES[id]).map(([id, l]) => ({ id, lvl: +l || 10 }));
+    if (party.length < 2) party.push({ id: "rattata", lvl: 10 }, { id: "pidgey", lvl: 10 });
+    setTimeout(() => game.scenes.push(new GrupoBattleScene(), {
+      tamanho: q.has("trio") ? 3 : 2,
+      trainer: { name: "DUPLA DE TESTE", sprite: "garoto", party, prize: 100, dupla: true },
+    }), 300);
+  }
   // ?hordas=1&map=route1 -> todo selvagem comum nasce com HORDA (e as silhuetas em cima)
   if (q.has("hordas") && DB.CONFIG) DB.CONFIG.hordaOdds = 1;
   if (q.has("flags")) {    // ?flags=bragCampeao,caughtMissingno -> marcas da história ligadas
@@ -514,6 +564,9 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
       const [item, n] = par.split(":");
       if (item?.trim()) game.state.items[item.trim()] = Math.max(1, +n || 1);
     }
+  }
+  if (q.has("amizade")) {  // ?amizade=300 -> a equipe inteira com essa amizade (o FENÔMENO DE VÍNCULO pede 300)
+    for (const m of game.state.party) m.amizade = Math.max(0, +q.get("amizade") || 0);
   }
   if (q.has("golpes")) {  // ?golpes=chicotedevinha,folhanavalha -> a equipe inteira só com esses
     const ids = q.get("golpes").split(",").map((g) => g.trim()).filter((g) => DB.MOVES[g]).slice(0, 4);
@@ -609,7 +662,9 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
   }
   if (q.has("battle")) {
     // &shiny=1 -> o selvagem vem SHINY (o brilho de quando ele aparece)
-    const foe = createMon(q.get("battle"), +(q.get("lvl") || 5), { shiny: q.has("shiny") });
+    // &spinda=branco|vermelho -> o SPINDA raro (DB.CONFIG.spindaRaros)
+    const raro = DB.CONFIG?.spindaRaros?.[q.get("spinda")];
+    const foe = createMon(q.get("battle"), +(q.get("lvl") || 5), { shiny: q.has("shiny"), ...(raro ? { seed: raro.seed } : {}) });
     if (q.has("foegolpes")) {   // &foegolpes=ondadechoque -> o selvagem só com esses golpes
       const ids = q.get("foegolpes").split(",").map((g) => g.trim()).filter((g) => DB.MOVES[g]).slice(0, 4);
       if (ids.length) foe.moves = ids.map((id) => ({ id, pp: DB.MOVES[id].pp, ppMax: DB.MOVES[id].pp }));

@@ -1,0 +1,204 @@
+<!doctype html>
+<!-- AS FORMAS DE VÍNCULO: todas as de src/data/vinculo.js, separadas por
+     treinador (CAIO, LARA, VERMELHO, FOLHA), com o sprite de FRENTE e de
+     COSTAS de cada uma, o normal do lado e os stats.
+     Uso: http://localhost:5173/vinculo.html -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vínculo — Pokémon Glitch Edition</title>
+<style>
+  :root { color-scheme: dark; --fundo:#0b0d10; --cartao:#151a21; --borda:#232a34; --texto:#d6dde6; --apagado:#6b7684; --cor:#46a0ff; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--fundo); color:var(--texto); font:14px ui-monospace, "SF Mono", Menlo, Consolas, monospace; padding:20px 16px 60px; }
+  header, main, .como { max-width:1200px; margin-left:auto; margin-right:auto; }
+  h1 { font-size:22px; letter-spacing:1px; }
+  h1 span { color:var(--cor); }
+  header p { color:var(--apagado); margin-top:6px; font-size:12px; }
+  .barra { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; align-items:center; }
+  .chip { background:var(--cartao); border:1px solid var(--borda); color:var(--apagado); padding:8px 14px; border-radius:99px; cursor:pointer; font:inherit; font-size:13px; }
+  .chip.on { color:#fff; border-color:var(--cor); background:color-mix(in srgb, var(--cor) 22%, var(--cartao)); }
+  .barra label { color:var(--apagado); font-size:12px; display:flex; gap:6px; align-items:center; cursor:pointer; margin-left:auto; }
+  .como { background:var(--cartao); border:1px solid var(--borda); border-left:3px solid var(--cor); border-radius:8px; padding:12px 14px; margin-top:14px; margin-bottom:16px; font-size:12px; line-height:1.6; }
+  .como b { color:#fff; font-weight:normal; }
+  #grade { display:grid; grid-template-columns:repeat(auto-fill, minmax(330px, 1fr)); gap:10px; }
+  .mon { background:var(--cartao); border:1px solid var(--borda); border-radius:8px; padding:12px; }
+  .mon h2 { font-size:15px; font-weight:normal; color:#fff; }
+  .mon h2 small { color:var(--cor); font-size:12px; margin-left:6px; }
+  .sprites { display:flex; align-items:flex-end; justify-content:space-between; gap:4px; margin:8px 0; }
+  figure { text-align:center; flex:1; }
+  figure img { width:96px; height:96px; image-rendering:pixelated; display:block; margin:0 auto; }
+  figure.vinc img { filter:drop-shadow(0 0 6px color-mix(in srgb, var(--cor) 70%, transparent)); }
+  figcaption { font-size:10px; color:var(--apagado); margin-top:2px; }
+  .seta { color:var(--cor); font-size:18px; align-self:center; }
+  .sons { display:flex; gap:6px; margin-top:8px; }
+  .sons button { background:var(--fundo); border:1px solid var(--borda); color:var(--texto); padding:5px 9px; border-radius:6px; cursor:pointer; font:inherit; font-size:11px; }
+  .sons button:hover { border-color:var(--cor); }
+  .codinome { font-size:11px; color:var(--apagado); margin-top:3px; letter-spacing:1px; }
+  .codinome b { color:var(--cor); font-weight:normal; }
+  .tipos { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
+  .tipo { font-size:10px; padding:2px 7px; border-radius:99px; color:#fff; }
+  .tipo.novo { outline:1px solid #fff; }
+  table { width:100%; border-collapse:collapse; font-size:11px; margin-top:8px; }
+  td { padding:1px 0; }
+  td:first-child { color:var(--apagado); width:34px; }
+  td.n { width:58px; text-align:right; white-space:nowrap; }
+  td.n em { color:var(--cor); font-style:normal; }
+  .bar { height:6px; background:#0b0d10; border-radius:3px; overflow:hidden; margin:0 6px; }
+  .bar i { display:block; height:100%; background:var(--cor); }
+  .extra { font-size:11px; color:var(--apagado); margin-top:6px; line-height:1.5; }
+  @media (max-width:520px) { #grade { grid-template-columns:1fr; } figure img { width:80px; height:80px; } .barra label { margin-left:0; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>VÍNCULO <span>— Pokémon Glitch Edition</span></h1>
+  <p>Todas as formas de vínculo do jogo. Cada Pokémon fica parecido com quem treina ele, como o GRENINJA do ASH.</p>
+  <div class="barra" id="abas"></div>
+</header>
+<div class="como" id="como"></div>
+<main id="grade"></main>
+
+<script type="module">
+import { DB } from "./src/data/index.js";
+import { Audio2 } from "./src/core/audio.js";
+import { gritoDe } from "./src/systems/gritos.js";
+
+const V = DB.VINCULO;
+const SPR = "assets/sprites/pokemon/";
+const num = (n) => String(n).padStart(3, "0");
+const rgb = (c) => `rgb(${c.join(",")})`;
+const STATS = [["hp", "HP"], ["atk", "ATK"], ["def", "DEF"], ["spa", "SPA"], ["spd", "SPD"], ["spe", "VEL"]];
+
+let atual = new URLSearchParams(location.search).get("treinador");
+if (!V.treinadores[atual]) atual = "caio";
+let shiny = false;
+
+// as abas: uma por treinador, na cor dele
+const abas = document.getElementById("abas");
+for (const [id, t] of Object.entries(V.treinadores)) {
+  const b = document.createElement("button");
+  b.className = "chip";
+  b.dataset.t = id;
+  b.textContent = t.nome;
+  b.onclick = () => { atual = id; desenhar(); };
+  abas.append(b);
+}
+const lbl = document.createElement("label");
+lbl.innerHTML = `<input type="checkbox" id="shiny"> shiny`;
+abas.append(lbl);
+document.getElementById("shiny").onchange = (e) => { shiny = e.target.checked; desenhar(); };
+
+const img = (caminho, alt) => {
+  const i = new Image();
+  i.src = caminho;
+  i.alt = alt;
+  i.loading = "lazy";
+  // sem o shiny, fica o comum
+  i.onerror = () => { if (i.src.includes("/shiny/")) i.src = caminho.replace("shiny/", ""); };
+  return i;
+};
+const pasta = (costas) => SPR + (shiny ? "shiny/" : "") + (costas ? "back/" : "");
+
+function figura(caminho, legenda, vinc) {
+  const f = document.createElement("figure");
+  if (vinc) f.className = "vinc";
+  f.append(img(caminho, legenda));
+  const c = document.createElement("figcaption");
+  c.textContent = legenda;
+  f.append(c);
+  return f;
+}
+
+function tipos(lista, base) {
+  const d = document.createElement("div");
+  d.className = "tipos";
+  for (const t of lista) {
+    const s = document.createElement("span");
+    s.className = "tipo" + (base.includes(t) ? "" : " novo");
+    s.style.background = DB.TYPE_COLOR?.[t] || "#555";
+    s.textContent = t;
+    d.append(s);
+  }
+  return d;
+}
+
+function cartao(baseId) {
+  const t = V.treinadores[atual];
+  const base = DB.SPECIES[baseId];
+  const forma = DB.SPECIES[baseId + "vinculo" + atual];
+  if (!base || !forma) return null;
+  const el = document.createElement("article");
+  el.className = "mon";
+  el.innerHTML = `<h2>${t.nome}-${base.name}<small>#${num(base.dex)}</small></h2>`
+    + (forma.codinome ? `<p class="codinome">CODINOME: <b>${forma.codinome}</b></p>` : "");
+
+  const sp = document.createElement("div");
+  sp.className = "sprites";
+  sp.append(
+    figura(pasta(false) + num(base.dex) + ".png", "normal", false),
+    Object.assign(document.createElement("span"), { className: "seta", textContent: "▶" }),
+    figura(pasta(false) + forma.spriteDex + ".png", "frente", true),
+    figura(pasta(true) + forma.spriteDex + ".png", "costas", true),
+  );
+  el.append(sp, tipos(forma.types, base.types));
+
+  // o GRITO: o normal e o da forma de vínculo (3/4 o Pokémon, 1/4 o treinador)
+  const sons = document.createElement("div");
+  sons.className = "sons";
+  for (const [rotulo, id] of [["▶ grito normal", baseId], [`▶ grito de vínculo`, baseId + "vinculo" + atual]]) {
+    const b = document.createElement("button");
+    b.textContent = rotulo;
+    b.onclick = () => { Audio2.unlock(); Audio2.grito(gritoDe(id)); };
+    sons.append(b);
+  }
+  el.append(sons);
+
+  const tb = document.createElement("table");
+  for (const [k, nome] of STATS) {
+    const a = base.base[k], b = forma.base[k];
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${nome}</td><td><div class="bar"><i style="width:${Math.min(100, b / 2)}%"></i></div></td>`
+      + `<td class="n">${a}${b !== a ? ` → <em>${b}</em>` : ""}</td>`;
+    tb.append(tr);
+  }
+  const tot = document.createElement("tr");
+  tot.innerHTML = `<td>TOTAL</td><td></td><td class="n">${base.bst} → <em>${forma.bst}</em></td>`;
+  tb.append(tot);
+  el.append(tb);
+
+  if (baseId === "greninja" && atual === "caio") {
+    const ex = document.createElement("p");
+    ex.className = "extra";
+    ex.textContent = "DOIS JOY-CON EM X NO LUGAR DA ESTRELA DE ÁGUA, E VIRA ÁGUA/ELÉTRICO.";
+    el.append(ex);
+  }
+  return el;
+}
+
+function desenhar() {
+  const t = V.treinadores[atual];
+  document.documentElement.style.setProperty("--cor", rgb(t.cor));
+  for (const b of abas.querySelectorAll(".chip")) b.classList.toggle("on", b.dataset.t === atual);
+  history.replaceState(null, "", `?treinador=${atual}`);
+
+  const lugar = atual === "caio" || atual === "lara" ? "BRAGLITCH" : "KANTO";
+  const quem = { caio: "os iniciais de ÁGUA totalmente evoluídos (o TILAPIRAÇU de BRAGLITCH também), o RILLABOOM e o RAICHU", lara: "Pokémon fofos totalmente evoluídos e o LOPUNNY",
+    red: "dez Pokémon de Kanto sorteados", leaf: "outros dez Pokémon de Kanto sorteados" }[atual];
+  document.getElementById("como").innerHTML =
+    `<b>${t.nome}</b> (${t.genero === "menino" ? "menino" : "menina"} de ${lugar}): ${quem}.<br>`
+    + `Pra virar: usar o <b>golpe mais forte</b> que ele sabe com a <b>amizade acima do máximo</b> `
+    + `(o máximo é ${V.max}; o vínculo pede ${V.precisa}). Passar de ${V.max} só com as técnicas: `
+    + `<b>${V.cristal.item.toUpperCase()}</b> (+${V.cristal.ganho}, na loja), `
+    + `<b>CARINHO DA VITÓRIA</b> (+${V.carinho.ganho}, falar com ele logo depois de vencer) e `
+    + `<b>AGUENTOU JUNTO</b> (+${V.aguentou.ganho}, vencer com pouca vida).`;
+
+  const grade = document.getElementById("grade");
+  grade.replaceChildren(...V.especies[atual].map(cartao).filter(Boolean));
+}
+
+desenhar();
+</script>
+</body>
+</html>

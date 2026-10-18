@@ -1,0 +1,115 @@
+<!doctype html>
+<!-- AS TIRINHAS DO VÍTOR: o caderno inteiro dele numa página, cada tirinha com
+     os quadros lado a lado. Os quadros são desenhados pelo mesmo código da
+     cena do jogo (`desenharQuadro`, src/scenes/tirinha.js), com as tirinhas
+     de src/data/amigos.js (`TIRINHAS`). Não abre o jogo nem mexe em save.
+     Uso: http://localhost:5173/tirinhas.html  (#7 vai direto pra tirinha 7) -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tirinhas do Vítor</title>
+<style>
+  :root { --papel:#f4ecd6; --linha:#dcd2b4; --margem:#e8a8a0; --tinta:#1c1a20; --apagado:#7a705c; --amarelo:#ffe27a; --azul:#3a5ad0; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    background-color:var(--papel); color:var(--tinta);
+    background-image:linear-gradient(90deg, transparent 38px, var(--margem) 38px, var(--margem) 40px, transparent 40px),
+                     repeating-linear-gradient(180deg, transparent 0 27px, var(--linha) 27px 28px);
+    font:15px ui-monospace, "SF Mono", Menlo, Consolas, monospace; padding:28px 16px 80px 56px;
+    min-height:100vh;
+  }
+  header { max-width:960px; display:flex; gap:18px; align-items:center; flex-wrap:wrap; }
+  header canvas { width:112px; height:112px; image-rendering:pixelated; background:#fff; border:3px solid var(--tinta); border-radius:4px; transform:rotate(-3deg); box-shadow:4px 4px 0 var(--tinta); }
+  h1 { font-size:30px; letter-spacing:1px; line-height:1.1; }
+  h1 small { display:block; font-size:14px; color:var(--apagado); letter-spacing:0; margin-top:6px; font-weight:normal; }
+  .fala { margin-top:10px; background:#fff; border:2px solid var(--tinta); border-radius:10px; padding:8px 12px; max-width:560px; position:relative; }
+  .fala::before { content:""; position:absolute; left:-12px; top:14px; border:6px solid transparent; border-right-color:var(--tinta); border-width:6px 10px 6px 0; }
+  nav { max-width:960px; margin:22px 0 8px; display:flex; flex-wrap:wrap; gap:6px; }
+  nav a { color:var(--tinta); text-decoration:none; background:#fff; border:2px solid var(--tinta); border-radius:99px; padding:4px 10px; font-size:12px; }
+  nav a:hover, nav a:focus-visible { background:var(--amarelo); outline:none; }
+  .tira { max-width:960px; margin-top:34px; scroll-margin-top:16px; }
+  .tira h2 { font-size:18px; display:flex; align-items:baseline; gap:10px; }
+  .tira h2 .n { background:var(--tinta); color:var(--papel); padding:1px 8px; border-radius:4px; font-size:14px; }
+  .quadros { display:flex; flex-wrap:wrap; gap:12px; margin-top:10px; }
+  .quadros canvas { width:min(100%, 452px); aspect-ratio:228/126; image-rendering:pixelated; box-shadow:4px 4px 0 rgba(28,26,32,.25); background:#fff; }
+  .tira:nth-child(odd) .quadros canvas:nth-child(even) { transform:rotate(.4deg); }
+  .tira:nth-child(even) .quadros canvas:nth-child(odd) { transform:rotate(-.4deg); }
+  footer { max-width:960px; margin-top:48px; color:var(--apagado); font-size:13px; }
+  @media (max-width:560px) { body { padding-left:48px; } h1 { font-size:24px; } header canvas { width:84px; height:84px; } }
+  .fim { margin-top:8px; font-size:12px; font-style:italic; opacity:.85; }
+</style>
+</head>
+<body>
+<header>
+  <canvas id="vitor" width="64" height="64" aria-label="o Vítor"></canvas>
+  <div>
+    <h1>AS TIRINHAS DO VÍTOR<small>o caderno inteiro · Pokémon Glitch Edition</small></h1>
+    <p class="fala" id="intro">EU DESENHO NAS HORAS VAGAS. QUER DIZER, NA AULA. TODAS SÃO A MELHOR. LÊ AÍ.</p>
+  </div>
+</header>
+<nav id="indice" aria-label="tirinhas"></nav>
+<main id="caderno"></main>
+<footer id="rodape"></footer>
+
+<script type="module">
+import { DB } from "./src/data/index.js";
+import { trainerArt } from "./src/core/sprites.js";
+import { Assets } from "./src/core/assets.js";
+import { desenharQuadro, pedirArtes, QUADRO } from "./src/scenes/tirinha.js";
+
+Assets.init();                      // as formas da arte provisória (o jogo faz isso no main.js)
+const T = DB.TIRINHAS, caderno = document.getElementById("caderno"), indice = document.getElementById("indice");
+const quadros = [];                 // { cv, q } — redesenhados enquanto os sprites chegam
+const desenha = ({ cv, q }, t = 0.3) => {
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = "#1c1a20"; ctx.fillRect(0, 0, cv.width, cv.height);
+  desenharQuadro(ctx, q, 2, 2, { t });
+};
+
+T.lista.forEach((tira, i) => {
+  const n = i + 1;
+  pedirArtes(tira);
+  const sec = document.createElement("section");
+  sec.className = "tira"; sec.id = String(n);
+  const h2 = document.createElement("h2");
+  h2.append(Object.assign(document.createElement("span"), { className: "n", textContent: `Nº ${n}` }), tira.titulo);
+  const fila = document.createElement("div"); fila.className = "quadros";
+  tira.quadros.forEach((q, k) => {
+    const cv = document.createElement("canvas");
+    cv.width = QUADRO.w + 4; cv.height = QUADRO.h + 4;
+    cv.setAttribute("aria-label", `${tira.titulo}, quadro ${k + 1}: ` +
+      [q.legenda, ...(q.falas || []).map(([, f]) => f)].filter(Boolean).join(" — "));
+    fila.append(cv);
+    quadros.push({ cv, q });
+  });
+  sec.append(h2, fila);
+  // a fala do VÍTOR no fim, quando a tirinha tem uma (`fim`)
+  if (tira.fim) {
+    const p = document.createElement("p");
+    p.className = "fim";
+    p.textContent = [].concat(tira.fim).join(" ");
+    sec.append(p);
+  }
+  caderno.append(sec);
+  indice.append(Object.assign(document.createElement("a"), { href: `#${n}`, textContent: `${n}. ${tira.titulo}` }));
+});
+document.getElementById("rodape").textContent = T.depois[Math.floor(Math.random() * T.depois.length)];
+
+// os sprites chegam aos poucos: redesenha tudo de vez em quando; o ZZZ fica subindo sempre
+const vitor = document.getElementById("vitor");
+const inicio = performance.now();
+let quadro = 0;
+const passo = () => {
+  // de 20 em 20 quadros: sprite que chegou agora entra no lugar da arte provisória
+  const s = (performance.now() - inicio) / 1000, carregando = quadro++ % 20 === 0;
+  for (const qd of quadros) if (carregando || qd.q.fx === "zzz") desenha(qd, qd.q.fx === "zzz" ? s : 0.3);
+  const img = trainerArt("vitor");
+  if (img) { const c = vitor.getContext("2d"); c.clearRect(0, 0, 64, 64); c.drawImage(img, 0, 0); }
+  requestAnimationFrame(passo);
+};
+passo();
+if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
+</script>
+</body>
+</html>

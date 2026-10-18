@@ -203,7 +203,7 @@ export class HordaScene {
   bicho(ctx, b) {
     const img = Assets.mon(b.mon.species, b.mon.seed);
     if (!img || this.fase === "farfalha") return;
-    const cor = img && Assets.comCor(img, b.mon);
+    const cor = img && (Assets.vivo(b.mon) || Assets.comCor(img, b.mon));
     let x = b.x, y = b.y;
     if (this.fase === "pulam") {
       const k = prende((this.tf - b.atraso) / 0.55);

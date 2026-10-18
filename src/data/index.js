@@ -5,7 +5,7 @@ import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
 
-const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, aniv, reg, zonas, ovos, decamark, hab, pesos, mina, mais, gopark, spinda, prov, hack, duplas, dex, brag, textos, rotom, vazio, trocas, kanto] = await Promise.all([
+const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music, species, box, mega, fusao, fusoes, feitas, concurso, idiomas, missoes, rival, amigos, versao, online, gifts, maps, acamp, bravos, iniciais, distorcoes, sevii, bones, zc, desc, moto, lugares, eras, bolas, aniv, reg, zonas, ovos, decamark, hab, pesos, mina, mais, gopark, spinda, spindaUnown, prov, hack, duplas, dex, brag, textos, rotom, vazio, trocas, kanto] = await Promise.all([
   import("./config.js" + V),
   import("./story.js" + V),
   import("./types.js" + V),
@@ -27,6 +27,7 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./idiomas.js" + V),
   import("./missoes.js" + V),
   import("./rival.js" + V),
+  import("./amigos.js" + V),
   import("./versao.js" + V),
   import("./online.js" + V),
   import("./gifts.js" + V),
@@ -54,6 +55,7 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   import("./mais.js" + V),
   import("./gopark.js" + V),
   import("./spinda.js" + V),
+  import("./spinda-unown.js" + V),
   import("./provacoes.js" + V),
   import("./hackeanas.js" + V),
   import("./duplas.js" + V),
@@ -73,6 +75,7 @@ const secretas = await import("./secretas.js" + V);
 // AS FORMAS ÚNICAS (src/data/formas-unicas.js): os desenhos do UNIQUEMON
 const unicas = await import("./formas-unicas.js" + V);
 const formasBatalha = await import("./formas-batalha.js" + V);   // WISHIWASHI CARDUME, PALAFIN HERÓI
+const vinculo = await import("./vinculo.js" + V);              // o FENÔMENO DE VÍNCULO do CAIO e da LARA
 const puros = await import("./fosseis-puros.js" + V);            // os FÓSSEIS PURIFICADOS: a FORMA PURA e o TURBOZOLT
 const guardaRoupa = await import("./guarda-roupa.js" + V);
 // FALAR COM O COMPANHEIRO (src/data/companheiro.js)
@@ -269,6 +272,9 @@ function mergeMaps(kanto, authored) {
       // o GUARDA-ROUPA ÚNICO (src/data/guarda-roupa.js): uma vez só, como a barraca
       const G = guardaRoupa.GUARDA_ROUPA;
       if (!tem.has(G.item)) npc.shop.push({ item: G.item, price: G.preco, unico: true });
+      // o CRISTAL DO VÍNCULO (src/data/vinculo.js): a técnica que se compra
+      const B = vinculo.VINCULO.cristal;
+      if (!tem.has(B.item)) npc.shop.push({ item: B.item, price: B.preco });
     }
   }
   // OS COGUMELOS DO PARASECT (src/data/secretas.js) só nas lojas das SEVII
@@ -475,6 +481,9 @@ const BRAG_MUNDO = kanto ? brag.conteudoDoMundo(MAPAS_BRAGLITCH) : {};
 const BRAG_PLACAS = brag.placasEPortas(MAPAS_BRAGLITCH, BRAG_MUNDO);
 const BRAG_CONTEUDO = Object.fromEntries(Object.entries({ ...brag.BRAGLITCH_MAPS, ...BRAG_MUNDO }).map(([id, { placas, ...m }]) => [id, {
   ...m,
+  // os NPCs das MISSÕES postos em mapa de Braglitch (src/data/maps.js, `addNpcs`):
+  // o conteúdo daqui substitui o de maps.js inteiro, então eles entram aqui
+  npcs: [...(m.npcs || []), ...(maps.MAPS[id]?.addNpcs || [])],
   signs: { ...(BRAG_PLACAS[id]?.signs || {}), ...(m.signs || {}) },
   lockedWarps: { ...(BRAG_PLACAS[id]?.lockedWarps || {}), ...(m.lockedWarps || {}) },
 }]));
@@ -485,6 +494,8 @@ const ESPECIES_BASE = { ...gen1.GEN1, ...extra.EXTRA, ...reg.REGIONAIS, ...eras.
   ...iniciais.INICIAIS_ESPECIES, ...bones.BONES_ESPECIES, ...decamark.DECAMARK_ESPECIE, ...mais.MAIS,
   ...hack.HACKEANAS, ...brag.BRAGLITCH_ESPECIES, ...rotom.ROTOM_FORMAS, ...mega.MEGA_FORMS,
   ...secretas.SECRETAS_ESPECIES, ...formasBatalha.FORMAS_BATALHA, ...puros.FOSSEIS_PUROS_ESPECIES };
+// AS FORMAS DE VÍNCULO saem das espécies de sempre (src/data/vinculo.js)
+Object.assign(ESPECIES_BASE, vinculo.especiesVinculo(ESPECIES_BASE));
 /** true quando a ilha está sendo desenhada aqui, e não veio do decomp */
 export const ILHA_GERADA = !kanto?.birth_island;
 
@@ -616,6 +627,7 @@ function montarDB() {
     GO_PARK: gopark.GO_PARK, CPM: gopark.CPM, MINIJOGOS_GO: gopark.MINIJOGOS_GO, MINIJOGO_POR_TIPO: gopark.MINIJOGO_POR_TIPO,
     PREMIO_GO: gopark.PREMIO_GO, GO_TEXTO: gopark.GO_TEXTO, GO_PARQUE_NOME: gopark.GO_PARQUE_NOME,
     SPINDA_MANCHAS: spinda.SPINDA_MANCHAS, SPINDA_CORPO: spinda.SPINDA_CORPO, SPINDA_MANCHA: spinda.SPINDA_MANCHA,
+    SPINDA_UNOWN: spindaUnown.SPINDA_UNOWN,
     OVO_TEXTO: ovos.OVO_TEXTO,
     ZONA_TEXTO: zonas.ZONA_TEXTO,
     SEVII: sevii.SEVII,
@@ -668,9 +680,12 @@ function montarDB() {
     COGUMELOS: secretas.COGUMELOS,
     GUARDA_ROUPA: guardaRoupa.GUARDA_ROUPA,
     COMPANHEIRO: companheiro.COMPANHEIRO,
+    VINCULO: vinculo.VINCULO,
     ASH: ash.ASH,
     BICOS: bicos.BICOS,
     GEMEO: rival.GEMEO,
+    AMIGOS: amigos.AMIGOS,
+    TIRINHAS: amigos.TIRINHAS,
     MAPA_REGIAO: brag.MAPA_REGIAO,
     PANDEIRO_TEXTO: brag.PANDEIRO_TEXTO,
     BARCO: brag.BARCO,

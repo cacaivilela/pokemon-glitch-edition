@@ -904,8 +904,19 @@ export const Assets = {
     const corpo = DB.SPINDA_CORPO.map(corDeHex);
     const tinta = DB.SPINDA_MANCHA[shiny ? "shiny" : "comum"].map(corDeHex);
 
+    // OS RAROS (DB.CONFIG.spindaRaros): o TODO BRANCO fica sem mancha nenhuma, e
+    // o TODO VERMELHO tem o corpo inteiro pintado da cor das manchas
+    const raros = DB.CONFIG?.spindaRaros || {};
+    const branco = (pid >>> 0) === raros.branco?.seed || (pid >>> 0) === raros.unown?.seed, vermelho = (pid >>> 0) === raros.vermelho?.seed;
+    if (vermelho) {
+      for (let o = 0; o < px.length; o += 4) {
+        if (px[o + 3] < 255) continue;
+        const k = corpo.findIndex((c) => c[0] === px[o] && c[1] === px[o + 1] && c[2] === px[o + 2]);
+        if (k >= 0) { px[o] = tinta[k][0]; px[o + 1] = tinta[k][1]; px[o + 2] = tinta[k][2]; }
+      }
+    }
     let p = pid >>> 0;
-    for (const m of manchas) {
+    for (const m of (branco || vermelho ? [] : manchas)) {
       const x0 = m.x + ((p & 0x0f) - 8);
       let y = m.y + (((p & 0xf0) >> 4) - 8);
       for (let linha = 0; linha < 16; linha++, y++) {
@@ -921,6 +932,20 @@ export const Assets = {
         }
       }
       p >>>= 8;                                          // o próximo naco, pra próxima mancha
+    }
+    // O SPINDA DOS UNOWN (o da ARQUEÓLOGA): as manchas dele são as 28
+    // silhuetas de UNOWN (A a Z, ! e ?), cada uma no lugar dela
+    // (src/data/spinda-unown.js) — e pintam como mancha: só no corpo claro
+    const U = DB.SPINDA_UNOWN;
+    if ((pid >>> 0) === raros.unown?.seed && U) {
+      for (const l of U.letras) {
+        l.forma.forEach((linha, dy) => [...linha].forEach((ch, dx) => {
+          const o = ((l.y + dy) * 64 + l.x + dx) * 4;
+          if (ch !== "#" || px[o + 3] < 255) return;
+          const k = corpo.findIndex((c) => c[0] === px[o] && c[1] === px[o + 1] && c[2] === px[o + 2]);
+          if (k >= 0) [px[o], px[o + 1], px[o + 2]] = tinta[k];
+        }));
+      }
     }
     ctx.putImageData(dados, 0, 0);
     // o cache é por padrão desenhado; num box cheio de SPINDA ele não pode crescer sem fim
@@ -1166,6 +1191,26 @@ export const Assets = {
     }
     const base = costas ? this.monBack(mon.species, mon.seed) : this.mon(mon.species, mon.seed);
     if (base) ctx.drawImage(reduzido(this.comCor(base, mon, costas), lado), x, y, lado, lado);
+  },
+
+  /** O POKÉMON VIVO NAS CENAS (troca, evolução, ovo chocando, mega, soltar...):
+   *  o quadro animado de agora já encaixado numa tela 64x64, do tamanho do
+   *  sprite parado — quem desenhava o parado troca um pelo outro sem mexer em
+   *  conta nenhuma (silhueta, pixels da evolução, zoom). Pés no chão da
+   *  caixa, centrado; quadro maior que a caixa encolhe pra caber. Sem
+   *  animação (ainda chegando, fusão, hackeana...): null, e fica o parado. */
+  vivo(mon, costas = false, ms = performance.now() + ((mon?.seed || 0) % 997) * 7) {
+    const q = this.monAnim(mon, costas, ms);
+    if (!q) return null;
+    if (!this._vivo) this._vivo = new WeakMap();
+    const hit = this._vivo.get(q);
+    if (hit) return hit;
+    const f = Math.min(1, 64 / Math.max(q.width, q.height));
+    const w = Math.max(1, Math.round(q.width * f)), h = Math.max(1, Math.round(q.height * f));
+    const { cv, ctx } = makeCanvas(64, 64);
+    ctx.drawImage(reduzido(q, w, h), Math.round((64 - w) / 2), 64 - h, w, h);
+    this._vivo.set(q, cv);
+    return cv;
   },
 
   /** sprite de costas (do jogador na batalha) */

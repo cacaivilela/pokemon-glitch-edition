@@ -111,6 +111,8 @@ export class NascerScene {
 
   /** o bicho já colorido (shiny incluso), ou null se ainda carrega */
   arte() {
+    const vivo = Assets.vivo(this.mon);   // animado, quando tem
+    if (vivo) return vivo;
     const img = Assets.mon(this.mon.species, this.mon.seed);
     return img ? Assets.comCor(img, this.mon) : null;
   }

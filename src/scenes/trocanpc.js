@@ -92,7 +92,8 @@ export class TrocaNpcScene {
 
   get fase() { return FASES[this.i][0]; }
   get k() { return prende(this.tf / FASES[this.i][1]); }
-  sprite(mon) { return Assets.comCor(Assets.mon(mon.species, mon.seed), mon); }
+  // animado (o quadro do B/W de agora) quando tem; senão o desenho parado
+  sprite(mon) { return Assets.vivo(mon) || Assets.comCor(Assets.mon(mon.species, mon.seed), mon); }
 
   /** o que se VÊ do bicho: no mistério, o que vem é só uma sombra até o fim */
   visto(mon) {

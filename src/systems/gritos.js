@@ -20,12 +20,28 @@ function doNome(id) {
   return { som: "", s };
 }
 
+/** O grito da FORMA DE VÍNCULO (src/data/vinculo.js): 3/4 o grito do
+ *  Pokémon (ou o grito próprio da forma, `VINCULO.gritos`), 1/4 o som do
+ *  treinador. O som do treinador é encolhido (ou
+ *  esticado) pra durar um terço do grito do Pokémon. */
+function gritoVinculo(sp) {
+  const base = DB.VINCULO?.gritos?.[sp.vinculo]?.[sp.formaDe] || gritoDe(sp.formaDe);
+  const dele = DB.VINCULO?.treinadores?.[sp.vinculo]?.grito;
+  if (!dele) return base;
+  const dur = (s) => s.reduce((a, x) => a + (x[2] || 0), 0);
+  const quarto = dur(base.s) / 3;
+  const k = quarto / Math.max(1, dur(dele));
+  const treinador = dele.map((x) => [x[0], x[1], Math.max(15, Math.round(x[2] * k)), ...x.slice(3)]);
+  return { ...base, s: [...base.s, ...treinador] };
+}
+
 /** O grito de uma espécie: o escrito, o da fusão (cabeça + fim do corpo) ou o do nome. */
 export function gritoDe(id) {
   if (GRITOS[id]) return GRITOS[id];
   const sp = DB.SPECIES?.[id];
   // a FORMA ÚNICA é roupa: por baixo ela é a espécie original, e grita como ela
   if (sp?.unicaDe) return gritoDe(sp.unicaDe);
+  if (sp?.vinculo) return gritoVinculo(sp);
   if (sp?.fusao) {
     const a = gritoDe(sp.fusao.cabeca), b = gritoDe(sp.fusao.corpo);
     const meio = (x) => Math.ceil(x.s.length / 2);

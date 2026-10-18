@@ -30,11 +30,11 @@ import { fatorDano } from "./dificuldade.js";
 import { fator } from "./acampamento.js";
 import { pesoDe } from "./habilidades.js";
 
-const W = 240, ALT = 124;                  // a arena; embaixo, o painel
-const T = 4, COLS = W / T, LINS = ALT / T; // o terreno é uma grade de 4x4 px
-const G = 520;                              // gravidade (px/s²)
-const LARG = 12, ALTURA = 16;               // a caixa de colisão do bicho
-const QUEDA = 0.3;                          // cair pra fora custa 30% do HP máximo
+export const W = 240, ALT = 124;                  // a arena; embaixo, o painel
+export const T = 4, COLS = W / T, LINS = ALT / T; // o terreno é uma grade de 4x4 px
+export const G = 520;                              // gravidade (px/s²)
+export const LARG = 12, ALTURA = 16;               // a caixa de colisão do bicho
+export const QUEDA = 0.3;                          // cair pra fora custa 30% do HP máximo
 
 /** essa batalha pode ser explosiva? (raid, totem e descontrolada têm regra própria) */
 export function podeSerExplosiva(b) {
@@ -46,7 +46,7 @@ const corDoTipo = (tp) => DB.TYPE_COLOR?.[tp] || "#ffffff";
 
 // ------------------------------------------------------------ o terreno
 /** a arena: chão grosso com um morrinho, duas plataformas e duas paredes */
-function montarTerreno(semente) {
+export function montarTerreno(semente) {
   const t = new Uint8Array(COLS * LINS);
   const poe = (c, l, v = 1) => { if (c >= 0 && c < COLS && l >= 0 && l < LINS) t[l * COLS + c] = v; };
   for (let c = 0; c < COLS; c++) {
@@ -59,14 +59,14 @@ function montarTerreno(semente) {
   return t;
 }
 
-const solido = (A, x, y) => {
+export const solido = (A, x, y) => {
   if (x < 0 || x >= W) return true;              // as bordas da tela seguram
   if (y < 0 || y >= ALT) return false;           // em cima e embaixo, vazio
   return A.terreno[Math.floor(y / T) * COLS + Math.floor(x / T)] > 0;
 };
 
 /** a caixa do bicho bate em terreno? */
-function bate(A, x, y) {
+export function bate(A, x, y) {
   for (let dx = -LARG / 2; dx <= LARG / 2; dx += 3) {
     for (let dy = -ALTURA; dy <= -1; dy += 3) if (solido(A, x + dx, y + dy)) return true;
     if (solido(A, x + dx, y - 1)) return true;
@@ -75,7 +75,7 @@ function bate(A, x, y) {
 }
 
 /** EXPLODE: abre uma cratera de raio `r` (px) e solta os pedaços */
-function cratera(A, x, y, r, cor = "#8a5a32") {
+export function cratera(A, x, y, r, cor = "#8a5a32") {
   const c0 = Math.floor((x - r) / T), c1 = Math.floor((x + r) / T);
   const l0 = Math.floor((y - r) / T), l1 = Math.floor((y + r) / T);
   let quebrou = 0;
@@ -186,7 +186,7 @@ function andar(b, q, dt) {
     const fx = q.x + (q.dir === "right" ? 10 : -10);
     if (cratera(A, fx, q.y - 8, 7)) b.shake = Math.max(b.shake, 0.05);
     const alvo = q === A.eu ? A.ele : A.eu;
-    if (!q.ataque.acertou && Math.abs(alvo.x - fx) < 14 && Math.abs((alvo.y - 8) - (q.y - 8)) < 16) {
+    if (!q.ataque.acertou && (dentro(alvo, fx, q.y - 8, 6) || dentro(alvo, fx, q.y - 16, 6))) {
       q.ataque.acertou = true;
       acertar(b, q === A.eu ? "p" : "f", q.ataque.golpe, q.dir === "right" ? 1 : -1, -0.6);
     }
@@ -273,17 +273,25 @@ function usar(b, who, i) {
   }
 }
 
+/** o ponto (x, y) está dentro do desenho do bicho? A caixa é o tamanho em que
+ *  ele aparece na tela (`q.caixa`, do render), com uma folguinha */
+function dentro(q, x, y, folga = 2) {
+  const { w, h } = q.caixa || { w: 24, h: 28 };
+  return Math.abs(x - q.x) <= w / 2 + folga && y >= q.y - h - folga && y <= q.y + folga;
+}
+
 function andarTiros(b, dt) {
   const A = b.explosiva;
   for (const t of A.tiros) {
     t.vida -= dt;
-    t.x += t.vx * dt; t.y += t.vy * dt;
     const alvo = t.who === "p" ? A.ele : A.eu;
-    const naCara = Math.abs(alvo.x - t.x) < 10 && Math.abs(alvo.y - 8 - t.y) < 12;
-    if (naCara || solido(A, t.x, t.y) || t.x < 0 || t.x > W || t.vida <= 0) {
-      t.vida = 0;
-      explodir(b, t);
+    // anda em passinhos: rápido demais, o tiro pulava por cima do bicho
+    const n = Math.max(1, Math.ceil(Math.hypot(t.vx, t.vy) * dt / 3));
+    for (let k = 0; k < n && t.vida > 0; k++) {
+      t.x += (t.vx * dt) / n; t.y += (t.vy * dt) / n;
+      if ((alvo.mon.hp > 0 && alvo.invul <= 0 && dentro(alvo, t.x, t.y)) || solido(A, t.x, t.y) || t.x < 0 || t.x > W) t.vida = 0;
     }
+    if (t.vida <= 0) explodir(b, t);
   }
   A.tiros = A.tiros.filter((t) => t.vida > 0);
 }
@@ -297,8 +305,10 @@ function explodir(b, t) {
   b.shake = Math.max(b.shake, 0.14);
   Audio2.tone(90, 0.15, "sawtooth", 0.5);
   const alvo = t.who === "p" ? A.ele : A.eu;
-  const d = Math.hypot(alvo.x - t.x, alvo.y - 8 - t.y);
-  if (d < r + 10) acertar(b, t.who, t.golpe, Math.sign(alvo.x - t.x) || 1, -0.9, 1 - d / (r + 22));
+  // a distância até o MEIO do desenho dele (bicho grande é alvo grande)
+  const h = alvo.caixa?.h || 28;
+  const d = dentro(alvo, t.x, t.y, 4) ? 0 : Math.hypot(alvo.x - t.x, alvo.y - h / 2 - t.y) - (alvo.caixa?.w || 24) / 2;
+  if (d < r + 6) acertar(b, t.who, t.golpe, Math.sign(alvo.x - t.x) || 1, -0.9, Math.min(1, 1 - Math.max(0, d) / (r + 22)));
 }
 
 /** o golpe pegou: dano da conta de sempre, e o ARREMESSO (maior com pouco HP) */
@@ -415,6 +425,7 @@ function desenhaLutador(ctx, b, q, costasNao) {
   const lado = 34;
   const k = Math.min(lado / img.width, lado / img.height);
   const w = Math.round(img.width * k), h = Math.round(img.height * k);
+  q.caixa = { w: Math.max(12, w * 0.8), h: Math.max(14, h * 0.9) };   // o que conta como acerto
   // a sombra no chão embaixo dele
   ctx.fillStyle = "rgba(0,0,0,0.25)";
   ctx.fillRect(Math.round(q.x - w / 3), Math.round(q.y), Math.round((w * 2) / 3), 2);

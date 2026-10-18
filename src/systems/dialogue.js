@@ -4,6 +4,8 @@ import { traduz } from "../core/idioma.js";
 import { Audio2 } from "../core/audio.js";
 import { panel, drawText, wrapText, cursor, PAL, LINE_H } from "../core/gfx.js";
 import { Opcoes } from "../core/opcoes.js";
+import { Assets } from "../core/assets.js";
+import { reduzido } from "../core/reduzir.js";
 
 /** trechos que o jogo substitui em qualquer fala: {NOME} = nome do jogador */
 let TEXT_VARS = {};
@@ -25,6 +27,17 @@ export const FALA_VELOCIDADES = [
 const velocidade = () => (FALA_VELOCIDADES[Opcoes.get("falaVel")] || FALA_VELOCIDADES[1]).cps;
 const emBalao = () => Opcoes.get("falaEstilo") === "balao";
 
+// O BALÃO DE PENSAMENTO: fala que começa com `[pensa:<espécie>]` abre, junto
+// com ela, a nuvenzinha de quem fala com aquele Pokémon dentro — é o ANDRÉ
+// (src/data/amigos.js) imaginando o bicho cujo nome ele acabou de errar. A
+// marca some do texto. Página que continua a mesma fala (`CONTINUA` na frente)
+// mantém a nuvem; fala nova sem marca fecha.
+const PENSA = /^\[pensa:([a-z0-9~-]+)\]\s*/;
+const CONTINUA = "\u0001";
+// a nuvem: círculos (dx, dy, raio) em volta do meio
+const NUVEM = [[0, 0, 22], [-19, 5, 14], [19, 5, 14], [-11, -13, 13], [11, -13, 13], [-9, 15, 12], [9, 15, 12]];
+const suaveSai = (k) => 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2);   // passa um pouco e volta
+
 export class Dialogue {
   constructor() {
     this.queue = [];
@@ -39,6 +52,7 @@ export class Dialogue {
     // (placa, aviso, batalha) a fala vai na caixa de baixo mesmo no balão.
     this.falante = null;
     this.parado = 0;           // quanto tempo a página está inteira na tela (o AVANÇO sozinho)
+    this.pensa = null;         // { especie, t }: o balão de pensamento aberto agora
   }
 
   say(text, onDone) {
@@ -59,10 +73,11 @@ export class Dialogue {
   }
 
   next() {
-    const t = this.queue.shift();
+    let t = this.queue.shift();
     if (t == null) {
       this.active = false;
       this.lines = [];
+      this.pensa = null;
       const cb = this.done;
       this.done = null;
       cb?.();
@@ -71,13 +86,20 @@ export class Dialogue {
       if (!this.active && !this.choice) this.falante = null;
       return;
     }
+    t = String(t);
+    if (t.startsWith(CONTINUA)) t = t.slice(1);            // a mesma fala: a nuvem fica
+    else {
+      const m = PENSA.exec(t);
+      this.pensa = m ? { especie: m[1], t: 0 } : null;
+      if (m) t = t.slice(m[0].length);
+    }
     // traduz a frase inteira antes de quebrar: a quebra tem que contar as
     // letras do texto que vai aparecer, não as do original
     const linhas = wrapText(fill(traduz(t)), this.balao ? COLS_BALAO : COLS);
     this.lines = linhas.slice(0, 3);
     // não cabe na caixa: o resto vira a próxima página em vez de sumir
     const resto = linhas.slice(3).join(" ").trim();
-    if (resto) this.queue.unshift(resto);
+    if (resto) this.queue.unshift(CONTINUA + resto);
     this.chars = 0;
     this.parado = 0;
   }
@@ -91,6 +113,7 @@ export class Dialogue {
   update(dt) {
     if (!this.active && !this.choice) return false;
     this.blink += dt;
+    if (this.pensa) this.pensa.t += dt;
 
     if (this.choice) {
       const c = this.choice;
@@ -142,6 +165,7 @@ export class Dialogue {
       ctx.fillRect(caixa.x + caixa.w - 11, caixa.y + caixa.h - 9, 3, 1);
       ctx.fillRect(caixa.x + caixa.w - 10, caixa.y + caixa.h - 8, 1, 1);
     }
+    if (this.pensa) this.desenhaPensamento(ctx, caixa, balao);
     if (this.choice) {
       const c = this.choice;
       const w = 8 + Math.max(...c.options.map((o) => o.length)) * 6 + 14;
@@ -182,5 +206,75 @@ export class Dialogue {
     tri(pontas.map(([px, py]) => [px + (px < bx ? -1 : px > bx ? 1 : 0), py + (embaixo ? (py < y ? -1 : 0) : (py > y + h ? 1 : 0))]), PAL.frame);
     tri(pontas, PAL.paper);
     return { x, y, w, h };
+  }
+
+  /** O BALÃO DE PENSAMENTO com o Pokémon dentro, numa cena curtinha: as
+   *  bolinhas saem de quem fala, a nuvem estufa, o bicho cai lá dentro, quica
+   *  e fica pulando de alegria (animado, o quadro do B/W, quando tem). */
+  desenhaPensamento(ctx, caixa, balao) {
+    const { especie, t } = this.pensa;
+    if (!especie) return;
+    // no canto de cima, do lado contrário do balão de fala
+    const esq = balao && caixa.x + caixa.w / 2 > 120;
+    const cx = esq ? 44 : 194, cy = 38;
+    const cab = this.falante?.() || { x: BOX.x + 40, y: BOX.y };
+    const de = { x: cab.x, y: Math.min(cab.y, BOX.y) - 4 };
+
+    // 1. as três bolinhas, de quem fala até a nuvem, uma de cada vez
+    for (let i = 0; i < 3; i++) {
+      const k = Math.min(1, Math.max(0, (t - i * 0.09) / 0.12));
+      if (k <= 0) continue;
+      const f = 0.25 + i * 0.22, r = (2 + i) * k;
+      const x = de.x + (cx - de.x) * f, y = de.y + (cy + 24 - de.y) * f;
+      this.circulo(ctx, x, y, r + 1, PAL.frame);
+      this.circulo(ctx, x, y, r, PAL.paper);
+    }
+    // 2. a nuvem estufando
+    const kn = Math.min(1, Math.max(0, (t - 0.25) / 0.3));
+    if (kn <= 0) return;
+    const e = suaveSai(kn);
+    for (const [dx, dy, r] of NUVEM) this.circulo(ctx, cx + dx * e, cy + dy * e, (r + 1) * e, PAL.frame);
+    for (const [dx, dy, r] of NUVEM) this.circulo(ctx, cx + dx * e, cy + dy * e, r * e, PAL.paper);
+    if (kn < 1) return;
+
+    // 3. o bicho, recortado dentro da nuvem
+    ctx.save();
+    ctx.beginPath();
+    for (const [dx, dy, r] of NUVEM) { ctx.moveTo(cx + dx + r - 1, cy + dy); ctx.arc(cx + dx, cy + dy, r - 1, 0, Math.PI * 2); }
+    ctx.clip();
+    const chao = cy + 22, lado = 40;
+    const tm = t - 0.55;
+    let pulo = 0, achata = 0;
+    if (tm < 0.35) {
+      // caindo do alto da nuvem
+      const k = Math.max(0, tm) / 0.35;
+      pulo = (1 - k * k) * 34;
+    } else {
+      // quicando: um pulo a cada 0,9 s, achatando um tiquinho quando bate no chão
+      const c = ((tm - 0.35) % 0.9) / 0.9;
+      pulo = c < 0.45 ? Math.sin((c / 0.45) * Math.PI) * 6 : 0;
+      achata = c >= 0.45 && c < 0.55 ? 1 : 0;
+    }
+    ctx.fillStyle = "rgba(0,0,0,.18)";
+    ctx.beginPath(); ctx.ellipse(cx, chao, 12 - pulo / 4, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+    const mon = { species: especie, seed: 7 };
+    const img = Assets.vivo(mon) || Assets.mon(especie, 7);
+    if (img) {
+      const h = lado - achata * 3, w = lado + achata * 2;
+      ctx.drawImage(reduzido(img, lado), Math.round(cx - w / 2), Math.round(chao - h - pulo + 2), w, h);
+    }
+    // a poeirinha quando ele aterrissa da queda
+    const kp = (tm - 0.35) / 0.3;
+    if (kp > 0 && kp < 1) {
+      ctx.fillStyle = `rgba(170,160,140,${1 - kp})`;
+      for (const s of [-1, 1]) ctx.fillRect(Math.round(cx + s * (8 + kp * 8)), Math.round(chao - 2 - kp * 3), 2, 2);
+    }
+    ctx.restore();
+  }
+
+  circulo(ctx, x, y, r, cor) {
+    if (r <= 0) return;
+    ctx.fillStyle = cor;
+    ctx.beginPath(); ctx.arc(Math.round(x), Math.round(y), r, 0, Math.PI * 2); ctx.fill();
   }
 }

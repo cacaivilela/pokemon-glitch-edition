@@ -281,8 +281,10 @@ export class AcampamentoScene {
 
     this.drawBarraca(ctx, 8, CHAO - 42);
     for (const l of this.lugares) {
-      const img = Assets.mon(l.mon.species, l.mon.seed);
-      const sobe = Math.sin(this.t * 2 + l.bob) * 1.5;   // respirando
+      // animado (o quadro do B/W) quando tem: aí ele já se mexe sozinho
+      const vivo = Assets.vivo(l.mon);
+      const img = vivo || Assets.mon(l.mon.species, l.mon.seed);
+      const sobe = vivo ? 0 : Math.sin(this.t * 2 + l.bob) * 1.5;   // respirando
       if (img) ctx.drawImage(reduzido(img, 32), Math.round(l.x - 16), Math.round(l.pes - 32 + sobe), 32, 32);
     }
     this.drawFogo(ctx);

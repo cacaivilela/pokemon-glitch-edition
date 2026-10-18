@@ -282,8 +282,9 @@ export class GoParkScene {
     ctx.fillRect(0, HORIZONTE - 10, W, 2); ctx.fillRect(0, HORIZONTE - 4, W, 2);
     // os Pokémon, do fundo pra frente
     for (const b of [...this.bichos].sort((a, c) => a.y - c.y)) {
-      const img = Assets.mon(b.mon.species, b.mon.seed);
-      const sobe = Math.sin(this.t * 4 + b.bob) * (b.dir ? 1.5 : 0.5);
+      const vivo = Assets.vivo(b.mon);   // animado, quando tem
+      const img = vivo || Assets.mon(b.mon.species, b.mon.seed);
+      const sobe = vivo && !b.dir ? 0 : Math.sin(this.t * 4 + b.bob) * (b.dir ? 1.5 : 0.5);
       if (img) {
         ctx.save();
         if (b.dir > 0) { ctx.translate(Math.round(b.x + 16), 0); ctx.scale(-1, 1); ctx.drawImage(reduzido(img, 32), 0, Math.round(b.y - 32 + sobe), 32, 32); }

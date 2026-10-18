@@ -37,12 +37,22 @@ export function createMon(speciesId, level, opts = {}) {
     // que dá os 4.294.967.296 padrões do bicho, como nos jogos de verdade.
     // Quem foi capturado antes disto tem seed pequeno e continua valendo; só
     // desenha um padrão com menos variação nas duas últimas manchas.
-    seed: opts.seed ?? randInt(2 ** 32),
+    seed: opts.seed ?? seedNovo(speciesId),
     hp: 0,
   };
   recalc(mon);
   mon.hp = mon.maxHp;
   return mon;
+}
+
+/** O valor de personalidade de quem nasce agora. O SPINDA pode sair TODO
+ *  BRANCO ou TODO VERMELHO (DB.CONFIG.spindaRaros): aí o seed é o número
+ *  marcado daquele raro, e o desenho reconhece. */
+function seedNovo(id) {
+  if (id === "spinda") {
+    for (const r of Object.values(DB.CONFIG?.spindaRaros || {})) if (chance(r.chance)) return r.seed;
+  }
+  return randInt(2 ** 32);
 }
 
 /** A COR DO BICHO QUE ACABOU DE APARECER: comum ou SHINY (1 em 1024).
@@ -145,7 +155,7 @@ export function gainXp(mon, amount, { semTrunfo = false } = {}) {
     // quem está desmaiado continua desmaiado: subir de nível não é reviver
     if (mon.hp > 0) mon.hp += mon.maxHp - before;
     events.push({ type: "level", level: mon.level });
-    mon.amizade = Math.min(255, (mon.amizade || 0) + (mon.trunfo ? 6 : 3));   // subir de nível aproxima
+    amizade(mon, mon.trunfo ? 6 : 3);   // subir de nível aproxima
     const sp = DB.SPECIES[mon.species];
     for (const [lvl, id] of sp.learnset) {
       if (lvl === mon.level && !mon.moves.some((m) => m.id === id)) {
@@ -205,9 +215,15 @@ export function evolutionFor(mon, mapa = null) {
 
 /** AMIZADE: sobe andando com você, vencendo e subindo de nível (as contas
  *  estão em src/systems/creche.js, que é quem mais se importa com isso).
- *  Fica em 0..255, e quem nunca ganhou nada está em 0. */
-export function amizade(mon, quanto) {
+ *  Fica em 0..255, e quem nunca ganhou nada está em 0.
+ *
+ *  ACIMA DO MÁXIMO (o FENÔMENO DE VÍNCULO, src/data/vinculo.js): só as
+ *  técnicas do vínculo passam de 255 (`passa`). O resto para no 255, mas não
+ *  puxa pra baixo quem já está acima. */
+export function amizade(mon, quanto, passa = false) {
   if (!mon) return 0;
-  mon.amizade = Math.max(0, Math.min(255, (mon.amizade || 0) + quanto));
+  const atual = mon.amizade || 0;
+  const teto = passa ? (DB.VINCULO?.teto ?? 255) : 255;
+  mon.amizade = quanto > 0 ? Math.max(atual, Math.min(teto, atual + quanto)) : Math.max(0, atual + quanto);
   return mon.amizade;
 }

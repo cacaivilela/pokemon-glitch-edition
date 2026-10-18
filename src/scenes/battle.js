@@ -31,6 +31,7 @@ import {
 import { habilidadeDoMon, entrada as entradaDaHabilidade, contato as contatoDaHabilidade, curaDoTurno, ficaNaBola } from "../systems/habilidades.js";
 import { opcoesMega, megaEvoluir, reverterMega, reverterTudo } from "../systems/mega.js";
 import { ajustarForma, saiuDaLuta } from "../systems/formas.js";
+import { podeVirar, virarVinculo, corDoVinculo, aguentouJunto, marcarVitoria } from "../systems/vinculo.js";
 import { PEDRA_BUGADA } from "../data/pedra-bugada.js";
 import { podeSerReal, iniciar as iniciarReal, atualizar as atualizarReal, desenhar as desenharReal } from "../systems/batalhareal.js";
 import { podeSerExplosiva, iniciar as iniciarExplosiva, atualizar as atualizarExplosiva, desenhar as desenharExplosiva } from "../systems/batalhaexplosiva.js";
@@ -676,6 +677,29 @@ export class BattleScene {
     await this.say(M.evoluiu.replace("{MON}", mon.nickname).replace("{FORMA}", r.forma));
   }
 
+  /** O FENÔMENO DE VÍNCULO: a água (CAIO) ou o rosa (LARA) sobe em volta
+   *  dele, o clarão, e ele volta com o corpo novo. */
+  async fazerVinculo() {
+    const mon = this.mine;
+    this.auraVinculo = 1.2;
+    Audio2.tone(330, 0.12, "square", 0.5);
+    Audio2.tone(494, 0.12, "square", 0.5);
+    await this.wait(0.5);
+    const falas = virarVinculo(this.st, mon);
+    if (!falas) return;
+    this.flash = 0.7;
+    this.sp.p.dx = -14;
+    Audio2.tone(659, 0.1, "square", 0.5);
+    Audio2.tone(988, 0.16, "square", 0.5);
+    Audio2.heal();
+    this.disp.p = mon.hp;
+    await this.wait(0.45);
+    // o grito novo: 3/4 o do Pokémon, 1/4 o do treinador (src/systems/gritos.js)
+    const dur = tocarGrito(mon);
+    await this.wait(Math.min(2.5, dur || 0));
+    for (const f of falas) await this.say(f);
+  }
+
   async useMove(who, moveRef) {
     // em TEMPO REAL o inimigo ataca sozinho na arena: a "vez dele" depois de
     // uma bola, poção ou troca não existe
@@ -690,6 +714,9 @@ export class BattleScene {
       await this.say(`${user.nickname} ESTÁ PARALISADO E NÃO CONSEGUE SE MEXER!`);
       return;
     }
+    // O FENÔMENO DE VÍNCULO (src/systems/vinculo.js): o golpe mais forte, com
+    // a amizade acima do máximo — ele muda de corpo antes de bater
+    if (who === "p" && podeVirar(this.st, user, moveRef.id)) await this.fazerVinculo();
     moveRef.pp = Math.max(0, moveRef.pp - 1);
     await this.say(`${user.nickname} USOU ${mv.name}!`);
 
@@ -1013,6 +1040,11 @@ export class BattleScene {
       this.st.corruption = Math.min(100, this.st.corruption + 8);
       await this.say("O CORPO DELE SE DESFAZ EM PIXELS QUE NÃO SOMEM DA TELA.");
     }
+    // AS TÉCNICAS DO VÍNCULO (src/systems/vinculo.js): quem venceu no fim do
+    // HP ganha muito; e o carinho logo depois da luta também vale
+    const aguentou = aguentouJunto(this.st, this.mine);
+    if (aguentou) { Audio2.heal(); for (const f of aguentou) await this.say(f); }
+    marcarVitoria(this.mine);
     await this.finish();
   }
 
@@ -1406,6 +1438,7 @@ export class BattleScene {
   update(dt) {
     this.t += dt;
     this.shake = Math.max(0, this.shake - dt);
+    if (this.auraVinculo > 0) this.auraVinculo = Math.max(0, this.auraVinculo - dt);
 
     if (this.fadeDir) {
       this.fadeA = Math.max(0, Math.min(1, this.fadeA + this.fadeDir * dt * 3));
@@ -1709,6 +1742,25 @@ export class BattleScene {
     }
     if (this.ballAnim) this.drawBall(ctx);
     if (this.sp.p.alpha > 0) {
+      // a AURA DO VÍNCULO: na cor de quem joga, pulsando atrás dele (e
+      // crescendo na hora em que ele vira)
+      const naForma = DB.SPECIES[this.mine.species]?.vinculo;
+      if ((naForma || this.auraVinculo > 0) && !this.sp.p.faint) {
+        const [r, g, b] = corDoVinculo(this.st);
+        const a = Math.min(1, 0.7 + 0.2 * Math.sin(this.t * 7) + (this.auraVinculo || 0) * 0.3);
+        const raio = 44 + 4 * Math.sin(this.t * 7) + (this.auraVinculo || 0) * 30;
+        const gr = ctx.createRadialGradient(46, 80, 4, 46, 80, raio);
+        gr.addColorStop(0, `rgba(255,255,255,${a})`);
+        gr.addColorStop(0.35, `rgba(${r},${g},${b},${a})`);
+        gr.addColorStop(1, `rgba(${r},${g},${b},0)`);
+        ctx.fillStyle = gr;
+        ctx.fillRect(46 - raio, 80 - raio, raio * 2, raio * 2);
+        // o anel que pulsa pra fora, como uma onda
+        const fase = (this.t * 0.9) % 1;
+        ctx.strokeStyle = `rgba(${r},${g},${b},${(1 - fase) * 0.9})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(46, 104, 20 + fase * 30, 6 + fase * 8, 0, 0, Math.PI * 2); ctx.stroke();
+      }
       const pimg = Assets.monBack(this.mine.species, this.mine.seed);
       const pa = Assets.monAnim(this.mine, true, this.t * 1000);
       drawMon(pa || Assets.comCor(pimg, this.mine, true), 14, 46 - (pa ? 0 : bob), this.sp.p, 1, !!pa);

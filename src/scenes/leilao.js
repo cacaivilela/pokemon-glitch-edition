@@ -153,8 +153,9 @@ export class LeilaoScene {
 
     const mon = this.escolhido;
     if (mon && this.menu.tipo !== "escolher") {
-      const img = Assets.mon(mon.species, mon.seed);
-      if (img) ctx.drawImage(img, 158, 30 + Math.sin(this.t * 2) * 2, 64, 64);
+      const vivo = Assets.vivo(mon);   // animado, quando tem: aí não balança
+      const img = vivo || Assets.mon(mon.species, mon.seed);
+      if (img) ctx.drawImage(img, 158, 30 + (vivo ? 0 : Math.sin(this.t * 2) * 2), 64, 64);
     }
 
     if (this.menu.tipo === "escolher") this.drawLista(ctx);

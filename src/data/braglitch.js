@@ -117,7 +117,23 @@ const NOVAS = `
 1089 | AMAZONIUM      | PLANTA/FADA      | 110  90 110 130 130 110
 1090 | DESTROIUM      | SOMBRIO/AÇO      | 100 150 120 120  90 100
 1091 | ENCONTRIUM     | ÁGUA/DRAGÃO      | 110 115 110 115 110 120
+1095 | GIGANTINY      | SOMBRIO          |  68  92  62  40  48  52
+1096 | GIGANTEETH     | AÇO/SOMBRIO      |  96 135 110  55  75  64
+1097 | BLINDINO       | PEDRA            |  60  70  95  35  50  30
+1098 | STEGARMOREX    | PEDRA/AÇO        |  95 110 145  50  75  45
+1099 | GALLINY        | NORMAL           |  45  60  40  45  40 105
+1100 | GALLIMIRAGE    | NORMAL/PSÍQUICO  |  70 100  60  75  60 145
 `;
+
+/** Golpes escritos à mão (quem não está aqui ganha os do tipo, src/data/species.js). */
+const GOLPES_NOVAS = {
+  gigantiny: { learnset: [[1, "investida"], [1, "encarar"], [7, "mordida"], [16, "cabecada"], [30, "garrademetal"]] },
+  giganteeth: { learnset: [[1, "mordida"], [1, "garrademetal"], [1, "encarar"], [16, "cabecada"]] },
+  blindino: { learnset: [[1, "investida"], [1, "endurecer"], [7, "jogarpedra"], [16, "cabecada"], [30, "garrademetal"]] },
+  stegarmorex: { learnset: [[1, "jogarpedra"], [1, "garrademetal"], [1, "endurecer"], [16, "cabecada"]] },
+  galliny: { learnset: [[1, "ataquerapido"], [1, "areianosolhos"], [7, "bicada"], [16, "confusao"], [30, "cabecada"]] },
+  gallimirage: { learnset: [[1, "ataquerapido"], [1, "confusao"], [1, "bicada"], [16, "cabecada"], [39, "psiquico"]] },
+};
 
 const LORE_NOVAS = {
   diggle: "FILHOTE DE FARO BOM. CAVA ATRÁS DE OSSO E ACHA BRASA: A TERRA DE BRAGLITCH É QUENTE POR BAIXO.",
@@ -173,6 +189,12 @@ const LORE_NOVAS = {
   bangveet: "FAZ UM ESTRONDO QUE DÁ PRA OUVIR POR 1 KM.",
   amazonium: "O ESPÍRITO DA FLORESTA INTEIRA NUMA ÁRVORE SÓ. DIZEM QUE CADA FOLHA DELE É UMA ÁRVORE QUE AINDA VAI NASCER.",
   destroium: "A MÁQUINA QUE O SERVIDOR USAVA PRA APAGAR DADO VELHO. ACORDOU NO APAGÃO E NÃO SABE MAIS O QUE É VELHO.",
+  gigantiny: "SAIU DO FÓSSIL DENTE GIGANTE COM UM DENTE SÓ, MAIOR QUE A BOCA. MORDE TUDO O QUE ENCONTRA PRA VER SE É DE COMER.",
+  giganteeth: "O MAIOR CAÇADOR QUE JÁ ANDOU POR BRAGLITCH. O CRÂNIO VIROU PLACA DE AÇO, E CADA DENTE É DO TAMANHO DE UM BRAÇO.",
+  blindino: "SAIU DO FÓSSIL BLINDADO JÁ DE CAPACETE. QUANDO SE ASSUSTA, ABAIXA A CABEÇA E ESPERA O PERIGO DESISTIR.",
+  stegarmorex: "AS PLACAS DAS COSTAS VIRARAM LÂMINAS, E O RABO TEM QUATRO ESPINHOS DE AÇO. DIZEM QUE NEM O GIGANTEETH MORDIA ELE.",
+  galliny: "SAIU DO FÓSSIL PENUGEM MIRAGEM E SAIU CORRENDO — LITERALMENTE. A PERNA CRESCE ANTES DO RESTO DO CORPO.",
+  gallimirage: "O BICHO MAIS RÁPIDO DE BRAGLITCH. CORRE TÃO DEPRESSA QUE A IMAGEM DELE FICA PRA TRÁS, E O INIMIGO ATACA A MIRAGEM ERRADA.",
   encontrium: "DUAS ÁGUAS CORREM NO SEU CORPO SEM SE MISTURAR. ONDE ELE NADA, A MATA E A MÁQUINA SÃO OBRIGADAS A FAZER TRÉGUA.",
   submarinum: "UM SUBMARINO QUE NASCEU NO FUNDO DO MAR E NUNCA QUIS VOLTAR. LEVA UMA PESSOA NA CABINE, E SÓ UMA.",
   catorbis: "VOOU PELA PRIMEIRA VEZ HÁ MAIS DE CEM ANOS, NUM CAMPO CHEIO DE GENTE DUVIDANDO. DESDE ENTÃO NÃO PAROU.",
@@ -269,7 +291,7 @@ for (const linha of NOVAS.trim().split("\n")) {
   const [dex, nome, tipos, stats] = linha.split("|").map((c) => c.trim());
   // TUCANAÇU -> tucanacu (o slugify sozinho comeria o Ç e sairia "tucanau")
   const id = slugify(nome.normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
-  registrar(id, +dex, nome, tipos, stats, { dexText: LORE_NOVAS[id] });
+  registrar(id, +dex, nome, tipos, stats, { dexText: LORE_NOVAS[id], ...GOLPES_NOVAS[id] });
 }
 // NOMES NOVOS: pra trocar o nome que aparece de uma espécie daqui sem trocar
 // o ID (é ele que está nos saves, nas evoluções, nos mapas e no nome do
@@ -404,6 +426,10 @@ export const EVO_BRAGLITCH = {
   penadinha: [{ lvl: 35, to: "assombracao" }],
   beijaflorzinha: [{ lvl: 32, to: "plumario" }],
   bantevy: [{ lvl: 28, to: "bangveet" }],
+  // os fósseis (src/data/fosseis-brag.js)
+  gigantiny: [{ lvl: 39, to: "giganteeth" }],
+  blindino: [{ lvl: 39, to: "stegarmorex" }],
+  galliny: [{ lvl: 39, to: "gallimirage" }],
   // O WEEPINBELL com PEDRA DA FOLHA em Braglitch vira a cuia (sai quente).
   // Em Kanto continua virando o VICTREEBEL de sempre (a regra com lugar vem
   // na frente, como as das formas regionais).

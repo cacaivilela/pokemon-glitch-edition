@@ -123,8 +123,9 @@ export class EvolutionScene {
     else bichoNoPalco(ctx, img, x, y, w, h);
   }
 
-  get velho() { return Assets.mon(this.mon.species, this.mon.seed); }
-  get novo() { return Assets.mon(this.to, this.mon.seed); }
+  // animados (o quadro do B/W de agora) quando tem; senão o desenho parado
+  get velho() { return Assets.vivo(this.mon) || Assets.mon(this.mon.species, this.mon.seed); }
+  get novo() { return Assets.vivo({ ...this.mon, species: this.to }) || Assets.mon(this.to, this.mon.seed); }
 
   mudaFase(f) { this.fase = f; this.tf = 0; }
 

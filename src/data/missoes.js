@@ -478,6 +478,31 @@ export const MISSOES = [
   // A história principal do ??????????: quatro capítulos com a pesquisadora
   // de Cinnabar, escritos em src/data/decamark.js junto com o resto dele.
   ...MISSOES_DECAMARK,
+  {
+    // BRAGLITCH: a arqueóloga das letras, em CARUARU. O SPINDA dela nasceu com
+    // as manchas no formato dos 28 UNOWN, de A a Z, ! e ? (src/data/spinda-unown.js)
+    // e ela quer saber se é coisa da região — então pede pra ver um Spinda daqui.
+    id: "spinda-unown",
+    nome: "O SPINDA ALFABETO",
+    mapa: "caruaru", x: 16, y: 13, sprite: "cientista",
+    requer: { flag: "starterChosen" },
+    objetivo: { tipo: "capturou-especie", especie: "spinda" },
+    resumo: "CAPTURAR UM SPINDA (BR-324) E MOSTRAR À ARQUEÓLOGA DE CARUARU.",
+    oferta: [
+      "EU ESTUDO OS UNOWN. LETRAS VIVAS, ESCRITAS EM PAREDE DE RUÍNA.",
+      "SÓ QUE O MEU SPINDA NASCEU COM AS MANCHAS EM FORMA DE UNOWN. TODAS: DE A ATÉ Z, E O ! E O ? DE BRINDE.",
+      "MANCHA DE SPINDA É SORTEIO. NUNCA SAI LETRA. EU PRECISO VER UM SPINDA DAQUI PRA COMPARAR.",
+      "ELES CAMBALEIAM NO MATO DA BR-324. ME TRAZ UM?",
+    ],
+    lembrete: ["O SPINDA. DA BR-324. ELE ANDA COMO QUEM SAIU DO FORRÓ ÀS QUATRO DA MANHÃ."],
+    entrega: [
+      "DEIXA EU VER... MANCHA COMUM. SORTEADA. NENHUMA LETRA.",
+      "ENTÃO O MEU NÃO É COISA DA REGIÃO. É ELE QUE É ÚNICO.",
+      "E SABE O QUE EU DESCOBRI? QUEM ESTUDA LETRA NÃO PRECISA TER A LETRA. PRECISA LER.",
+      "FICA COM ELE. ELE GOSTOU DE VOCÊ. E ASSIM O ALFABETO DELE VAI VER O MUNDO.",
+    ],
+    premio: { dinheiro: 2000, pokemon: { especie: "spinda", lvl: 30, spinda: "unown" } },
+  },
 ];
 
 /** O que o diário e os NPCs falam. */
@@ -490,6 +515,7 @@ export const MISSAO_TEXTO = {
   recusou: "TUDO BEM. EU FICO POR AQUI MESMO.",
   ganhou: "VOCÊ RECEBEU ${DINHEIRO}!",
   ganhouItem: "E MAIS {QTD} {ITEM}!",
+  ganhouPokemon: "E GANHOU {MON}! (SE A EQUIPE ESTIVER CHEIA, ELE VAI PRO PC)",
   feita: "MISSÃO CUMPRIDA: {NOME}!",
   jaFeita: "OBRIGADO DE NOVO. SÉRIO.",
   ajuda: "X VOLTA",

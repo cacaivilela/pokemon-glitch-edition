@@ -119,7 +119,9 @@ export class SoltarScene {
     const deCostas = f === "vai" || f === "fim" || (f === "vira" && this.k > 0.5);
     const img = deCostas ? Assets.monBack(this.mon.species, this.mon.seed) : Assets.mon(this.mon.species, this.mon.seed);
     if (!img) return;
-    const arte = Assets.comCor(img, this.mon, deCostas);
+    // de costas, indo embora, ele anda animado; de frente fica o parado, que é
+    // nele que as lágrimas acham os olhos
+    const arte = (deCostas && Assets.vivo(this.mon, true)) || Assets.comCor(img, this.mon, deCostas);
     const p = this.posicao();
     const lado = Math.round(64 * p.escala * (f === "abre" ? 0.4 + 0.6 * this.k : 1));
     const pulo = f === "olha" ? Math.round(Math.abs(Math.sin(this.tf * 7)) * 3) : f === "vai" ? Math.round(Math.abs(Math.sin(this.tf * 12)) * 2) : 0;

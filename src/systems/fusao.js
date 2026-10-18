@@ -374,7 +374,7 @@ export function importarFicha(st, texto) {
 export function especiePorTexto(texto) {
   const cru = String(texto || "").trim();
   if (!cru) return null;
-  const candidatos = Object.values(DB.SPECIES || {}).filter((sp) => !sp.mega && !partes(sp.id));
+  const candidatos = Object.values(DB.SPECIES || {}).filter((sp) => !sp.mega && !sp.vinculo && !partes(sp.id));
 
   if (/^\d+$/.test(cru)) {
     const n = parseInt(cru, 10);

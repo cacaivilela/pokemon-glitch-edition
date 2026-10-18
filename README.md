@@ -628,6 +628,29 @@ Os dados ficam em `src/data/mega.js` (uma tabela: espécie de origem, nome da
 forma, pedra, sprite e stats) e têm hot-swap como todo o resto de `src/data/`.
 Atalho de dev: `?mega=1` na URL enche a mochila com o anel e as 16 pedras.
 
+## O FENÔMENO DE VÍNCULO
+
+Como o GRENINJA do ASH: o Pokémon fica tão ligado a quem treina que muda de
+corpo no meio da luta e fica **parecido com o treinador**. Cada treinador tem
+a sua lista, sem repetir (`src/data/vinculo.js`):
+
+- **CAIO** (menino de BRAGLITCH): os iniciais de ÁGUA na forma final (e o
+  TILAPIRAÇU), o RILLABOOM e o RAICHU — cabelo cacheado, POKÉ BOLA e JOY-CON.
+- **LARA** (menina de BRAGLITCH): os fofos e o LOPUNNY (que vira uma MY
+  MELODY meio Pokémon) — o capuz de BUNEARY SHINY e o cabelo preto liso.
+- **VERMELHO** e **FOLHA** (Kanto): dez de Kanto sorteados para cada um.
+
+**Como vira:** usar o **golpe mais forte** que ele sabe com a **amizade acima
+do máximo** (o máximo de sempre é 255; o vínculo pede 300). Passar de 255 só
+com as técnicas: o **CRISTAL DO VÍNCULO** (loja), o **CARINHO DA VITÓRIA**
+(falar com ele logo depois de vencer) e o **AGUENTOU JUNTO** (vencer no fim do
+HP). A amizade aparece no rodapé da tela da EQUIPE. Cada forma tem um
+**codinome**, e o grito é **3/4 o do Pokémon e 1/4 o som do treinador**.
+
+Os sprites saem do 1º quadro da animação de cada espécie, editado pixel por
+pixel em `tools/vinculo_desenhos/` (`python3 tools/vinculo_sprites.py`
+grava todos). Para ver todas as formas: `http://localhost:5173/vinculo.html`.
+
 ## A POKÉDEX
 
 O **PROF. CARVALHO** dá três coisas no laboratório, nesta ordem: o **inicial**
@@ -1479,6 +1502,31 @@ poção, o **CRISTAL Z** (Q, uma vez por batalha), clima, habilidades (INTIMIDAR
 pega os dois do outro lado), status, XP, dinheiro e insígnia. Não tem captura
 nem fuga (é sempre treinador ou totem), nem MEGA e GLITCHBOOSTER, que continuam
 sendo do um contra um.
+
+### Em TEMPO REAL e EXPLOSIVA
+
+Com **BATALHA: TEMPO REAL** ou **EXPLOSIVA** no OPÇÕES, as duplas, os trios e
+a **HORDA** também viram arena — todo mundo junto, ao mesmo tempo, sem turno.
+As teclas são as do estilo escolhido; o que muda com mais gente:
+
+- Você controla **um** dos seus (setinha amarela em cima); o outro da dupla e
+  o do aliado lutam sozinhos. **Q** passa o controle pro outro. O alvo é sempre
+  o inimigo mais perto (setinha vermelha). Todo mundo tem a vidinha em cima.
+- **Golpe de área** vira uma onda em volta de quem usou: pega todo inimigo
+  perto, com 3/4 da força — e TERREMOTO e SURFAR pegam o parceiro também.
+- Na **EXPLOSIVA**, o tiro estoura em **todo mundo do outro lado** que estiver
+  no raio ("3 DE UMA VEZ!"), e o pisão vale em qualquer um do outro lado.
+- Na **HORDA** eles não atacam todos juntos: no máximo dois avisando de cada
+  vez. Fugir é sair pela beirada esquerda (TEMPO REAL) ou **X → FUGIR**.
+  Quando sobra um, vira o um contra um do mesmo estilo — e lá as bolas valem.
+- **X** pausa: poção, trocar quem você controla, fugir (só da horda).
+- O **TOTEM** das provações continua por turno, e MEGA e CRISTAL Z não entram
+  na arena.
+
+`src/systems/arenagrupo.js` é a arena (usa o terreno da explosiva de
+`src/systems/batalhaexplosiva.js`). Pra ver na hora:
+`?estilo=explosiva&dupla=geodude:20,onix:20&party=charizard:30,blastoise:30&perfil=teste`
+(ou `?estilo=real&horda=rattata&qtd=5&perfil=teste`).
 
 `src/scenes/grupobattle.js` (a cena), `src/data/duplas.js` (golpes de área,
 ajudantes dos totens, as duplas de treinadores e as falas) e

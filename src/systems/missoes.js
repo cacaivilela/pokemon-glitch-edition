@@ -9,6 +9,8 @@
 import { DB } from "../data/index.js";
 import { todosGuardados } from "./box.js";
 import { partes } from "./fusao.js";
+import { createMon } from "./mon.js";
+import { guardar } from "./box.js";
 
 /** Todo mundo que está com você: equipe + PC. */
 const todos = (st) => [...(st?.party || []), ...todosGuardados(st), ...(st?.creche?.mon ? [st.creche.mon] : [])];
@@ -166,6 +168,17 @@ export function entregar(st, id) {
     const qtd = premio.qtd || 1;
     st.items[premio.item] = Math.min(999, (st.items[premio.item] || 0) + qtd);
     linhas.push(T.ganhouItem.replace("{QTD}", qtd).replace("{ITEM}", premio.item.toUpperCase()));
+  }
+  // um POKÉMON de prêmio: { especie, lvl, seed } (o seed decide o desenho —
+  // é assim que vem o SPINDA com o UNOWN no peito). Equipe cheia: vai pro PC.
+  if (premio.pokemon && DB.SPECIES[premio.pokemon.especie]) {
+    const p = premio.pokemon;
+    const raro = p.spinda && DB.CONFIG?.spindaRaros?.[p.spinda];
+    const mon = createMon(p.especie, p.lvl || 5, raro ? { seed: raro.seed } : p.seed != null ? { seed: p.seed } : {});
+    if (p.apelido) mon.nickname = p.apelido;
+    if (st.party.length < 6) st.party.push(mon); else guardar(st, mon);
+    (st.caught ||= {})[p.especie] = true;
+    linhas.push((T.ganhouPokemon || "E GANHOU {MON}!").replace("{MON}", mon.nickname));
   }
   return linhas;
 }

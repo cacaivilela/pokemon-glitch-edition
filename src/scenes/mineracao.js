@@ -11,6 +11,7 @@ import { Input } from "../core/input.js";
 import { Audio2 } from "../core/audio.js";
 import { panel, drawText, bar, fade, PAL } from "../core/gfx.js";
 import { Dialogue } from "../systems/dialogue.js";
+import { emBraglitch } from "../systems/regionais.js";
 
 const W = 240, H = 160;
 const CEL = 16;
@@ -44,7 +45,10 @@ export class MineracaoScene {
 
   // ------------------------------------------------------------- a parede
   montarParede() {
-    const P = DB.MINERACAO.PAREDE, A = DB.MINERACAO.ACHADOS;
+    const P = DB.MINERACAO.PAREDE;
+    // o que tem `onde` só sai na parede daquela terra (os fósseis de Braglitch)
+    const aqui = emBraglitch(this.st.player.map) ? "braglitch" : "kanto";
+    const A = DB.MINERACAO.ACHADOS.filter((a) => !a.onde || a.onde === aqui);
     // as camadas de terra: uma altura base pra parede toda e ondulação por célula
     this.prof = [];
     for (let y = 0; y < P.rows; y++) {
@@ -311,6 +315,24 @@ function desenhaAchado(ctx, tipo, x, y, w, h, t) {
     ctx.fillStyle = cor; ctx.beginPath(); ctx.arc(cx, cy, 9, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = esc; ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.beginPath(); ctx.arc(cx, cy, 7, Math.PI * 1.1 + t * 3, Math.PI * 1.4 + t * 3); ctx.lineTo(cx, cy); ctx.fill();
+  } else if (d === "dente") {                           // o dente gigante, serrilhado e curvo
+    ctx.fillStyle = cor; ctx.beginPath(); ctx.moveTo(cx - 7, y + 3); ctx.lineTo(cx + 7, y + 3);
+    ctx.quadraticCurveTo(cx + 6, cy + 6, cx - 2, y + h - 3); ctx.quadraticCurveTo(cx - 6, cy, cx - 7, y + 3); ctx.fill();
+    px(ctx, cx - 7, y + 3, 14, 3, esc);                                     // a raiz
+    for (let i = y + 9; i < y + h - 6; i += 4) px(ctx, cx + 4 - (i - y) / 6, i, 2, 2, esc);   // a serra
+    px(ctx, cx - 4, y + 8, 2, h - 18, cla);
+  } else if (d === "blindado") {                        // a placa de costas com escamas
+    ctx.fillStyle = cor; ctx.beginPath(); ctx.moveTo(cx - 13, cy + 12); ctx.lineTo(cx - 10, cy - 6); ctx.lineTo(cx, cy - 13);
+    ctx.lineTo(cx + 10, cy - 6); ctx.lineTo(cx + 13, cy + 12); ctx.closePath(); ctx.fill();
+    px(ctx, cx - 13, cy + 10, 26, 3, esc);
+    for (const [dx, dy] of [[-6, -2], [0, -6], [6, -2], [-6, 5], [0, 1], [6, 5]]) { px(ctx, cx + dx - 2, cy + dy, 4, 3, esc); px(ctx, cx + dx - 1, cy + dy, 2, 1, cla); }
+    px(ctx, cx - 9, cy - 5, 2, 10, cla);
+  } else if (d === "penugem") {                         // a laje com a marca de uma pena (e a miragem dela)
+    px(ctx, x + 2, y + 3, w - 4, h - 6, cor);
+    px(ctx, x + 2, y + h - 5, w - 4, 2, esc);
+    const pena = (ox, c) => { px(ctx, cx - 11 + ox, cy, 22, 1, c); for (let i = -9; i < 10; i += 3) { px(ctx, cx + i + ox, cy - 4 + Math.abs(i) / 3, 1, 4 - Math.abs(i) / 4, c); px(ctx, cx + i + ox, cy + 1, 1, 4 - Math.abs(i) / 4, c); } };
+    pena(3 + Math.round(Math.sin(t * 4)), "rgba(190,150,255,.55)");          // a miragem
+    pena(0, esc);
   } else if (d === "crepusculo") {                      // a pedra preta que não reflete
     ctx.fillStyle = "#101018"; ctx.beginPath(); ctx.moveTo(cx, cy - 12); ctx.lineTo(cx + 7, cy); ctx.lineTo(cx, cy + 12); ctx.lineTo(cx - 7, cy); ctx.closePath(); ctx.fill();
     px(ctx, cx - 2, cy - 1, 4, 2, "#6a3a9a");

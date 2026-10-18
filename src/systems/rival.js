@@ -156,7 +156,7 @@ export function rivalNpc(st) {
 // Kanto é o VERMELHO ou a FOLHA, e esses não têm irmão gêmeo.
 
 /** Quantas insígnias de GINÁSIO de Braglitch (as das ilhas não contam). */
-function ginasiosBrag(st) {
+export function ginasiosBrag(st) {
   const ids = new Set((DB.INSIGNIAS_BRAG || []).map((b) => b.id));
   return (st?.bragBadges || []).filter((b) => ids.has(b)).length;
 }

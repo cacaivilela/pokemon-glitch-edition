@@ -44,6 +44,7 @@ import {
 import { habilidadeDoMon, entrada as entradaDaHabilidade, contato as contatoDaHabilidade, curaDoTurno } from "../systems/habilidades.js";
 import { BattleScene } from "./battle.js";
 import { isoLigado, chaoDeBatalhaIso, plataformaIso, emPeIso } from "../core/isometrico.js";
+import { estiloDoGrupo, iniciar as iniciarArena, atualizar as atualizarArena, desenhar as desenharArena } from "../systems/arenagrupo.js";
 
 const W = 240, H = 160;
 
@@ -118,6 +119,9 @@ export class GrupoBattleScene {
     // a DIFICULDADE mexe no nível do lado de lá (f e g); o aliado fica como é
     for (const m of [...this.times.f, ...this.times.g]) ajustarInimigo(m);
     this.totem = this.foeParty[0]?.totem || null;
+    // TEMPO REAL / EXPLOSIVA (OPÇÕES): no lugar do menu de turno, a arena com
+    // todo mundo junto (src/systems/arenagrupo.js)
+    this.estilo = estiloDoGrupo(this);
     this.isGlitch = !!args.glitch;
 
     adiantarMons([...this.foeParty, ...st.party, ...this.times.a, ...this.times.g].filter(Boolean)
@@ -940,6 +944,10 @@ export class GrupoBattleScene {
       if (this.waits[i].fn()) { this.waits[i].res(); this.waits.splice(i, 1); }
     }
     if (this.dlg.update(dt)) return;
+    if (this.estilo) {
+      if (this.menu?.type === "main") { this.menu = null; iniciarArena(this); }
+      if (!this.busy && !this.menu && this.arenaG) return atualizarArena(this, dt);
+    }
     if (!this.menu) return;
     if (this.busy && this.menu.type !== "repor") return;
     this.updateMenu();
@@ -1040,6 +1048,7 @@ export class GrupoBattleScene {
 
   // ---------------------------------------------------------- render
   render(ctx) {
+    if (this.arenaG) return this.renderArena(ctx);
     const sx = this.shake > 0 ? Math.round(Math.sin(this.t * 90) * 3 * (this.shake / 0.25)) : 0;
     ctx.save();
     ctx.translate(sx, 0);
@@ -1110,6 +1119,18 @@ export class GrupoBattleScene {
       if (this.menu && !this.busy || this.menu?.type === "repor") this.desenhaMenu(ctx);
       else panel(ctx, 2, 110, 236, 48);
     }
+    this.dlg.render(ctx);
+    if (this.flash > 0) fade(ctx, this.flash, "#ffffff");
+    if (this.fadeA > 0) fade(ctx, this.fadeA);
+  }
+
+  /** a arena do TEMPO REAL / EXPLOSIVA, com a fala, o "quem entra" e o fade por cima */
+  renderArena(ctx) {
+    ctx.save();
+    if (this.shake > 0) ctx.translate(Math.round((Math.random() - 0.5) * 5), Math.round((Math.random() - 0.5) * 5));
+    desenharArena(this, ctx);
+    ctx.restore();
+    if (this.menu?.type === "repor" && !this.dlg.active) this.desenhaMenu(ctx);
     this.dlg.render(ctx);
     if (this.flash > 0) fade(ctx, this.flash, "#ffffff");
     if (this.fadeA > 0) fade(ctx, this.fadeA);

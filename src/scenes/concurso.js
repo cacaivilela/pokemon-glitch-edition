@@ -153,8 +153,9 @@ export class ConcursoScene {
 
     const e = this.atual;
     if (e) {
-      const img = Assets.mon(e.sp.id, 7);
-      const lado = 64 + Math.sin(this.t * 3) * 2;
+      const vivo = Assets.vivo({ species: e.sp.id, seed: 7 });   // animado, quando tem
+      const img = vivo || Assets.mon(e.sp.id, 7);
+      const lado = vivo ? 64 : 64 + Math.sin(this.t * 3) * 2;
       ctx.drawImage(img, Math.round(PALCO.x - lado / 2), Math.round(PALCO.y - lado / 2), lado, lado);
       const nome = `${e.sp.name} (${e.dono})`;
       panel(ctx, 4, 18, Math.min(W - 8, nome.length * 6 + 14), 18);

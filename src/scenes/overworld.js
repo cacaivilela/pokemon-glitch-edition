@@ -49,6 +49,7 @@ import { oMaisRapido, ganhaDaBike, aindaEstao, ehMotoqueiro }
 import { montarChefe, temPortal, abrirPortal, portalAberto, fecharPortal, corrupcaoDoPortal, pertoDoPortal }
   from "../systems/raid.js";
 import { pedrasIniciaisDevidas } from "../systems/mega.js";
+import { usarCristal, carinhoDaVitoria } from "../systems/vinculo.js";
 import { estado as estadoMissao, progresso, aceitar, entregar, diario, feitas, missaoPorId, daVez }
   from "../systems/missoes.js";
 import { estaNaHora, marcarFeita, fracas, apagarDoCodigo } from "../systems/faxina.js";
@@ -63,6 +64,7 @@ import { veu, temCeu, agora as horaDoMundo, ajustarRelogio } from "../systems/ci
 import { escuridaoDoLugar, ehCaverna, acesa, camadaDeLuz, brilho, RAIO } from "../systems/lanterna.js";
 import { AcampamentoScene } from "./acampamento.js";
 import { MineracaoScene } from "./mineracao.js";
+import { TirinhaScene } from "./tirinha.js";
 import { GoParkScene } from "./gopark.js";
 import * as GoPark from "../systems/gopark.js";
 import { LeilaoScene } from "./leilao.js";
@@ -73,6 +75,7 @@ import { quemSou, desenharPokemon, pokesaveDoSprite, acompanharEvolucao, euSei, 
 import { temVisor, explicado } from "../systems/glitchboost.js";
 import { podeAcampar, fator, buff, minutosDoBuff } from "../systems/acampamento.js";
 import { rivalNpc, gemeoNpc, quemEhOGemeo } from "../systems/rival.js";
+import { amigosNpcs } from "../systems/amigos.js";
 import { eraDoMapa, erasAbertas, celebiApareceu, chaveGuardiao, acabouOTempo }
   from "../systems/eras.js";
 import { ehFusao, fundivel, previsao, partes, temFicha, fichasProntas, variantes,
@@ -577,6 +580,14 @@ export class OverworldScene {
     if (f && f.map === this.st.player.map && this.hasDetector()) {
       extra.push({ id: "fragmento", x: f.x, y: f.y, sprite: "portal", fragment: true, dir: "down" });
     }
+    // VÍTOR e ANDRÉ, os amigos de São Lucario (src/data/amigos.js): ficam num
+    // chão livre, fora do caminho de quem já está no mapa
+    const ocupado = new Set([...base, ...extra].map((n) => `${n.x},${n.y}`));
+    extra.push(...amigosNpcs(this.st, (x, y) => {
+      const t = this.tagAt(x, y);
+      return t >= 0 && t !== DB.TAG.BLOCK && t < 4 && t !== DB.TAG.WATER && !ocupado.has(`${x},${y}`)
+        && !this.warpAt(x, y);
+    }));
     return extra.length ? [...base, ...extra] : base;
   }
 
@@ -1729,6 +1740,10 @@ export class OverworldScene {
       : reacao.tom === "baixo" && sons[2] ? sons[2]
       : sons[Math.floor(Math.random() * sons.length)];
     const falas = [...(som ? [`${mon.nickname}: ${som}`] : []), reacao.texto.replace("{MON}", mon.nickname)];
+    // o CARINHO DA VITÓRIA (src/systems/vinculo.js): logo depois de vencer
+    // junto, o carinho vale muito mais — e passa do máximo
+    const vitoria = carinhoDaVitoria(this.st, mon);
+    if (vitoria) { falas.push(...vitoria); Audio2.heal(); }
     this.dlg.say(falas, () => { this.compaReacao = null; });
   }
 
@@ -2426,7 +2441,7 @@ export class OverworldScene {
     if (npc.creche) return this.talkCreche();
     if (npc.mineracao) return this.talkMineiro(state);
     if (npc.gopark) return this.talkGoPark(state);
-    if (npc.fossil) return this.talkPaleontologa();
+    if (npc.fossil) return this.talkPaleontologa(npc);
 
     // `conta`: o que este NPC sabe de uma missão. Com ela aberta (e, se ele
     // for treinador, depois de vencido) ele conta e marca a bandeira que o
@@ -2448,6 +2463,12 @@ export class OverworldScene {
           : "VOCÊ NÃO TEM POKÉMON! FALE COM O PROF. CARVALHO PRIMEIRO.");
       }
       return this.offerBattle(npc, key, state);
+    }
+    // o VÍTOR (src/data/amigos.js): depois da fala, a tirinha do caderno
+    if (npc.tirinhas && DB.TIRINHAS) {
+      const lines = state.defeated || state.talked ? npc.afterLines || npc.lines : npc.lines;
+      state.talked = true;
+      return void this.dlg.say(lines, () => this.oferecerTirinha());
     }
     if (npc.shop) {
       state.talked = true;
@@ -2554,6 +2575,21 @@ export class OverworldScene {
     const lines = state.defeated || state.talked ? npc.afterLines || npc.lines : npc.lines;
     state.talked = true;
     this.dlg.say(lines);
+  }
+
+  /** AS TIRINHAS DO VÍTOR (src/data/amigos.js, src/scenes/tirinha.js): ele
+   *  mostra a próxima do caderno, em ordem, e volta pra primeira no fim. */
+  oferecerTirinha() {
+    const T = DB.TIRINHAS, st = this.st;
+    this.dlg.ask(T.pergunta, T.opcoes, (i) => {
+      if (i !== 0) return void this.dlg.say(T.nao);
+      const n = (st.tirinhaVitor || 0) % T.lista.length;
+      st.tirinhaVitor = n + 1;
+      this.game.scenes.push(new TirinhaScene(), {
+        tirinha: T.lista[n], numero: n + 1,
+        onDone: () => this.dlg.say(T.lista[n].fim || T.depois[n % T.depois.length]),
+      });
+    });
   }
 
   /** ENTREGAS (src/data/bicos.js): um pacote por vez, pro Centro de outra cidade */
@@ -3115,7 +3151,7 @@ export class OverworldScene {
     // sem as formas MEGA: elas só existem dentro da batalha. E sem as FORMAS
     // ÚNICAS (o UNIQUEMON): elas se vestem pelo GUARDA-ROUPA ÚNICO ou chegam
     // evoluindo, não se ganham prontas — a mesma regra do giveglitch/ do site
-    const lista = Object.values(DB.SPECIES).filter((sp) => !sp.mega && !sp.fusao && !sp.unicaDe)
+    const lista = Object.values(DB.SPECIES).filter((sp) => !sp.mega && !sp.vinculo && !sp.fusao && !sp.unicaDe)
       .sort((a, b) => (a.dex || 999) - (b.dex || 999));
     // `cor`: 0 comum, 1 shiny — o C troca
     this.menu = { type: "give", index: 0, top: 0, lvl: 5, cor: 0, lista };
@@ -3532,14 +3568,16 @@ export class OverworldScene {
     });
   }
 
-  /** A PALEONTÓLOGA de CINNABAR: troca um fóssil da mochila pelo bicho vivo. */
-  talkPaleontologa() {
-    const T = DB.MINERACAO.MINA_TEXTO, F = DB.MINERACAO.FOSSEIS, O = DB.OVO_TEXTO, P = DB.PURIFICADOR;
+  /** A PALEONTÓLOGA de CINNABAR: troca um fóssil da mochila pelo bicho vivo.
+   *  O PALEONTÓLOGO de OURO GASTLY (`fossil: "braglitch"`) é a mesma máquina,
+   *  com a fala dele. */
+  talkPaleontologa(npc) {
+    const T = { ...DB.MINERACAO.MINA_TEXTO, ...(npc?.fossil === "braglitch" ? DB.MINERACAO.LAB_BRAG_TEXTO : {}) }, F = DB.MINERACAO.FOSSEIS, O = DB.OVO_TEXTO, P = DB.PURIFICADOR;
     const tenho = (f) => (this.st.items[f] || 0) > 0;
     // sem PURIFICADOR ainda: ela conta quem tem (o vendedor de ovos, uma vez)
     if (P && !tenho(P.item) && !this.st.flags.ganhouPurificador && !this._contouPurificador) {
       this._contouPurificador = true;
-      return void this.dlg.say(P.ondeTem, () => this.talkPaleontologa());
+      return void this.dlg.say(P.ondeTem, () => this.talkPaleontologa(npc));
     }
     // o que dá pra ligar: um fóssil inteiro, ou as duas metades de um de Galar
     const tem = Object.keys(F).filter((f) => (F[f].precisa || [f]).every(tenho));
@@ -3552,7 +3590,7 @@ export class OverworldScene {
     // duas METADES PURAS na mochila: ela avisa que não cola (e revive uma por vez)
     const metadesPuras = tem.filter((f) => f.includes(" de ") && f.endsWith(" puro"));
     const aviso = metadesPuras.length >= 2 && !this._avisouPuras ? P?.labDuasPuras : null;
-    if (aviso) { this._avisouPuras = true; return void this.dlg.say(aviso, () => this.talkPaleontologa()); }
+    if (aviso) { this._avisouPuras = true; return void this.dlg.say(aviso, () => this.talkPaleontologa(npc)); }
     this._avisouPuras = false;
     this.dlg.ask(T.labTem, tem.map((f) => f.toUpperCase()), (i) => {
       const item = tem[i], { especie, nivel, precisa } = F[item];
@@ -5746,6 +5784,7 @@ export class OverworldScene {
     if (item === DB.CATALOGO_ROTOM?.item) return this.usarCatalogo(mon);
     if (item === DB.CUBO_ZYGARDE?.item) return this.usarCubo(mon);
     if (item === PEDRA_BUGADA.item) return this.usarPedraBugada(mon);
+    if (item === DB.VINCULO?.cristal.item) return this.darCristal(mon);
     if (item === "poção") {
       if (mon.hp <= 0) return void this.dlg.say(`${mon.nickname} ESTÁ DESMAIADO. POÇÃO NÃO RESOLVE.`);
       const missing = mon.maxHp - mon.hp;
@@ -5757,6 +5796,14 @@ export class OverworldScene {
       return void this.dlg.say(`${mon.nickname} RECUPEROU ${Math.min(missing, used * 20)} DE HP! (${used} POÇÃO)`);
     }
     return this.useCandy(mon, n);
+  }
+
+  /** O CRISTAL DO VÍNCULO (src/data/vinculo.js): a amizade passa do máximo */
+  darCristal(mon) {
+    const { gastou, linhas } = usarCristal(this.st, mon);
+    if (gastou) { this.spend(DB.VINCULO.cristal.item, 1); Audio2.heal(); this.game.autosave?.(true); }
+    else Audio2.cancel();
+    this.dlg.say(linhas);
   }
 
   /** O GUARDA-ROUPA ÚNICO (src/data/guarda-roupa.js): as roupas da espécie
@@ -6209,7 +6256,8 @@ export class OverworldScene {
         // PARASECT também escolhem um bicho
         const cuia = item === DB.CUIA?.item || item === DB.CATALOGO_ROTOM?.item || item === DB.CUBO_ZYGARDE?.item
           || item === PEDRA_BUGADA.item
-          || !!DB.COGUMELOS?.itens?.[item] || item === DB.GUARDA_ROUPA?.item;
+          || !!DB.COGUMELOS?.itens?.[item] || item === DB.GUARDA_ROUPA?.item
+          || item === DB.VINCULO?.cristal.item;
         if ((DB.EVO_ITEMS?.[item] || cuia) && owned > 0 && this.st.party.length) {
           Audio2.select();                       // item de evolução: um por vez
           this.menu = { type: "useItem", index: 0, item, qty: 1 };
@@ -7535,6 +7583,16 @@ export class OverworldScene {
         }
       });
       drawText(ctx, "Z: TRUNFO", 12, H - 20, PAL.ink2);
+      // a AMIZADE do selecionado: até 255 é a de sempre; acima disso (as
+      // técnicas do FENÔMENO DE VÍNCULO, src/data/vinculo.js) fica rosa, e no
+      // ponto do vínculo avisa
+      const sel = this.st.party[m.index];
+      if (sel) {
+        const amz = sel.amizade || 0, V = DB.VINCULO;
+        const pronto = V && amz >= V.precisa;
+        drawText(ctx, `${pronto ? "VÍNCULO" : "AMIZADE"} ${amz}`, 72, H - 20,
+                 amz > (V?.max ?? 255) ? "#d04a8a" : PAL.ink2);
+      }
       drawText(ctx, "X VOLTA", 180, H - 20, PAL.ink2);
       return;
     }
@@ -8120,7 +8178,7 @@ export class OverworldScene {
         const d = dificuldadeDe(this.st);
         drawText(ctx, `${d.nome}: ${d.dica}`.slice(0, 38), 12, 150, PAL.glitch);
       }
-      else if (m.index === 9) drawText(ctx, "TEMPO REAL: ANDE, DESVIE E ATAQUE SEM TURNO.", 4, 150, PAL.glitch);
+      else if (m.index === 9) drawText(ctx, "SEM TURNO, ATÉ EM DUPLA E HORDA.", 4, 150, PAL.glitch);
       else if (aviso) drawText(ctx, aviso.slice(0, 38), 12, 150, PAL.ink2);
     }
   }

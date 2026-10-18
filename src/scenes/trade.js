@@ -176,7 +176,7 @@ export class TradeScene {
         if (i === this.index) cursor(ctx, 11, 24 + i * LINE_H);
       });
       const m = this.st.party[this.index];
-      if (m) ctx.drawImage(Assets.mon(m.species, m.seed), 150, 30, 64, 64);
+      if (m) ctx.drawImage(Assets.vivo(m) || Assets.comCor(Assets.mon(m.species, m.seed), m), 150, 30, 64, 64);
     } else {
       this.lado(ctx, 18, this.mostrarMeu(), "VOCÊ", this.euPronto);
       this.lado(ctx, 140, this.mostrarDele(), this.parceiro.nome, this.elePronto);
@@ -210,7 +210,7 @@ export class TradeScene {
       drawText(ctx, "...", x - 4, 50, PAL.ink2);
       return;
     }
-    ctx.drawImage(reduzido(Assets.mon(mon.species, mon.seed), 48), x - 4, 34, 48, 48);
+    ctx.drawImage(reduzido(Assets.vivo(mon) || Assets.comCor(Assets.mon(mon.species, mon.seed), mon), 48), x - 4, 34, 48, 48);
     drawText(ctx, mon.nickname, x - 4, 84, PAL.ink);
     drawText(ctx, `Nv${mon.level}`, x + 52, 84, PAL.ink2);
     if (pronto) drawText(ctx, "PRONTO", x + 30, 24, PAL.hpGreen);

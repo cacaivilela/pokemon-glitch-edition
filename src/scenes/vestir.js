@@ -139,7 +139,7 @@ export class VestirScene {
   bicho(ctx, especie, x, pe, escala, alfa) {
     const img = Assets.mon(especie, this.mon.seed);
     if (!img || alfa <= 0) return;
-    const arte = Assets.comCor(img, { ...this.mon, species: especie });
+    const arte = Assets.vivo({ ...this.mon, species: especie }) || Assets.comCor(img, { ...this.mon, species: especie });
     const lado = Math.round(64 * escala);
     ctx.fillStyle = "rgba(0,0,0,.25)";
     ctx.beginPath(); ctx.ellipse(x, pe, 18 * escala, 4 * escala, 0, 0, Math.PI * 2); ctx.fill();
