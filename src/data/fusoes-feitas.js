@@ -1530,5 +1530,34 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/vaporeon+dugtrio~vapogtrio.png",
       "lore": "VAPOREON NA CABEÇA, DUGTRIO NO CORPO."
     }
+  ],
+  "gimmighoul+pikachu": [
+    {
+      "id": "gimmichu",
+      "nome": "GIMMICHU",
+      "autor": "CAIO",
+      "tipos": [
+        "FANTASMA",
+        "ELÉTRICO"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 2.5,
+        "atk": 2.6,
+        "def": 2.6,
+        "spa": 1,
+        "spd": 1.2,
+        "spe": 3.8
+      },
+      "sprite": "assets/fusoes/gimmighoul+pikachu~gimmichu.png",
+      "lore": "GIMMIGHOUL NA CABEÇA, PIKACHU NO CORPO."
+    }
   ]
 };
