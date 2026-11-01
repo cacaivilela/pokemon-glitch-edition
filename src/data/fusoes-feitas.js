@@ -1502,35 +1502,6 @@ export const FUSOES_FEITAS = {
       "lore": "ROTOM NA CABEÇA, PORYGON NO CORPO."
     }
   ],
-  "vaporeon+dugtrio": [
-    {
-      "id": "vapogtrio",
-      "nome": "VAPOGTRIO",
-      "autor": "CRIADOGAME",
-      "tipos": [
-        "ÁGUA",
-        "TERRA"
-      ],
-      "inicial": {
-        "hp": 10,
-        "atk": 5,
-        "def": 5,
-        "spa": 5,
-        "spd": 5,
-        "spe": 5
-      },
-      "crescimento": {
-        "hp": 4,
-        "atk": 2.6,
-        "def": 4.7,
-        "spa": 1.8,
-        "spd": 3,
-        "spe": 7.4
-      },
-      "sprite": "assets/fusoes/vaporeon+dugtrio~vapogtrio.png",
-      "lore": "VAPOREON NA CABEÇA, DUGTRIO NO CORPO."
-    }
-  ],
   "gimmighoul+pikachu": [
     {
       "id": "gimmichu",
