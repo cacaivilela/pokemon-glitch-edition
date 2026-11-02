@@ -1530,5 +1530,35 @@ export const FUSOES_FEITAS = {
       "sprite": "assets/fusoes/gimmighoul+pikachu~gimmichu.png",
       "lore": "GIMMIGHOUL NA CABEÇA, PIKACHU NO CORPO."
     }
+  ],
+  "articuno+zapdos+moltres": [
+    {
+      "id": "artidoltres",
+      "nome": "ARTIDOLTRES",
+      "autor": "",
+      "tipos": [
+        "GELO",
+        "ELÉTRICO",
+        "FOGO"
+      ],
+      "inicial": {
+        "hp": 10,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "crescimento": {
+        "hp": 5.6,
+        "atk": 3.2,
+        "def": 2.9,
+        "spa": 1.9,
+        "spd": 1.5,
+        "spe": 3.2
+      },
+      "sprite": "assets/fusoes/articuno+zapdos+moltres~artidoltres.png",
+      "lore": "ARTICUNO NA CABEÇA, ZAPDOS NO MEIO, MOLTRES NAS PERNAS."
+    }
   ]
 };
