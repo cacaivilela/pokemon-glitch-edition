@@ -1,11 +1,14 @@
 // Regras de batalha (sem render): dano, stages, status, captura e IA.
 import { DB } from "../data/index.js";
+import { shinyDoEvento } from "./raid.js";
 import { bonusDoAtributo } from "./glitchboost.js";
 import { fatorAtributo, fatorDanoRecebido, doJogador } from "./pedras.js";
 import { naBatalha } from "./dificuldade.js";
 import { pick, chance, clamp, randRange } from "../core/rng.js";
-import { isFainted } from "./mon.js";
+import { isFainted, maxHpNoNivel } from "./mon.js";
 import { efeitoNoGolpe, semCrit, semStatus, semQueda, fatorVelocidade, habilidadeDoMon } from "./habilidades.js";
+import { fatorPokebloco } from "./pokeblocos.js";
+import { bonusDoTipo, fatorDoItem } from "./segurar.js";
 
 const STAGE_MULT = [0.25, 0.28, 0.33, 0.4, 0.5, 0.66, 1, 1.5, 2, 2.5, 3, 3.5, 4];
 export const newStages = () => ({ atk: 0, def: 0, spa: 0, spd: 0, spe: 0, acc: 0, eva: 0 });
@@ -25,8 +28,22 @@ export function effectiveStat(mon, key, stages, clima = null) {
   return Math.max(1, v);
 }
 
+/** O tipo que mais machuca `def` com o golpe `mv` de `atk` (o primeiro, no
+ *  empate). Tipo que a habilidade dele segura (LEVITAR contra TERRA...) não
+ *  conta: a maior fraqueza é a que acerta. */
+export function maiorFraqueza(atk, def, mv, clima = null) {
+  let melhor = null, mult = -1;
+  for (const t of DB.TYPES || []) {
+    const e = efeitoNoGolpe({ ...mv, type: t }, atk, def, clima).imune ? 0 : DB.effectiveness(t, def.types);
+    if (e > mult) { mult = e; melhor = t; }
+  }
+  return melhor;
+}
+
 export function calcDamage(atk, def, moveId, aStages, dStages, clima = null) {
-  const mv = DB.MOVES[moveId];
+  let mv = DB.MOVES[moveId];
+  // a EXPLOSÃO DA VIDA OU MORTE vira o tipo da maior fraqueza do alvo
+  if (mv.tipoDaFraqueza) mv = { ...mv, type: maiorFraqueza(atk, def, mv, clima) || mv.type };
   const eff = DB.effectiveness(mv.type, def.types);
   if (mv.category === "status" || mv.power === 0) return { dmg: 0, eff: 1, crit: false, mv };
   if (eff === 0) return { dmg: 0, eff: 0, crit: false, mv };
@@ -48,8 +65,10 @@ export function calcDamage(atk, def, moveId, aStages, dStages, clima = null) {
   const physical = mv.category === "fisico";
   const A = effectiveStat(atk, physical ? "atk" : "spa", aStages);
   const D = Math.max(1, effectiveStat(def, physical ? "def" : "spd", dStages));
-  const crit = !semCrit(def) && chance((mv.crit || 1) / 16);
-  const stab = atk.types.includes(mv.type) ? 1.5 : 1;
+  const crit = !semCrit(def, atk) && chance((mv.crit || 1) / 16);
+  // ADAPTABILIDADE: o golpe do próprio tipo bate 2x em vez de 1,5x
+  const ha0 = habilidadeDoMon(atk);
+  const stab = atk.types.includes(mv.type) ? (ha0?.adaptabilidade ? 2 : 1.5) : 1;
   const rand = randRange(85, 100) / 100;
 
   let dmg = Math.floor(Math.floor((Math.floor((2 * atk.level) / 5 + 2) * mv.power * A) / D) / 50) + 2;
@@ -57,9 +76,13 @@ export function calcDamage(atk, def, moveId, aStages, dStages, clima = null) {
   // equivalente ao HP máximo dele dobra o golpe. Quem zera a conta é a cena,
   // depois que o golpe acerta (a IA também chama isto só pra estimar).
   const ha = habilidadeDoMon(atk);
-  const contra = ha?.contraAtaque && aStages?.acumulado > 0 ? Math.min(1, aStages.acumulado / atk.maxHp) : 0;
+  // A BATERIA VIVA (o VOLTURG) é a mesma conta, só que solta no golpe do tipo dela
+  const solta = ha?.contraAtaque || (ha?.bateria && mv.type === ha.bateria);
+  const contra = solta && aStages?.acumulado > 0 ? Math.min(1, aStages.acumulado / atk.maxHp) : 0;
   dmg = Math.floor(dmg * stab * eff * rand * (crit ? 2 : 1) * hab.mult * (1 + contra)) + (hab.extra || 0);
   if (atk.corrupt) dmg = Math.floor(dmg * 1.2);
+  // o ITEM DE TIPO segurado (CARVÃO, ÍMÃ...): +20% no golpe daquele tipo
+  dmg = Math.floor(dmg * bonusDoTipo(atk, mv) * fatorDoItem(atk, mv, eff));
   // a PEDRA DO TATU: os seus apanham menos
   dmg = Math.floor(dmg * fatorDanoRecebido(def));
 
@@ -68,14 +91,16 @@ export function calcDamage(atk, def, moveId, aStages, dStages, clima = null) {
   const mirror = !!def.corrupt && atk.species === def.species;
   if (mirror) dmg *= 8;
 
-  return { dmg: Math.max(1, dmg), eff, crit, mv, mirror, anuncia: hab.anuncia, hab: hab.hab, contra: contra > 0 };
+  return { dmg: Math.max(1, dmg), eff, crit, mv, mirror, anuncia: hab.anuncia, hab: hab.hab, contra: contra > 0,
+           doAtk: hab.doAtk || (stab === 2 ? ha0 : null), doDef: hab.doDef };
 }
 
-export function accuracyCheck(moveId, aStages, dStages) {
+/** `prec` (opcional): { sempre, mult } das habilidades (`precisao`, src/systems/habilidades.js) */
+export function accuracyCheck(moveId, aStages, dStages, prec = null) {
   const mv = DB.MOVES[moveId];
-  if (mv.acc >= 100) return true;
+  if (mv.acc >= 100 || prec?.sempre) return true;
   const mod = STAGE_MULT[clamp((aStages.acc || 0) - (dStages.eva || 0) + 6, 0, 12)];
-  return chance((mv.acc * mod) / 100);
+  return chance((mv.acc * mod * (prec?.mult || 1)) / 100);
 }
 
 /** DOCE DE POKÉMON (o BRIGADEIRINHO): toda vez que recupera HP na batalha, os
@@ -92,8 +117,10 @@ export function aoSerCurado(mon, stages) {
  *  a DEFESA; `devolveu` zera a conta depois que o golpe dele acertou com o
  *  bônus. Os dois devolvem a fala, ou null. */
 export function aoApanhar(mon, stages, dano) {
-  if (!habilidadeDoMon(mon)?.contraAtaque || !stages || dano <= 0 || isFainted(mon)) return null;
+  const h = habilidadeDoMon(mon);
+  if (!(h?.contraAtaque || h?.bateria) || !stages || dano <= 0 || isFainted(mon)) return null;
   stages.acumulado = (stages.acumulado || 0) + dano;
+  if (h.bateria) return `BATERIA VIVA! ${mon.nickname} GUARDOU A CARGA DO GOLPE NO CASCO.`;
   const antes = stages.def || 0;
   stages.def = clamp(antes + 1, -6, 6);
   return stages.def > antes
@@ -103,6 +130,7 @@ export function aoApanhar(mon, stages, dano) {
 export function devolveu(user, stages, res) {
   if (!res?.contra || !stages) return null;
   stages.acumulado = 0;
+  if (habilidadeDoMon(user)?.bateria) return `${user.nickname} DESCARREGOU A BATERIA INTEIRA!`;
   return `${user.nickname} DEVOLVEU TUDO O QUE APANHOU!`;
 }
 
@@ -118,7 +146,7 @@ export function brasasNoOutro(outro) {
 export function applyMoveEffects(mv, user, target, uStages, tStages) {
   const msgs = [];
   // MENTE LIMPA: o inimigo não derruba os atributos dele
-  if (mv.stat && mv.stat.target === "foe" && mv.stat.delta < 0 && semQueda(target)) {
+  if (mv.stat && mv.stat.target === "foe" && mv.stat.delta < 0 && semQueda(target, user)) {
     msgs.push(`${target.nickname} NÃO SE ABALA!`);
   } else if (mv.stat) {
     const s = mv.stat.target === "self" ? uStages : tStages;
@@ -132,7 +160,7 @@ export function applyMoveEffects(mv, user, target, uStages, tStages) {
       ? `${who.nickname} NÃO PODE ${mv.stat.delta > 0 ? "SUBIR" : "CAIR"} MAIS!`
       : `${label} DE ${who.nickname} ${mv.stat.delta > 0 ? "SUBIU" : "CAIU"}!`);
   }
-  if (semStatus(target)) return msgs;          // SEM REGISTRO: status não pega
+  if (semStatus(target, user)) return msgs;    // SEM REGISTRO: status não pega (QUEBRA-MOLDE passa)
   if (mv.burn && !target.status && chance(mv.burn)) { target.status = "queimadura"; msgs.push(`${target.nickname} SE QUEIMOU!`); }
   if (mv.para && !target.status && chance(mv.para)) { target.status = "paralisia"; msgs.push(`${target.nickname} FICOU PARALISADO!`); }
   if (mv.poison && !target.status && !target.types.includes("VENENO") && chance(mv.poison)) {
@@ -189,12 +217,28 @@ export function chooseAiMove(foe, player, fStages, pStages, clima = null) {
   return best;
 }
 
+/** O "a" da fórmula de captura (Gen 3): vida que falta, taxa da espécie, bola
+ *  e status. Acima do nível 100 é bicho da GLITCH DIMENSION EXTREMA
+ *  (dlc/extrema.js), que sai de lá com 100 níveis a menos — e a bola já mede
+ *  como se ele tivesse: o dano que você deu conta contra a vida dele 100 níveis
+ *  abaixo. Sem isso, capturar lá dentro era impossível. */
+function valorDaCaptura(mon, ballBonus) {
+  const rate = DB.SPECIES[mon.species].catchRate;
+  const statusBonus = mon.status ? 1.5 : 1;
+  let { hp, maxHp } = mon;
+  if (mon.level > 100) {
+    const menor = maxHpNoNivel(mon, mon.level - 100);
+    hp = Math.max(1, menor - (maxHp - hp));
+    maxHp = menor;
+  }
+  // o POKÉBLOCO (src/systems/pokeblocos.js): comendo é mais fácil; gordo, mais difícil
+  return ((3 * maxHp - 2 * hp) / (3 * maxHp)) * rate * ballBonus * statusBonus * fatorPokebloco(mon);
+}
+
 /** A chance de a bola prender, de 0 a 1 — a mesma conta de `catchAttempt`,
  *  sem sorteio: as quatro chacoalhadas têm que passar. */
 export function chanceDeCaptura(mon, ballBonus = 1) {
-  const rate = DB.SPECIES[mon.species].catchRate;
-  const statusBonus = mon.status ? 1.5 : 1;
-  const a = ((3 * mon.maxHp - 2 * mon.hp) / (3 * mon.maxHp)) * rate * ballBonus * statusBonus;
+  const a = valorDaCaptura(mon, ballBonus);
   if (a >= 255) return 1;
   const b = Math.floor(1048560 / Math.floor(Math.sqrt(Math.floor(Math.sqrt(Math.floor(16711680 / a))))));
   return Math.min(1, b / 65536) ** 4;
@@ -202,9 +246,11 @@ export function chanceDeCaptura(mon, ballBonus = 1) {
 
 /** Formula de captura simplificada (Gen 3). Retorna nº de chacoalhadas 0..4. */
 export function catchAttempt(mon, ballBonus = 1) {
-  const rate = DB.SPECIES[mon.species].catchRate;
-  const statusBonus = mon.status ? 1.5 : 1;
-  const a = ((3 * mon.maxHp - 2 * mon.hp) / (3 * mon.maxHp)) * rate * ballBonus * statusBonus;
+  // A SEMANA DO SHINY (src/data/eventos.js, `pegaShiny`): qualquer bola pega o
+  // SHINY com 99,9999999% (o CAIO: "todas as pkbolas tem 99,9,9,9,9,9,9,9")
+  const semana = mon?.shiny && shinyDoEvento();
+  if (semana?.pegaShiny && chance(semana.pegaShiny)) return 4;
+  const a = valorDaCaptura(mon, ballBonus);
   if (a >= 255) return 4;
   const b = Math.floor(1048560 / Math.floor(Math.sqrt(Math.floor(Math.sqrt(Math.floor(16711680 / a))))));
   let shakes = 0;
@@ -237,4 +283,3 @@ export function canFlee(player, foe, attempts) {
   return Math.floor(Math.random() * 256) < odds;
 }
 
-export const anyAlive = (party) => party.some((m) => !isFainted(m));

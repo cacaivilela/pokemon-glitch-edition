@@ -1,0 +1,92 @@
+<!doctype html>
+<!-- KALOS (src/data/kalos.js): a Z-A ROYALE e a história da LUMIOSE no jogo.
+     Save de teste na ZONA DE BATALHA: inscreve no juiz, põe o relógio na noite,
+     confere o adversário da promoção e a batalha, pula pro rank A, confere a
+     MEGA FLOETTE HIPER-DESCONTROLADA e o presente do AZ. Retratos em
+     dev/captures/kalos_*.png. Perfil próprio e `&offline`.
+     Uso: /dev/kaloscheck.html -->
+<meta charset="utf-8"><title>kaloscheck</title>
+<body style="background:#222">
+<script type="module">
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const f = document.createElement("iframe");
+f.style.cssText = "position:absolute;left:-2000px;width:240px;height:160px";
+f.src = "../index.html?perfil=kaloscheck&offline";
+document.body.appendChild(f);
+const W = () => f.contentWindow, js = (c) => W().eval(c);
+const tecla = (code, key) => { for (const t of ["keydown", "keyup"]) W().dispatchEvent(new (W().KeyboardEvent)(t, { code, key })); };
+const z = async (n, gap = 400) => { for (let i = 0; i < n; i++) { tecla("KeyZ", "z"); await espera(gap); } };
+const log = [];
+async function foto(nome) {
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: `kalos_${nome}`, dataUrl: f.contentDocument.getElementById("screen").toDataURL(), log: log.splice(0).join("\n") }) });
+}
+const top = () => js("window.game.scenes.top.constructor.name");
+const npcs = () => js("window.game.scenes.top.npcsHere().map((n) => n.id).join(',')");
+const fala = (id) => js(`(() => { const s = window.game.scenes.top; s.dlg.active = false; s.dlg.choice = null;
+  const n = s.npcsHere().find((n) => n.id === "${id}"); if (!n) return "NÃO ACHEI ${id}"; s.talkTo(n); return "falou com ${id}"; })()`);
+const vai = (map, x, y, dir) => js(`(() => { const s = window.game.scenes.top, p = window.game.state.player;
+  Object.assign(p, { map: "${map}", x: ${x}, y: ${y}, dir: "${dir}" }); s.afterTravel(); s.snapCamera(); s.dlg.active = false; })()`);
+const objetivo = () => js(`import("/src/systems/objetivo.js").then((o) => o.objetivoAtual(window.game.state, "kalos"))`);
+try {
+  for (let i = 0; i < 60 && !f.contentDocument?.getElementById("screen"); i++) await espera(100);
+  await espera(2500);
+  for (let i = 0; i < 8; i++) { await espera(300); tecla("Enter", "Enter"); }
+  await espera(2500);
+  await js(`import("/src/systems/mon.js").then((M) => { const st = window.game.state; st.party = [M.createMon("raichu", 100)]; st.flags.starterChosen = true; })`);
+  vai("lumiose", 31, 6, "up");
+  await espera(1200);
+  await z(6);
+  log.push("dia, npcs: " + npcs() + " | objetivo: " + await objetivo());
+  log.push(fala("za_juiz"));
+  await z(4, 500);
+  await foto("1_juiz");
+  for (let i = 0; i < 25 && !js("window.game.state.flags.zaInscrito"); i++) { tecla("KeyZ", "z"); await espera(450); }
+  await z(3, 450);
+  log.push("inscrito: " + js("window.game.state.flags.zaInscrito"));
+  // a noite
+  // o jogo reaplica `st.relogio` todo quadro (src/scenes/overworld.js): é ali que se adianta
+  await js(`import("/src/systems/ciclo.js").then((C) => { const st = window.game.state;
+    if (!C.agora().noite) st.relogio = (st.relogio || 0) + 15 * 60000; return C.agora(Date.now() + st.relogio).nome; })`).then((n) => log.push("hora: " + n));
+  await espera(800);
+  log.push("noite, npcs: " + npcs() + " | objetivo: " + await objetivo());
+  vai("lumiose", 33, 7, "up");
+  await espera(800);
+  await foto("2_promocao_noite");
+  log.push(fala("za_Y"));
+  await z(3, 500);
+  await foto("3_desafio");
+  for (let i = 0; i < 15 && top() === "OverworldScene"; i++) { tecla("KeyZ", "z"); await espera(500); }
+  await espera(2500);
+  log.push("cena: " + top());
+  await foto("4_batalha");
+  // sai da batalha e pula pro rank A
+  js(`(() => { const sc = window.game.scenes; while (sc.top.constructor.name !== "OverworldScene") sc.pop(); })()`);
+  js(`(() => { const st = window.game.state; for (const L of "YXWVUTSRQPONMLKJIHGFEDCBA") st.npcState["lumiose.za_" + L] = { defeated: true }; })()`);
+  log.push("rank A, objetivo: " + await objetivo());
+  vai("lumiose_sul", 24, 12, "up");
+  await espera(1200);
+  log.push("bairro sul, npcs: " + npcs());
+  await foto("5_mega_descontrolada");
+  js(`(() => { const st = window.game.state; for (const k of ["lumiose_sul.descontrolada_megapidgeot", "lumiose_leste.descontrolada_megagengar", "lumiose_oeste.descontrolada_megaalakazam", "lumiose_norte.descontrolada_megakangaskhan"]) st.npcState[k] = { defeated: true }; })()`);
+  vai("lumiose", 23, 14, "up");
+  await espera(1200);
+  log.push("torre, npcs: " + npcs() + " | objetivo: " + await objetivo());
+  await foto("6_floette_na_torre");
+  log.push(fala("descontrolada_megafloette"));
+  await z(5, 500);
+  await foto("7_floette_fala");
+  for (let i = 0; i < 15 && top() === "OverworldScene"; i++) { tecla("KeyZ", "z"); await espera(500); }
+  await espera(3000);
+  log.push("cena: " + top() + " foe: " + js("(() => { const b = window.game.scenes.top; return b.foe ? b.foe.species + ' nv' + b.foe.level + ' hp' + b.foe.maxHp : '-'; })()"));
+  await foto("8_floette_batalha");
+  js(`(() => { const sc = window.game.scenes; while (sc.top.constructor.name !== "OverworldScene") sc.pop(); window.game.state.npcState["lumiose.descontrolada_megafloette"] = { defeated: true }; })()`);
+  vai("lumiose", 26, 20, "up");
+  await espera(800);
+  log.push(fala("az"));
+  for (let i = 0; i < 25 && !js("window.game.state.flags.zaFloette"); i++) { tecla("KeyZ", "z"); await espera(450); }
+  await z(3, 500);
+  log.push("equipe: " + js("window.game.state.party.map((m) => m.species + ':' + m.level).join(' ')") + " | floettita: " + js("window.game.state.items.floettita") + " | objetivo: " + await objetivo());
+  await foto("9_az");
+} catch (e) { log.push("ERRO: " + e + " " + e.stack); await foto("erro"); }
+document.title = "kaloscheck pronto";
+</script>

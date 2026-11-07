@@ -28,13 +28,16 @@ export const Glitch = {
   },
 
   render(dst, src) {
-    const w = src.width, h = src.height;
+    // a tela é maior que 240x160 (ESCALA_TELA): o efeito é contado nos 240x160
+    // e `E` passa pros pixels de verdade de `src`
+    const w = 240, h = 160, E = src.width / w;
     const k = this.intensity;
+    dst.setTransform(E, 0, 0, E, 0, 0);
     dst.imageSmoothingEnabled = false;
     dst.clearRect(0, 0, w, h);
 
     if (k <= 0.02) {
-      dst.drawImage(src, 0, 0);
+      dst.drawImage(src, 0, 0, w, h);
       this.overlay(dst, w, h, 0);
       return;
     }
@@ -46,13 +49,13 @@ export const Glitch = {
       const off = Math.round(k * 3 * (r.chance(0.5) ? 1 : -1));
       dst.globalCompositeOperation = "lighter";
       dst.globalAlpha = 0.5;
-      dst.drawImage(src, off, 0);
-      dst.drawImage(src, -off, 0);
+      dst.drawImage(src, off, 0, w, h);
+      dst.drawImage(src, -off, 0, w, h);
       dst.globalAlpha = 1;
       dst.globalCompositeOperation = "source-over";
     }
 
-    dst.drawImage(src, 0, 0);
+    dst.drawImage(src, 0, 0, w, h);
 
     // fatias deslocadas
     const slices = Math.round(k * 9);
@@ -60,7 +63,7 @@ export const Glitch = {
       const y = r.int(h);
       const sh = 1 + r.int(Math.max(2, Math.round(k * 14)));
       const dx = Math.round((r() * 2 - 1) * k * 22);
-      dst.drawImage(src, 0, y, w, sh, dx, y, w, sh);
+      dst.drawImage(src, 0, y * E, w * E, sh * E, dx, y, w, sh);
     }
 
     // blocos corrompidos
@@ -69,7 +72,7 @@ export const Glitch = {
       for (let i = 0; i < blocks; i++) {
         const bw = 4 + r.int(24), bh = 3 + r.int(10);
         const sx = r.int(w - bw), sy = r.int(h - bh);
-        dst.drawImage(src, sx, sy, bw, bh, r.int(w - bw), r.int(h - bh), bw, bh);
+        dst.drawImage(src, sx * E, sy * E, bw * E, bh * E, r.int(w - bw), r.int(h - bh), bw, bh);
         if (r.chance(0.25)) {
           dst.fillStyle = r.pick(["#b455ff", "#00ffcc", "#ff0066"]);
           dst.globalAlpha = 0.35;

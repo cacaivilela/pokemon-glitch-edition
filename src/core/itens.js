@@ -11,6 +11,9 @@
 import { url } from "./base.js";
 import { loadImage } from "./sprites.js";
 import { spriteFromRows } from "./assets.js";
+import { DB } from "../data/index.js";
+import { desenhoDoMovel } from "./moveis.js";
+import { reduzido } from "./reduzir.js";
 
 export const LADO = 16;
 
@@ -61,6 +64,20 @@ function reserva() {
  *  primeira vez e tenta, na ordem: o dele, o da família, a sacolinha. */
 export function iconeItem(nome) {
   if (prontos.has(nome)) return prontos.get(nome);
+  // OS MÓVEIS DAS BASES SECRETAS: o ícone é o próprio desenho, encolhido
+  if (DB.MOVEIS?.[nome]) {
+    const d = desenhoDoMovel(nome);
+    if (!d) return null;
+    // num quadrado de 16, centrado (a cama é alta e fina, a mesa é larga)
+    const lado = Math.max(d.width, d.height), w = Math.max(1, Math.round(d.width * 16 / lado)), h = Math.max(1, Math.round(d.height * 16 / lado));
+    const cv = document.createElement("canvas");
+    cv.width = cv.height = 16;
+    const g = cv.getContext("2d");
+    g.imageSmoothingEnabled = false;
+    g.drawImage(lado > 16 ? reduzido(d, w, h) : d, Math.floor((16 - w) / 2), Math.floor((16 - h) / 2), w, h);
+    prontos.set(nome, cv);
+    return cv;
+  }
   if (!pedidos.has(nome)) {
     pedidos.add(nome);
     const fam = familiaDoItem(nome);

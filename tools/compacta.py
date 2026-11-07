@@ -7,9 +7,9 @@ bytes por pixel antes de comprimir. Reescritos como PNG de PALETA (um indice por
 pixel + a lista de cores), com a MENOR profundidade que couber, eles caem pela
 metade ou menos, e sao pixel por pixel identicos.
 
-    python3 tools/compacta_fusoes.py                    # tudo em assets/
-    python3 tools/compacta_fusoes.py assets/fusoes      # so uma pasta
-    python3 tools/compacta_fusoes.py --ver              # so mostra quanto daria
+    python3 tools/compacta.py                    # tudo em assets/
+    python3 tools/compacta.py assets/fusoes      # so uma pasta
+    python3 tools/compacta.py --ver              # so mostra quanto daria
 
 Nada e perdido: se o desenho tiver mais de 256 cores (nao acontece com o que
 sai da oficina, mas pode acontecer com um importado), ele fica como esta. O

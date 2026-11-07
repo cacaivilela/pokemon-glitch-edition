@@ -1,0 +1,27 @@
+<!doctype html>
+<!-- OS BIZARROS DO PORTAL PARADOXO (src/systems/bizarro.js): os de algumas
+     combinações de runas, numa folha, pro /__capture (dev/captures/bizarros.png).
+     Não abre o jogo nem mexe em save. -->
+<meta charset="utf-8"><title>bizarros</title>
+<script type="module">
+import { DB } from "/src/data/index.js";
+import { Assets } from "/src/core/assets.js";
+import { garantirBizarro, idBizarro, sementeDasRunas } from "/src/systems/bizarro.js";
+Assets.init?.();
+const R = ["poke", "great", "ultra", "master", "fruit", "unown", "doce", "fossil", "ouro", "mega"];
+const chaves = [];
+for (let i = 0; i < 24; i++) chaves.push([R[i % 10], R[(i * 3 + 1) % 10], R[(i * 7 + 2) % 10], R[(i * 5 + 3) % 10]].sort().join("+"));
+const sps = chaves.map((k, i) => garantirBizarro(idBizarro(sementeDasRunas(k) ^ (i * 7919))));
+for (const sp of sps) Assets.mon(sp.id, 7);
+await new Promise((r) => setTimeout(r, 3000));     // os desenhos de base chegarem
+const cv = document.createElement("canvas"); cv.width = 96 * 6; cv.height = 110 * 4;
+const c = cv.getContext("2d"); c.imageSmoothingEnabled = false;
+c.fillStyle = "#e8ecf0"; c.fillRect(0, 0, cv.width, cv.height);
+sps.forEach((sp, i) => {
+  const x = (i % 6) * 96, y = Math.floor(i / 6) * 110;
+  c.drawImage(Assets.mon(sp.id, 7), x, y);
+  c.fillStyle = "#222"; c.font = "9px monospace"; c.fillText(sp.name + (sp.bizarro.base ? "*" : ""), x + 2, y + 104);
+});
+await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "bizarros", dataUrl: cv.toDataURL() }) });
+document.title = "pronto";
+</script>

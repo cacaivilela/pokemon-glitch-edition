@@ -108,13 +108,27 @@ export const Save = {
     } catch { return "erro"; }
   },
 
+  /** As cópias que o servidor guardou deste save (save/copias/), a mais nova
+   *  primeiro: [{ arquivo, quando, save }]. Sem servidor não existe nenhuma. */
+  async copias() {
+    if (semServidor) return [];
+    try {
+      const r = await fetch(arquivo("__copias") + (perfil() ? `?perfil=${encodeURIComponent(perfil())}` : ""),
+                            { cache: "no-store" });
+      return r.ok ? (await r.json()).copias || [] : [];
+    } catch { return []; }
+  },
+
   /** gravação de saída (fechar a aba): sendBeacon sobrevive ao unload */
   flush(data) {
     cache = data;
     if (semServidor) return gravaWeb(data);
     try {
       const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
-      if (navigator.sendBeacon?.(URL_SAVE, blob)) return true;
+      // o beacon não leva cabeçalho: a VERSÃO vai na URL (`base`), senão uma
+      // aba velha fechando gravava por cima de um save recuperado (nov/2026)
+      const url = URL_SAVE + (URL_SAVE.includes("?") ? "&" : "?") + "base=" + versao;
+      if (navigator.sendBeacon?.(url, blob)) return true;
     } catch {}
     return this.write(data);
   },

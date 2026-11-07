@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>checagem dos sprites dos Regis</title>
+<style>body{background:#111;color:#9fd;font:13px ui-monospace,monospace;margin:0;padding:8px}
+iframe{width:740px;height:560px;border:0}#log{white-space:pre-wrap;color:#7fd}</style>
+</head>
+<body>
+<div id="log">rodando...</div>
+<iframe id="fr" src=""></iframe>
+<img id="hold" alt="" width="1" height="1">
+<script>
+// Os Regis (src/data/regis.js) usam o sprite de batalha deles? Para cada um:
+// a espécie existe, de qual número ela pede o PNG, se o PNG chegou, e uma
+// batalha de verdade com ele, fotografada (?perfil= próprio: não mexe no save).
+const fr = document.getElementById("fr"), log = document.getElementById("log");
+const linhas = [], quadros = [];
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const REGIS = ["regirock", "regice", "registeel", "regigigas", "regieleki", "regidrago", "regiglitch"];
+(async () => {
+ try {
+  fr.src = "/?perfil=regisprites&map=seven_island_tanoby_ruins_monean_chamber&x=11&y=9";
+  let w;
+  for (let i = 0; i < 100 && !(w = fr.contentWindow)?.game?.scenes?.top?.update; i++) await espera(100);
+  await espera(1500);
+  const DB = w.game.scenes.top.constructor && (await w.eval("import('/src/data/index.js')")).DB;
+  const { Assets } = await w.eval("import('/src/core/assets.js')");
+  const { SpriteStore } = await w.eval("import('/src/core/sprites.js')");
+  for (const id of REGIS) {
+    const sp = DB.SPECIES[id];
+    Assets.mon(id, 1);                     // pede
+    for (let i = 0; i < 30 && !SpriteStore.pokemon[id] && !SpriteStore.missing.has(id); i++) await espera(100);
+    const img = SpriteStore.pokemon[id];
+    linhas.push(`${id}: espécie=${!!sp} dex=${sp?.dex} spriteDex=${sp?.spriteDex ?? "-"} spriteUrl=${sp?.spriteUrl ?? "-"} | ` +
+      `sprite=${img ? img.width + "x" + img.height : "NÃO"} faltando=${SpriteStore.missing.has(id)}`);
+  }
+  // uma batalha com cada um, fotografada depois de a entrada terminar
+  const cv = document.createElement("canvas"); cv.width = 240; cv.height = 160;
+  const ctx = cv.getContext("2d");
+  for (const id of REGIS) {
+    const sc = w.game.scenes.top;
+    sc.gigante = { id, tipo: "chao", fase: "luta", t: 0, tempo: 0, x: 11, y: 8 };
+    sc.lutarComGigante();
+    for (let i = 0; i < 60; i++) w.game.scenes.top.update(1 / 30);
+    await espera(800);
+    for (let i = 0; i < 90; i++) w.game.scenes.top.update(1 / 30);
+    const b = w.game.scenes.top;
+    ctx.clearRect(0, 0, 240, 160); b.render(ctx); quadros.push(cv.toDataURL());
+    linhas.push(`  batalha ${id}: cena=${b.constructor.name} foe=${b.foe?.species}`);
+    w.game.scenes.pop();                    // sai da batalha sem lutar
+    sc.gigante = null;
+  }
+  const texto = linhas.join("\n");
+  log.textContent = texto;
+  for (let i = 0; i < quadros.length; i++)
+    await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "regisprite" + i, dataUrl: quadros[i], log: i ? "" : texto }) });
+ } catch (e) {
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "regisprite0", log: linhas.join("\n") + "\nQUEBROU: " + (e && e.stack || e) }) });
+ }
+})();
+document.getElementById("hold").src = "/__delay?ms=30000";
+</script>
+</body></html>

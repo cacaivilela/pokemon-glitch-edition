@@ -1,0 +1,36 @@
+<!doctype html>
+<!-- AS FUSÕES AUTOMÁTICAS (src/systems/montagem.js) numa folha: cabeça, corpo e
+     a fusão, lado a lado, pra comparar. /__capture -> dev/captures/fusoes_auto.png.
+     ?pares=a+b,c+d escolhe as duplas. -->
+<meta charset="utf-8"><title>fusoesauto</title>
+<style>body{background:#1b2030;color:#eef;font:16px system-ui;margin:16px} canvas{image-rendering:pixelated;width:min(100%,848px)}</style>
+<p id="aviso">CARREGANDO AS FUSÕES... (uns 10 segundos)</p>
+<script type="module">
+import { DB } from "/src/data/index.js";
+import { Assets } from "/src/core/assets.js";
+import { pedirMon } from "/src/core/sprites.js";
+import * as F from "/src/systems/fusao.js";
+Assets.init?.();
+const q = new URLSearchParams(location.search);
+const PARES = (q.get("pares") || "pikachu+charizard,charizard+pikachu,gengar+bulbasaur,eevee+onix,mewtwo+snorlax,squirtle+pidgeot,gyarados+machamp,jigglypuff+dragonite,psyduck+alakazam,lapras+arcanine,mew+blastoise,magikarp+tauros")
+  .split(",").map((p) => p.split("+"));
+for (const [a, b] of PARES) for (const id of [a, b]) { const sp = DB.SPECIES[id]; pedirMon(sp.id || id, sp.spriteDex || sp.dex); }
+await new Promise((r) => setTimeout(r, 9000));
+const L = 64, cv = document.createElement("canvas");
+cv.width = 2 * (L * 3 + 20); cv.height = Math.ceil(PARES.length / 2) * (L + 14);
+const c = cv.getContext("2d"); c.imageSmoothingEnabled = false;
+c.fillStyle = "#e8ecf0"; c.fillRect(0, 0, cv.width, cv.height);
+PARES.forEach(([a, b], i) => {
+  const ox = (i % 2) * (L * 3 + 20), oy = Math.floor(i / 2) * (L + 14);
+  const id = F.idFusao(a, b); F.garantirEspecie(id);
+  c.drawImage(Assets.mon(a, 7), ox, oy, L, L);
+  c.drawImage(Assets.mon(b, 7), ox + L, oy, L, L);
+  c.fillStyle = "#fff"; c.fillRect(ox + 2 * L, oy, L, L);
+  c.drawImage(Assets.mon(id, 7), ox + 2 * L, oy, L, L);
+  c.fillStyle = "#333"; c.font = "9px monospace"; c.fillText(`${a} + ${b}`, ox + 2, oy + L + 10);
+});
+await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: q.get("nome") || "fusoes_auto", dataUrl: cv.toDataURL() }) });
+document.title = "pronto";
+document.getElementById("aviso").textContent = "CABEÇA · CORPO · A FUSÃO";
+document.body.appendChild(cv);
+</script>

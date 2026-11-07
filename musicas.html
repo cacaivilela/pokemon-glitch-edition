@@ -1,0 +1,119 @@
+<!doctype html>
+<!-- AS MÚSICAS: todas as músicas do jogo (DB.MUSIC) em grupos; clicar toca
+     com o mesmo tocador do jogo (Audio2.playMusic, com o volume ajustado de
+     src/data/volumes-musica.js). Uso: http://localhost:5173/musicas.html -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Músicas — Pokémon Glitch Edition</title>
+<style>
+  :root { color-scheme: dark; --fundo:#0b0d10; --cartao:#151a21; --borda:#232a34; --texto:#d6dde6; --apagado:#6b7684; --roxo:#8f6bd8; --roxo2:#b455ff; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--fundo); color:var(--texto); font:14px ui-monospace, "SF Mono", Menlo, Consolas, monospace; padding:20px 16px 60px; }
+  header, section { max-width:1200px; margin:0 auto 18px; }
+  h1 { font-size:22px; letter-spacing:1px; }
+  h1 span { color:var(--roxo2); }
+  header p { color:var(--apagado); margin-top:6px; font-size:12px; }
+  h2 { font-size:15px; color:#e6b8ff; margin:22px 0 4px; font-weight:normal; letter-spacing:1px; }
+  h2 + p { color:var(--apagado); font-size:12px; margin-bottom:8px; }
+  .grade { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:8px; }
+  .faixa { background:var(--cartao); border:1px solid var(--borda); border-radius:8px; padding:10px 12px; cursor:pointer; text-align:left; color:inherit; font:inherit; transition:border-color .15s, transform .15s; }
+  .faixa:hover, .faixa:focus-visible { border-color:var(--roxo); outline:none; transform:translateY(-2px); }
+  .faixa.tocando { border-color:var(--roxo2); background:#221836; }
+  .faixa b { display:block; color:#fff; font-weight:normal; }
+  .faixa b::before { content:"▶ "; color:var(--roxo2); }
+  .faixa.tocando b::before { content:"■ "; }
+  .faixa small { display:block; color:var(--apagado); font-size:11px; margin-top:4px; line-height:1.4; }
+  #parar { position:fixed; right:16px; bottom:16px; background:#3a1d5c; border:1px solid var(--roxo2); color:#fff; padding:10px 16px; border-radius:8px; cursor:pointer; font:inherit; display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>MÚSICAS <span>— Pokémon Glitch Edition</span></h1>
+  <p>Clique numa música pra ouvir, com o mesmo som do jogo. Clique de novo pra parar.</p>
+</header>
+<main id="lista"></main>
+<button id="parar">■ parar</button>
+
+<script type="module">
+import { DB } from "./src/data/index.js";
+import { Audio2 } from "./src/core/audio.js";
+
+// os nomes bonitos (o resto aparece com o nome de dentro do jogo)
+const NOMES = {
+  frIntroCarvalho: "A FALA DO CARVALHO (JOGO NOVO)", frIntroSaida: "ENCOLHENDO PRO MUNDO",
+  frCarvalho: "CONVERSA: PROF. CARVALHO", frSiga: "CONVERSA: SIGA-ME", frRival: "CONVERSA: O RIVAL APARECE",
+  frRivalSai: "CONVERSA: O RIVAL VAI EMBORA", frTreinadorMenino: "TE VI! (MENINO)", frTreinadorMenina: "TE VI! (MENINA)",
+  frRocket: "TE VI! (EQUIPE ROCKET)", frLiderAparece: "TE VI! (LÍDER DE GINÁSIO)",
+  frPallet: "PALLET", frRota1: "ROTA 1", frRota3: "ROTA 3", frRota11: "ROTA 11", frRota24: "ROTA 24",
+  frPewter: "VIRIDIAN / PEWTER / SAFFRON", frFuchsia: "CERULEAN / FUCHSIA", frVermilion: "VERMILION",
+  frLavender: "LAVENDER", frCeladon: "CELADON", frCinnabar: "CINNABAR", frFloresta: "FLORESTA DE VIRIDIAN",
+  frTorre: "TORRE POKÉMON", frSevii: "ILHAS 1, 2 E 3", frLab: "LABORATÓRIO DO OAK", frCentro: "CENTRO POKÉMON",
+  frCaverna: "CAVERNAS (MT. MOON)", frGinasio: "GINÁSIO", frSelvagem: "BATALHA: SELVAGEM",
+  frTreinador: "BATALHA: TREINADOR", frLider: "BATALHA: LÍDER DE GINÁSIO", frCampeao: "BATALHA: CAMPEÃO",
+  kantoSelvagem: "BATALHA: SELVAGEM", kantoTreinador: "BATALHA: TREINADOR", kantoLider: "BATALHA: LÍDER DE GINÁSIO",
+  kantoFinal: "BATALHA: FINAL", batalhaLumiose: "BATALHA EM LUMIOSE", batalhaBraglitch: "BATALHA EM BRAGLITCH",
+  batalhaBraglitchBaiao: "BATALHA EM BRAGLITCH (BAIÃO)", saolucario: "SÃO LUCARIO", br101: "BR-101",
+  megaDescontrolada: "MEGA DESCONTROLADA", batalhaGlitch: "BATALHA GLITCH", glitchdim: "GLITCH DIMENSION",
+  glitchdimExtrema: "GLITCH DIMENSION EXTREMA", mataDoSaci: "MATA DO SACI", glitchdimAntiga: "GLITCH DIMENSION (ANTIGA)",
+  abertura: "ABERTURA", titulo: "TELA DE TÍTULO",
+  lumioseCidade: "LUMIOSE (CIDADE)",
+};
+const GRUPOS = [
+  ["KANTO — DO FIRERED", "copiadas das notas do próprio FireRed", (k) => k.startsWith("fr")],
+  ["KANTO — DO RED/BLUE", "as batalhas do Game Boy, que eram as de antes", (k) => k.startsWith("kanto")],
+  ["BRAGLITCH", "", (k) => /braglitch|saolucario|br101|mataDoSaci/i.test(k)],
+  ["KALOS", "", (k) => /lumiose/i.test(k)],
+  ["OUTRAS DO JOGO", "", () => true],
+];
+
+// onde cada música toca (os mapas que usam ela)
+const onde = {};
+for (const m of Object.values(DB.MAPS)) if (m.music && m.name) (onde[m.music] ||= new Set()).add(m.name);
+
+const nomes = Object.keys(DB.MUSIC).filter((k) => DB.MUSIC[k] && (DB.MUSIC[k].tracks || DB.MUSIC[k].gb));
+const usadas = new Set();
+const lista = document.getElementById("lista");
+for (const [titulo, desc, teste] of GRUPOS) {
+  const daqui = nomes.filter((k) => !usadas.has(k) && teste(k));
+  if (!daqui.length) continue;
+  daqui.forEach((k) => usadas.add(k));
+  const sec = document.createElement("section");
+  sec.innerHTML = `<h2>${titulo}</h2>${desc ? `<p>${desc}</p>` : ""}<div class="grade"></div>`;
+  for (const k of daqui) {
+    const b = document.createElement("button");
+    b.className = "faixa";
+    b.dataset.k = k;
+    const lugares = [...(onde[k] || [])];
+    const txt = lugares.length ? lugares.slice(0, 4).join(", ") + (lugares.length > 4 ? ` e mais ${lugares.length - 4}` : "") : "";
+    b.innerHTML = `<b>${NOMES[k] || k.toUpperCase()}</b>${txt ? `<small>${txt}</small>` : ""}`;
+    sec.querySelector(".grade").appendChild(b);
+  }
+  lista.appendChild(sec);
+}
+
+let tocando = null;
+const parar = document.getElementById("parar");
+function para() {
+  Audio2.stopLoop();
+  document.querySelector(".faixa.tocando")?.classList.remove("tocando");
+  tocando = null;
+  parar.style.display = "none";
+}
+lista.addEventListener("click", (e) => {
+  const b = e.target.closest(".faixa");
+  if (!b) return;
+  Audio2.unlock();
+  const era = tocando;
+  para();
+  if (era === b.dataset.k) return;
+  tocando = b.dataset.k;
+  b.classList.add("tocando");
+  parar.style.display = "block";
+  Audio2.playMusic(tocando, DB.MUSIC[tocando]);
+});
+parar.addEventListener("click", para);
+</script>
+</body>
+</html>

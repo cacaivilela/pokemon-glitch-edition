@@ -109,8 +109,12 @@ export function montarTime(st, enc) {
       continue;
     }
     if (String(p.id).startsWith("FUSAO:")) {
-      const [cabeca, corpo] = String(p.id).slice(6).split("+");
-      const sp = garantirEspecie(idFusao(cabeca, corpo));
+      // "FUSAO:a+b", ou a TRIPLA "FUSAO:a+b+c", com a ficha escolhida depois
+      // do "~" (FUSAO:articuno+zapdos+moltres~artidoltres) e o INICIAL dele
+      // valendo dentro da fusão também (FUSAO:rhydon+INICIAL)
+      const [corpoTxt, variante = ""] = String(p.id).slice(6).split("~");
+      const [cabeca, corpo, pernas = ""] = corpoTxt.split("+").map((x) => (x === "INICIAL" ? formaDoInicial(st) : x));
+      const sp = cabeca && corpo ? garantirEspecie(idFusao(cabeca, corpo, variante, pernas)) : null;
       if (sp) out.push({ ...p, id: sp.id });
       continue;                       // a dupla não existe mais: ele vem sem ela
     }
@@ -143,7 +147,7 @@ export function rivalNpc(st) {
       sprite: R.sprite,
       lines: enc.antes,
       afterLines: enc.depois,
-      trainer: { name: R.nome, prize: enc.premio || 500, sprite: R.sprite, party: time },
+      trainer: { name: st.rivalNome || R.nome, prize: enc.premio || 500, sprite: R.sprite, party: time },
     };
   }
   return null;
@@ -175,9 +179,10 @@ export function gemeoNpc(st) {
   // NA ARENA DA LIGA (src/data/braglitch-liga.js): depois do último quiz ele
   // está lá, do seu lado — não pra lutar contra você, pra lutar junto
   const L = DB.LIGA_BRAG;
-  if (L && aqui === L.mapa) {
+  // (desde nov/2026 é na SALA DA LIGA, na forma da CÚPULA, depois do 4º líder)
+  if (L && aqui === (L.sala?.mapa || L.mapa)) {
     const g = L.gemeo[nome];
-    if (!st.flags?.[`ligaQuiz${L.quiz.length - 1}`] || !g) return null;
+    if ((st.flags?.ligaBragEtapa || 0) < L.lideres.length || st.flags?.ligaBragTrocando || !g) return null;
     return { id: "gemeo_liga", ...L.gemeo.lugar, sprite: G.sprite[nome],
              lines: st.flags.bragCampeao ? g.depois : g.espera };
   }

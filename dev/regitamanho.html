@@ -1,0 +1,32 @@
+<!doctype html><meta charset="utf-8"><title>tamanho dos 3D</title>
+<body style="background:#222">
+<script type="module">
+// Mede cada modelo 3D em pé (os REGIS e os lendários) contra o herói: a
+// altura em pixels na tela. ?ids=arceus,dialga escolhe quem (sem: os Regis).
+import { desenharParado } from "/src/core/gigante3d.js";
+const q = new URLSearchParams(location.search);
+const ids = (q.get("ids") || "regirock,regice,registeel,regigigas,regieleki,regidrago,regiglitch").split(",");
+const tempo = +(q.get("t") || 20);
+const big = document.createElement("canvas"); big.width = 240 * 4; big.height = 160 * Math.ceil(ids.length / 4);
+const B = big.getContext("2d"); B.fillStyle = "#6a8"; B.fillRect(0, 0, big.width, big.height);
+const heroi = new Image(); heroi.src = "/assets/sprites/overworld/ash.png"; await heroi.decode();
+const linhas = [];
+ids.forEach((id, k) => {
+  const cv = document.createElement("canvas"); cv.width = 240; cv.height = 160;
+  const c = cv.getContext("2d");
+  desenharParado(c, id, 120, 135, tempo, { sombra: false });
+  const d = c.getImageData(0, 0, 240, 160).data;
+  let y0 = 999, y1 = -1, x0 = 999, x1 = -1;
+  for (let y = 0; y < 160; y++) for (let x = 0; x < 240; x++) {
+    if (d[(y * 240 + x) * 4 + 3] === 255) { y0 = Math.min(y0, y); y1 = Math.max(y1, y); x0 = Math.min(x0, x); x1 = Math.max(x1, x); }
+  }
+  linhas.push(`${id}: ${x1 - x0 + 1}x${y1 - y0 + 1}`);
+  c.clearRect(0, 0, 240, 160);
+  desenharParado(c, id, 120, 135, tempo, { cresce: +(q.get("cresce") || 1), branco: +(q.get("branco") || 0) });
+  const ox = (k % 4) * 240, oy = Math.floor(k / 4) * 160;
+  B.drawImage(cv, ox, oy);
+  B.drawImage(heroi, 0, 0, 16, 32, ox + 70, oy + 135 - 30, 16, 32);
+});
+await fetch("/__capture", { method: "POST", headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ name: q.get("nome") || "regitamanho", dataUrl: big.toDataURL(), log: linhas.join("\n") }) });
+</script>

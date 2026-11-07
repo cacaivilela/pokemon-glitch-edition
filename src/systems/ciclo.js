@@ -87,4 +87,4 @@ export function veu(quando = relogio()) {
 /** true quando aquele mapa fica de fora do ciclo: dentro de casa não tem céu, e
  *  na caverna o escuro é o dia inteiro e quem manda nele é a lanterna
  *  (src/systems/lanterna.js). */
-export const temCeu = (mapa) => !!mapa && !mapa.interior && mapa.music !== "cave";
+export const temCeu = (mapa) => !!mapa && !mapa.interior && !mapa.submerso && !mapa.caverna && mapa.music !== "cave";   // no fundo do mar o céu é a água

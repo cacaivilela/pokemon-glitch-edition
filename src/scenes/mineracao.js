@@ -12,6 +12,8 @@ import { Audio2 } from "../core/audio.js";
 import { panel, drawText, bar, fade, PAL } from "../core/gfx.js";
 import { Dialogue } from "../systems/dialogue.js";
 import { emBraglitch } from "../systems/regionais.js";
+import { Assets } from "../core/assets.js";
+import { reduzido } from "../core/reduzir.js";
 
 const W = 240, H = 160;
 const CEL = 16;
@@ -47,8 +49,10 @@ export class MineracaoScene {
   montarParede() {
     const P = DB.MINERACAO.PAREDE;
     // o que tem `onde` só sai na parede daquela terra (os fósseis de Braglitch)
-    const aqui = emBraglitch(this.st.player.map) ? "braglitch" : "kanto";
-    const A = DB.MINERACAO.ACHADOS.filter((a) => !a.onde || a.onde === aqui);
+    // e o SUBTERRÂNEO DE KANTO tem os de Kanto e mais as ESTÁTUAS (onde: "subterraneo")
+    const sub = this.st.player.map === DB.SUBTERRANEO?.MAPA;
+    const aqui = sub ? "subterraneo" : emBraglitch(this.st.player.map) ? "braglitch" : "kanto";
+    const A = DB.MINERACAO.ACHADOS.filter((a) => !a.onde || a.onde === aqui || (sub && a.onde === "kanto"));
     // as camadas de terra: uma altura base pra parede toda e ondulação por célula
     this.prof = [];
     for (let y = 0; y < P.rows; y++) {
@@ -257,6 +261,16 @@ const claro = (cor) => { const n = parseInt(cor.slice(1), 16); const c = (v) => 
 function desenhaAchado(ctx, tipo, x, y, w, h, t) {
   const cor = tipo.cor, esc = escuro(cor), cla = claro(cor), cx = x + w / 2, cy = y + h / 2;
   const d = tipo.desenho || "pedra";
+  if (d === "estatua") {                               // a ESTÁTUA: o Pokémon em pedra cinza, num pedestal
+    px(ctx, x + 3, y + h - 7, w - 6, 5, "#8a8a92"); px(ctx, x + 3, y + h - 7, w - 6, 1, "#b8b8c0");
+    const img = Assets.mon(tipo.mon, 1);
+    if (img && img.width) {
+      ctx.save(); ctx.filter = "grayscale(1) brightness(1.05) contrast(1.1)";
+      ctx.drawImage(reduzido(img, w - 4), x + 2, y, w - 4, h - 6);
+      ctx.restore();
+    } else px(ctx, x + 8, y + 4, w - 16, h - 12, cor);
+    return;
+  }
   if (d === "helix") {                                  // a concha em espiral
     for (let r = 13, i = 0; r > 2; r -= 2.6, i++) { ctx.fillStyle = i % 2 ? esc : cor; ctx.beginPath(); ctx.arc(cx + i * 0.8, cy + i * 0.6, r, 0, Math.PI * 2); ctx.fill(); }
     px(ctx, cx - 6, cy - 9, 3, 2, cla);

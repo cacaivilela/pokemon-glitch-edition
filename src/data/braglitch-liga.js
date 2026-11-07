@@ -102,6 +102,56 @@ export const LIGA = {
       depois: ["R4NK... MASTER. A MÁQUINA NÃO ERRA, ENTÃO VOCÊ TAMBÉM NÃO.", "DESCE. OS CAMPEÕES ESTÃO ESPERANDO. E O SEU GÊMEO TAMBÉM."],
     },
   ],
+  /** A SALA DA LIGA (pedido do CAIO, nov/2026: "faz a liga de braglitch tbm ser um
+   *  prédio com uma sala que se transforma mas de um jeito diferente"; "robôs";
+   *  "invés da elite quiz vai ter os 4 líderes de ginásio com os pkmns mais
+   *  bombados"). Uma sala só, dentro do PRÉDIO DA LIGA da Esplanada: venceu um
+   *  líder, os BRAÇOS ROBÓTICOS descem do teto, arrancam a sala em blocos e
+   *  encaixam a do próximo (src/systems/ligabrag.js). A quinta forma é a CÚPULA
+   *  dos CAMPEÕES. `tema` é o desenho da sala (o mesmo arquivo). */
+  sala: { mapa: "liga_brag_sala", chegada: { x: 7, y: 11, dir: "up" }, lider: { x: 7, y: 3 } },
+  lideres: [
+    { nome: "GAMBI", sprite: "tecnico", tema: "oficina", titulo: "O ELETRICISTA DA GAMBIARRA",
+      time: [["gatonet", 60], ["fus-gambiarra-orelhao", 61], ["araraio", 62], ["manguebit", 62], ["voltabum", 63], ["gambiarra", 65]],
+      fala: ["VOLTOU, É? AGORA NÃO É GINÁSIO, É LIGA. E NA LIGA A GAMBIARRA É DE ALTA TENSÃO.",
+             "TROQUEI TODOS OS FIOS DESDE A ÚLTIMA VEZ. QUER VER SE AGUENTA O CHOQUE?"],
+      perdeu: ["...QUEIMOU O FUSÍVEL. O MEU, NÃO O SEU.", "OS ROBÔS VÃO MONTAR A SALA DA PRÓXIMA. SEGURA FIRME."] },
+    { nome: "LUZIA DAS ALMAS", sprite: "velha", tema: "capela", titulo: "A CONTADORA DE CAUSOS",
+      time: [["zerogle", 61], ["fus-assombracao-ghotolt", 62], ["boitata", 63], ["lobisomem", 63], ["curupira", 64], ["assombracao", 66]],
+      fala: ["SENTA, CRIANÇA. NA LIGA EU NÃO CONTO CAUSO: EU MOSTRO.",
+             "CADA ALMA DESTA SALA JÁ PERDEU PRA ALGUÉM. HOJE ELAS QUEREM GANHAR."],
+      perdeu: ["AS ALMAS SE ACALMARAM. VOCÊ TEM A LUZ DE QUEM ANDOU MUITO.", "VAI. A RAINHA JÁ ESTÁ TOCANDO O TAMBOR."] },
+    { nome: "RAINHA LUA", sprite: "superf", tema: "samba", titulo: "A RAINHA DA BATERIA",
+      time: [["brigadeirinho", 62], ["fus-encantado-plumario", 63], ["beijaflorzinha", 63], ["lorose", 64], ["iara", 65], ["encantado", 67]],
+      fala: ["OLHA QUEM CHEGOU NO DESFILE! A BATERIA DA LIGA NÃO PARA NUNCA.",
+             "AQUI CADA BATIDA É UM GOLPE. ENTRA NO RITMO OU SAI DA AVENIDA!"],
+      perdeu: ["NOTA DEZ, NOTA DEZ, NOTA DEZ! VOCÊ GANHOU O DESFILE.", "A NIEMA TÁ NO SERVIDOR. CUIDADO: ELA NÃO PERDE NADA."] },
+    { nome: "ENGENHEIRA NIEMA", sprite: "cientista", tema: "servidor", titulo: "A ARQUITETA DO SERVIDOR",
+      time: [["chuvisco", 63], ["fus-concretao-saci", 64], ["submarinum", 64], ["destroium", 65], ["monstela", 66], ["saci", 67]],
+      fala: ["FUI EU QUE PROJETEI ESTA SALA. E OS ROBÔS. E O SERVIDOR QUE COMANDA OS ROBÔS.",
+             "CALCULEI 4.096 JEITOS DE VOCÊ PERDER. VAMOS TESTAR O PRIMEIRO."],
+      perdeu: ["...ERRO NÃO PREVISTO. VOCÊ É O ERRO NÃO PREVISTO.",
+               "OS ROBÔS VÃO MONTAR A CÚPULA. OS CAMPEÕES ESTÃO ESPERANDO. E O SEU GÊMEO TAMBÉM."] },
+  ],
+  /** O HALL DA FAMA DE BRAGLITCH (src/scenes/halldafama.js, `garras`): logo
+   *  depois dos campeões, ali mesmo na CÚPULA — as garras da NIEMA montam cada
+   *  Pokémon do time, e o GÊMEO entra na foto do seu lado */
+  hall: {
+    titulo: "HALL DA FAMA DE BRAGLITCH",
+    antes: [
+      "DALVA: AINDA NÃO ACABOU. TODO CAMPEÃO DE BRAGLITCH FICA GRAVADO NA CÚPULA.",
+      "TOMÉ: A NIEMA PROGRAMOU AS GARRAS PRA MONTAR CADA UM DOS SEUS POKÉMON, PEDACINHO POR PEDACINHO.",
+      "DALVA: E VOCÊS DOIS ENTRAM JUNTOS. FOI DUPLA, ENTÃO O REGISTRO É DE DUPLA.",
+    ],
+    depois: [
+      "DALVA: PRONTO. A CÚPULA NUNCA MAIS ESQUECE VOCÊS.",
+      "TOMÉ: AGORA VAI. BRAGLITCH INTEIRA JÁ SABE QUEM SÃO OS CAMPEÕES.",
+    ],
+  },
+  /** o tema da quinta forma da sala (a dos CAMPEÕES) */
+  temaCampeoes: "cupula",
+  troca: "A SALA SE TRANSFORMOU! {QUEM} ESTÁ ESPERANDO.",
+
   certo: "CERTO!",
   errado: ["ERRADO!", "O QUIZ COMEÇA DE NOVO. FALA COMIGO QUANDO ESTIVER PRONTO."],
   subiu: "SEU RANK SUBIU PRA {RANK}!",
@@ -113,12 +163,12 @@ export const LIGA = {
    *  cerrado, e o time dele é de céu aberto e de chão batido. */
   campeoes: [
     {
-      id: "dalva", nome: "DALVA", sprite: "tecnica", x: 13, y: 35,
-      time: [["melmetal", 62], ["orbeetlebrag", 61], ["concretao", 61], ["piranhorda", 61], ["aerodactyl", 63, "mega"]],
+      id: "dalva", nome: "DALVA", sprite: "tecnica", x: 6, y: 3,
+      time: [["melmetal", 69], ["fus-stegarmorex-orbeetlebrag", 68], ["concretao", 68], ["piranhorda", 69], ["stegarmorex", 70], ["aerodactyl", 72, "mega"]],
     },
     {
-      id: "tome", nome: "TOMÉ", sprite: "montanhista", x: 16, y: 35,
-      time: [["dragonite", 63], ["volcarona", 62], ["encantado", 61], ["sandbash", 61], ["lobisomem", 62]],
+      id: "tome", nome: "TOMÉ", sprite: "montanhista", x: 8, y: 3,
+      time: [["dragonite", 71], ["fus-amazonium-volcarona", 70], ["encantado", 68], ["sandbash", 68], ["lobisomem", 69], ["amazonium", 70]],
     },
   ],
   /** o MEGA AERODACTYL da DALVA: a forma em que ele vira na hora que entra */
@@ -128,16 +178,17 @@ export const LIGA = {
 
   /** o GÊMEO na arena: o time final dele, um pouco acima do de BASCULINHA */
   gemeo: {
-    lugar: { x: 10, y: 34, dir: "right" },
+    lugar: { x: 5, y: 8, dir: "up" },
     CAIO: {
-      time: [["pikachu", 58, "shiny"], ["bangveet", 58], ["zoroark", 59], ["quaquaval", 60]],
+      // (6 Pokémon: no HALL DA FAMA entram os 12, os seus e os dele)
+      time: [["pikachu", 66, "shiny"], ["fus-zoroark-bangveet", 66], ["zoroark", 67], ["manguebit", 66], ["gingao", 67], ["quaquaval", 68]],
       espera: ["MANA! SABIA QUE VOCÊ CHEGAVA. EU PASSEI NO QUIZ POR UM FIO... UM FIO BEM FININHO.",
                "SÃO DOIS CAMPEÕES, ENTÃO A GENTE VAI JUNTO. É DUPLA: VOCÊ E EU.",
                "FALA COM ELES QUANDO ESTIVER PRONTA. EU TÔ DO SEU LADO."],
       depois: ["A GENTE CONSEGUIU, MANA! A GENTE CONSEGUIU!", "...TÁ, VOCÊ CONSEGUIU MAIS. MAS EU AJUDEI. ANOTA AÍ."],
     },
     LARA: {
-      time: [["lopunny", 58, "shiny"], ["vaporeon", 58], ["maushold", 58], ["gardevoir", 59], ["meowscarada", 60]],
+      time: [["lopunny", 66, "shiny"], ["fus-gardevoir-vaporeon", 66], ["maushold", 66], ["gardevoir", 67], ["plumario", 66], ["meowscarada", 68]],
       espera: ["MANO. DEMOROU, HEIN. EU PASSEI NO QUIZ DE PRIMEIRA, SÓ PRA CONSTAR.",
                "SÃO DOIS CAMPEÕES. ENTÃO NÃO TEM JEITO: É VOCÊ E EU, LADO A LADO.",
                "QUANDO ESTIVER PRONTO, FALA COM ELES. EU VOU JUNTO."],
@@ -161,7 +212,7 @@ export const LIGA = {
     "DALVA: {NOME}, A PARTIR DE HOJE VOCÊ É CAMPEÃO DE BRAGLITCH.",
     "O SEU NOME E O DOS SEUS POKÉMON FICAM GRAVADOS NA CÚPULA DO CONGRESSO. PRA SEMPRE.",
   ],
-  campeao: "{NOME} VIROU CAMPEÃO DE BRAGLITCH!",
+  campeao: "{NOME} VIROU CAMPEÃO DE BRAGLITCH! AGORA AS LOJAS VENDEM MASTER BALL PRA VOCÊ!",
   depois: {
     dalva: ["O SEU NOME ESTÁ NA CÚPULA. EU MESMA SUBI NA ESCADA PRA GRAVAR."],
     tome: ["VOLTA QUANDO QUISER. A ARENA AGORA É SUA TAMBÉM."],
@@ -204,33 +255,21 @@ export const LUGARES = [
       "#..FFFF.......PP.......FFFF..#",
       "#..FFFF.......PP...2...FFFF..#",
       "#.............PP.............#",
-      PAREDE,
-      ...PATIO,
-      PAREDE,
-      ...PATIO,
-      PAREDE,
-      "#.............PP.............#",
-      "#..o....FF....PP....FF....o..#",
-      "#.......FF....PP..3.FF.......#",
-      "#.............PP.............#",
-      PAREDE,
+      "#.......LLLLLLLLLLLLLL.......#",
+      "#..o....LLLLLLLLLLLLLL....o..#",
+      "#.......LLLLLLLLLLLLLL.......#",
+      "#.......LLLLLLLLLLLLLL.......#",
+      "#.......LLLLLLLLLLLLLL.......#",
+      "#.............DP.............#",
       "#.............PP.............#",
       "#FFFFF........PP........FFFFF#",
-      "#F............PP............F#",
-      "#.............PP.............#",
-      "#....PPPPPPPPPPPPPPPPPPPP....#",
-      "#....P..................P....#",
-      "#....P..................P....#",
-      "#F...P..................P...F#",
-      "#FF..PPPPPPPPPPPPPPPPPPPP..FF#",
       "#FFFFFFFFFFFFFFFFFFFFFFFFFFFF#",
       "##############################",
     ],
     saidas: { up: 14 },
     placas: {
       1: "ESPLANADA DA LIGA DE BRAGLITCH.\nQUEM SOBE O RANK, DESCE PRA ARENA.",
-      2: "ELITE QUIZ.\nRANK POKÉ, GREAT, ULTRA E MASTER.",
-      3: "A ARENA DOS CAMPEÕES.\nEMBAIXO, ENTRE AS DUAS CÚPULAS.",
+      2: "PRÉDIO DA LIGA DE BRAGLITCH.\nQUATRO LÍDERES, UMA SALA SÓ. OS CAMPEÕES NO FIM.",
     },
     centro: "BEM-VINDO AO CENTRO POKÉMON DA LIGA! AQUI NINGUÉM ENTRA NA ARENA CANSADO.",
     npcs: [
@@ -239,15 +278,73 @@ export const LUGARES = [
         someComFlag: "ligaPortao", lines: ["..."] },
       { id: "guarda_lado", x: 12, y: PAREDOES[0] - 1, dir: "right", sprite: "policial", comFlag: "ligaPortao",
         lines: LIGA.portao.depois },
-      // os quatro mestres: na passagem até você passar no quiz, do lado depois
-      ...LIGA.quiz.flatMap((q, i) => [
-        { id: `quiz${i}`, x: 14, y: PAREDOES[i + 1], dir: "up", sprite: ["velha", "velho", "superf", "tecnico"][i],
-          ligaQuiz: i, someComFlag: `ligaQuiz${i}`, lines: ["..."] },
-        { id: `quiz${i}_lado`, x: 12, y: PAREDOES[i + 1] - 1, dir: "right", sprite: ["velha", "velho", "superf", "tecnico"][i],
-          comFlag: `ligaQuiz${i}`, lines: q.depois },
-      ]),
-      // os campeões
-      ...LIGA.campeoes.map((c) => ({ id: c.id, x: c.x, y: c.y, dir: "up", sprite: c.sprite, ligaCampeao: true, lines: ["..."] })),
+      // OS DESAFIANTES (pedido do CAIO, nov/2026): quem juntou as 8 insígnias e
+      // veio tentar a Liga, com o SÍMBOLO DA LIGA inteiro no peito (src/core/insigniascorpo.js)
+      { id: "desafiante_a", x: 10, y: 19, dir: "right", sprite: "garoto", desafianteLiga: true,
+        lines: ["OLHA O MEU PEITO: AS OITO JUNTAS FAZEM O SÍMBOLO DA LIGA!", "QUEM ENTRA LÁ DENTRO COM ELE COMPLETO É LEVADO A SÉRIO."],
+        afterLines: ["TÁ, VOCÊ TAMBÉM TEM O SÍMBOLO INTEIRO. ENTÃO VAI LÁ!"],
+        trainer: { name: "DESAFIANTE TIAGO", prize: 4200, sight: 3, party: [{ id: "tilapiracu", lvl: 58 }, { id: "boitata", lvl: 58 }] } },
+      { id: "desafiante_b", x: 19, y: 19, dir: "left", sprite: "garota", desafianteLiga: true,
+        lines: ["CADA INSÍGNIA FOI UM PEDAÇO. A SAMAÚMA FOI O PRIMEIRO, A CÚPULA O ÚLTIMO.", "AGORA FALTA O MAIS DIFÍCIL."],
+        afterLines: ["O MEIO DO SÍMBOLO SÓ ACENDE COM AS OITO. O SEU ESTÁ ACESO?"],
+        trainer: { name: "DESAFIANTE BIA", prize: 4200, sight: 3, party: [{ id: "paubrasilisco", lvl: 58 }, { id: "iara", lvl: 59 }] } },
+      { id: "desafiante_c", x: 5, y: 12, dir: "down", sprite: "montanhista", desafianteLiga: true,
+        lines: ["VIM DE BELÉM ATÉ AQUI A PÉ. O SÍMBOLO NO PEITO PESA MAIS QUE A MOCHILA."],
+        afterLines: ["QUANDO EU GANHAR DA LIGA, VOU PENDURAR ELE NA PAREDE DE CASA."],
+        trainer: { name: "DESAFIANTE RUI", prize: 4200, sight: 3, party: [{ id: "curupira", lvl: 59 }, { id: "tilapiracu", lvl: 59 }] } },
+      // (os quatro mestres do quiz e os campeões saíram: agora é o PRÉDIO DA LIGA)
+    ],
+  },
+  {
+    id: "liga_brag_sala",
+    nome: "LIGA DE BRAGLITCH",
+    tipo: "sala",
+    tema: "ligabrag",
+    musica: "saolucario",
+    ligaBrag: true,
+    planta: [
+      "###############",
+      "###############",
+      "#.............#",
+      "#.............#",
+      "#.............#",
+      "#.............#",
+      "#.............#",
+      "#.............#",
+      "#.............#",
+      "#.............#",
+      "#.............#",
+      "#.............#",
+      "#######U#######",
+    ],
+    saidas: {},
+    placas: {},
+    npcs: [
+      // o líder da vez (só um aparece: `mostrar`, src/systems/ligabrag.js)
+      ...LIGA.lideres.map((l, i) => ({
+        id: `lider_liga${i}`, x: 7, y: 3, dir: "down", sprite: l.sprite, ligaBragLider: i,
+        mostrar: (st) => (st.flags?.ligaBragEtapa || 0) === i && !st.flags?.ligaBragTrocando,
+        lines: l.fala, afterLines: l.perdeu,
+        trainer: { name: `${l.nome}`, prize: 6000 + i * 1500, sight: 0, etapaLigaBrag: i, lider: true,
+                   party: l.time.map(([id, lvl]) => ({ id, lvl })) },
+      })),
+      // os campeões, na CÚPULA
+      ...LIGA.campeoes.map((c) => ({ id: c.id, x: c.x, y: c.y, dir: "down", sprite: c.sprite, ligaCampeao: true, ligaBragFinal: true, lines: ["..."],
+        mostrar: (st) => (st.flags?.ligaBragEtapa || 0) >= LIGA.lideres.length && !st.flags?.ligaBragTrocando })),
     ],
   },
 ];
+
+
+/** A PORTA DO PRÉDIO DA LIGA (o D embaixo do L da Esplanada) e a porta da SALA (o
+ *  U de baixo dela) apontam uma pra outra. Chamado com os mapas de Braglitch
+ *  já montados (src/data/index.js). */
+export function ligarSalaDaLiga(geos) {
+  const esp = geos?.[LIGA.mapa], sala = geos?.[LIGA.sala.mapa];
+  if (!esp || !sala) return;
+  const porta = esp.warps.findIndex((w) => w.predio === "L");
+  const saida = sala.warps.findIndex((w) => w.predio === "U");
+  if (porta < 0 || saida < 0) return;
+  esp.warps[porta] = { ...esp.warps[porta], to: LIGA.sala.mapa, toWarp: saida };
+  sala.warps[saida] = { ...sala.warps[saida], to: LIGA.mapa, toWarp: porta };
+}

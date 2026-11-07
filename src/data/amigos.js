@@ -336,7 +336,10 @@ export const AMIGOS = {
 // Cada QUADRO: `legenda` (a caixinha amarela de cima), `bichos` — [espécie,
 // x no quadro (0..224), opções] com `v` = virado pra direita, `s` = tamanho
 // (64 é o normal), `dy` = sobe/desce — e `falas`: [índice do bicho, texto].
-// `fx`: "flash" (clarão), "treme" (o quadro treme) ou "zzz" (sono).
+// `vc` = de cabeça pra baixo. `fx`: "flash" (clarão), "treme" (o quadro treme)
+// ou "zzz" (sono). `agua: [x, y, w, h]` põe água por cima; `fogo: [[x, y]]`,
+// chamas (a base de cada uma). `colunas`: letras por linha dos balões (balão
+// mais largo e mais baixo, quando ele cobriria alguém). Um DLC pode pôr tirinha no fim da `lista`.
 // `fim` (na tirinha): o que o VÍTOR fala depois dela, no lugar da sorteada.
 // Bicho que começa com `@` é gente: o retrato de batalha (`@vitor`, `@andre`).
 // O site tirinhas.html mostra o caderno inteiro.
@@ -590,6 +593,21 @@ export const TIRINHAS = {
           falas: [[0, "QUEM FALOU ISSO?"]] },
         { legenda: "ATÉ HOJE ELE NÃO SABE", bichos: [["wailord", 50, { s: 128, dy: 20 }], ["joltik", 104, { s: 24, dy: -86 }]],
           falas: [[1, "HEHE."]] },
+      ],
+    },
+    {
+      // a história é do CAIO (nov/2026): achou na calculadora que CACNEA +
+      // CACTURNE dá CARNE, e a PROFA. IPÊ serve isso no almoço
+      titulo: "CARNE",
+      quadros: [
+        { legenda: "A PROFA. IPÊ CHAMOU OS DOIS PRA ALMOÇAR NO LAB", bichos: [["%ipe", 10, { v: true, s: 112, dy: 6 }], ["@vitor", 92], ["@andre", 160]],
+          falas: [[0, "HOJE TEM COMIDA ESPECIAL!"]] },
+        { legenda: "O ALMOÇO: CACNEA + CACTURNE", bichos: [["fus-cacnea-cacturne", 76, { s: 72 }]],
+          falas: [[0, "CARNE!"]], fx: "flash" },
+        { bichos: [["@vitor", 30, { v: true }], ["fus-cacnea-cacturne", 140, { s: 56 }]],
+          falas: [[0, "NÃO VOU COMER ISSO."]] },
+        { bichos: [["@andre", 30, { v: true }], ["fus-cacnea-cacturne", 140, { s: 56 }]],
+          falas: [[0, "FALTA SAL."]] },
       ],
     },
   ],

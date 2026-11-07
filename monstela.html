@@ -1,0 +1,110 @@
+<!doctype html>
+<!-- AS FORMAS DA MONSTELA: a MONSTELA (criada pelo CAIO) e os aparelhos em que
+     ela entra, como o ROTOM. Os desenhos saem de tools/monstela/sprite.py (a
+     normal) e tools/monstela/formas.py (CELULAR, COMPUTADOR, NINTENDO SWITCH).
+     Não abre o jogo nem mexe em save.
+     Uso: http://localhost:5173/monstela.html  (#switch vai direto pra forma) -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Formas da Monstela</title>
+<style>
+  :root { --fundo:#0b1220; --tela:#0f1f36; --linha:#13284a; --borda:#08080c; --corpo:#22202c;
+          --azul:#568bdc; --azulclaro:#b0d2ff; --amarelo:#f9f06b; --texto:#dfe8f8; --apagado:#7f8fb0; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    background:var(--fundo); color:var(--texto); min-height:100vh;
+    font:15px ui-monospace, "SF Mono", Menlo, Consolas, monospace; padding:28px 16px 64px;
+    background-image:repeating-linear-gradient(180deg, transparent 0 3px, rgba(255,255,255,.025) 3px 4px);
+  }
+  header, main, footer { max-width:1040px; margin:0 auto; }
+  h1 { font-size:32px; letter-spacing:2px; color:var(--azulclaro); text-shadow:0 0 12px rgba(86,139,220,.6); }
+  h1 small { display:block; font-size:14px; letter-spacing:0; color:var(--apagado); margin-top:6px; font-weight:normal; text-shadow:none; }
+  .controles { margin-top:18px; display:flex; flex-wrap:wrap; gap:8px; }
+  button {
+    font:inherit; color:var(--texto); background:var(--corpo); border:2px solid var(--borda);
+    box-shadow:inset 2px 2px 0 #3c3950, inset -2px -2px 0 #15141c; padding:8px 14px; cursor:pointer; border-radius:4px;
+  }
+  button[aria-pressed="true"] { background:var(--azul); color:#fff; box-shadow:inset 2px 2px 0 #8ab4ee, inset -2px -2px 0 #2c5aa8; }
+  button:focus-visible { outline:3px solid var(--amarelo); outline-offset:2px; }
+  main { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:18px; margin-top:24px; }
+  .forma { background:var(--corpo); border:3px solid var(--borda); border-radius:8px; padding:12px; scroll-margin-top:16px;
+           box-shadow:inset 3px 3px 0 #3c3950, inset -3px -3px 0 #15141c; display:flex; flex-direction:column; gap:10px; }
+  .forma:target { outline:3px solid var(--amarelo); }
+  .vidro { background:var(--tela); border:3px solid var(--borda); border-radius:4px; aspect-ratio:1; position:relative; overflow:hidden;
+           background-image:repeating-linear-gradient(180deg, transparent 0 6px, var(--linha) 6px 12px); cursor:pointer; }
+  .vidro img { width:100%; height:100%; image-rendering:pixelated; display:block; }
+  .vidro .brilho { position:absolute; left:8px; top:8px; width:22px; height:22px; border-left:4px solid #2c4a74; border-top:4px solid #2c4a74; }
+  .vidro .selo { position:absolute; right:8px; top:8px; background:var(--amarelo); color:#222; font-size:11px; padding:2px 6px; border-radius:3px; display:none; }
+  .shiny .vidro .selo { display:block; }
+  h2 { font-size:17px; letter-spacing:1px; }
+  .tipo { font-size:12px; color:var(--apagado); }
+  p { font-size:13px; line-height:1.5; }
+  .botoes { display:flex; gap:4px; }
+  .botoes i { width:12px; height:8px; border:2px solid var(--borda); }
+  footer { margin-top:36px; color:var(--apagado); font-size:13px; line-height:1.6; }
+  footer code { color:var(--texto); }
+  @media (max-width:560px) { h1 { font-size:24px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>AS FORMAS DA MONSTELA<small>Nº 1104 · ELÉTRICO/FANTASMA · Pokémon Glitch Edition · criada pelo CAIO</small></h1>
+  <div class="controles" role="group" aria-label="cor">
+    <button type="button" id="normal" aria-pressed="true">NORMAL</button>
+    <button type="button" id="shiny" aria-pressed="false">★ SHINY</button>
+  </div>
+</header>
+<main id="formas"></main>
+<footer>
+  Clique na tela de uma forma pra trocar só ela entre normal e shiny.<br>
+  Os desenhos: <code>tools/monstela/sprite.py</code> (a MONSTELA) e <code>tools/monstela/formas.py</code> (as formas).
+</footer>
+
+<script>
+const FORMAS = [
+  { id: "monstela", nome: "MONSTELA", img: "assets/sprites/pokemon/1104.png", shiny: "assets/sprites/pokemon/shiny/1104.png",
+    texto: "ESSE POKÉMON, COMO O ROTOM, ENTRA EM DISPOSITIVOS ELETRÔNICOS. O ROSTO DELE APARECE NA TELA EM PONTINHOS, E OS BOTÕES DO LADO MUDAM DE COR QUANDO ELE ESTÁ BRAVO." },
+  { id: "celular", nome: "MONSTELA CELULAR", texto: "ENTROU NUM CELULAR. OS BOTÕES COLORIDOS FICAM DO LADO, E O FIO DO CARREGADOR VIROU O RABO DELA." },
+  { id: "computador", nome: "MONSTELA COMPUTADOR", texto: "ENTROU NUM COMPUTADOR. O ROSTO FICA GRANDÃO NO MONITOR, E ELA ARRASTA O MOUSE PELO FIO." },
+  { id: "switch", nome: "MONSTELA NINTENDO SWITCH", texto: "ENTROU NUM NINTENDO SWITCH. UM JOY-CON AZUL DE UM LADO, UM VERMELHO DO OUTRO. NA SHINY, ELES TROCAM DE LADO." },
+];
+for (const f of FORMAS) {
+  f.img ||= `assets/sprites/pokemon/formas_monstela/${f.id}.png`;
+  f.shiny ||= `assets/sprites/pokemon/formas_monstela/shiny/${f.id}.png`;
+}
+
+const main = document.getElementById("formas");
+const cartoes = FORMAS.map((f) => {
+  const el = document.createElement("article");
+  el.className = "forma";
+  el.id = f.id;
+  el.innerHTML = `
+    <div class="vidro" role="button" tabindex="0" aria-label="trocar ${f.nome} entre normal e shiny">
+      <img alt="${f.nome}" src="${f.img}"><span class="brilho"></span><span class="selo">★ SHINY</span>
+    </div>
+    <div class="botoes" aria-hidden="true"><i style="background:#6eb038"></i><i style="background:#3068d0"></i><i style="background:#f8d028"></i><i style="background:#e03434"></i></div>
+    <h2>${f.nome}</h2>
+    <p>${f.texto}</p>`;
+  const img = el.querySelector("img");
+  const vidro = el.querySelector(".vidro");
+  el.mostrar = (sh) => { el.classList.toggle("shiny", sh); img.src = sh ? f.shiny : f.img; };
+  const trocar = () => el.mostrar(!el.classList.contains("shiny"));
+  vidro.addEventListener("click", trocar);
+  vidro.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); trocar(); } });
+  main.append(el);
+  return el;
+});
+
+const bNormal = document.getElementById("normal"), bShiny = document.getElementById("shiny");
+function todas(sh) {
+  bNormal.setAttribute("aria-pressed", String(!sh));
+  bShiny.setAttribute("aria-pressed", String(sh));
+  for (const c of cartoes) c.mostrar(sh);
+}
+bNormal.addEventListener("click", () => todas(false));
+bShiny.addEventListener("click", () => todas(true));
+</script>
+</body>
+</html>

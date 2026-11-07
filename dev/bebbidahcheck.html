@@ -1,0 +1,30 @@
+<!doctype html>
+<!-- AS FORMAS DO BEBBIDÃO (src/data/bebbidah.js): cada bebida (linha) em cada
+     tom, gelado e quente (colunas), pintadas pelo jogo de verdade
+     (Assets.bebbidao), numa folha pro /__capture (dev/captures/bebbidao_formas.png).
+     Não abre o jogo nem mexe em save. -->
+<meta charset="utf-8"><title>bebbidao</title>
+<script type="module">
+import { DB } from "/src/data/index.js";
+import { Assets } from "/src/core/assets.js";
+import { seedDaForma } from "/src/systems/bebbidah.js";
+Assets.init?.();
+Assets.mon("bebbidao", 1); Assets.monBack("bebbidao", 1);
+await new Promise((r) => setTimeout(r, 2500));
+const B = DB.BEBIDAS, T = DB.BEBIDA_TONS, L = 70, A = 72;
+const cv = document.createElement("canvas"); cv.width = 120 + L * T.length * 2; cv.height = 20 + A * B.length;
+const c = cv.getContext("2d"); c.imageSmoothingEnabled = false;
+c.fillStyle = "#2a2a36"; c.fillRect(0, 0, cv.width, cv.height);
+c.fillStyle = "#fff"; c.font = "10px monospace";
+T.forEach((t, j) => { c.fillText(t.nome + " ❄", 120 + j * L, 12); c.fillText(t.nome + " ♨", 120 + (T.length + j) * L, 12); });
+B.forEach((b, i) => {
+  const y = 20 + i * A;
+  c.fillStyle = "#fff"; c.fillText(b.nome, 2, y + 40);
+  for (let q = 0; q < 2; q++) T.forEach((t, j) => {
+    const img = Assets.mon("bebbidao", seedDaForma({ bebida: b, tom: j, quente: !!q }));
+    c.drawImage(img, 0, 0, 96, 96, 120 + (q * T.length + j) * L, y, A, A);
+  });
+});
+await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "bebbidao_formas", dataUrl: cv.toDataURL() }) });
+document.title = "pronto";
+</script>

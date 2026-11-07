@@ -1,11 +1,19 @@
 // Todos os graficos sao gerados em runtime (nenhum arquivo de imagem).
 // Trocar por PNGs depois e so mudar Assets.tiles / Assets.mons.
+import { pintarCaraDitto } from "../systems/caraditto.js";
 import { makeRng } from "./rng.js";
+import { FR_BLOCOS, FR_CORES } from "./fr-blocos.js";
+import { GRANDES, GRANDE_CORES } from "./arvore-grande.js";
 import { DB } from "../data/index.js";
 import { reduzido } from "./reduzir.js";
-import { SpriteStore, loadImage, pedirMon, pedirMonShiny, pedirMonUrl, pedirAnim, pedirAnimDoJogador, quadroAnim, pedirAndar, quadroAndar } from "./sprites.js";
+import { SpriteStore, loadImage, pedirMon, pedirMonShiny, pedirMonUrl, pedirAnim, pedirAnimDoJogador, quadroAnim, pedirAndar, quadroAndar, pedirVoo, quadroVoo } from "./sprites.js";
 import { url as arquivo } from "./base.js";
 import { corpoBombado, CORPO } from "./diglettbombado.js";
+import { montarFusao, montarTripla, montarFusaoCara } from "../systems/montagem.js";
+import { spriteDoCardume } from "../systems/cardume.js";
+import { spriteDoBizarro } from "../systems/bizarro.js";
+import { docesDoSeed, corDoCreme } from "../systems/doces.js";
+import { formaDoSeed } from "../systems/bebbidah.js";
 
 export const TILE = 16;
 
@@ -621,14 +629,6 @@ export function tinted(src, color) {
   return cv;
 }
 
-const flipCache = new Map();
-function flipCached(cv) {
-  if (flipCache.has(cv)) return flipCache.get(cv);
-  const out = flipH(cv);
-  flipCache.set(cv, out);
-  return out;
-}
-
 function buildRustle() {
   // 3 quadros do tufo de grama que balança quando o jogador pisa
   const mk = (rows) => spriteFromRows(rows, { g: "#7bc85a", G: "#4a9c3a", d: "#2f7a2c" });
@@ -656,50 +656,13 @@ function buildRustle() {
 
 // ------------------------------------------------- fusão (decodificador de genoma)
 // A fusão não tem arquivo de sprite e nunca vai ter: são 255x256 combinações.
-// O desenho é montado com os dois sprites que já existem — o corpo inteiro,
-// recolorido com a cor da cabeça, e a cabeça por cima até a linha do pescoço
-// (`corte`, em src/data/fusao.js). Serve tanto pra arte provisória (16x16)
-// quanto pros PNGs do FireRed (64x64): o tamanho sai do maior dos dois.
+// O desenho é montado com os dois sprites que já existem, em
+// src/systems/montagem.js: a cabeça sai inteira pelo pescoço, o corpo perde a
+// cabeça dele e ganha as cores da nova. Serve tanto pra arte provisória
+// (16x16) quanto pros PNGs (96x96): o tamanho sai do maior dos dois.
 const fusaoCache = new Map();
-const corCache = new Map();
 
 const idImg = (img) => img.__id || (img.__id = Math.random().toString(36).slice(2));
-
-/** A cor média dos pixels opacos: é ela que a cabeça empresta pro corpo. */
-function corMedia(img) {
-  const chave = idImg(img);
-  if (corCache.has(chave)) return corCache.get(chave);
-  const { ctx } = makeCanvas(16, 16);
-  ctx.drawImage(img, 0, 0, 16, 16);
-  let r = 0, g = 0, b = 0, n = 0;
-  try {
-    const d = ctx.getImageData(0, 0, 16, 16).data;
-    for (let i = 0; i < d.length; i += 4) {
-      if (d[i + 3] < 128) continue;
-      r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
-    }
-  } catch { n = 0; }                     // canvas sujo (não deve acontecer): sem tinta
-  const cor = n ? `rgb(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)})` : null;
-  corCache.set(chave, cor);
-  return cor;
-}
-
-/** Recolore mantendo o sombreado, com força regulável (o `tinted` é o mesmo
- *  com força 1). Sem cor ou sem força, devolve o original. */
-function pintado(src, cor, forca) {
-  if (!cor || forca <= 0) return src;
-  const { cv, ctx } = makeCanvas(src.width, src.height);
-  ctx.drawImage(src, 0, 0);
-  ctx.globalAlpha = Math.min(1, forca);
-  ctx.globalCompositeOperation = "color";
-  ctx.fillStyle = cor;
-  ctx.fillRect(0, 0, src.width, src.height);
-  ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = "destination-in";
-  ctx.drawImage(src, 0, 0);
-  ctx.globalCompositeOperation = "source-over";
-  return cv;
-}
 
 // O desenho que o JOGADOR fez na oficina (256x256, guardado no save como PNG).
 // Ele entra reduzido pra 64x64 — o tamanho que a batalha usa — e a redução é
@@ -732,32 +695,42 @@ function desenhoDoJogador(url) {
   return desenhos.get(url);
 }
 
-/** Esquece o desenho reduzido de uma ficha (o editor acabou de mudar ela). */
-export function esquecerDesenho(url) { desenhos.delete(url); }
-
 function comporFusao(sp, lado, seed) {
   const frente = lado !== "costas";
   const cab = frente ? Assets.mon(sp.fusao.cabeca, seed) : Assets.monBack(sp.fusao.cabeca, seed);
   const cor = frente ? Assets.mon(sp.fusao.corpo, seed) : Assets.monBack(sp.fusao.corpo, seed);
-  const F = DB.FUSAO || {};
-  const k = F.corte ?? 0.46;
+  // a TRIPLA: o terceiro dá as pernas (src/systems/montagem.js, montarTripla)
+  if (sp.fusao.pernas) {
+    const per = frente ? Assets.mon(sp.fusao.pernas, seed) : Assets.monBack(sp.fusao.pernas, seed);
+    const n = (id) => { const e = DB.SPECIES[id]; return e?.spriteDex || e?.dex; };
+    return frente
+      ? montarTripla(cab, cor, per, DB.FUSAO?.editor?.tamanho || 64, CARA_DITTO[n(sp.fusao.cabeca)], CARA_DITTO[n(sp.fusao.corpo)], CARAS_FUSAO[n(sp.fusao.cabeca)])
+      : montarTripla(cab, cor, per, DB.FUSAO?.editor?.tamanho || 64);
+  }
   // sempre 64x64: é o tamanho do sprite do jogo, e é o tamanho em que o
-  // jogador desenha na oficina. Arte provisória de 16x16 sobe pra cá, e o
-  // pescoço da fusão cai no mesmo lugar em todo mundo.
-  const S = DB.FUSAO?.editor?.tamanho || 64;
-  const { cv, ctx } = makeCanvas(S, S);
-  ctx.drawImage(pintado(cor, corMedia(cab), F.tintaCorpo ?? 0.5), 0, 0, S, S);
-  const alturaCab = Math.max(1, Math.round(cab.height * k));
-  const pescoco = Math.max(1, Math.round(S * k));
-  ctx.drawImage(cab, 0, 0, cab.width, alturaCab, 0, 0, S, pescoco);
-  // a costura: uma sombra de um pixel onde os dois se encontram. "source-atop"
-  // pinta só onde já tem bicho — sem isso vira uma faixa atravessando o vazio.
-  ctx.globalCompositeOperation = "source-atop";
-  ctx.fillStyle = "rgba(0,0,0,.22)";
-  ctx.fillRect(0, pescoco - 1, S, 1);
-  ctx.globalCompositeOperation = "source-over";
-  return cv;
+  // jogador desenha na oficina. Quem monta é src/systems/montagem.js — a mesma
+  // conta da oficina de fora (fusionglitch/).
+  // PELA CARA (src/systems/montagem.js, montarFusaoCara): de frente, quando os
+  // dois têm a cara marcada (as CARAS DE DITTO, src/data/cara-ditto.json)
+  if (frente) {
+    const n = (id) => { const e = DB.SPECIES[id]; return e?.spriteDex || e?.dex; };
+    const pc = CARA_DITTO[n(sp.fusao.cabeca)], pb = CARA_DITTO[n(sp.fusao.corpo)];
+    const pelaCara = pc && pb && montarFusaoCara(cab, cor, DB.FUSAO?.editor?.tamanho || 64, pc, pb, CARAS_FUSAO[n(sp.fusao.cabeca)]);
+    if (pelaCara) return pelaCara;
+  }
+  return montarFusao(cab, cor, DB.FUSAO?.editor?.tamanho || 64, frente ? DB.CABECAS_MARCADAS?.[sp.fusao.cabeca] : null,
+    { pescoco: PESCOCUDOS[sp.fusao.cabeca] || 0 });
 }
+
+// OS PESCOÇUDOS (pedido do CAIO: "um gyarados + machamp fica um machamp
+// pescoçudo com cara de gyarados"): quem dá a CABEÇA e tem pescoço comprido leva
+// o pescoço junto — o corpo ganha um pescoção na cor da cabeça. O número é o
+// tamanho (1 = um pescoço bom; 1,5 = de cobra ou de dinossauro).
+const PESCOCUDOS = {
+  gyarados: 1.4, onix: 1.2, steelix: 1.2, dragonair: 1.3, dratini: 1, lapras: 1.1, seviper: 1.3, ekans: 1, arbok: 1.3,
+  rayquaza: 1.5, milotic: 1.3, girafarig: 1.1, farigiraf: 1.4, exeggutoralola: 1.5, tyrantrum: 1, aurorus: 1.3, amaura: 1,
+  meganium: 1, dodrio: 1, doduo: 0.8, aerodactyl: 0.8, gyaradosmega: 1.4, wailord: 0, serperior: 1.2, eternatus: 1.2,
+};
 
 /** O sprite da fusão, guardado por par de imagens de origem: quando o PNG
  *  externo de um dos lados termina de carregar, a chave muda e ele remonta. */
@@ -771,7 +744,9 @@ function fusaoSprite(sp, lado, seed) {
   const frente = lado !== "costas";
   const a = frente ? Assets.mon(sp.fusao.cabeca, seed) : Assets.monBack(sp.fusao.cabeca, seed);
   const b = frente ? Assets.mon(sp.fusao.corpo, seed) : Assets.monBack(sp.fusao.corpo, seed);
-  const chave = `${sp.id}|${lado}|${idImg(a)}|${idImg(b)}`;
+  const c = !sp.fusao.pernas ? null
+    : frente ? Assets.mon(sp.fusao.pernas, seed) : Assets.monBack(sp.fusao.pernas, seed);
+  const chave = `${sp.id}|${lado}|${idImg(a)}|${idImg(b)}` + (c ? `|${idImg(c)}` : "");
   let img = fusaoCache.get(chave);
   if (!img) {
     if (fusaoCache.size > 240) fusaoCache.clear();      // sessão longa: recomeça
@@ -781,8 +756,689 @@ function fusaoSprite(sp, lado, seed) {
   return img;
 }
 
+// OS CARDUMES DESENHADOS À MÃO (tools/cardumes/<espécie>.py): pedidos uma vez
+const cardumes = new Map();
+function cardumeDesenhado(base) {
+  if (!cardumes.has(base)) {
+    cardumes.set(base, null);
+    const img = new Image();
+    img.onload = () => cardumes.set(base, img);
+    img.src = arquivo(`assets/sprites/pokemon/cardume/${base}.png`);
+  }
+  return cardumes.get(base);
+}
+
 /** "#de8b4a" -> [222, 139, 74] */
 const corDeHex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+
+// ---------------------------------------------------------- o LUMINOSO
+// A MESMA CONTA DO colorsys.rgb_to_hls do Python, operação por operação: as
+// prévias dos luminosos são feitas em Python, e com a conta igual o jogo pinta
+// EXATAMENTE o que a prévia mostrou (até o pixel que cai bem na beirada de uma
+// regra, como um matiz de 40° certinho)
+function paraHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const maxc = Math.max(r, g, b), minc = Math.min(r, g, b);
+  const sumc = maxc + minc, rangec = maxc - minc, l = sumc / 2.0;
+  if (minc === maxc) return [0, 0, l];
+  const s = l <= 0.5 ? rangec / sumc : rangec / (2.0 - sumc);
+  const rc = (maxc - r) / rangec, gc = (maxc - g) / rangec, bc = (maxc - b) / rangec;
+  let h = r === maxc ? bc - gc : g === maxc ? 2.0 + rc - bc : 4.0 + gc - rc;
+  h = (h / 6.0) % 1.0;
+  if (h < 0) h += 1.0;
+  return [h * 360, s, l];
+}
+function deHsl(h, s, l) {
+  const f = (n) => {
+    const k = (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
+    return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))));
+  };
+  return [f(0), f(8), f(4)];
+}
+
+/** O REPAGINADO: as cores do shiny mais claras e mais vivas; o contorno (quase
+ *  preto) e o branco ficam como estão, pra o desenho não virar borrão. */
+function repaginar(px) {
+  for (let i = 0; i < px.length; i += 4) {
+    if (!px[i + 3]) continue;
+    const [h, s, l] = paraHsl(px[i], px[i + 1], px[i + 2]);
+    if (l < 0.16 || l > 0.94) continue;
+    const [r, g, b] = deHsl(h, Math.min(1, s * 1.35 + 0.08), Math.min(0.9, l * 0.8 + 0.2));
+    px[i] = r; px[i + 1] = g; px[i + 2] = b;
+  }
+}
+
+/** Troca as cores por FAIXA DE MATIZ: cada regra pega os pixels daquela cor
+ *  (`h`: [de, até] em graus, `s`: saturação mínima) e põe na rampa dela, do
+ *  claro pro escuro, pela luz do pixel. O resto (contorno, cinza, olho) fica. */
+// sem folga nas beiradas: a conta da cor (paraHsl) é a mesma da prévia
+const E = 0;
+function pintarPorMatiz(px, regras) {
+  for (let i = 0; i < px.length; i += 4) {
+    if (!px[i + 3]) continue;
+    const [hh, ss, ll] = paraHsl(px[i], px[i + 1], px[i + 2]);
+    // `cinza`: [luz mínima, máxima] pega os cinzas e pretos (sem cor), deixando
+    // de fora o contorno mais escuro e o branco
+    const r = regras.find((g) => (g.cinza
+      ? ss < 0.12 && ll >= g.cinza[0] - E && ll <= g.cinza[1] + E
+      : hh >= g.h[0] - E && hh <= g.h[1] + E && ss >= (g.s ?? 0.2) - E && (!g.l || (ll >= g.l[0] - E && ll <= g.l[1] + E))));
+    if (!r) continue;
+    const k = ll > 0.55 ? 0 : ll > 0.33 ? 1 : ll > 0.2 ? 2 : 3;
+    const nova = r.rampa[Math.min(k, r.rampa.length - 1)];
+    px[i] = nova[0]; px[i + 1] = nova[1]; px[i + 2] = nova[2];
+  }
+}
+
+/** As LUMINOSAS PINTADAS À MÃO: o que cada cor do sprite de sempre vira. Vale
+ *  pra qualquer desenho da espécie (o parado, o de costas, o animado), porque
+ *  separa as partes pela cor — não pela posição exata do pixel. */
+// as rampas (do claro pro escuro) que as pinturas usam
+const RAMPA = {
+  indigo: [[100, 116, 236], [66, 74, 200], [44, 46, 152], [30, 30, 104]],
+  chamaAzul: [[206, 244, 255], [124, 212, 248], [70, 160, 222]],
+  ouro: [[255, 216, 92], [228, 172, 40], [172, 118, 24], [120, 80, 16]],
+  jade: [[124, 232, 174], [62, 192, 132], [32, 142, 98], [20, 96, 66]],
+  cascoVermelho: [[255, 228, 156], [204, 72, 62], [144, 40, 44], [96, 26, 30]],
+  verdeEscuro: [[72, 150, 72], [44, 112, 52], [28, 80, 38], [18, 56, 26]],
+  vermelho: [[240, 92, 80], [200, 48, 48], [150, 30, 36], [100, 20, 26]],
+  azul: [[120, 176, 255], [62, 112, 232], [36, 70, 170]],
+  rosa: [[255, 176, 214], [238, 124, 182], [192, 82, 142], [140, 54, 104]],
+  magenta: [[252, 146, 204], [228, 92, 164], [172, 58, 122], [120, 36, 86]],
+  lavanda: [[238, 218, 255], [204, 176, 242], [160, 130, 210]],
+  celeste: [[146, 204, 255], [94, 162, 238], [62, 116, 192], [42, 80, 142]],
+  perola: [[255, 242, 250], [242, 204, 228], [212, 164, 198]],
+  abobora: [[255, 172, 74], [240, 130, 42], [192, 88, 28], [132, 58, 20]],
+  verdeLuz: [[170, 255, 128], [96, 222, 84], [56, 160, 50]],
+  lilas: [[242, 194, 255], [214, 152, 242], [170, 112, 212], [122, 78, 162]],
+  morango: [[252, 124, 144], [216, 72, 102], [162, 44, 72], [112, 28, 50]],
+  chantilly: [[255, 248, 238], [242, 222, 208], [212, 188, 172]],
+  menta: [[186, 255, 216], [124, 232, 182], [72, 182, 142]],
+  roxo: [[204, 144, 255], [154, 94, 222], [110, 60, 172]],
+  marinho: [[74, 84, 146], [48, 54, 108], [32, 36, 76], [22, 24, 54]],
+  violeta: [[202, 142, 255], [162, 98, 232], [118, 62, 182], [82, 42, 132]],
+  ciano: [[164, 242, 255], [94, 204, 242], [52, 152, 204]],
+  ouroClaro: [[255, 244, 212], [238, 214, 160], [198, 170, 110], [152, 126, 80]],
+  carmim: [[242, 92, 112], [202, 52, 82], [142, 32, 58]],
+  nuvem: [[192, 220, 255], [146, 186, 246], [100, 142, 220], [60, 88, 168]],
+  prata: [[244, 246, 255], [200, 206, 226], [150, 158, 186], [100, 106, 136]],
+  coral: [[255, 190, 170], [250, 128, 104], [204, 80, 64], [140, 48, 40]],
+  azulNoite: [[64, 76, 128], [38, 46, 90], [24, 30, 62], [14, 18, 40]],
+  neon: [[255, 255, 190], [255, 255, 60], [255, 228, 0], [220, 170, 0]],
+  amareloPikachu: [[246, 230, 82], [246, 189, 32], [222, 148, 0], [156, 82, 0]],   // as cores do PIKACHU de sempre
+  esmeralda: [[120, 240, 140], [40, 200, 90], [20, 140, 60], [10, 90, 40]],
+  mentaClara: [[186, 255, 216]],
+  menta4: [[90, 210, 165], [40, 140, 110], [20, 84, 66], [12, 56, 44]],
+  rubi: [[240, 80, 110], [200, 30, 70], [140, 16, 48], [90, 8, 30]],
+  _rubiEsc: [[150, 28, 64]],
+  _k1: [[255, 250, 210]],
+  _k2: [[255, 234, 96]],
+  _k3: [[250, 206, 48]],
+  _k4: [[222, 158, 26]],
+  _k5: [[255, 234, 96]],
+  _k6: [[250, 206, 48]],
+  _k7: [[222, 158, 26]],
+  perolaK: [[255, 240, 248], [240, 200, 222], [200, 150, 180], [140, 100, 128]],
+  _k8: [[255, 250, 210]],
+  _k9: [[255, 234, 96]],
+  _k10: [[150, 98, 12]],
+  _k11: [[250, 206, 48]],
+  _k12: [[222, 158, 26]],
+  _k13: [[255, 222, 150]],
+  _k14: [[255, 170, 64]],
+  _k15: [[238, 124, 24]],
+  _k16: [[190, 84, 14]],
+  violetaN: [[176, 112, 240], [120, 64, 200], [78, 36, 150], [48, 20, 100]],
+  _k17: [[255, 222, 150]],
+  _k18: [[255, 170, 64]],
+  _k19: [[238, 124, 24]],
+  _k20: [[190, 84, 14]],
+  _k21: [[255, 222, 150]],
+  _k22: [[255, 170, 64]],
+  _k23: [[238, 124, 24]],
+  _k24: [[190, 84, 14]],
+  ouroNido: [[255, 236, 120], [246, 196, 40], [196, 138, 16], [128, 84, 8]],
+  _k25: [[214, 98, 162]],
+  _k26: [[255, 196, 226]],
+  _k27: [[246, 140, 192]],
+  _k28: [[130, 46, 94]],
+  _k29: [[214, 98, 162]],
+  _k30: [[255, 196, 226]],
+  _k31: [[246, 140, 192]],
+  _k32: [[130, 46, 94]],
+  _k33: [[96, 170, 244]],
+  _k34: [[66, 136, 232]],
+  _k35: [[44, 102, 206]],
+  _k36: [[218, 244, 255]],
+  _k37: [[166, 224, 255]],
+  _k38: [[116, 194, 250]],
+  _k39: [[34, 64, 150]],
+  _k40: [[22, 40, 106]],
+  _k41: [[218, 244, 255]],
+  _k42: [[166, 224, 255]],
+  _k43: [[116, 194, 250]],
+  _k44: [[96, 170, 244]],
+  _k45: [[66, 136, 232]],
+  _k46: [[44, 102, 206]],
+  _k47: [[34, 64, 150]],
+  _k48: [[22, 40, 106]],
+  _k49: [[60, 100, 190]],
+  _k50: [[204, 250, 255]],
+  _k51: [[110, 226, 250]],
+  _k52: [[56, 188, 236]],
+  _k53: [[34, 146, 204]],
+  _k54: [[204, 250, 255]],
+  _k55: [[110, 226, 250]],
+  _k56: [[56, 188, 236]],
+  _k57: [[34, 146, 204]],
+  _k58: [[204, 250, 255]],
+  _k59: [[110, 226, 250]],
+  _k60: [[56, 188, 236]],
+  _k61: [[34, 146, 204]],
+  _k62: [[190, 220, 255]],
+  _k63: [[120, 166, 250]],
+  _k64: [[80, 126, 236]],
+  _k65: [[50, 84, 190]],
+  _k66: [[32, 52, 140]],
+  _k67: [[190, 220, 255]],
+  _k68: [[120, 166, 250]],
+  _k69: [[80, 126, 236]],
+  _k70: [[50, 84, 190]],
+  _k71: [[32, 52, 140]],
+  _k72: [[120, 166, 250]],
+  _k73: [[80, 126, 236]],
+  _k74: [[50, 84, 190]],
+  _k75: [[32, 52, 140]],
+  _k76: [[240, 244, 252]],
+  _k77: [[196, 204, 226]],
+  _k78: [[140, 150, 182]],
+  _k79: [[80, 88, 118]],
+  _k80: [[200, 255, 228]],
+  _k81: [[130, 234, 190]],
+  _k82: [[70, 190, 150]],
+  _k83: [[30, 116, 92]],
+  _k84: [[200, 255, 228]],
+  _k85: [[130, 234, 190]],
+  _k86: [[70, 190, 150]],
+  _k87: [[30, 116, 92]],
+  _k88: [[240, 80, 110]],
+  _k89: [[200, 30, 70]],
+  _k90: [[96, 12, 40]],
+  sonho: [[208, 160, 255], [160, 96, 236], [110, 58, 190], [70, 32, 130]],
+  _k91: [[160, 96, 236]],
+  _k92: [[110, 58, 190]],
+  _k93: [[70, 32, 130]],
+  _k94: [[156, 204, 255]],
+  _k95: [[92, 152, 250]],
+  _k96: [[56, 108, 238]],
+  _k97: [[36, 70, 186]],
+  _k98: [[20, 40, 120]],
+  _kb0: [[156, 204, 255]],
+  _k99: [[156, 204, 255]],
+  _k100: [[92, 152, 250]],
+  _k101: [[56, 108, 238]],
+  _k102: [[36, 70, 186]],
+  _k103: [[20, 40, 120]],
+  _k104: [[214, 240, 255]],
+  _k105: [[160, 214, 255]],
+  _k106: [[120, 186, 250]],
+  _k107: [[72, 140, 230]],
+  _k108: [[44, 90, 180]],
+  _k109: [[26, 56, 120]],
+  _k110: [[214, 240, 255]],
+  _k111: [[160, 214, 255]],
+  _k112: [[120, 186, 250]],
+  _k113: [[72, 140, 230]],
+  _k114: [[44, 90, 180]],
+  _k115: [[26, 56, 120]],
+  sakura: [[255, 200, 226], [246, 140, 190], [200, 86, 146], [130, 50, 96]],
+  indigoK: [[120, 130, 250], [70, 76, 214], [42, 44, 150], [26, 26, 96]],
+  _gold0: [[172, 182, 255]],
+  _gold1: [[208, 210, 242]],
+  fogoA1: [[236, 250, 255], [236, 250, 255], [236, 250, 255], [236, 250, 255]],
+  fogoA2: [[150, 226, 255], [150, 226, 255], [150, 226, 255], [150, 226, 255]],
+  fogoA3: [[70, 150, 255], [70, 150, 255], [70, 150, 255], [70, 150, 255]],
+  fogoA4: [[36, 96, 220], [36, 96, 220], [36, 96, 220], [36, 96, 220]],
+  rubiJohto: [[255, 120, 110], [226, 44, 52], [158, 20, 40], [98, 10, 28]],
+  sakuraSk: [[255, 196, 224], [246, 140, 190], [204, 86, 148], [140, 48, 100]],
+  anil: [[120, 140, 255], [78, 90, 226], [52, 56, 170], [32, 32, 112]],
+  rubiSk: [[255, 120, 130], [222, 48, 72], [160, 24, 52], [100, 12, 36]],
+  neonSk: [[255, 150, 230], [240, 80, 196], [184, 40, 150], [120, 20, 100]],
+  jadeF: [[130, 240, 190], [54, 196, 140], [28, 140, 100], [14, 84, 62]],
+  azulF: [[130, 196, 255], [64, 136, 236], [36, 88, 186], [20, 54, 126]],
+  lilasF: [[238, 206, 255], [206, 156, 246], [156, 104, 206], [104, 66, 150]],
+  violetaF: [[214, 160, 255], [166, 98, 236], [116, 58, 186], [70, 30, 126]],
+};
+// `l`: [luz mínima, máxima] — só pinta os pixels dessa claridade (o gás do GASTLY sim, a bola não)
+const faixa = (de, ate, rampa, s = 0.2, l = null) => ({ h: [de, ate], s, l, rampa: RAMPA[rampa] });
+
+export const LUMINOSO_PINTURA = {
+  // ---- O PÁSSARO DO SOL (o CAIO escolheu "dourado e fogo", nov/2026): o
+  // BRAVIARY DE HISUI com as asas DOURADAS, o corpo LARANJA-FOGO, a crista de
+  // penas virando CHAMA (amarela no claro, vermelha no fundo) e o roxo em vermelho
+  braviaryhisui(px) {
+    const OURO = [[255, 226, 110], [236, 182, 44], [184, 124, 22], [124, 80, 14]];
+    const FOGO = [[255, 176, 72], [236, 112, 30], [184, 64, 18], [112, 32, 10]];
+    const CHAMA = [[255, 250, 200], [255, 220, 90], [250, 140, 40], [210, 54, 30]];
+    const VERM = [[255, 110, 90], [222, 52, 44], [160, 24, 30], [96, 12, 18]];
+    const rampa = (R, l) => R[l > 0.75 ? 0 : l > 0.5 ? 1 : l > 0.3 ? 2 : 3];
+    for (let i = 0; i < px.length; i += 4) {
+      if (!px[i + 3]) continue;
+      const [h, sat, l] = paraHsl(px[i], px[i + 1], px[i + 2]);
+      if (l < 0.08) continue;                                   // o contorno fica
+      let c = null;
+      if (sat < 0.2 && l > 0.82) c = rampa(CHAMA, l - 0.25 + (((i >> 2) % 7) * 0.02));   // a crista branca: CHAMA
+      else if (sat < 0.2 && h >= 200 && h <= 280) c = rampa(FOGO, l + 0.2);           // o corpo escuro: FOGO
+      else if (sat < 0.2) c = rampa(OURO, l + 0.1);                                    // o marrom das asas: OURO
+      else if (h >= 260 && h <= 320) c = rampa(VERM, l);                               // o roxo: VERMELHO
+      else if (h >= 35 && h <= 60) c = rampa(OURO, l + 0.15);                          // bico e garras: ouro claro
+      if (c) { px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; }
+    }
+  },
+  // ---- a CHAMA AZUL: o fogo da linha CHARMANDER queimando frio
+  charmander(px) { pintarPorMatiz(px, [faixa(28, 62, "chamaAzul"), faixa(0, 28, "indigo"), faixa(345, 360, "indigo")]); },
+  charmeleon(px) { pintarPorMatiz(px, [faixa(28, 62, "chamaAzul"), faixa(0, 28, "indigo"), faixa(345, 360, "indigo")]); },
+  /** o DRAGÃO DA MEIA-NOITE: corpo índigo, chama e barriga azul-gelo, e o
+   *  dentro das asas dourado */
+  charizard(px) { pintarPorMatiz(px, [faixa(170, 215, "ouro"), faixa(28, 62, "chamaAzul"), faixa(0, 28, "indigo"), faixa(345, 360, "indigo")]); },
+  // ---- a TARTARUGA DE JADE: pele verde-jade, casco vermelho e barriga creme
+  squirtle(px) { pintarPorMatiz(px, [faixa(140, 275, "jade"), faixa(5, 62, "cascoVermelho")]); },
+  wartortle(px) { pintarPorMatiz(px, [faixa(140, 275, "jade"), faixa(5, 62, "cascoVermelho")]); },
+  blastoise(px) { pintarPorMatiz(px, [faixa(170, 275, "jade"), faixa(5, 62, "cascoVermelho")]); },
+  // ---- a linha do BULBASAUR do jeito que você escolheu: verde-escuro, planta vermelha, flor azul
+  ivysaur(px) { pintarPorMatiz(px, [faixa(150, 205, "verdeEscuro", 0.15), faixa(65, 115, "vermelho"), faixa(320, 360, "azul", 0.3), faixa(0, 15, "azul", 0.4)]); },
+  venusaur(px) { pintarPorMatiz(px, [faixa(120, 175, "verdeEscuro", 0.15), faixa(80, 120, "vermelho"), faixa(340, 360, "azul", 0.3), faixa(0, 28, "azul", 0.3)]); },
+  /** PIKACHU NEON (o CAIO escolheu): amarelo neon, bochechas azul CERULEAN e
+   *  as listras marrons de sempre. Os 4 amarelos do sprite viram 4 neons. */
+  pikachu(px) {
+    const NEON = [[255, 255, 190], [255, 255, 60], [255, 228, 0], [220, 170, 0]];   // o A: sem verde nenhum
+    const CERULEAN = [[42, 159, 214], [0, 123, 167]];
+    for (let i = 0; i < px.length; i += 4) {
+      if (!px[i + 3]) continue;
+      const [h, s, l] = paraHsl(px[i], px[i + 1], px[i + 2]);
+      let nova = null;
+      if (h >= 38 && h <= 62 && s >= 0.2) nova = NEON[l > 0.75 ? 0 : l > 0.6 ? 1 : l > 0.5 ? 2 : 3];
+      else if ((h <= 15 || h >= 345) && s >= 0.4) nova = CERULEAN[l > 0.5 ? 0 : 1];
+      if (nova) { px[i] = nova[0]; px[i + 1] = nova[1]; px[i + 2] = nova[2]; }
+    }
+  },
+  raichu(px) { pintarPorMatiz(px, [faixa(22, 40, "magenta"), faixa(40, 65, "lavanda"), faixa(0, 22, "ciano", 0.4)]); },
+  /** EEVEE CELESTE: azul-céu com a gola de pérola */
+  eevee(px) { pintarPorMatiz(px, [faixa(15, 40, "celeste"), faixa(40, 65, "perola", 0.1)]); },
+  /** GENGAR ABÓBORA: laranja de Halloween e os olhos verdes acesos */
+  // (nov/2026: o sprite novo é roxo-azulado, 245–305; a faixa velha deixava meio corpo roxo)
+  gengar(px) { pintarPorMatiz(px, [faixa(245, 305, "abobora", 0.2, [0, 0.9]), faixa(0, 15, "verdeLuz", 0.4)]); },
+  /** GYARADOS DE JADE E OURO */
+  gyarados(px) { pintarPorMatiz(px, [faixa(190, 255, "jade"), faixa(40, 70, "ouro")]); },
+  /** DRAGONITE LILÁS de asas douradas */
+  dragonite(px) { pintarPorMatiz(px, [faixa(160, 200, "ouro"), faixa(25, 70, "lilas")]); },
+  /** SNORLAX MORANGO COM CHANTILLY */
+  // (nov/2026: o corpo do sprite novo é azul, 185–215; a faixa velha não pegava nada)
+  snorlax(px) { pintarPorMatiz(px, [faixa(185, 215, "morango", 0.3), faixa(20, 50, "chantilly", 0.1)]); },
+  /** JIGGLYPUFF DE NUVEM: azul bem clarinho, de algodão, com os olhos rosa */
+  jigglypuff(px) { pintarPorMatiz(px, [faixa(225, 270, "rosa"), faixa(0, 25, "nuvem"), faixa(340, 360, "nuvem")]); },
+  /** PSYDUCK LILÁS */
+  psyduck(px) { pintarPorMatiz(px, [faixa(20, 65, "lilas")]); },
+  /** UMBREON DA MADRUGADA: o preto vira azul-marinho, os anéis rosa e os olhos dourados */
+  umbreon(px) { pintarPorMatiz(px, [{ cinza: [0.12, 0.6], rampa: RAMPA.marinho }, faixa(30, 70, "magenta"), faixa(0, 15, "ouro", 0.4)]); },
+  /** MAGIKARP VIOLETA de barbatanas ciano */
+  magikarp(px) { pintarPorMatiz(px, [faixa(40, 75, "ciano"), faixa(0, 30, "violeta"), faixa(345, 360, "violeta")]); },
+  /** MEWTWO DOURADO de cauda carmim */
+  // (nov/2026: no sprite novo o corpo e a cauda são os dois lilás; a cauda é o lilás forte)
+  mewtwo(px) { pintarPorMatiz(px, [faixa(265, 300, "carmim", 0.4), faixa(230, 310, "ouroClaro", 0.08)]); },
+
+  /** BULBASAUR: o corpo verde-escuro, o bulbo vermelho, e os olhos e a boca
+   *  (que são vermelhos) azuis. */
+  bulbasaur(px) {
+    pintarPorMatiz(px, [
+      { h: [135, 205], s: 0.15, rampa: [[72, 150, 72], [44, 112, 52], [28, 80, 38], [18, 56, 26]] },
+      { h: [65, 115], s: 0.2, rampa: [[240, 92, 80], [200, 48, 48], [150, 30, 36], [100, 20, 26]] },
+      { h: [0, 15], s: 0.4, rampa: [[120, 176, 255], [62, 112, 232], [36, 70, 170]] },
+      { h: [340, 360], s: 0.4, rampa: [[120, 176, 255], [62, 112, 232], [36, 70, 170]] },
+    ]);
+  },
+  /** LUCARIO: o azul virou verde, o pelo creme do peito, amarelo, e o preto da
+   *  máscara e das patas, azul-claro, e os olhos vermelhos, rosa. O contorno fica. */
+  lucario(px) {
+    pintarPorMatiz(px, [
+      { cinza: [0.15, 0.6], rampa: [[150, 214, 250], [104, 180, 236], [70, 142, 210], [52, 108, 176]] },
+      // os olhos vermelhos, rosa
+      { h: [0, 15], s: 0.4, rampa: [[255, 156, 206], [236, 96, 164], [182, 58, 122]] },
+      { h: [340, 360], s: 0.4, rampa: [[255, 156, 206], [236, 96, 164], [182, 58, 122]] },
+      { h: [180, 245], s: 0.3, rampa: [[120, 222, 92], [58, 168, 62], [26, 104, 44], [16, 66, 30]] },
+      { h: [45, 75], s: 0.25, rampa: [[252, 228, 70], [224, 180, 32], [156, 114, 20]] },
+    ]);
+  },
+  // ---- OS 8 QUE O CAIO ESCOLHEU (nov/2026), dos 23 que eu inventei
+  /** MEW MENTA */
+  mew(px) { pintarPorMatiz(px, [faixa(300, 345, "menta", 0.3)]); },
+  /** GROWLITHE AZUL: o laranja vira azul, as listras pretas e o creme ficam */
+  growlithe(px) { pintarPorMatiz(px, [faixa(0, 35, "azul", 0.4), faixa(345, 360, "azul", 0.4)]); },
+  /** ABRA CIANO: o amarelo vira ciano, a armadura marrom fica */
+  abra(px) { pintarPorMatiz(px, [faixa(36, 62, "ciano", 0.5, [0.36, 1])]); },
+  /** GASTLY DE GÁS VERDE: só o gás muda, a bola preta fica */
+  gastly(px) { pintarPorMatiz(px, [faixa(290, 330, "verdeLuz", 0.12, [0.3, 1])]); },
+  /** CUBONE JADE de caveira dourada */
+  cubone(px) { pintarPorMatiz(px, [faixa(220, 260, "ouroClaro", 0.1), faixa(0, 60, "jade", 0.15, [0.3, 0.7])]); },
+  /** VAPOREON MAGENTA */
+  vaporeon(px) { pintarPorMatiz(px, [faixa(185, 205, "magenta", 0.4)]); },
+  /** JOLTEON CIANO */
+  jolteon(px) { pintarPorMatiz(px, [faixa(40, 62, "ciano", 0.5)]); },
+  /** FLAREON ÍNDIGO de gola azul-chama */
+  flareon(px) { pintarPorMatiz(px, [faixa(30, 60, "chamaAzul", 0.4), faixa(0, 22, "indigo", 0.4), faixa(340, 360, "indigo", 0.4)]); },
+
+  // ---- MAIS 8 QUE O CAIO ESCOLHEU (nov/2026), dos 25 que eu inventei
+  /** BUTTERFREE DE ASAS DOURADAS */
+  butterfree(px) { pintarPorMatiz(px, [faixa(230, 250, "ouro", 0.4, [0.6, 1]), faixa(230, 275, "marinho", 0.15, [0.2, 0.6])]); },
+  /** SANDSHREW PRATA */
+  sandshrew(px) { pintarPorMatiz(px, [faixa(38, 62, "prata", 0.7)]); },
+  /** MAGNEMITE DOURADO */
+  magnemite(px) { pintarPorMatiz(px, [{ cinza: [0.15, 0.9], rampa: RAMPA.ouro }, faixa(120, 165, "ouro", 0.15)]); },
+  /** GRIMER VERDE-LUZ */
+  grimer(px) { pintarPorMatiz(px, [faixa(270, 315, "verdeLuz", 0.3)]); },
+  /** CHANSEY CELESTE */
+  chansey(px) { pintarPorMatiz(px, [faixa(0, 10, "celeste", 0.3, [0.35, 1]), faixa(350, 360, "celeste", 0.3)]); },
+  /** HORSEA CORAL */
+  horsea(px) { pintarPorMatiz(px, [faixa(195, 220, "coral", 0.25)]); },
+  /** DRATINI ROSA */
+  dratini(px) { pintarPorMatiz(px, [faixa(225, 240, "rosa", 0.4)]); },
+  /** PORYGON AMARELO PIKACHU E AZUL-NOITE (as duas cores trocadas de lugar, a pedido) */
+  porygon(px) { pintarPorMatiz(px, [faixa(185, 200, "amareloPikachu", 0.7), faixa(0, 22, "azulNoite", 0.5), faixa(340, 360, "azulNoite", 0.5)]); },
+
+  // ---- AS FAMÍLIAS (nov/2026): cada evolução acende com a luz do bicho que o
+  // CAIO escolheu, pra o luminoso continuar luminoso do mesmo jeito quando evolui
+  /** ARCANINE AZUL (do GROWLITHE) */
+  arcanine(px) { pintarPorMatiz(px, [faixa(0, 33, "azul", 0.4, [0.4, 0.8]), faixa(345, 360, "azul", 0.4)]); },
+  /** KADABRA CIANO (do ABRA) */
+  kadabra(px) { pintarPorMatiz(px, [faixa(40, 62, "ciano", 0.5, [0.36, 1])]); },
+  /** ALAKAZAM CIANO (do ABRA) */
+  alakazam(px) { pintarPorMatiz(px, [faixa(40, 62, "ciano", 0.5, [0.36, 1])]); },
+  /** HAUNTER VERDE (do GASTLY) */
+  haunter(px) { pintarPorMatiz(px, [faixa(260, 345, "verdeLuz", 0.15)]); },
+  /** MAROWAK JADE (do CUBONE) */
+  marowak(px) { pintarPorMatiz(px, [{ cinza: [0.7, 0.95], rampa: RAMPA.ouroClaro }, faixa(220, 260, "ouroClaro", 0.05), faixa(0, 60, "jade", 0.15, [0.3, 0.7])]); },
+  /** MAGNETON DOURADO (do MAGNEMITE) */
+  magneton(px) { pintarPorMatiz(px, [{ cinza: [0.15, 0.9], rampa: RAMPA.ouro }, faixa(120, 165, "ouro", 0.15)]); },
+  /** MAGNEZONE DOURADO (do MAGNEMITE) */
+  magnezone(px) { pintarPorMatiz(px, [{ cinza: [0.15, 0.9], rampa: RAMPA.ouro }, faixa(205, 280, "ouro", 0.03)]); },
+  /** MUK VERDE-LUZ (do GRIMER) */
+  muk(px) { pintarPorMatiz(px, [faixa(270, 315, "verdeLuz", 0.3)]); },
+  /** SEADRA CORAL (do HORSEA) */
+  seadra(px) { pintarPorMatiz(px, [faixa(195, 220, "coral", 0.15)]); },
+  /** KINGDRA CORAL (do HORSEA) */
+  kingdra(px) { pintarPorMatiz(px, [faixa(195, 232, "coral", 0.25)]); },
+  /** DRAGONAIR ROSA (do DRATINI) */
+  dragonair(px) { pintarPorMatiz(px, [faixa(212, 240, "rosa", 0.4)]); },
+  /** SANDSLASH PRATA (do SANDSHREW) */
+  sandslash(px) { pintarPorMatiz(px, [faixa(44, 62, "prata", 0.7)]); },
+  /** BLISSEY CELESTE (da CHANSEY) */
+  blissey(px) { pintarPorMatiz(px, [faixa(330, 360, "celeste", 0.3)]); },
+  /** PORYGON2 AMARELO E AZUL-NOITE */
+  porygon2(px) { pintarPorMatiz(px, [faixa(195, 235, "amareloPikachu", 0.3), faixa(320, 360, "azulNoite", 0.2), faixa(0, 22, "azulNoite", 0.5)]); },
+  /** PORYGON-Z AMARELO E AZUL-NOITE */
+  porygonz(px) { pintarPorMatiz(px, [faixa(195, 235, "amareloPikachu", 0.3), faixa(320, 360, "azulNoite", 0.2), faixa(0, 22, "azulNoite", 0.5)]); },
+
+  // ---- OS LUMINOSOS DOS AGENTES E OS MEUS (nov/2026): Kanto, Johto, Sinnoh/Kalos e as famílias dos antigos
+  /** MUNCHLAX MORANGO COM CHANTILLY (do SNORLAX) */
+  munchlax(px) { pintarPorMatiz(px, [faixa(175, 215, "morango", 0.3), faixa(20, 62, "chantilly", 0.1)]); },
+  /** IGGLYBUFF DE NUVEM (do JIGGLYPUFF) */
+  igglybuff(px) { pintarPorMatiz(px, [faixa(325, 360, "nuvem", 0.2), faixa(0, 25, "nuvem", 0.2)]); },
+  /** WIGGLYTUFF DE NUVEM (do JIGGLYPUFF) */
+  wigglytuff(px) { pintarPorMatiz(px, [faixa(225, 270, "rosa", 0.2), faixa(325, 360, "nuvem", 0.2), faixa(0, 25, "nuvem", 0.2)]); },
+  /** GOLDUCK LILÁS (do PSYDUCK) */
+  golduck(px) { pintarPorMatiz(px, [faixa(200, 245, "lilas", 0.2)]); },
+  /** ESPEON DOURADO de joia esmeralda */
+  espeon(px) { pintarPorMatiz(px, [faixa(335, 360, "esmeralda", 0.5), faixa(285, 330, "ouro", 0.2), faixa(255, 285, "ouro", 0.3)]); },
+  /** LEAFEON DE FOLHAS DE CEREJEIRA */
+  leafeon(px) { pintarPorMatiz(px, [faixa(135, 175, "rosa", 0.3)]); },
+  /** GLACEON MENTA */
+  glaceon(px) { pintarPorMatiz(px, [faixa(180, 240, "mentaClara", 0.15, [0.7, 1]), faixa(180, 240, "menta4", 0.15, [0, 0.7])]); },
+  /** SYLVEON CELESTE de fitas rosa */
+  sylveon(px) { pintarPorMatiz(px, [faixa(320, 360, "celeste", 0.2), faixa(190, 220, "rosa", 0.4)]); },
+  /** NIDORAN FÊMEA DE OURO de pintas rubi */
+  nidoranf(px) { pintarPorMatiz(px, [faixa(170, 215, "rubi", 0.4, [0.3, 0.45]), faixa(230, 250, "_rubiEsc", 0.3, [0.3, 0.45]), faixa(215, 250, "_k1", 0.2, [0.95, 1.0]), faixa(215, 250, "_k2", 0.2, [0.85, 0.95]), faixa(215, 250, "_k3", 0.2, [0.65, 0.85]), faixa(215, 250, "_k4", 0.2, [0.45, 0.65])]); },
+  /** NIDORINA DE OURO de pintas rubi */
+  nidorina(px) { pintarPorMatiz(px, [faixa(205, 225, "rubi", 0.6), faixa(185, 200, "rubi", 0.2, [0.25, 0.35]), faixa(180, 205, "_k5", 0.2, [0.8, 1.0]), faixa(180, 205, "_k6", 0.2, [0.6, 0.8]), faixa(180, 205, "_k7", 0.2, [0.45, 0.6])]); },
+  /** NIDOQUEEN DE OURO de barriga pérola */
+  nidoqueen(px) { pintarPorMatiz(px, [faixa(40, 60, "perolaK", 0.4), faixa(175, 200, "_k8", 0.15, [0.7, 1.0]), faixa(175, 200, "_k9", 0.15, [0.56, 0.7]), faixa(175, 200, "_k10", 0.15, [0.0, 0.56]), faixa(200, 215, "_k11", 0.15, [0.45, 1.0]), faixa(200, 215, "_k12", 0.15, [0.0, 0.45])]); },
+  /** ZUBAT ABÓBORA de asas violeta */
+  zubat(px) { pintarPorMatiz(px, [faixa(205, 255, "_k13", 0.3, [0.8, 1.0]), faixa(205, 255, "_k14", 0.3, [0.65, 0.8]), faixa(205, 255, "_k15", 0.3, [0.45, 0.65]), faixa(205, 255, "_k16", 0.3, [0.0, 0.45]), faixa(300, 325, "violetaN", 0.3)]); },
+  /** GOLBAT ABÓBORA de asas violeta */
+  golbat(px) { pintarPorMatiz(px, [faixa(200, 245, "_k17", 0.3, [0.75, 1.0]), faixa(200, 245, "_k18", 0.3, [0.62, 0.75]), faixa(200, 245, "_k19", 0.3, [0.45, 0.62]), faixa(200, 245, "_k20", 0.3, [0.0, 0.45]), faixa(295, 325, "violetaN", 0.3)]); },
+  /** CROBAT ABÓBORA de asas violeta */
+  crobat(px) { pintarPorMatiz(px, [faixa(270, 290, "_k21", 0.3, [0.62, 1.0]), faixa(270, 290, "_k22", 0.3, [0.5, 0.62]), faixa(270, 290, "_k23", 0.3, [0.4, 0.5]), faixa(270, 290, "_k24", 0.3, [0.0, 0.4]), faixa(195, 210, "violetaN", 0.3)]); },
+  /** DIGLETT CHICLETE de nariz de ouro */
+  diglett(px) { pintarPorMatiz(px, [faixa(0, 15, "ouroNido", 0.6), faixa(340, 360, "ouroNido", 0.6), faixa(0, 10, "_k25", 0.2, [0.0, 1.0]), faixa(10, 32, "_k26", 0.25, [0.58, 1.0]), faixa(10, 32, "_k27", 0.25, [0.4, 0.58]), faixa(10, 32, "_k28", 0.25, [0.0, 0.4])]); },
+  /** DUGTRIO CHICLETE de nariz de ouro */
+  dugtrio(px) { pintarPorMatiz(px, [faixa(0, 15, "ouroNido", 0.6), faixa(340, 360, "ouroNido", 0.6), faixa(0, 10, "_k29", 0.2, [0.0, 1.0]), faixa(10, 32, "_k30", 0.25, [0.58, 1.0]), faixa(10, 32, "_k31", 0.25, [0.4, 0.58]), faixa(10, 32, "_k32", 0.25, [0.0, 0.4])]); },
+  /** MANKEY DE GELO */
+  mankey(px) { pintarPorMatiz(px, [faixa(18, 36, "_k33", 0.5, [0.7, 1.0]), faixa(18, 36, "_k34", 0.5, [0.6, 0.7]), faixa(18, 36, "_k35", 0.5, [0.45, 0.6]), faixa(10, 62, "_k36", 0.3, [0.87, 1.0]), faixa(10, 62, "_k37", 0.3, [0.79, 0.87]), faixa(10, 62, "_k38", 0.3, [0.68, 0.79]), faixa(10, 62, "_k39", 0.3, [0.27, 1.0]), faixa(10, 62, "_k40", 0.3, [0.0, 0.27])]); },
+  /** PRIMEAPE DE GELO */
+  primeape(px) { pintarPorMatiz(px, [faixa(15, 62, "_k41", 0.3, [0.87, 1.0]), faixa(15, 62, "_k42", 0.3, [0.79, 0.87]), faixa(15, 62, "_k43", 0.3, [0.68, 0.79]), faixa(15, 36, "_k44", 0.5, [0.7, 1.0]), faixa(15, 36, "_k45", 0.5, [0.6, 0.7]), faixa(15, 36, "_k46", 0.5, [0.45, 0.6]), faixa(15, 62, "_k47", 0.3, [0.27, 1.0]), faixa(15, 62, "_k48", 0.3, [0.0, 0.27]), faixa(0, 10, "_k49", 0.15, [0.4, 1.0])]); },
+  /** BELLSPROUT CIANO */
+  bellsprout(px) { pintarPorMatiz(px, [faixa(42, 60, "_k50", 0.4, [0.8, 1.0]), faixa(42, 60, "_k51", 0.4, [0.68, 0.8]), faixa(42, 60, "_k52", 0.4, [0.55, 0.68]), faixa(42, 60, "_k53", 0.4, [0.45, 0.55])]); },
+  /** WEEPINBELL CIANO */
+  weepinbell(px) { pintarPorMatiz(px, [faixa(42, 60, "_k54", 0.4, [0.8, 1.0]), faixa(42, 60, "_k55", 0.4, [0.68, 0.8]), faixa(42, 60, "_k56", 0.4, [0.55, 0.68]), faixa(42, 60, "_k57", 0.4, [0.45, 0.55])]); },
+  /** VICTREEBEL CIANO */
+  victreebel(px) { pintarPorMatiz(px, [faixa(42, 60, "_k58", 0.4, [0.8, 1.0]), faixa(42, 60, "_k59", 0.4, [0.68, 0.8]), faixa(42, 60, "_k60", 0.4, [0.55, 0.68]), faixa(42, 60, "_k61", 0.4, [0.45, 0.55])]); },
+  /** GEODUDE DE SAFIRA */
+  geodude(px) { pintarPorMatiz(px, [faixa(25, 95, "_k62", 0.09, [0.7, 1.0]), faixa(25, 95, "_k63", 0.09, [0.6, 0.7]), faixa(25, 95, "_k64", 0.09, [0.45, 0.6]), faixa(25, 95, "_k65", 0.09, [0.3, 0.45]), faixa(25, 95, "_k66", 0.09, [0.0, 0.3])]); },
+  /** GRAVELER DE SAFIRA */
+  graveler(px) { pintarPorMatiz(px, [faixa(25, 95, "_k67", 0.09, [0.7, 1.0]), faixa(25, 95, "_k68", 0.09, [0.6, 0.7]), faixa(25, 95, "_k69", 0.09, [0.45, 0.6]), faixa(25, 95, "_k70", 0.09, [0.3, 0.45]), faixa(25, 95, "_k71", 0.09, [0.0, 0.3])]); },
+  /** GOLEM DE SAFIRA e prata */
+  golem(px) { pintarPorMatiz(px, [faixa(60, 75, "_k72", 0.3, [0.5, 1.0]), faixa(60, 75, "_k73", 0.3, [0.35, 0.5]), faixa(60, 75, "_k74", 0.3, [0.22, 0.35]), faixa(60, 75, "_k75", 0.3, [0.0, 0.22]), faixa(40, 50, "_k76", 0.3, [0.7, 1.0]), faixa(40, 50, "_k77", 0.3, [0.55, 0.7]), faixa(40, 50, "_k78", 0.3, [0.4, 0.55]), faixa(40, 50, "_k79", 0.3, [0.0, 0.4])]); },
+  /** SEEL MENTA */
+  seel(px) { pintarPorMatiz(px, [faixa(215, 260, "_k80", 0.15, [0.9, 1.0]), faixa(215, 260, "_k81", 0.15, [0.8, 0.9]), faixa(215, 260, "_k82", 0.15, [0.5, 0.8]), faixa(215, 260, "_k83", 0.15, [0.0, 0.5])]); },
+  /** DEWGONG MENTA */
+  dewgong(px) { pintarPorMatiz(px, [faixa(205, 260, "_k84", 0.15, [0.9, 1.0]), faixa(205, 260, "_k85", 0.15, [0.8, 0.9]), faixa(205, 260, "_k86", 0.15, [0.5, 0.8]), faixa(205, 260, "_k87", 0.15, [0.0, 0.5])]); },
+  /** SHELLDER RUBI */
+  shellder(px) { pintarPorMatiz(px, [faixa(245, 275, "rubi", 0.2)]); },
+  /** CLOYSTER RUBI */
+  cloyster(px) { pintarPorMatiz(px, [faixa(270, 295, "_k88", 0.2, [0.55, 1.0]), faixa(270, 295, "_k89", 0.2, [0.33, 0.55]), faixa(270, 295, "_k90", 0.2, [0.0, 0.33])]); },
+  /** DROWZEE DOS SONHOS */
+  drowzee(px) { pintarPorMatiz(px, [faixa(44, 56, "sonho", 0.6), faixa(20, 40, "marinho", 0.25)]); },
+  /** HYPNO DOS SONHOS */
+  hypno(px) { pintarPorMatiz(px, [faixa(44, 56, "sonho", 0.6), faixa(20, 44, "_k91", 0.25, [0.45, 1.0]), faixa(20, 44, "_k92", 0.25, [0.3, 0.45]), faixa(20, 44, "_k93", 0.25, [0.0, 0.3])]); },
+  /** KRABBY AZUL */
+  krabby(px) { pintarPorMatiz(px, [faixa(0, 26, "_k94", 0.6, [0.66, 1.0]), faixa(0, 26, "_k95", 0.6, [0.59, 0.66]), faixa(0, 26, "_k96", 0.6, [0.45, 0.59]), faixa(0, 26, "_k97", 0.6, [0.3, 0.45]), faixa(0, 26, "_k98", 0.6, [0.0, 0.3])]); },
+  /** KINGLER AZUL */
+  kingler(px) { pintarPorMatiz(px, [faixa(32, 34, "_kb0", 0.8, [0.7, 0.8]), faixa(0, 26, "_k99", 0.45, [0.66, 1.0]), faixa(0, 26, "_k100", 0.45, [0.59, 0.66]), faixa(0, 26, "_k101", 0.45, [0.45, 0.59]), faixa(0, 26, "_k102", 0.45, [0.3, 0.45]), faixa(0, 26, "_k103", 0.45, [0.0, 0.3])]); },
+  /** EXEGGCUTE CELESTE */
+  exeggcute(px) { pintarPorMatiz(px, [faixa(0, 38, "_k104", 0.45, [0.87, 1.0]), faixa(0, 38, "_k105", 0.45, [0.8, 0.87]), faixa(0, 38, "_k106", 0.45, [0.7, 0.8]), faixa(0, 38, "_k107", 0.45, [0.5, 0.7]), faixa(0, 38, "_k108", 0.45, [0.3, 0.5]), faixa(0, 38, "_k109", 0.45, [0.0, 0.3])]); },
+  /** EXEGGUTOR CELESTE de folhas sakura */
+  exeggutor(px) { pintarPorMatiz(px, [faixa(28, 50, "_k110", 0.6, [0.87, 1.0]), faixa(28, 50, "_k111", 0.6, [0.8, 0.87]), faixa(28, 50, "_k112", 0.6, [0.7, 0.8]), faixa(28, 50, "_k113", 0.6, [0.5, 0.7]), faixa(28, 50, "_k114", 0.6, [0.3, 0.5]), faixa(28, 50, "_k115", 0.6, [0.25, 0.3]), faixa(70, 95, "sakura", 0.4)]); },
+  /** GOLDEEN ÍNDIGO */
+  goldeen(px) { pintarPorMatiz(px, [faixa(0, 36, "indigoK", 0.6, [0, 0.7]), faixa(30, 38, "_gold0", 0.9, [0.7, 0.8]), faixa(40, 44, "_gold1", 0.4, [0.6, 0.68])]); },
+  /** SEAKING ÍNDIGO */
+  seaking(px) { pintarPorMatiz(px, [faixa(28, 32, "_gold1", 0.9, [0.84, 0.9]), faixa(0, 25, "indigoK", 0.6)]); },
+  /** CHIKORITA LILÁS */
+  chikorita(px) { pintarPorMatiz(px, [faixa(65, 145, "lilas", 0.25)]); },
+  /** BAYLEEF LILÁS de folhas violeta */
+  bayleef(px) { pintarPorMatiz(px, [faixa(40, 62, "lilas", 0.5), faixa(65, 145, "violeta", 0.25)]); },
+  /** MEGANIUM LILÁS de flor ciano */
+  meganium(px) { pintarPorMatiz(px, [faixa(65, 145, "lilas", 0.25), faixa(40, 62, "ouro", 0.5), faixa(330, 360, "ciano", 0.6)]); },
+  /** CYNDAQUIL RUBI de fogo azul */
+  cyndaquil(px) { pintarPorMatiz(px, [faixa(45, 55, "fogoA1", 0.95, [0, 0.6]), faixa(30, 40, "fogoA2", 0.95, [0, 0.6]), faixa(15, 29, "fogoA3", 0.95, [0.3, 0.6]), faixa(0, 14, "fogoA4", 0.95, [0.3, 0.6]), faixa(175, 235, "rubiJohto", 0.2)]); },
+  /** QUILAVA RUBI de fogo azul */
+  quilava(px) { pintarPorMatiz(px, [faixa(45, 55, "fogoA1", 0.95, [0, 0.6]), faixa(30, 40, "fogoA2", 0.95, [0, 0.6]), faixa(15, 29, "fogoA3", 0.95, [0.3, 0.6]), faixa(0, 14, "fogoA4", 0.95, [0.3, 0.6]), faixa(175, 235, "rubiJohto", 0.2)]); },
+  /** TYPHLOSION RUBI de fogo azul */
+  typhlosion(px) { pintarPorMatiz(px, [faixa(45, 55, "fogoA1", 0.95, [0, 0.6]), faixa(30, 40, "fogoA2", 0.95, [0, 0.6]), faixa(15, 29, "fogoA3", 0.95, [0.3, 0.6]), faixa(0, 14, "fogoA4", 0.95, [0.3, 0.6]), faixa(175, 235, "rubiJohto", 0.2)]); },
+  /** TOTODILE VIOLETA */
+  totodile(px) { pintarPorMatiz(px, [faixa(195, 235, "violeta", 0.3)]); },
+  /** CROCONAW VIOLETA */
+  croconaw(px) { pintarPorMatiz(px, [faixa(195, 235, "violeta", 0.3)]); },
+  /** FERALIGATR VIOLETA */
+  feraligatr(px) { pintarPorMatiz(px, [faixa(195, 235, "violeta", 0.3)]); },
+  /** MAREEP VIOLETA de luz ciano */
+  mareep(px) { pintarPorMatiz(px, [faixa(190, 215, "violeta", 0.5), faixa(41, 55, "ciano", 0.9)]); },
+  /** FLAAFFY VIOLETA de luz ciano */
+  flaaffy(px) { pintarPorMatiz(px, [faixa(340, 360, "violeta", 0.6), faixa(0, 5, "violeta", 0.6), faixa(200, 230, "ciano", 0.45, [0, 0.85])]); },
+  /** AMPHAROS VIOLETA de luz ciano */
+  ampharos(px) { pintarPorMatiz(px, [faixa(10, 24, "ciano", 0.9), faixa(25, 58, "violeta", 0.4)]); },
+  /** TOGEPI SAKURA de triângulos ouro e jade */
+  togepi(px) { pintarPorMatiz(px, [faixa(0, 10, "ouro", 0.5), faixa(200, 225, "jade", 0.4), faixa(20, 55, "rosa", 0.2), faixa(150, 245, "lavanda", 0.1, [0.6, 0.9])]); },
+  /** TOGETIC SAKURA de triângulos ouro e jade */
+  togetic(px) { pintarPorMatiz(px, [faixa(0, 10, "ouro", 0.5), faixa(200, 225, "jade", 0.4), faixa(150, 190, "rosa", 0.15, [0.6, 0.9])]); },
+  /** WOOPER DOURADO de guelras ciano */
+  wooper(px) { pintarPorMatiz(px, [faixa(200, 220, "ouro", 0.5), faixa(280, 310, "ciano", 0.25)]); },
+  /** QUAGSIRE DOURADO */
+  quagsire(px) { pintarPorMatiz(px, [faixa(160, 270, "ouro", 0.2)]); },
+  /** SNEASEL JADE de penas de ouro */
+  sneasel(px) { pintarPorMatiz(px, [faixa(185, 230, "jade", 0.25), faixa(325, 360, "ouro", 0.5)]); },
+  /** HERACROSS RUBI */
+  heracross(px) { pintarPorMatiz(px, [faixa(205, 235, "rubiJohto", 0.3)]); },
+  /** LARVITAR DOURADO */
+  larvitar(px) { pintarPorMatiz(px, [faixa(80, 110, "ouro", 0.15, [0, 0.8])]); },
+  /** PUPITAR DOURADO */
+  pupitar(px) { pintarPorMatiz(px, [faixa(195, 215, "ouro", 0.3)]); },
+  /** TYRANITAR DOURADO de diamante rubi */
+  tyranitar(px) { pintarPorMatiz(px, [faixa(80, 110, "ouro", 0.15, [0, 0.8]), faixa(200, 215, "rubiJohto", 0.6)]); },
+  /** HOUNDOUR VIOLETA de focinho ciano */
+  houndour(px) { pintarPorMatiz(px, [{ cinza: [0.15, 0.36], rampa: RAMPA.violeta }, faixa(10, 25, "ciano", 0.3)]); },
+  /** HOUNDOOM VIOLETA de focinho ciano */
+  houndoom(px) { pintarPorMatiz(px, [{ cinza: [0.15, 0.36], rampa: RAMPA.violeta }, faixa(10, 25, "ciano", 0.3)]); },
+  /** TURTWIG CEREJEIRA */
+  turtwig(px) { pintarPorMatiz(px, [faixa(60, 135, "sakuraSk", 0.25)]); },
+  /** GROTLE CEREJEIRA */
+  grotle(px) { pintarPorMatiz(px, [faixa(60, 135, "sakuraSk", 0.25)]); },
+  /** TORTERRA CEREJEIRA */
+  torterra(px) { pintarPorMatiz(px, [faixa(60, 135, "sakuraSk", 0.25)]); },
+  /** CHIMCHAR ANIL de fogo azul */
+  chimchar(px) { pintarPorMatiz(px, [faixa(0, 1, "chamaAzul", 0.75, [0.5, 0.75]), faixa(18, 35, "anil", 0.3, [0, 0.75]), faixa(200, 220, "ouro", 0.5)]); },
+  /** MONFERNO ANIL de fogo azul */
+  monferno(px) { pintarPorMatiz(px, [faixa(13, 15, "chamaAzul", 0.9), faixa(18, 35, "anil", 0.3, [0, 0.75]), faixa(200, 220, "ouro", 0.5)]); },
+  /** INFERNAPE ANIL de fogo azul */
+  infernape(px) { pintarPorMatiz(px, [faixa(355, 360, "chamaAzul", 0.7, [0.5, 0.6]), faixa(20, 25, "chamaAzul", 0.85), faixa(18, 35, "anil", 0.3, [0, 0.75]), faixa(200, 220, "ouro", 0.5)]); },
+  /** PIPLUP RUBI */
+  piplup(px) { pintarPorMatiz(px, [faixa(185, 225, "rubiSk", 0.38, [0, 0.9])]); },
+  /** PRINPLUP RUBI */
+  prinplup(px) { pintarPorMatiz(px, [faixa(185, 225, "rubiSk", 0.38, [0, 0.9])]); },
+  /** EMPOLEON RUBI */
+  empoleon(px) { pintarPorMatiz(px, [faixa(185, 225, "rubiSk", 0.38, [0, 0.9])]); },
+  /** SHINX NEON ROSA */
+  shinx(px) { pintarPorMatiz(px, [faixa(210, 230, "neonSk", 0.3)]); },
+  /** LUXIO NEON ROSA */
+  luxio(px) { pintarPorMatiz(px, [faixa(210, 230, "neonSk", 0.3)]); },
+  /** LUXRAY NEON ROSA */
+  luxray(px) { pintarPorMatiz(px, [faixa(210, 230, "neonSk", 0.3)]); },
+  /** GIBLE JADE */
+  gible(px) { pintarPorMatiz(px, [faixa(180, 245, "jadeF", 0.24, [0.15, 1])]); },
+  /** GABITE JADE */
+  gabite(px) { pintarPorMatiz(px, [faixa(180, 245, "jadeF", 0.24, [0.15, 1])]); },
+  /** GARCHOMP JADE */
+  garchomp(px) { pintarPorMatiz(px, [faixa(180, 245, "jadeF", 0.24, [0.15, 1])]); },
+  /** CHESPIN AZUL */
+  chespin(px) { pintarPorMatiz(px, [faixa(60, 110, "azulF", 0.3)]); },
+  /** QUILLADIN AZUL */
+  quilladin(px) { pintarPorMatiz(px, [faixa(60, 110, "azulF", 0.3)]); },
+  /** CHESNAUGHT AZUL */
+  chesnaught(px) { pintarPorMatiz(px, [faixa(60, 110, "azulF", 0.3)]); },
+  /** FENNEKIN LILÁS de fogo magenta */
+  fennekin(px) { pintarPorMatiz(px, [faixa(0, 20, "magenta", 0.4), faixa(38, 50, "lilasF", 0.4)]); },
+  /** BRAIXEN LILÁS de fogo magenta */
+  braixen(px) { pintarPorMatiz(px, [faixa(0, 20, "magenta", 0.4), faixa(38, 50, "lilasF", 0.4)]); },
+  /** DELPHOX LILÁS de fogo magenta */
+  delphox(px) { pintarPorMatiz(px, [faixa(0, 20, "magenta", 0.4), faixa(38, 50, "lilasF", 0.4)]); },
+  /** FROAKIE VIOLETA */
+  froakie(px) { pintarPorMatiz(px, [faixa(185, 230, "violetaF", 0.4)]); },
+  /** FROGADIER VIOLETA */
+  frogadier(px) { pintarPorMatiz(px, [faixa(185, 230, "violetaF", 0.4)]); },
+  /** GRENINJA VIOLETA */
+  greninja(px) { pintarPorMatiz(px, [faixa(185, 230, "violetaF", 0.4)]); },
+
+  /** PICHU NEON: a mesma luz do PIKACHU (amarelo neon e bochechas cerulean) */
+  pichu(px) { LUMINOSO_PINTURA.pikachu(px); },
+  /** RIOLU: a mesma pintura do LUCARIO */
+  riolu(px) { LUMINOSO_PINTURA.lucario(px); },
+
+  /** MIMIKYU: o disfarce virou um PIKACHU de verdade — o pano no amarelo do
+   *  PIKACHU, as bochechas vermelhas, e o rabo amarelo com a base marrom, do
+   *  jeitinho do rabo do PIKACHU. */
+  mimikyu(px, w, h) {
+    const AMARELO = [[250, 214, 40], [222, 172, 20], [150, 104, 14]];   // claro, sombra, escuro
+    const VERMELHO = [[232, 52, 44], [168, 30, 30]];
+    const MARROM = [[150, 92, 40], [104, 62, 26], [70, 42, 18]];
+    // o RABO é o marrom de madeira: acha onde ele começa e termina
+    const ehRabo = (hh, ss, ll) => hh >= 15 && hh <= 40 && ss >= 0.25 && ll >= 0.12 && ll <= 0.55;
+    let x0 = w, x1 = -1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      if (!px[i + 3]) continue;
+      const [hh, ss, ll] = paraHsl(px[i], px[i + 1], px[i + 2]);
+      if (ehRabo(hh, ss, ll)) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); }
+    }
+    // a base do rabo é o lado que encosta no corpo: o do meio do desenho
+    const baseEsq = Math.abs(x0 - w / 2) < Math.abs(x1 - w / 2);
+    const corte = baseEsq ? x0 + (x1 - x0) * 0.35 : x1 - (x1 - x0) * 0.35;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      if (!px[i + 3]) continue;
+      const [hh, ss, ll] = paraHsl(px[i], px[i + 1], px[i + 2]);
+      let nova = null;
+      const tom = (rampa) => rampa[ll > 0.62 ? 0 : ll > 0.4 ? 1 : 2] || rampa[rampa.length - 1];
+      if (ehRabo(hh, ss, ll)) {
+        const naBase = baseEsq ? x < corte : x > corte;
+        nova = naBase ? MARROM[ll > 0.4 ? 0 : ll > 0.25 ? 1 : 2] : tom(AMARELO);
+      } else if (hh >= 15 && hh <= 35 && ss > 0.7 && ll > 0.3) nova = VERMELHO[ll > 0.45 ? 0 : 1];   // bochecha
+      else if (hh >= 35 && hh <= 70 && ss > 0.15 && ll > 0.2) nova = tom(AMARELO);                  // o pano
+      if (nova) { px[i] = nova[0]; px[i + 1] = nova[1]; px[i + 2] = nova[2]; }
+    }
+  },
+};
+
+/** OS OLHOS DE CADA DESENHO (src/data/olhos.json, nov/2026): número do sprite ->
+ *  caixas [x0, y0, x1, y1] dos olhos no desenho de frente; [] = sem olho. Pra
+ *  o ALFA SELVAGEM ter o olho vermelho (`marcaAlfa`). */
+export const OLHOS = {};
+export const olhosCarregados = (typeof fetch === "function"
+  ? fetch(new URL("../data/olhos.json" + new URL(import.meta.url).search, import.meta.url)).then((r) => (r.ok ? r.json() : {}))
+  : Promise.resolve({}))
+  .then((d) => { Object.assign(OLHOS, d || {}); return Object.keys(OLHOS).length; })
+  .catch(() => 0);
+/** AS CARAS DE DITTO que o CAIO marcou (dev/caraditto.html): número do sprite ->
+ *  { o: [[x,y],[x,y]], b: [x,y] }. Lê o arquivo do jogo e o que a página salvou. */
+export const CARA_DITTO = {};
+if (typeof fetch === "function") {
+  for (const nome of ["../data/cara-ditto.json", "../../dev/captures/cara_ditto.log"])
+    fetch(new URL(nome + "?t=" + Date.now(), import.meta.url)).then((r) => (r.ok ? r.text() : "{}")).then((t) => { try { Object.assign(CARA_DITTO, JSON.parse(t || "{}")); } catch {} }).catch(() => {});
+}
+/** AS CARAS PINTADAS pra fusão (dev/marcarcara.html): número do sprite ->
+ *  { w, h, l: [[y, x0, x1], ...] } — o pedaço exato que vai pra cara do outro */
+export const CARAS_FUSAO = {};
+if (typeof fetch === "function") {
+  for (const nome of ["../data/caras-fusao.json", "../../dev/captures/caras_fusao.log"])
+    fetch(new URL(nome + "?t=" + Date.now(), import.meta.url)).then((r) => (r.ok ? r.text() : "{}")).then((t) => { try { Object.assign(CARAS_FUSAO, JSON.parse(t || "{}")); } catch {} }).catch(() => {});
+}
+/** o alfa é de alguém (equipe ou PC)? aí ele não tem marca, só o tamanho */
+function alfaEhMeu(mon) {
+  const st = globalThis.game?.state;
+  return !!st && ((st.party || []).includes(mon) || (st.box || []).includes(mon));
+}
+
+/** OS LUMINOSOS DOS 5 AGENTES (nov/2026): 504 pinturas que moram em
+ *  src/data/luminosos-agentes.json, pra este arquivo não triplicar de tamanho.
+ *  Chegam sozinhas logo no começo; enquanto não chegam, quem aparecer luminoso
+ *  sai com o shiny repaginado. Regra: [matiz de, até, saturação mínima, luz
+ *  mínima, luz máxima, rampa] ou ["c", luz mínima, luz máxima, rampa]. */
+const hexRgb = (h) => [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+export const luminososDosAgentes = (typeof fetch === "function"
+  ? fetch(new URL("../data/luminosos-agentes.json" + new URL(import.meta.url).search, import.meta.url))
+      .then((r) => (r.ok ? r.json() : null))
+  : Promise.resolve(null))
+  .then((d) => {
+    if (!d) return 0;
+    const rampas = d.rampas.map((r) => r.split(" ").map(hexRgb));
+    let n = 0;
+    for (const [id, { r }] of Object.entries(d.pinturas)) {
+      if (LUMINOSO_PINTURA[id]) continue;          // a pintada aqui em cima ganha
+      const regras = r.map((g) => (g[0] === "c"
+        ? { cinza: [g[1], g[2]], rampa: rampas[g[3]] }
+        : { h: [g[0], g[1]], s: g[2], l: [g[3], g[4]], rampa: rampas[g[5]] }));
+      LUMINOSO_PINTURA[id] = (px) => pintarPorMatiz(px, regras);
+      n++;
+    }
+    return n;
+  })
+  .catch(() => 0);
 
 export const Assets = {
   tiles: null, actors: null, shapes: null, ball: null, rustle: null, rocha: null, bloco: null,
@@ -800,17 +1456,104 @@ export const Assets = {
       ".kwwwwk.",
       "..kkkk..",
     ], { k: "#1c2030", r: "#e0524a", w: "#f4f4f4" });
-    // a ARVOREZINHA que o CORTE derruba (a do FireRed, e as de Braglitch)
+    // a ARVOREZINHA que o CORTE derruba: A DO FIRERED (pedido do CAIO, nov/2026:
+    // "as arvorezinhas do firered, tipo as cortáveis"), pixel por pixel do
+    // cut_tree do pokefirered — o quadro 0 é ela em pé, e os outros 3 são ela
+    // sendo cortada (o risco branco do corte e as folhas voando)
+    const COR_ARVORE_FR = { b: "#ffd5b4", e: "#7b4141", g: "#a48320", h: "#525220", i: "#83cd31", j: "#398b00", k: "#204110", o: "#ffffff" };
     this.arvorezinha = spriteFromRows([
-      "..kkkk..",
-      ".kgGGgk.",
-      "kgGGgGgk",
-      "kGgGGggk",
-      ".kgggGk.",
-      "..kttk..",
-      "...tt...",
-      "..kttk..",
-    ], { k: "#1f4a26", g: "#3f8f3a", G: "#62b64f", t: "#7a5330" });
+      "...........kkk..",
+      ".........kkjjik.",
+      "..kkk...kjjjiiik",
+      ".kiijkk.kkjjiiik",
+      "kiijjjkkkkjjjijk",
+      "kijijkkkkjkjjjk.",
+      ".kjjjkkkkkkkjjjk",
+      "kjjjkkkkkhhkkkk.",
+      "kkkkkhhkhhk.....",
+      ".kkkkkhkhk......",
+      "...kk.kghk......",
+      "......kghk......",
+      "....jkkhghkj....",
+      "...jkeghgghkj...",
+      "...jkkeghgkkj...",
+      "....jkkkkkkj....",
+    ], COR_ARVORE_FR);
+    this.arvorezinhaCorte = [
+      spriteFromRows([
+      "...........k....",
+      ".........kkik...",
+      "..kkk...kjjik...",
+      ".kiijkk.kkjk.j..",
+      "kiijjjkkkk......",
+      "kijijkkkkob.jk..",
+      ".kjjjkob..kkjjk.",
+      "kjjkooo.khhkkk..",
+      "kkkoo.hkhhk.....",
+      ".kookkhkhk......",
+      "..ook.kghk......",
+      "..hobkkghk......",
+      "....jbbhghkj....",
+      ".j.jkeghgghkj...",
+      "...jkkeghgkkj...",
+      "....jkkkkkkj....",
+    ], COR_ARVORE_FR),
+      spriteFromRows([
+      "................",
+      "................",
+      "........j.......",
+      ".....jk.....j...",
+      "...j.jjk..kjij..",
+      ".j....k..kjiik..",
+      "kij.j....kkjk...",
+      "kij.k.....k..jk.",
+      "......hk...kkjjk",
+      ".jj..khh..hhkkk.",
+      "kkk.k.kg.h......",
+      ".k.okkkghk......",
+      "....jbbbghkj....",
+      "....keghbbbkb.j.",
+      "....jkeghgkj....",
+      "......jjjj......",
+    ], COR_ARVORE_FR),
+      spriteFromRows([
+      "................",
+      "................",
+      "................",
+      "................",
+      "................",
+      "................",
+      "................",
+      "...........jk...",
+      "..jj.......kk...",
+      "..jj..hhgh......",
+      ".j..jkhggg......",
+      "..h.kk.gg.jjk.j.",
+      ".hgg..h...kk....",
+      "..hh.hgggh......",
+      ".......hhgh..j..",
+      "................",
+    ], COR_ARVORE_FR),
+    ];
+    // a que o CAIO tinha inventado antes (tronco que se separa em dois galhos), guardada
+    this.arvorezinhaDoCaio = spriteFromRows([
+      ".kkkkk...kkkkk..",
+      "kGhhGGk.kGhhGGk.",
+      "kGHhGgk.kGhHhGgk",
+      "kGhGggdkkGhhGgdk",
+      "kgGgddk.kgGGgddk",
+      ".kgddk...kgTtdk.",
+      "..kTtk...kTtk...",
+      "...kTtk.kTtk....",
+      "....kTtkTtk.....",
+      ".....kTTtk......",
+      ".....kTTtk......",
+      ".....kTTtk......",
+      ".....kTTtk......",
+      "....kTTTttk.....",
+      "...kTTTTtttk....",
+      "...kkkkkkkkk....",
+    ], { k: "#16301c", e: "#1f4a28", d: "#2d6a34", g: "#46983c", G: "#6cbc4e", h: "#a6dc74", H: "#e2f8b4", T: "#a8743f", t: "#704729" });
     this.rocha = spriteFromRows([
       "..cccc..",
       ".cddddc.",
@@ -954,6 +1697,47 @@ export const Assets = {
     return cv;
   },
 
+  /** versao LUMINOSA: o SHINY REPAGINADO, aceso.
+   *
+   *  É 1 em 9999, então ele parte do shiny (a cor rara) e vai além: as cores
+   *  do shiny ficam mais claras e mais vivas, o contorno continua escuro, e a
+   *  luz vaza pela borda. Quando aparece no mato, num sprite de 32 pixels, do
+   *  outro lado da tela, tem que dar pra ver de longe — senão a cor mais rara
+   *  do jogo passa despercebida, que é o mesmo que não existir.
+   *
+   *  `pintura` (LUMINOSO_PINTURA, abaixo): algumas espécies têm a luminosa
+   *  pintada à mão, cor por cor, em cima do sprite de sempre — o MIMIKYU é um
+   *  PIKACHU de verdade. Sem ela, é o repaginado.
+   *
+   *  O halo é a silhueta borrada POR BAIXO: só aparece onde o bicho não
+   *  cobre, então o desenho continua sendo o desenho, com luz em volta. */
+  luminoso(img, pintura = null) {
+    if (!img) return img;
+    if (!this._lum) this._lum = new Map();
+    const chave = pintura ? `${pintura}` : "repaginado";
+    let porImg = this._lum.get(img);
+    if (!porImg) this._lum.set(img, (porImg = {}));
+    if (porImg[chave]) return porImg[chave];
+    // as cores primeiro, num canvas à parte
+    const { cv: cor, ctx: c2 } = makeCanvas(img.width, img.height);
+    c2.drawImage(img, 0, 0);
+    try {
+      const d = c2.getImageData(0, 0, img.width, img.height);
+      (LUMINOSO_PINTURA[pintura] || repaginar)(d.data, img.width, img.height);
+      c2.putImageData(d, 0, 0);
+    } catch { /* canvas sem leitura de pixel: fica a cor que veio */ }
+    // e o halo por baixo
+    const { cv, ctx } = makeCanvas(img.width, img.height);
+    ctx.globalAlpha = 0.85;
+    ctx.filter = "blur(2px)";
+    ctx.drawImage(this.silhueta(img), 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.filter = "none";
+    ctx.drawImage(cor, 0, 0);
+    porImg[chave] = cv;
+    return cv;
+  },
+
   /** A ARTE SHINY DE VERDADE, se esta espécie tiver uma. Devolve null quando
    *  não tem — e aí quem chamou usa o filtro. Pede o PNG na primeira vez. */
   monShiny(id, costas = false) {
@@ -966,26 +1750,225 @@ export const Assets = {
     return (costas ? SpriteStore.pokemonShinyBack[id] : SpriteStore.pokemonShiny[id]) || null;
   },
 
-  /** A arte com a cor QUE AQUELE BICHO TEM. Luminoso ganha do shiny, e o comum
-   *  e a arte crua. Existe pra nao haver quatro telas decidindo isso cada uma
+  /** A arte com a cor QUE AQUELE BICHO TEM: a shiny pro shiny (com a marca do
+   *  alfa por cima, se for alfa), e o comum é a arte crua. Existe pra nao haver quatro telas decidindo isso cada uma
    *  do seu jeito — e pra que a proxima tela que desenhar bicho ja acerte.
    *
    *  `costas` diz qual lado `img` é, porque a arte shiny tem frente e costas
    *  próprias e não dá pra adivinhar isso olhando o canvas. */
   comCor(img, mon, costas = false) {
     let out = img;
-    if (mon?.shiny) {
+    if (mon?.luminoso) {
+      // o LUMINOSO é o shiny repaginado: parte da arte shiny (a oficial, ou o
+      // filtro). Os escolhidos à mão (LUMINOSO_PINTURA: MIMIKYU, LUCARIO,
+      // BULBASAUR...) têm a pintura deles, em cima da arte de sempre.
+      const base = mon.megaDe || mon.species;
+      if (LUMINOSO_PINTURA[base]) out = this.luminoso(img, base);
+      else out = this.luminoso((mon.species && this.monShiny(mon.species, costas)) || this.shiny(img));
+    }
+    else if (mon?.shiny) {
       // o SPINDA shiny é carimbado na rampa verde; só a frente, como no original
       const spinda = mon.species === "spinda" && !costas ? this.spinda(mon.seed, true) : null;
       out = spinda || (mon.species && this.monShiny(mon.species, costas)) || this.shiny(img);
+      // o BEBBIDÃO shiny também bebe: a arte shiny vem crua, com a água azul
+      if (mon.species === "bebbidao") out = this.bebbidao(out, mon.seed);
     }
-    return mon?.alfa ? this.alfa(out) : out;
+    return this.marcaAlfa(out, mon, costas);
   },
 
   /** A MARCA DO ALFA: um contorno vermelho de um pixel em volta do sprite e os
    *  olhos... não dá pra achar olho em 151 sprites, então a marca é a borda —
    *  é o que se vê de longe no mato, e é o que os LEGENDS mostram no mapa.
    *  O tamanho maior é de quem desenha (drawSelvagem e a batalha). */
+  /** A MARCA DO ALFA (pedido do CAIO, nov/2026): o ALFA SELVAGEM tem os OLHOS
+   *  VERMELHOS (src/data/olhos.json diz onde ficam, no desenho de frente). Pego,
+   *  a única diferença é o tamanho: nada de marca. Sem olho (ZUBAT): também só o
+   *  tamanho. Bicho que ainda não tem os olhos marcados: o contorno de antes.
+   *  `quadro`: é quadro de animação ou de andar (os olhos não batem com ele). */
+  marcaAlfa(img, mon, costas = false, quadro = false, caixas = null) {
+    if (!img || !mon?.alfa || alfaEhMeu(mon)) return img;
+    const sp = DB.SPECIES[mon.species];
+    const olhos = OLHOS[sp?.spriteDex || sp?.dex];
+    if (olhos === undefined) return this.alfa(img);          // ainda não marcado
+    if (quadro && caixas?.length) return this.olhoVermelho(img, caixas);   // o quadro animado, com o olho achado
+    if (!olhos.length || costas || quadro) return img;
+    const base = SpriteStore.pokemon[sp.id || mon.species];
+    if (base && (base.width !== img.width || base.height !== img.height)) return img;
+    return this.olhoVermelho(img, olhos);
+  },
+
+  /** A CARA DE DITTO (pedido do CAIO, nov/2026: "ditto ao virar um pkmn ele ficar
+   *  com cara de ditto"): o desenho do Pokémon que o DITTO copiou, com os olhos
+   *  dele TAPADOS pela cor do corpo em volta e, no lugar, os dois PONTINHOS do
+   *  DITTO e o SORRISINHO de um risco. Os olhos saem de src/data/olhos.json (o
+   *  mesmo do ALFA); quem não tem olho marcado ganha a cara no meio da cabeça. */
+  caraDeDitto(img, species) {
+    if (!img) return img;
+    if (!this._ditto) this._ditto = new Map();
+    const chave = img;
+    if (this._ditto.has(chave)) return this._ditto.get(chave);
+    const sp = DB.SPECIES[species];
+    const base = SpriteStore.pokemon[sp?.id || species];
+    let olhos = OLHOS[sp?.spriteDex || sp?.dex];
+    if (!olhos?.length || (base && (base.width !== img.width || base.height !== img.height))) olhos = null;
+    const { cv, ctx } = makeCanvas(img.width, img.height);
+    ctx.drawImage(img, 0, 0);
+    const marca = CARA_DITTO[sp?.spriteDex || sp?.dex];
+    if (marca) {
+      // o CAIO marcou essa cara: vale a marca dele (no tamanho do desenho)
+      try {
+        const k = base?.width ? img.width / base.width : 1, e = ([x, y]) => [Math.round(x * k), Math.round(y * k)];
+        const dados = ctx.getImageData(0, 0, cv.width, cv.height);
+        pintarCaraDitto(dados, { o: marca.o.map(e), b: marca.b && e(marca.b), r: marca.r && Math.round(marca.r * k), mb: marca.mb?.map((v) => Math.round(v * k)) });
+        ctx.putImageData(dados, 0, 0);
+      } catch { /* sem leitura de pixel: fica como veio */ }
+      this._ditto.set(chave, cv);
+      return cv;
+    }
+    try {
+      const W = cv.width, H = cv.height, dados = ctx.getImageData(0, 0, W, H), d = dados.data;
+      const a = (x, y) => x >= 0 && y >= 0 && x < W && y < H && d[(y * W + x) * 4 + 3] > 0;
+      const luz = (i) => paraHsl(d[i], d[i + 1], d[i + 2])[2];
+      const pinta = (x, y, c) => { if (!a(x, y)) return; const i = (y * W + x) * 4; d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; };
+      const tam = Math.max(2, Math.round(W / 40));      // o pontinho: 2x2 num desenho de 96
+      const corPerto = (x0, y0, x1, y1) => {             // a cor do corpo mais comum na beirada da caixa
+        const cont = new Map();
+        const olha = (x, y) => { if (!a(x, y)) return; const i = (y * W + x) * 4; if (luz(i) <= 0.25) return; const k = d[i] + "," + d[i + 1] + "," + d[i + 2]; cont.set(k, (cont.get(k) || 0) + 1); };
+        for (let x = x0 - 1; x <= x1 + 1; x++) { olha(x, y0 - 1); olha(x, y1 + 1); }
+        for (let y = y0; y <= y1; y++) { olha(x0 - 1, y); olha(x1 + 1, y); }
+        const m = [...cont].sort((p, q) => q[1] - p[1])[0];
+        return m ? m[0].split(",").map(Number) : null;
+      };
+      const tapa = (x0, y0, x1, y1, c) => { if (c) for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) pinta(x, y, c); };
+      let bx0 = W, bx1 = -1, by0 = H, by1 = -1;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (a(x, y)) { bx0 = Math.min(bx0, x); bx1 = Math.max(bx1, x); by0 = Math.min(by0, y); by1 = Math.max(by1, y); }
+      let centros;
+      if (olhos) {
+        // as caixinhas perto umas das outras são o MESMO olho (o PIKACHU tem 6 pra 2 olhos)
+        const juntos = [];
+        for (const b of olhos) {
+          const o = juntos.find((o) => b[0] <= o[2] + 3 && b[2] >= o[0] - 3 && b[1] <= o[3] + 3 && b[3] >= o[1] - 3);
+          if (o) { o[0] = Math.min(o[0], b[0]); o[1] = Math.min(o[1], b[1]); o[2] = Math.max(o[2], b[2]); o[3] = Math.max(o[3], b[3]); }
+          else juntos.push([...b]);
+        }
+        centros = juntos.map(([x0, y0, x1, y1]) => {
+          x0--; y0--; x1++; y1++;                        // um tiquinho maior: o olho velho some inteiro
+          tapa(x0, y0, x1, y1, corPerto(x0, y0, x1, y1));
+          return [Math.round((x0 + x1) / 2), Math.round((y0 + y1) / 2)];
+        });
+        // de lado só aparece um olho: o outro fica do lado (pro meio do corpo)
+        if (centros.length === 1) {
+          const [x, y] = centros[0], dd = Math.max(6, Math.round(W * 0.09));
+          centros.push([x < (bx0 + bx1) / 2 ? x + dd : x - dd, y]);
+        }
+        centros = centros.sort((p, q) => p[0] - q[0]);
+        if (centros.length > 2) centros = [centros[0], centros[centros.length - 1]];
+      } else {
+        // sem olho marcado: a cara no meio da parte de cima do desenho
+        const mx = Math.round((bx0 + bx1) / 2), my = Math.round(by0 + (by1 - by0) * 0.28), dx = Math.max(4, Math.round((bx1 - bx0) * 0.13));
+        centros = [[mx - dx, my], [mx + dx, my]];
+      }
+      const PRETO = [16, 16, 16];
+      const [[xa, ya], [xb, yb]] = centros;
+      const dist = Math.max(4, xb - xa), mx = Math.round((xa + xb) / 2), my = Math.round(Math.max(ya, yb) + Math.max(3, dist * 0.5));
+      const meia = Math.max(2, Math.round(dist * 0.45));
+      // o NARIZ e a BOCA de antes, entre os olhos e o sorriso, somem na cor do corpo
+      tapa(mx - meia, Math.min(ya, yb) + tam, mx + meia, my + 1, corPerto(mx - meia, Math.min(ya, yb) + tam, mx + meia, my + 1));
+      for (const [x, y] of centros) for (let j = 0; j < tam; j++) for (let i = 0; i < tam; i++) pinta(x + i - (tam >> 1), y + j - (tam >> 1), PRETO);
+      // o SORRISINHO do DITTO: um risco comprido com as pontas pra cima
+      for (let x = mx - meia; x <= mx + meia; x++) pinta(x, my, PRETO);
+      pinta(mx - meia - 1, my - 1, PRETO); pinta(mx + meia + 1, my - 1, PRETO);
+      ctx.putImageData(dados, 0, 0);
+    } catch { /* sem leitura de pixel: fica como veio */ }
+    this._ditto.set(chave, cv);
+    return cv;
+  },
+
+  /** os olhos (caixas [x0, y0, x1, y1]) pintados de vermelho, pela luz de cada
+   *  pixel; o brilhinho branco fica */
+  olhoVermelho(img, olhos) {
+    if (!this._olhoV) this._olhoV = new Map();
+    const hit = this._olhoV.get(img);
+    if (hit) return hit;
+    const { cv, ctx } = makeCanvas(img.width, img.height);
+    ctx.drawImage(img, 0, 0);
+    try {
+      const dados = ctx.getImageData(0, 0, cv.width, cv.height), d = dados.data;
+      for (const [x0, y0, x1, y1] of olhos) {
+        for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+          const i = (y * cv.width + x) * 4;
+          if (!d[i + 3]) continue;
+          const l = paraHsl(d[i], d[i + 1], d[i + 2])[2];
+          if (l > 0.82) continue;
+          const c = l < 0.25 ? [120, 0, 16] : l < 0.5 ? [205, 18, 34] : [255, 72, 72];
+          d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2];
+        }
+      }
+      ctx.putImageData(dados, 0, 0);
+    } catch { /* sem leitura de pixel: fica como veio */ }
+    cv._olhos = olhos;                   // onde estão os olhos (o RASTRO da batalha lê)
+    this._olhoV.set(img, cv);
+    return cv;
+  },
+
+  /** ONDE ESTÃO OS OLHOS NUM QUADRO ANIMADO: cada olho do desenho parado
+   *  (src/data/olhos.json) vira um recorte com 2 pixels de folga, e o recorte é
+   *  procurado no quadro, perto de onde ele estaria. Onde as cores batem melhor
+   *  (e batem bem: 60% ou mais), é o olho; senão, aquele olho fica de fora.
+   *  Cada quadro é procurado uma vez só. */
+  olhosNoQuadro(q, mon) {
+    const sp = DB.SPECIES[mon.species];
+    const olhos = OLHOS[sp?.spriteDex || sp?.dex];
+    const base = SpriteStore.pokemon[sp?.id || mon.species];
+    if (!olhos?.length || !base || !q) return null;
+    if (!this._olhoQ) this._olhoQ = new WeakMap();
+    if (this._olhoQ.has(q)) return this._olhoQ.get(q);
+    let achadas = null;
+    try {
+      const ler = (img) => {
+        const { ctx } = makeCanvas(img.width, img.height);
+        ctx.drawImage(img, 0, 0);
+        return { w: img.width, h: img.height, d: ctx.getImageData(0, 0, img.width, img.height).data };
+      };
+      const A = ler(base), Q = ler(q);
+      // o centro do desenho opaco de cada um: o chute de onde o olho foi parar
+      const centro = (I) => {
+        let sx = 0, sy = 0, n = 0;
+        for (let y = 0; y < I.h; y++) for (let x = 0; x < I.w; x++) if (I.d[(y * I.w + x) * 4 + 3]) { sx += x; sy += y; n++; }
+        return n ? [sx / n, sy / n] : [I.w / 2, I.h / 2];
+      };
+      const [ax, ay] = centro(A), [qx, qy] = centro(Q);
+      achadas = [];
+      for (const [x0, y0, x1, y1] of olhos) {
+        const px0 = Math.max(0, x0 - 2), py0 = Math.max(0, y0 - 2), px1 = Math.min(A.w - 1, x1 + 2), py1 = Math.min(A.h - 1, y1 + 2);
+        const pts = [];
+        for (let y = py0; y <= py1; y++) for (let x = px0; x <= px1; x++) {
+          const i = (y * A.w + x) * 4;
+          if (A.d[i + 3]) pts.push([x - px0, y - py0, A.d[i], A.d[i + 1], A.d[i + 2]]);
+        }
+        if (!pts.length) continue;
+        const ex = Math.round(px0 - ax + qx), ey = Math.round(py0 - ay + qy);
+        let melhor = -1, mx = 0, my = 0;
+        for (let oy = ey - 22; oy <= ey + 22; oy++) for (let ox = ex - 22; ox <= ex + 22; ox++) {
+          let bate = 0;
+          for (const [dx, dy, r, g, b] of pts) {
+            const X = ox + dx, Y = oy + dy;
+            if (X < 0 || Y < 0 || X >= Q.w || Y >= Q.h) continue;
+            const i = (Y * Q.w + X) * 4;
+            if (Q.d[i + 3] && Math.abs(Q.d[i] - r) + Math.abs(Q.d[i + 1] - g) + Math.abs(Q.d[i + 2] - b) < 48) bate++;
+          }
+          if (bate > melhor) { melhor = bate; mx = ox; my = oy; }
+        }
+        if (melhor / pts.length >= 0.6) {
+          const dx = mx - px0, dy = my - py0;
+          achadas.push([x0 + dx, y0 + dy, x1 + dx, y1 + dy].map((v, k) => Math.max(0, Math.min((k % 2 ? Q.h : Q.w) - 1, v))));
+        }
+      }
+    } catch { achadas = null; }
+    this._olhoQ.set(q, achadas);
+    return achadas;
+  },
+
   alfa(img) {
     if (!img) return img;
     if (!this._alfa) this._alfa = new Map();
@@ -1022,6 +2005,108 @@ export const Assets = {
     return cv;
   },
 
+  /** O CREME DO ALCREMIE (src/data/doces.js): o desenho de sempre com o
+   *  creme pintado da cor dos doces que ele comeu — uma cor só, ou um
+   *  REDEMOINHO em faixas tortas, uma de cada cor. É creme todo pixel claro e
+   *  pouco colorido (o morango, os olhos e o contorno são vivos ou escuros e
+   *  ficam como estão); o tom de cada um vira o mesmo tom na cor nova, pelo
+   *  brilho dele comparado ao creme mais claro. Sem doce: o desenho cru. */
+  alcremie(img, seed) {
+    const doces = docesDoSeed(seed);
+    if (!img || !doces.length) return img;
+    if (!this._alcremie) this._alcremie = new WeakMap();
+    let porSeed = this._alcremie.get(img);
+    if (!porSeed) { porSeed = new Map(); this._alcremie.set(img, porSeed); }
+    const chave = seed >>> 0;
+    if (porSeed.has(chave)) return porSeed.get(chave);
+    const { cv, ctx } = makeCanvas(img.width, img.height);
+    ctx.drawImage(img, 0, 0);
+    const dados = ctx.getImageData(0, 0, cv.width, cv.height), d = dados.data;
+    // o contorno do bicho: os padrões (a BANDEIRA) se encaixam no corpo dele,
+    // seja no sprite grande, no de costas ou no quadro da animação
+    let x0 = cv.width, y0 = cv.height, x1 = 0, y1 = 0;
+    for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) {
+      if (d[(y * cv.width + x) * 4 + 3] < 40) continue;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+    const bw = Math.max(1, x1 - x0), bh = Math.max(1, y1 - y0);
+    const brilho = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
+    const REF = brilho(0xfd, 0xe4, 0xd0);              // o creme mais claro do desenho original
+    for (let y = 0; y < cv.height; y++) {
+      for (let x = 0; x < cv.width; x++) {
+        const i = (y * cv.width + x) * 4;
+        if (d[i + 3] < 40) continue;
+        const r = d[i], g = d[i + 1], b = d[i + 2];
+        const mx = Math.max(r, g, b), mn = Math.min(r, g, b), lum = brilho(r, g, b);
+        const sat = mx ? (mx - mn) / mx : 0;
+        if (lum < 30 || sat >= 0.55) continue;        // contorno, morango, olhos
+        // a faixa do redemoinho: diagonais de 7 pixels, torcidas por uma onda
+        const faixa = Math.floor((x + y * 0.7 + Math.sin(y / 6) * 4) / 7);
+        const doce = doces[((faixa % doces.length) + doces.length) % doces.length];
+        const c = corDoCreme(doce, (x - x0) / bw, (y - y0) / bh, x, y);
+        const k = lum / REF;
+        if (k > 1) {                                   // o brilho: puxa pro branco
+          const w = Math.min(1, (k - 1) * 6);
+          for (let j = 0; j < 3; j++) d[i + j] = Math.round(c[j] + (255 - c[j]) * w);
+        } else for (let j = 0; j < 3; j++) d[i + j] = Math.max(0, Math.min(255, Math.round(c[j] * k)));
+      }
+    }
+    ctx.putImageData(dados, 0, 0);
+    porSeed.set(chave, cv);
+    return cv;
+  },
+
+  /** A BEBIDA DO BEBBIDÃO (src/data/bebbidah.js): o desenho tem a água em
+   *  duas cores-chave (o corpo e a superfície); elas viram a cor da bebida,
+   *  no tom do lugar onde ele girou. Gelado ganha os cubos de gelo boiando;
+   *  quente, a fumacinha. Os dois desenhos (gelo e fumaça) são os mesmos de
+   *  tools/bebbidah/evolucao.py, no mesmo lugar do sprite de 96x96 — e a
+   *  jarra de costas fica no mesmo lugar, então servem pros dois lados. */
+  bebbidao(img, seed) {
+    const forma = formaDoSeed(seed);
+    if (!img || !forma) return img;
+    if (!this._bebbidao) this._bebbidao = new WeakMap();
+    let porSeed = this._bebbidao.get(img);
+    if (!porSeed) { porSeed = new Map(); this._bebbidao.set(img, porSeed); }
+    const chave = seed >>> 0;
+    if (porSeed.has(chave)) return porSeed.get(chave);
+    const { cv, ctx } = makeCanvas(img.width, img.height);
+    ctx.drawImage(img, 0, 0);
+    const dados = ctx.getImageData(0, 0, cv.width, cv.height), d = dados.data;
+    const m = (DB.BEBIDA_TONS || [])[forma.tom]?.mistura || 0;
+    const tom = (c) => (m >= 0 ? c + (255 - c) * m : c * (1 + m));
+    const corpo = corDeHex(forma.bebida.cor).map((c) => Math.round(tom(c)));
+    const topo = corpo.map((c) => Math.round(c + (255 - c) * 0.3));
+    const ehCor = (i, r, g, b) => Math.abs(d[i] - r) < 6 && Math.abs(d[i + 1] - g) < 6 && Math.abs(d[i + 2] - b) < 6;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 40) continue;
+      const c = ehCor(i, 86, 139, 220) ? corpo : ehCor(i, 140, 184, 240) ? topo : null;
+      if (c) { d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; }
+    }
+    ctx.putImageData(dados, 0, 0);
+    // o gelo e a fumaça só cabem no sprite grande (96x96)
+    if (img.width === 96 && img.height === 96) {
+      const pinta = (grade, x0, y0, cores, espelho = false) => grade.forEach((linha, dy) => {
+        [...(espelho ? [...linha].reverse().join("") : linha)].forEach((ch, dx) => {
+          if (!cores[ch]) return;
+          ctx.fillStyle = cores[ch];
+          ctx.fillRect(x0 + dx, y0 + dy, 1, 1);
+        });
+      });
+      if (forma.quente) {
+        const FUMACA = ["...ff..", "..ff...", "..ff...", "...ff..", "....ff.", "....ff.", "...ff..", "..ff...", "..ff...", "...ff.."];
+        for (const x of [30, 45, 60]) pinta(FUMACA, x, 8, { f: "rgba(236,236,236,0.8)" });
+      } else {
+        const GELO = ["..kkkkkkkk..", ".kiiiiiiiik.", "kiiiiiiiiIk.", "kiiiiiiiiIk.", "kiiiiiiiiIk.", "kiiiiiiiiIk.", "kIIIIIIIIIk.", ".kkkkkkkkk.."];
+        const cores = { k: "#080808", i: "#d6f0ff", I: "#a0d2f0" };
+        pinta(GELO, 24, 35, cores);
+        pinta(GELO, 58, 36, cores, true);
+      }
+    }
+    porSeed.set(chave, cv);
+    return cv;
+  },
+
   /** silhueta chapada do sprite (a troca de formas da evolucao) */
   silhueta(img) {
     if (!img) return img;
@@ -1042,9 +2127,19 @@ export const Assets = {
   mon(id, seed) {
     const sp = DB.SPECIES[id];
     if (sp?.fusao) return fusaoSprite(sp, "frente", seed);
+    // o CARDUME (src/systems/cardume.js): o bicho gigante feito de mini cópias dele
+    // (o desenhado à mão, assets/sprites/pokemon/cardume/<espécie>.png, ganha;
+    // enquanto não tem desenho — ou não carregou — a montagem automática)
+    if (sp?.cardume) return cardumeDesenhado(sp.cardume) || spriteDoCardume(this.mon(sp.cardume, seed), 7);
+    // o BIZARRO do PORTAL PARADOXO (src/systems/bizarro.js): sorteado, às vezes na forma de outro
+    if (sp?.bizarro) return spriteDoBizarro(sp, sp.bizarro.base ? this.mon(sp.bizarro.base, seed) : null);
     const ext = SpriteStore.pokemon[id];
     // o SPINDA não tem UM sprite: o desenho é limpo e as manchas saem do seed
     if (ext && id === "spinda") return this.spinda(seed) || ext;
+    // o ALCREMIE: o creme da cor dos doces que ele comeu (src/data/doces.js)
+    if (ext && id === "alcremie") return this.alcremie(ext, seed);
+    // o BEBBIDÃO: a bebida da cor do ingrediente, no tom do lugar (src/data/bebbidah.js)
+    if (ext && id === "bebbidao") return this.bebbidao(ext, seed);
     if (ext) return ext;
     // ainda não foi pedido: pede agora e mostra a arte provisória enquanto vem
     // a FORMA ÚNICA tem o desenho dela num caminho próprio
@@ -1061,21 +2156,28 @@ export const Assets = {
    *  o shiny (a arte shiny é a parada). */
   monAnim(mon, costas, ms) {
     const sp = mon && DB.SPECIES[mon.species];
-    if (!sp || sp.fusao || sp.hack || mon.species === "spinda") return null;
+    if (!sp || sp.fusao || sp.cardume || sp.bizarro || sp.hack || mon.species === "spinda") return null;
     // o SHINY anima com a cor trocada quadro a quadro (shinyAnimado)
     // a FORMA ÚNICA é achada pelo nome do arquivo dela (assets/unicas/<nome>.png)
     const unica = sp.spriteUrl ? "u/" + sp.spriteUrl.split("/").pop().replace(/\.png$/, "") : null;
     // a animação que o próprio jogador desenhou (UNIQUEMON) vem antes da gerada
     if (sp.animacao) pedirAnimDoJogador(sp.id || mon.species, sp.animacao);
     else pedirAnim(sp.id || mon.species, unica || sp.spriteDex || sp.dex);
-    const q = quadroAnim(sp.id || mon.species, costas, ms, !!unica);
+    // `mon.soQuadros` [de, até]: ele só faz esse pedaço da animação
+    const q = quadroAnim(sp.id || mon.species, costas, ms, !!unica, mon.soQuadros || null);
     if (!q) return null;
-    if (!mon.shiny) return this.comCor(q, mon, costas);
+    // o LUMINOSO pintado à mão pinta cada quadro (a pintura separa as partes pela cor)
+    const pintado = mon.luminoso && LUMINOSO_PINTURA[mon.megaDe || mon.species];
+    // o ALFA SELVAGEM anima com o olho vermelho: o olho é achado em cada quadro
+    // (`olhosNoQuadro`, comparando com o desenho parado), antes de mudar a cor
+    const caixas = mon.alfa && !costas && !alfaEhMeu(mon) ? this.olhosNoQuadro(q, mon) : null;
+    if (pintado || (!mon.shiny && !mon.luminoso)) return this.marcaAlfa(this.comCor(mon.species === "alcremie" ? this.alcremie(q, mon.seed) : q, { ...mon, alfa: false }, costas), mon, costas, true, caixas);
     // de costas a forma única usa a frente (frenteServe), e a troca também
     const lado = costas && SpriteStore.anim[sp.id || mon.species]?.c ? true : false;
-    const s = this.shinyAnimado(q, sp.id || mon.species, lado);
+    let s = this.shinyAnimado(q, sp.id || mon.species, lado);
     if (!s) return null;                 // a troca ainda não dá: fica o shiny parado
-    return mon.alfa ? this.alfa(s) : s;
+    if (mon.luminoso) s = this.luminoso(s);   // o luminoso é o shiny repaginado, aceso
+    return this.marcaAlfa(s, mon, costas, true, caixas);
   },
 
   /** O SHINY ANDANDO: a animação do B/W só existe na cor de sempre, mas o
@@ -1166,13 +2268,118 @@ export const Assets = {
     const sp = mon && DB.SPECIES[mon.species];
     if (!sp || sp.fusao || sp.hack || sp.spriteUrl || mon.species === "spinda") return null;
     const dex = sp.spriteDex || sp.dex;
-    if (!dex || dex > 1025) return null;
+    // as FORMAS (regionais, megas, Rotom...) também: pelo número da forma (10091...)
+    if (!dex) return null;
     const id = sp.id || mon.species;
     pedirAndar(id, dex);
     const q = quadroAndar(id, { down: "baixo", up: "cima", left: "esq", right: "dir" }[dir] || "baixo", ms);
     if (!q) return null;
-    const out = mon.shiny ? this.shiny(q) : q;
-    return mon.alfa ? this.alfa(out) : out;
+    const out = mon.luminoso ? this.luminoso(this.shiny(q)) : mon.shiny ? this.shiny(q) : q;
+    // o ALFA SELVAGEM também tem o OLHO VERMELHO andando no mapa (pedido do CAIO,
+    // nov/2026): os olhos do quadro de andar são achados sozinhos (`olhosDoAndar`);
+    // de costas não aparece olho
+    if (mon.alfa && !alfaEhMeu(mon) && dir !== "up") {
+      const caixas = this.olhosDoAndar(q, dir);
+      if (caixas.length) return this.olhoVermelho(out, caixas);
+    }
+    return this.marcaAlfa(out, mon, false, true);
+  },
+
+  /** OS OLHOS NUM QUADRO DE ANDAR (do Mystery Dungeon, sem marcação): o olho é
+   *  um pontinho ESCURO por DENTRO do corpo (o contorno fica na beira, com vazio
+   *  do lado) e bem mais escuro que o que está em volta (olho fica num rosto
+   *  mais claro), pequeno, entre o topo (orelha, crista, cabelo ficam de fora) e
+   *  o meio do corpo. DE FRENTE são um PAR: na mesma altura, um de cada lado do
+   *  meio do corpo naquela linha (o par mais simétrico ganha). DE LADO é um só:
+   *  o mais pra frente da cabeça. Achado uma vez por quadro. Se errar, errou (o
+   *  CAIO: "se errar errou"). */
+  olhosDoAndar(q, dir = "down") {
+    if (!this._olhoA) this._olhoA = new Map();
+    let porDir = this._olhoA.get(q);
+    if (!porDir) { porDir = {}; this._olhoA.set(q, porDir); }
+    if (porDir[dir]) return porDir[dir];
+    let caixas = [];
+    try {
+      const { ctx } = makeCanvas(q.width, q.height);
+      ctx.drawImage(q, 0, 0);
+      const W = q.width, H = q.height, d = ctx.getImageData(0, 0, W, H).data;
+      const a = (x, y) => x >= 0 && y >= 0 && x < W && y < H && d[(y * W + x) * 4 + 3] > 0;
+      const luz = (x, y) => { const i = (y * W + x) * 4; return paraHsl(d[i], d[i + 1], d[i + 2])[2]; };
+      let y0 = H, y1 = -1;
+      const linhas = new Map();                   // y -> [x mínimo, x máximo]
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (a(x, y)) {
+        y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+        const l = linhas.get(y); if (!l) linhas.set(y, [x, x]); else { l[0] = Math.min(l[0], x); l[1] = Math.max(l[1], x); }
+      }
+      if (y1 >= 0) {
+        const alto = y1 - y0 + 1, cima = y0 + Math.floor(alto * 0.15), limite = y0 + Math.ceil(alto * 0.6);
+        const contraste = (x, y) => {
+          const l = luz(x, y); let m = 0;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && a(x + dx, y + dy)) m = Math.max(m, luz(x + dx, y + dy));
+          return m - l >= 0.3;
+        };
+        const escuro = new Set();
+        for (let y = cima; y <= limite; y++) for (let x = 0; x < W; x++) {
+          if (a(x, y) && a(x + 1, y) && a(x - 1, y) && a(x, y + 1) && a(x, y - 1) && luz(x, y) < 0.3 && contraste(x, y)) escuro.add(y * W + x);
+        }
+        const vistos = new Set(), grupos = [];
+        for (const k of escuro) {
+          if (vistos.has(k)) continue;
+          const fila = [k], g = [];
+          vistos.add(k);
+          while (fila.length) {
+            const c = fila.pop(); g.push(c);
+            for (const v of [c + 1, c - 1, c + W, c - W]) if (escuro.has(v) && !vistos.has(v)) { vistos.add(v); fila.push(v); }
+          }
+          const xs = g.map((c) => c % W), ys = g.map((c) => (c / W) | 0);
+          const bx0 = Math.min(...xs), bx1 = Math.max(...xs), by0 = Math.min(...ys), by1 = Math.max(...ys);
+          if (g.length <= 6 && bx1 - bx0 <= 2 && by1 - by0 <= 3) grupos.push([bx0, by0, bx1, by1]);
+        }
+        if (dir === "down") {
+          let melhor = null;
+          for (let i = 0; i < grupos.length; i++) for (let j = i + 1; j < grupos.length; j++) {
+            const g1 = grupos[i], g2 = grupos[j];
+            if (Math.abs(g1[1] - g2[1]) > 1) continue;
+            const dx = Math.abs((g1[0] + g1[2]) / 2 - (g2[0] + g2[2]) / 2);
+            if (dx < 3 || dx > W / 2) continue;
+            const l = linhas.get(g1[1]);
+            const sim = Math.abs((g1[0] + g1[2] + g2[0] + g2[2]) / 4 - (l[0] + l[1]) / 2);
+            if (sim > 1.5) continue;
+            const nota = sim + (g1[1] - y0) * 0.05;
+            if (!melhor || nota < melhor[0]) melhor = [nota, [g1, g2]];
+          }
+          caixas = melhor ? melhor[1] : [];
+        } else {
+          const alvo = grupos.filter((g) => g[1] <= y0 + alto * 0.5);
+          if (alvo.length) {
+            const esq = dir === "left";
+            const g = alvo.reduce((m, g) => (esq ? (g[0] < m[0] ? g : m) : (g[2] > m[2] ? g : m)));
+            const l = linhas.get(g[1]);
+            if (esq ? g[0] - l[0] <= 6 : l[1] - g[2] <= 6) caixas = [g];
+          }
+        }
+      }
+    } catch { caixas = []; }
+    porDir[dir] = caixas;
+    return caixas;
+  },
+
+
+  /** O POKÉMON VOANDO (montaria): a animação de voo dele (Hover/FlapAround do
+   *  Mystery Dungeon, ou o parado batendo as asas), virado pra `dir`; sem ela,
+   *  null. Mesmas regras de cor do `monAndando`. */
+  monVoando(mon, dir, ms) {
+    const sp = mon && DB.SPECIES[mon.species];
+    if (!sp || sp.fusao || sp.hack || sp.spriteUrl || mon.species === "spinda") return null;
+    const dex = sp.spriteDex || sp.dex;
+    // as FORMAS (regionais, megas, Rotom...) também: pelo número da forma (10091...)
+    if (!dex) return null;
+    const id = sp.id || mon.species;
+    pedirVoo(id, dex);
+    const q = quadroVoo(id, { down: "baixo", up: "cima", left: "esq", right: "dir" }[dir] || "baixo", ms);
+    if (!q) return null;
+    const out = mon.luminoso ? this.luminoso(this.shiny(q)) : mon.shiny ? this.shiny(q) : q;
+    return this.marcaAlfa(out, mon, false, true);
   },
 
   /** O POKÉMON VIVO FORA DA BATALHA (menu EQUIPE, PC, Pokédex, companheiro):
@@ -1217,10 +2424,18 @@ export const Assets = {
   monBack(id, seed) {
     const sp = DB.SPECIES[id];
     if (sp?.fusao) return fusaoSprite(sp, "costas", seed);
-    // a FORMA ÚNICA só tem a frente: de costas ela usa o mesmo desenho
-    if (sp && !sp.spriteUrl && !SpriteStore.pokemonBack[id]) pedirMon(sp.id || id, sp.spriteDex || sp.dex);
+    if (sp?.cardume) return this.monBack(sp.cardume, seed);
+    if (sp?.bizarro) return this.mon(id, seed);              // o bizarro não tem costas: é o mesmo desenho
+    // a FORMA ÚNICA só tem a frente: de costas ela usa o mesmo desenho. Quem
+    // foi desenhado aqui e tem as costas também (`spriteCostasUrl`, o ZYGARDE
+    // 200%) usa elas
+    if (sp?.spriteCostasUrl) pedirMonUrl(sp.id || id, sp.spriteCostasUrl, true);
+    else if (sp && !sp.spriteUrl && !SpriteStore.pokemonBack[id]) pedirMon(sp.id || id, sp.spriteDex || sp.dex);
     // nunca espelha: sprite espelhado deixa o jogo com cara de bug
-    return SpriteStore.pokemonBack[id] || this.mon(id, seed);
+    const costasExt = SpriteStore.pokemonBack[id];
+    if (costasExt && id === "alcremie") return this.alcremie(costasExt, seed);
+    if (costasExt && id === "bebbidao") return this.bebbidao(costasExt, seed);
+    return costasExt || this.mon(id, seed);
   },
 
   /** A 011GLITCHDIMENSION110 desenhada em runtime a partir do terreno. */
@@ -1352,6 +2567,618 @@ export const Assets = {
     return cv;
   },
 
+  /** A CAVERNA DO MONTE SERRA (src/data/caverna-serra.js), pintada da planta
+   *  como os outros mapas de Braglitch — e não copiada de uma caverna do
+   *  FireRed (a primeira versão era, e parecia o MT. MOON). É granito de serra:
+   *  marrom-avermelhado, com veio claro, e quartzo brotando das paredes.
+   *  Cada peça (pedregulho, cristal, buraco, escada, a luz da boca) é uma
+   *  grade de pixels de 16x16. */
+  /** A ÁREA ZERO e a GARAGEM ZERO (src/data/area-zero.js), desenhadas do zero
+   *  a partir da PLANTA. O fundo da cratera é verde de mata tropical, com água
+   *  turquesa descendo em cachoeira dos paredões; os paredões são de pedra
+   *  arroxeada cheia de veio de cristal; e os cristais (rosa, ciano e lilás)
+   *  brotam do chão. O CRISTAL GIGANTE (K) e, na GARAGEM, o prédio (Z) e o
+   *  heliponto (X) saem inteiros, de uma vez (um prédio pintado de 16 em 16
+   *  vira xadrez). A beira da GARAGEM (V) é a cratera vista lá de cima. */
+  areaZeroArt(geo, seed = 7070) {
+    const r = makeRng(seed + 11);
+    const planta = geo.planta || [];
+    const th = planta.length, tw = planta[0]?.length || 0;
+    const { cv, ctx } = makeCanvas(tw * 16, th * 16);
+    const at = (x, y) => planta[y]?.[x] ?? "#";
+    const px = (x, y, cor) => { ctx.fillStyle = cor; ctx.fillRect(x, y, 1, 1); };
+    const ret = (x, y, w, h, cor) => { ctx.fillStyle = cor; ctx.fillRect(x, y, w, h); };
+    const grade = (X, Y, linhas, cores) => linhas.forEach((l, dy) => [...l].forEach((ch, dx) => { if (cores[ch]) px(X + dx, Y + dy, cores[ch]); }));
+    const parede = (x, y) => "#W".includes(at(x, y));
+    const agua = (x, y) => "~=".includes(at(x, y));
+    // AS CORES
+    const GRAMA = ["#5cae6c", "#64b874", "#55a265", "#6ec27c"];
+    const CRISTAIS = [
+      { k: "#2a1a3a", e: "#b0408a", m: "#e070b8", c: "#ffb4e4", b: "#fff0fa" },     // rosa
+      { k: "#102a3a", e: "#2a8ab0", m: "#4cc4e4", c: "#a8f0ff", b: "#f0fdff" },     // ciano
+      { k: "#22183a", e: "#6a4ab0", m: "#9a7ae0", c: "#d4c4ff", b: "#f6f0ff" },     // lilás
+    ];
+    const cristalDe = (x, y) => CRISTAIS[(x * 7 + y * 13) % 3];
+
+    // ---------------------------------------------------------------- o chão
+    const chao = (x, y) => {
+      const X = x * 16, Y = y * 16;
+      ret(X, Y, 16, 16, GRAMA[0]);
+      for (let k = 0; k < 10; k++) { const gx = X + r.int(16), gy = Y + r.int(16); px(gx, gy, r.pick(GRAMA)); }
+      // os fiozinhos de grama
+      for (let k = 0; k < 3; k++) if (r.chance(0.7)) { const gx = X + 1 + r.int(14), gy = Y + 2 + r.int(12); px(gx, gy, "#4a9458"); px(gx + 1, gy - 1, "#4a9458"); px(gx + 2, gy, "#4a9458"); }
+      // flor da cratera (rosa, branca ou amarela) e, às vezes, um caquinho de cristal
+      if (r.chance(0.14)) { const fx = X + 2 + r.int(11), fy = Y + 2 + r.int(11), c = r.pick(["#ff8ac8", "#ffffff", "#ffe060"]);
+        px(fx, fy - 1, c); px(fx - 1, fy, c); px(fx + 1, fy, c); px(fx, fy + 1, c); px(fx, fy, "#ffd040"); }
+      if (r.chance(0.06)) { const cx = X + 3 + r.int(10), cy = Y + 4 + r.int(9), cr = cristalDe(x, y);
+        px(cx, cy, cr.c); px(cx, cy + 1, cr.m); px(cx + 1, cy + 1, cr.e); px(cx, cy + 2, cr.e); }
+      // a sombra do paredão de cima no chão
+      if (parede(x, y - 1)) { ret(X, Y, 16, 3, "rgba(30,20,60,0.32)"); ret(X, Y + 3, 16, 2, "rgba(30,20,60,0.16)"); }
+      // a beira da água: areiazinha clara
+      if (agua(x, y + 1) && at(x, y + 1) !== "=") { ret(X, Y + 14, 16, 2, "#d8e6b8"); ret(X, Y + 13, 16, 1, "#9ccf8a"); }
+    };
+    // o MATO ALTO (onde moram os selvagens): tufos de folha comprida
+    const mato = (x, y) => {
+      chao(x, y);
+      const X = x * 16, Y = y * 16;
+      const TUFO = [
+        "..a.....a.......",
+        ".ab..a..ab..a...",
+        ".ab.ab..ab.ab...",
+        "abbcab.abbcab...",
+        "abbcabbabbcabb..",
+        "bbcccbbbbcccbb..",
+        "bccccbbbcccccb..",
+        ".dddd...ddddd...",
+      ];
+      const cores = { a: "#8ae08e", b: "#3a9a5c", c: "#2a7a48", d: "rgba(20,50,30,0.35)" };
+      grade(X, Y, TUFO, cores);
+      grade(X + 4, Y + 8, TUFO, cores);
+    };
+    // a ÁGUA: turquesa, com brilho e espuma onde encosta na terra
+    const aguaT = (x, y) => {
+      const X = x * 16, Y = y * 16;
+      ret(X, Y, 16, 16, "#2aa0c4");
+      for (let k = 0; k < 3; k++) if (r.chance(0.6)) ret(X + r.int(11), Y + 2 + r.int(12), 3 + r.int(4), 1, "#5cd0ea");
+      if (r.chance(0.3)) px(X + r.int(15), Y + r.int(15), "#c8f6ff");
+      const terra = (dx, dy) => !agua(x + dx, y + dy) && !parede(x + dx, y + dy) && at(x + dx, y + dy) !== "W";
+      if (terra(0, -1)) { ret(X, Y, 16, 2, "#e8fbff"); ret(X, Y + 2, 16, 1, "#8ae4f6"); }
+      if (terra(-1, 0)) { ret(X, Y, 2, 16, "#bdf2fc"); }
+      if (terra(1, 0)) { ret(X + 14, Y, 2, 16, "#bdf2fc"); }
+      if (terra(0, 1)) { ret(X, Y + 14, 16, 2, "#1c7c9c"); }
+      // embaixo de cachoeira: a água espumando
+      if (at(x, y - 1) === "W" || at(x, y - 2) === "W") for (let k = 0; k < 14; k++) px(X + r.int(16), Y + r.int(10), r.pick(["#ffffff", "#d8f8ff"]));
+    };
+    // a PONTE: tábuas de madeira por cima da água
+    const ponte = (x, y) => {
+      aguaT(x, y);
+      const X = x * 16, Y = y * 16;
+      const vertical = agua(x - 1, y) && agua(x + 1, y) && !agua(x, y - 1);
+      if (vertical || (agua(x - 1, y) && agua(x + 1, y))) {
+        ret(X + 1, Y, 14, 16, "#8a5a32");
+        for (let k = 0; k < 4; k++) { ret(X + 1, Y + k * 4, 14, 1, "#5a3a1e"); ret(X + 2, Y + k * 4 + 1, 12, 1, "#a8743e"); }
+        ret(X, Y, 1, 16, "#4a2e16"); ret(X + 15, Y, 1, 16, "#4a2e16");
+      } else {
+        ret(X, Y + 1, 16, 14, "#8a5a32");
+        for (let k = 0; k < 4; k++) { ret(X + k * 4, Y + 1, 1, 14, "#5a3a1e"); ret(X + k * 4 + 1, Y + 2, 1, 12, "#a8743e"); }
+        ret(X, Y, 16, 1, "#4a2e16"); ret(X, Y + 15, 16, 1, "#4a2e16");
+      }
+    };
+    // o PAREDÃO DA CRATERA: pedra arroxeada em camadas, com veio de cristal; em
+    // cima de chão é a cara do paredão, cercado de pedra é o alto da cratera
+    const pedra = (x, y) => {
+      const X = x * 16, Y = y * 16;
+      const chaoEmbaixo = !parede(x, y + 1) && at(x, y + 1) !== "k", chaoEmCima = !parede(x, y - 1);
+      ret(X, Y, 16, 16, "#3a3452");
+      for (let k = 0; k < 3; k++) if (r.chance(0.6)) ret(X + r.int(12), Y + r.int(12), 4, 3, "#443d60");
+      // musgo no alto da cratera
+      for (let k = 0; k < 2; k++) if (r.chance(0.35)) ret(X + r.int(12), Y + r.int(13), 4, 2, "#3f6a4c");
+      if (chaoEmbaixo) {
+        ret(X, Y + 3, 16, 13, "#6a6288");
+        for (let k = 0; k < 3; k++) {
+          ret(X, Y + 4 + k * 4, 16, 2, k % 2 ? "#5a5278" : "#7a729a");
+          ret(X + ((x * 7 + k * 5) % 12), Y + 6 + k * 4, 3, 1, "#4a4466");
+        }
+        // o veio de cristal atravessando a pedra
+        if ((x * 13 + y * 7) % 3 === 0) {
+          const cr = cristalDe(x, y);
+          for (let k = 0; k < 9; k++) { px(X + 3 + k, Y + 6 + Math.round(k * 0.5), cr.m); px(X + 3 + k, Y + 5 + Math.round(k * 0.5), cr.c); }
+        }
+        ret(X, Y + 3, 16, 1, "#948cb4");          // a quina de cima, com luz
+        ret(X, Y + 15, 16, 1, "#2a2440");         // o pé
+        // as plantinhas penduradas
+        if ((x * 5 + y) % 4 === 0) for (let k = 0; k < 5; k++) px(X + 4 + k * 2, Y + 4 + (k % 3), "#4f9a5e");
+      }
+      if (chaoEmCima) { ret(X, Y, 16, 2, "#5a5278"); ret(X, Y, 16, 1, "#4f9a5e"); }
+      if (!parede(x - 1, y) && !chaoEmbaixo) ret(X, Y, 2, 16, "#58507a");
+      if (!parede(x + 1, y) && !chaoEmbaixo) ret(X + 14, Y, 2, 16, "#26203a");
+    };
+    // a CACHOEIRA: a água caindo pela cara do paredão
+    const cachoeira = (x, y) => {
+      const X = x * 16, Y = y * 16;
+      ret(X, Y, 16, 16, "#3aa8cc");
+      for (let k = 0; k < 6; k++) { const fx = X + 1 + k * 2 + (k % 2); ret(fx, Y, 1, 16, k % 2 ? "#8ae4f6" : "#5ccae8"); }
+      for (let k = 0; k < 8; k++) px(X + r.int(16), Y + r.int(16), "#e8fbff");
+      ret(X, Y, 1, 16, "#2a2440"); ret(X + 15, Y, 1, 16, "#2a2440");
+      if (!"W".includes(at(x, y - 1))) ret(X + 1, Y, 14, 2, "#e8fbff");
+    };
+    // o CRISTAL (k): um cacho de três pontas brotando do chão
+    const CRISTAL = [
+      "................",
+      ".........k......",
+      "........kck.....",
+      "...k....kcmk....",
+      "..kck..kccmk....",
+      "..kcmk.kcmmk..k.",
+      "..kcmk.kcmme.kck",
+      ".kccmk.kcmme.kcm",
+      ".kcmmekkcmmekkcm",
+      ".kcmmekcmmmeekmm",
+      ".kcmmekcmmmeekme",
+      "kccmmeekcmmeekme",
+      "kcmmmeekcmmeekee",
+      "kkkkkkkkkkkkkkkk",
+      ".ssssssssssssss.",
+      "................",
+    ];
+    const cristal = (x, y) => {
+      chao(x, y);
+      const cr = cristalDe(x, y);
+      grade(x * 16, y * 16, CRISTAL, { k: cr.k, c: cr.c, m: cr.m, e: cr.e, s: "rgba(20,10,40,0.35)" });
+      px(x * 16 + 10, y * 16 + 3, cr.b); px(x * 16 + 4, y * 16 + 5, cr.b);
+    };
+    // o PEDREGULHO
+    const PEDREGULHO = [
+      "................",
+      "................",
+      "................",
+      ".....kkkkkk.....",
+      "...kkllmmmmkk...",
+      "..kllllmmmmmmk..",
+      "..klllmmmmmmmk..",
+      ".kllmmmmmmmmsk..",
+      ".klmmmmmmmmmssk.",
+      ".kmmmmmmmmmmssk.",
+      ".kmmmmmmmmmsssk.",
+      ".ksmmmmmmmsssk..",
+      "..kssmmmssssk...",
+      "...kkksssskk....",
+      "..hhhkkkkkhhhh..",
+      "................",
+    ];
+    // a ÁRVORE da cratera: copa redonda e alta, de folha larga
+    const ARVORE = [
+      "....kkkkkkk.....",
+      "..kkaaabbbbkk...",
+      ".kaaaabbbbbcck..",
+      "kaaabbbbbbbccck.",
+      "kaabbbbbbbbccck.",
+      "kabbbbbbbbcccck.",
+      "kbbbbbbbbcccccck",
+      "kbbbbbbcccccccck",
+      ".kbbbcccccccddk.",
+      "..kcccccccdddk..",
+      "...kkkcckkkkk...",
+      "......ktk.......",
+      "......kttk......",
+      "......kttk......",
+      "....hhkttkhh....",
+      "................",
+    ];
+    const arvore = (x, y) => {
+      chao(x, y);
+      grade(x * 16, y * 16, ARVORE, { k: "#1a3a26", a: "#7ad88a", b: "#3fa660", c: "#2c8048", d: "#1e5e34", t: "#6a4a2a", h: "rgba(20,40,20,0.35)" });
+    };
+    const placa = (x, y) => {
+      chao(x, y);
+      const X = x * 16, Y = y * 16;
+      ret(X + 2, Y + 3, 12, 8, "#2a2440"); ret(X + 3, Y + 4, 10, 6, "#e8e4f4"); ret(X + 4, Y + 5, 8, 1, "#6a6288"); ret(X + 4, Y + 7, 6, 1, "#6a6288");
+      ret(X + 7, Y + 11, 2, 4, "#4a3a5a");
+    };
+
+    // ---------------------------------------------------------------- a GARAGEM ZERO
+    // a CERCA da beira: grade de metal com a cratera lá embaixo
+    const cerca = (x, y) => {
+      chao(x, y);
+      const X = x * 16, Y = y * 16;
+      ret(X, Y + 5, 16, 2, "#c8ccd8"); ret(X, Y + 10, 16, 2, "#c8ccd8");
+      ret(X, Y + 7, 16, 1, "#6a7080"); ret(X, Y + 12, 16, 1, "#6a7080");
+      for (const fx of [1, 8]) { ret(X + fx, Y + 3, 2, 13, "#9aa0b0"); ret(X + fx + 2, Y + 3, 1, 13, "#5a6070"); px(X + fx, Y + 3, "#e8ecf4"); }
+      ret(X, Y + 15, 16, 1, "rgba(20,20,40,0.35)");
+    };
+    // a CRATERA VISTA DE CIMA: a parede descendo, a névoa e, lá no fundo, o verde e os cristais
+    const vista = (x, y) => {
+      const X = x * 16, Y = y * 16;
+      const fundo = y - planta.findIndex((l) => l.includes("V"));     // 0 = a primeira fileira de cratera
+      const cores = ["#4a4468", "#3f5a6a", "#3a6a66", "#3a7a60"];
+      ret(X, Y, 16, 16, cores[Math.min(cores.length - 1, fundo)]);
+      if (fundo === 0) {                          // a quina da beira, e a pedra caindo
+        ret(X, Y, 16, 3, "#6a6288"); ret(X, Y + 3, 16, 1, "#2a2440");
+        for (let k = 0; k < 4; k++) ret(X + r.int(14), Y + 4 + r.int(8), 2, 3, "#5a5278");
+      } else {
+        // o verde lá embaixo, as copas pequenininhas e os pontinhos de cristal
+        for (let k = 0; k < 6; k++) px(X + r.int(16), Y + r.int(16), r.pick(["#4f9a5e", "#5cae6c", "#3a8a50"]));
+        if (r.chance(0.3)) { const c = cristalDe(x, y); px(X + r.int(15), Y + r.int(15), c.c); }
+        if (fundo >= 2 && r.chance(0.25)) ret(X + r.int(12), Y + r.int(14), 4, 1, "#5cd0ea");
+      }
+      // a névoa: faixas claras na frente
+      if (fundo === 1 || fundo === 2) ret(X, Y + (x * 3) % 12, 16, 2, "rgba(220,240,255,0.18)");
+    };
+    // um BLOCO INTEIRO de uma letra (o prédio, o heliponto, o CRISTAL GIGANTE)
+    const blocos = (letra) => {
+      const vistos = new Set(), out = [];
+      for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
+        if (at(x, y) !== letra || vistos.has(`${x},${y}`)) continue;
+        let w = 0; while (at(x + w, y) === letra) w++;
+        let h = 0; while (at(x, y + h) === letra) h++;
+        for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) vistos.add(`${x + i},${y + j}`);
+        out.push({ x, y, w, h });
+      }
+      return out;
+    };
+
+    // ---------------------------------------------------------------- pinta tile por tile
+    for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
+      const c = at(x, y), X = x * 16, Y = y * 16;
+      if (c === "#") pedra(x, y);
+      else if (c === "W") cachoeira(x, y);
+      else if (c === "~") aguaT(x, y);
+      else if (c === "=") ponte(x, y);
+      else if (c === ",") mato(x, y);
+      else if (c === "k") cristal(x, y);
+      else if (c === "t") arvore(x, y);
+      else if (c === "E") cerca(x, y);
+      else if (c === "V") vista(x, y);
+      else if (/[1-9]/.test(c)) placa(x, y);
+      else if (c === "K") aguaT(x, y);              // por baixo do cristal gigante, a água do lago
+      else chao(x, y);
+      if (c === "o") grade(X, Y, PEDREGULHO, { k: "#2a2440", l: "#a8a0c4", m: "#7a729a", s: "#5a5278", h: "rgba(20,10,40,0.35)" });
+    }
+
+    // ---------------------------------------------------------------- os blocos inteiros
+    // O HELIPONTO: o chão de concreto com o círculo amarelo e o H
+    for (const b of blocos("X")) {
+      const X = b.x * 16, Y = b.y * 16, W = b.w * 16, H = b.h * 16;
+      ret(X, Y, W, H, "#8a8e9a");
+      for (let k = 0; k < 40; k++) px(X + r.int(W), Y + r.int(H), r.pick(["#7e828e", "#969aa6"]));
+      ret(X, Y, W, 2, "#f0c020"); ret(X, Y + H - 2, W, 2, "#f0c020"); ret(X, Y, 2, H, "#f0c020"); ret(X + W - 2, Y, 2, H, "#f0c020");
+      const cx = X + W / 2, cy = Y + H / 2, raio = Math.min(W, H) / 2 - 6;
+      ctx.strokeStyle = "#f0e8d0"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(cx, cy, raio, 0, Math.PI * 2); ctx.stroke();
+      ret(cx - 10, cy - 12, 4, 24, "#f0e8d0"); ret(cx + 6, cy - 12, 4, 24, "#f0e8d0"); ret(cx - 6, cy - 2, 12, 4, "#f0e8d0");
+      // as luzinhas da beira
+      for (let k = 0; k < b.w; k++) { px(X + k * 16 + 8, Y + 1, "#ff5040"); px(X + k * 16 + 8, Y + H - 2, "#ff5040"); }
+    }
+    // O PRÉDIO DA GARAGEM ZERO: branco, com a faixa azul, as janelas, o portão de garagem e o letreiro
+    for (const b of blocos("Z")) {
+      const X = b.x * 16, Y = b.y * 16, W = b.w * 16, H = b.h * 16;
+      ret(X, Y + 6, W, H - 6, "#e4e8f0");                      // a parede
+      ret(X - 2, Y, W + 4, 8, "#5a6a8a"); ret(X - 2, Y, W + 4, 2, "#8a9aba"); ret(X - 2, Y + 7, W + 4, 1, "#3a4a6a");   // o telhado
+      ret(X, Y + 14, W, 4, "#2a7ab0"); ret(X, Y + 14, W, 1, "#5aaee0");                    // a faixa azul
+      for (let i = 0; i < 4; i++) { const jx = X + 8 + i * 14; if (jx + 10 > X + W / 2 - 8) break;
+        ret(jx, Y + 22, 10, 8, "#2a3a5a"); ret(jx + 1, Y + 23, 8, 6, "#6ac4f0"); ret(jx + 1, Y + 23, 3, 2, "#c8f0ff"); }
+      // o portão de garagem, de lâminas
+      const gx = X + W / 2 + 4, gw = W / 2 - 12;
+      ret(gx, Y + 26, gw, H - 26, "#7a8090");
+      for (let k = 0; k < 6; k++) ret(gx, Y + 28 + k * 5, gw, 1, "#5a6070");
+      ret(gx - 1, Y + 25, gw + 2, 1, "#3a4050");
+      // a porta de gente
+      ret(X + 14, Y + H - 18, 12, 18, "#3a4a6a"); ret(X + 15, Y + H - 17, 10, 16, "#5a7aa0"); px(X + 23, Y + H - 9, "#f0c020");
+      // o letreiro ZERO, em ciano
+      const L = { Z: ["####", "...#", "..#.", ".#..", "####"], E: ["####", "#...", "###.", "#...", "####"], R: ["###.", "#..#", "###.", "#.#.", "#..#"], O: [".##.", "#..#", "#..#", "#..#", ".##."] };
+      [..."ZERO"].forEach((ch, i) => grade(X + W / 2 - 22 + i * 6, Y + 1, L[ch], { "#": "#7affff" }));
+      ret(X, Y + H - 1, W, 1, "#8a90a0");
+    }
+    // O CRISTAL GIGANTE do meio do lago: três pontas enormes, facetadas, brilhando
+    for (const b of blocos("K")) {
+      const X = b.x * 16, Y = b.y * 16, W = b.w * 16, H = b.h * 16;
+      const brilho = ctx.createRadialGradient(X + W / 2, Y + H / 2, 4, X + W / 2, Y + H / 2, W);
+      brilho.addColorStop(0, "rgba(255,200,240,0.45)"); brilho.addColorStop(1, "rgba(255,200,240,0)");
+      ctx.fillStyle = brilho; ctx.fillRect(X - W / 2, Y - H / 2, W * 2, H * 2);
+      const ponta = (cx, base, larg, alt, cr) => {
+        // o contorno, as duas faces (a clara e a escura) e o fio de luz no meio
+        ctx.fillStyle = cr.k;
+        ctx.beginPath(); ctx.moveTo(cx - larg / 2 - 1, base); ctx.lineTo(cx, base - alt - 1); ctx.lineTo(cx + larg / 2 + 1, base); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = cr.c;
+        ctx.beginPath(); ctx.moveTo(cx - larg / 2, base); ctx.lineTo(cx, base - alt); ctx.lineTo(cx, base); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = cr.e;
+        ctx.beginPath(); ctx.moveTo(cx, base); ctx.lineTo(cx, base - alt); ctx.lineTo(cx + larg / 2, base); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = cr.m; ctx.fillRect(Math.round(cx - larg / 4), Math.round(base - alt / 2), 2, Math.round(alt / 3));
+        ctx.fillStyle = cr.b; ctx.fillRect(Math.round(cx - 1), Math.round(base - alt + 3), 1, Math.round(alt / 2));
+      };
+      const base = Y + H - 4;
+      ponta(X + W * 0.22, base, W * 0.32, H * 0.62, CRISTAIS[2]);
+      ponta(X + W * 0.80, base, W * 0.30, H * 0.55, CRISTAIS[1]);
+      ponta(X + W * 0.50, base + 2, W * 0.42, H * 1.15, CRISTAIS[0]);
+      // a base de pedra dentro da água
+      ret(X + 4, base - 2, W - 8, 4, "#3a3452"); ret(X + 6, base + 2, W - 12, 2, "#1c7c9c");
+    }
+    return cv;
+  },
+
+  cavernaArt(geo, seed = 5501) {
+    const r = makeRng(seed + 77);
+    const planta = geo.planta || [];
+    const th = planta.length, tw = planta[0]?.length || 0;
+    const { cv, ctx } = makeCanvas(tw * 16, th * 16);
+    const at = (x, y) => planta[y]?.[x] ?? "#";
+    const parede = (x, y) => "#".includes(at(x, y));
+    const px = (x, y, cor) => { ctx.fillStyle = cor; ctx.fillRect(x, y, 1, 1); };
+    const grade = (X, Y, linhas, cores) => linhas.forEach((l, dy) => [...l].forEach((ch, dx) => { if (cores[ch]) px(X + dx, Y + dy, cores[ch]); }));
+    // o chão: terra de granito, lisa, com uns grãos
+    const CHAO = ["#6e5546", "#7a6050", "#62493c", "#86705f"];
+    const chao = (x, y) => {
+      const X = x * 16, Y = y * 16;
+      ctx.fillStyle = CHAO[0]; ctx.fillRect(X, Y, 16, 16);
+      for (let k = 0; k < 4; k++) if (r.chance(0.6)) { const gx = X + r.int(15), gy = Y + r.int(15); px(gx, gy, CHAO[3]); px(gx, gy + 1, CHAO[2]); }
+      if (r.chance(0.08)) { ctx.fillStyle = CHAO[1]; ctx.fillRect(X + r.int(10), Y + r.int(12), 5, 2); }
+      // a sombra da parede de cima no chão
+      if (parede(x, y - 1)) { ctx.fillStyle = "rgba(20,8,4,0.35)"; ctx.fillRect(X, Y, 16, 4); ctx.fillStyle = "rgba(20,8,4,0.18)"; ctx.fillRect(X, Y + 4, 16, 2); }
+      if (parede(x - 1, y)) { ctx.fillStyle = "rgba(20,8,4,0.2)"; ctx.fillRect(X, Y, 2, 16); }
+    };
+    // o cascalho (onde moram os selvagens): pedrinha solta por cima do chão
+    const cascalho = (x, y) => {
+      chao(x, y);
+      const X = x * 16, Y = y * 16;
+      for (let k = 0; k < 7; k++) {
+        const gx = X + 1 + r.int(13), gy = Y + 1 + r.int(13), cor = r.pick(["#a08a76", "#94806c", "#b39d88"]);
+        px(gx, gy, cor); px(gx + 1, gy, cor); px(gx, gy + 1, "#4a362c"); px(gx + 1, gy + 1, "#4a362c");
+      }
+    };
+    // a água de dentro da montanha: escura e parada, com um brilho ou outro
+    const agua = (x, y) => {
+      const X = x * 16, Y = y * 16;
+      ctx.fillStyle = "#1d3f4f"; ctx.fillRect(X, Y, 16, 16);
+      if (r.chance(0.4)) { ctx.fillStyle = "#2f6276"; ctx.fillRect(X + r.int(10), Y + r.int(14), 4 + r.int(4), 1); }
+      if (!"~".includes(at(x, y - 1))) { ctx.fillStyle = "#3a2a22"; ctx.fillRect(X, Y, 16, 2); ctx.fillStyle = "#4f8aa0"; ctx.fillRect(X, Y + 2, 16, 1); }
+    };
+    // a PEDRA: em cima de chão vira paredão (a cara da rocha, com camadas e o
+    // veio de quartzo); cercada de pedra é o escuro da montanha
+    const pedra = (x, y) => {
+      const X = x * 16, Y = y * 16;
+      const chaoEmbaixo = !parede(x, y + 1), chaoEmCima = !parede(x, y - 1);
+      ctx.fillStyle = "#2a1d18"; ctx.fillRect(X, Y, 16, 16);
+      for (let k = 0; k < 3; k++) if (r.chance(0.5)) { ctx.fillStyle = "#33241e"; ctx.fillRect(X + r.int(12), Y + r.int(12), 4, 3); }
+      if (chaoEmbaixo) {                            // a cara do paredão
+        ctx.fillStyle = "#5a3f33"; ctx.fillRect(X, Y + 4, 16, 12);
+        for (let k = 0; k < 3; k++) {
+          ctx.fillStyle = k % 2 ? "#4c352b" : "#694b3d";
+          ctx.fillRect(X, Y + 5 + k * 4, 16, 2);
+          ctx.fillStyle = "#3d2a22"; ctx.fillRect(X + ((x * 7 + k * 5) % 12), Y + 7 + k * 4, 3, 1);
+        }
+        if ((x * 13 + y * 7) % 5 === 0) {           // o veio de quartzo atravessando
+          for (let k = 0; k < 10; k++) px(X + 3 + k, Y + 6 + Math.round(k * 0.6), "#d9cfc4");
+        }
+        ctx.fillStyle = "#7d5d4c"; ctx.fillRect(X, Y + 4, 16, 1);      // a quina de cima, com luz
+        ctx.fillStyle = "#24170f"; ctx.fillRect(X, Y + 15, 16, 1);     // o pé
+      }
+      if (chaoEmCima) { ctx.fillStyle = "#4a342a"; ctx.fillRect(X, Y, 16, 2); }
+      if (!parede(x - 1, y) && !chaoEmbaixo) { ctx.fillStyle = "#43302a"; ctx.fillRect(X, Y, 2, 16); }
+      if (!parede(x + 1, y) && !chaoEmbaixo) { ctx.fillStyle = "#1c120e"; ctx.fillRect(X + 14, Y, 2, 16); }
+    };
+    const PEDREGULHO = [
+      "................",
+      "................",
+      "................",
+      ".....kkkkkk.....",
+      "...kkcclmmmkk...",
+      "..kcllllmmmmmk..",
+      "..kclllmmmmmmk..",
+      ".kcllmmmmmmmmsk.",
+      ".kclmmmmmmmmssk.",
+      ".kmmmmmmmmmmssk.",
+      ".kmmmmmmmmmsssk.",
+      ".ksmmmmmmmsssk..",
+      "..kssmmmssssk...",
+      "...kkksssskk....",
+      "..hhhkkkkkhhhh..",
+      "................",
+    ];
+    const CRISTAL = [
+      "................",
+      "......k.........",
+      ".....kbk....k...",
+      ".....kbwk..kbk..",
+      "....kbbwk..kbwk.",
+      "..k.kbbwk.kbbwk.",
+      ".kbkkbbwk.kbbwk.",
+      ".kbwkbbwkkbbbwk.",
+      ".kbwkbbbwkbbbwk.",
+      ".kbbkbbbwkbbbwk.",
+      "kbbbwkbbwkbbbwk.",
+      "kbbbwkbbbkbbbbk.",
+      "kkkkkkkkkkkkkkk.",
+      ".rrrrrrrrrrrrr..",
+      "..hhhhhhhhhhhh..",
+      "................",
+    ];
+    const BURACO = [
+      "................",
+      "..kkkkkkkkkkkk..",
+      ".kddddddddddddk.",
+      "kddtttttttttdddk",
+      "kddtddddddtdddk.",
+      "kddtttttttttdddk",
+      "kddtddddddtdddk.",
+      "kddtttttttttdddk",
+      "kddtddddddtdddk.",
+      "kddtttttttttdddk",
+      "kddddddddddddddk",
+      ".kddddddddddddk.",
+      "..kkkkkkkkkkkk..",
+      "................",
+      "................",
+      "................",
+    ];
+    const ESCADA = [
+      "...t........t...",
+      "...tmmmmmmmmt...",
+      "...t........t...",
+      "...t........t...",
+      "...tmmmmmmmmt...",
+      "...t........t...",
+      "...t........t...",
+      "...tmmmmmmmmt...",
+      "...t........t...",
+      "...t........t...",
+      "...tmmmmmmmmt...",
+      "...t........t...",
+      "...t........t...",
+      "...tmmmmmmmmt...",
+      "..hthhhhhhhhth..",
+      "................",
+    ];
+    for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
+      const c = at(x, y), X = x * 16, Y = y * 16;
+      if (c === "#") pedra(x, y);
+      else if (c === "~") agua(x, y);
+      else if (c === ",") cascalho(x, y);
+      else chao(x, y);
+      if (c === "o") grade(X, Y, PEDREGULHO, { k: "#2b1c16", c: "#c4a690", l: "#a8866f", m: "#8a6a56", s: "#6a4e40", h: "rgba(20,8,4,0.35)" });
+      else if (c === "k") {
+        // quartzo: rosa claro na maioria, ametista de vez em quando
+        const ame = (x * 3 + y * 5) % 4 === 0;
+        grade(X, Y, CRISTAL, { k: ame ? "#3b2152" : "#5a3a46", b: ame ? "#9d6ad0" : "#e7c6cf", w: ame ? "#e2ccff" : "#fff4f6",
+                               r: "#4a342a", h: "rgba(20,8,4,0.35)" });
+        // o brilho que ele joga no chão em volta
+        const brilho = ctx.createRadialGradient(X + 8, Y + 8, 2, X + 8, Y + 8, 18);
+        brilho.addColorStop(0, ame ? "rgba(170,120,230,0.22)" : "rgba(255,220,230,0.2)");
+        brilho.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = brilho;
+        ctx.fillRect(X - 12, Y - 12, 40, 40);
+      } else if (c === "Q") grade(X, Y, BURACO, { k: "#2b1c16", d: "#0c0706", t: "#a07a4a" });
+      else if (c === "q") grade(X, Y, ESCADA, { t: "#8a6238", m: "#b8905a", h: "rgba(20,8,4,0.35)" });
+      else if (c === "U") {                         // a boca: a luz de fora entrando
+        const g = ctx.createRadialGradient(X + 8, Y + (y < th / 2 ? 0 : 16), 1, X + 8, Y + 8, 22);
+        g.addColorStop(0, "rgba(255,246,214,0.85)");
+        g.addColorStop(1, "rgba(255,246,214,0)");
+        ctx.fillStyle = g; ctx.fillRect(X - 16, Y - 16, 48, 48);
+      } else if (/[1-9]/.test(c)) {                // placa de madeira
+        grade(X, Y, ["................", "................", "..kkkkkkkkkkkk..", "..kmmmmmmmmmmk..", "..kmllllllllmk..",
+                     "..kmmmmmmmmmmk..", "..kmlllllllmmk..", "..kmmmmmmmmmmk..", "..kkkkkkkkkkkk..", "......kmk.......",
+                     "......kmk.......", "......kmk.......", ".....hkmkh......", "................", "................", "................"],
+             { k: "#3a2414", m: "#a8744a", l: "#7a5030", h: "rgba(20,8,4,0.35)" });
+      }
+    }
+    // a escuridão nas beiradas: a luz é de quem anda (um véu leve por cima)
+    const v = ctx.createRadialGradient(cv.width / 2, cv.height / 2, Math.min(cv.width, cv.height) * 0.3, cv.width / 2, cv.height / 2, Math.max(cv.width, cv.height) * 0.75);
+    v.addColorStop(0, "rgba(0,0,0,0)");
+    v.addColorStop(1, "rgba(8,4,2,0.35)");
+    ctx.fillStyle = v; ctx.fillRect(0, 0, cv.width, cv.height);
+    // A SALA DA FONTE DE CELADON (tema "fonte"): a mesma pedra, só que azulada —
+    // troca o vermelho pelo azul em todo pixel puxado pro marrom (a água e os
+    // cristais, que já são azul e rosa, ficam como estão)
+    if (geo.tema === "fonte") {
+      const dados = ctx.getImageData(0, 0, cv.width, cv.height), d = dados.data;
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i] > d[i + 2] + 8 && d[i] - d[i + 1] < 60) { const r = d[i]; d[i] = d[i + 2]; d[i + 2] = Math.min(255, r + 10); }
+      }
+      ctx.putImageData(dados, 0, 0);
+    }
+    return cv;
+  },
+
+  /** O CIBERESPAÇO (src/data/ciberespaco.js), desenhado do zero a partir da
+   *  planta: o chão é uma grade azul-escura; as NUVENS DE DADOS (onde os
+   *  bichos moram) são pacotinhos verdes acesos; os blocos são de CIRCUITO roxo
+   *  com trilhas e nós brilhando (bloco no meio de bloco vira o vazio, com
+   *  estrelinhas de pixel); os PORTAIS são anéis ciano e magenta (o de volta,
+   *  branco e dourado); as placas são terminais com a tela verde. */
+  ciberArt(geo, seed = 5501) {
+    const r = makeRng(seed + 404);
+    const planta = geo.planta || [];
+    const th = planta.length, tw = planta[0]?.length || 0;
+    const { cv, ctx } = makeCanvas(tw * 16, th * 16);
+    const at = (x, y) => planta[y]?.[x] ?? "#";
+    const bloco = (x, y) => at(x, y) === "#";
+    const px = (x, y, cor) => { ctx.fillStyle = cor; ctx.fillRect(x, y, 1, 1); };
+    const ret = (x, y, w, h, cor) => { ctx.fillStyle = cor; ctx.fillRect(x, y, w, h); };
+    // o chão: azul-noite com a grade e um bit perdido aqui e ali
+    const chao = (x, y) => {
+      const X = x * 16, Y = y * 16;
+      ret(X, Y, 16, 16, "#0b1030");
+      ret(X, Y, 16, 1, "#18337a"); ret(X, Y, 1, 16, "#18337a");
+      if ((x + y) % 4 === 0) px(X, Y, "#3d6cff");                  // o cruzamento aceso
+      if (r.chance(0.25)) px(X + 2 + r.int(12), Y + 2 + r.int(12), r.pick(["#2a4fae", "#6a3cc8", "#1f7a9a"]));
+      // a sombra do bloco de cima
+      if (bloco(x, y - 1)) { ret(X, Y, 16, 3, "rgba(0,0,10,0.55)"); }
+    };
+    // a nuvem de dados: o chão com pacotinhos verdes (2x2 com o brilho em cima)
+    const dados = (x, y) => {
+      chao(x, y);
+      const X = x * 16, Y = y * 16;
+      ret(X + 1, Y + 1, 15, 15, "rgba(20,120,90,0.28)");
+      for (let k = 0; k < 6; k++) {
+        const gx = X + 1 + r.int(12), gy = Y + 1 + r.int(12);
+        const cor = r.pick(["#36f5a8", "#22c48a", "#7cffcf"]);
+        ret(gx, gy, 2, 2, cor); px(gx, gy, "#e8fff6"); px(gx + 1, gy + 2, "#0a3a2a"); px(gx + 2, gy + 1, "#0a3a2a");
+      }
+    };
+    // o bloco de circuito: com chão embaixo é a CARA (roxa, trilhas e nós);
+    // com chão em cima, a tampa com borda; cercado, o vazio estrelado
+    const circuito = (x, y) => {
+      const X = x * 16, Y = y * 16;
+      const caraEmbaixo = !bloco(x, y + 1), chaoEmCima = !bloco(x, y - 1) && y > 0;
+      const cercado = bloco(x, y + 1) && bloco(x, y - 1) && bloco(x - 1, y) && bloco(x + 1, y);
+      if (cercado && !caraEmbaixo) {
+        ret(X, Y, 16, 16, "#05050f");
+        if (r.chance(0.5)) px(X + r.int(16), Y + r.int(16), r.pick(["#ffffff", "#5af0ff", "#ff5ad8", "#3d6cff"]));
+        return;
+      }
+      ret(X, Y, 16, 16, "#2a0f4a");
+      // a trilha: um caminho que vira no meio, com o nó aceso
+      const ty = Y + 3 + r.int(10), tx = X + 3 + r.int(10);
+      ret(X, ty, tx - X + 1, 1, "#9b4cff"); ret(tx, ty, 1, Y + 16 - ty, "#9b4cff");
+      ret(tx - 1, ty - 1, 3, 3, "#ff5ad8"); px(tx, ty, "#ffe6fb");
+      if (r.chance(0.5)) { const y2 = Y + 2 + r.int(12); ret(X + 8, y2, 8, 1, "#6a2cc0"); px(X + 8, y2, "#5af0ff"); }
+      if (chaoEmCima) { ret(X, Y, 16, 2, "#7a3ae0"); ret(X, Y + 2, 16, 1, "#4a1a8a"); }
+      if (caraEmbaixo) {
+        ret(X, Y + 12, 16, 4, "#1a0832");                         // o rodapé
+        for (let k = 1; k < 16; k += 3) px(X + k, Y + 13, (k + x) % 2 ? "#5af0ff" : "#ff5ad8");   // as luzinhas
+        ret(X, Y + 15, 16, 1, "#000000");
+      }
+      if (!bloco(x - 1, y)) ret(X, Y, 1, 16, "#7a3ae0");
+      if (!bloco(x + 1, y)) ret(X + 15, Y, 1, 16, "#120424");
+    };
+    // o portal: anéis um dentro do outro, com o miolo claro
+    const portal = (x, y, volta) => {
+      chao(x, y);
+      const X = x * 16 + 8, Y = y * 16 + 8;
+      const aneis = volta ? ["#ffd84a", "#ffffff", "#fff3b0"] : ["#5af0ff", "#ff5ad8", "#b8fbff"];
+      [[7, 6], [5, 4], [3, 2]].forEach(([rx, ry], i) => {
+        ctx.strokeStyle = aneis[i]; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.ellipse(X, Y, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+      });
+      ret(X - 1, Y - 1, 2, 2, "#ffffff");
+    };
+    // o terminal: monitorzinho de tela verde, num pé
+    const terminal = (x, y) => {
+      chao(x, y);
+      const X = x * 16, Y = y * 16;
+      ret(X + 2, Y + 2, 12, 9, "#2a2a44"); ret(X + 3, Y + 3, 10, 7, "#0a3a2a");
+      for (let k = 0; k < 3; k++) ret(X + 4, Y + 4 + k * 2, 3 + ((x * 7 + k * 3) % 6), 1, "#7cffcf");
+      ret(X + 7, Y + 11, 2, 3, "#2a2a44"); ret(X + 5, Y + 14, 6, 1, "#2a2a44");
+    };
+    for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
+      const c = at(x, y);
+      if (c === "#") circuito(x, y);
+      else if (c === ",") dados(x, y);
+      else if (c === "Q" || c === "q") portal(x, y, c === "q");
+      else if (/[1-9]/.test(c)) terminal(x, y);
+      else chao(x, y);
+    }
+    return cv;
+  },
+
+  /** os blocos do FireRed (src/core/fr-blocos.js), virados canvas uma vez só */
+  blocosFR() {
+    if (!this._blocosFR) {
+      this._blocosFR = Object.fromEntries(Object.entries(FR_BLOCOS).map(([k, rows]) => [k, spriteFromRows(rows, FR_CORES)]));
+      for (const [k, rows] of Object.entries(GRANDES)) this._blocosFR[k] = spriteFromRows(rows, GRANDE_CORES);   // a árvore da FLORESTA DE VIRIDIAN
+    }
+    return this._blocosFR;
+  },
+
   /** BRAGLITCH (src/data/braglitch.js), desenhada em runtime a partir da
    *  PLANTA do mapa — um caractere por tile. O chão sai tile por tile; os
    *  prédios saem inteiros (cada bloco de uma letra é um prédio), porque um
@@ -1362,6 +3189,14 @@ export const Assets = {
    *  coqueiro na areia e um barquinho pintado no píer. E, espalhado, o que o
    *  APAGÃO deixou: um pixel ou outro que não voltou da cor certa. */
   braglitchArt(geo, seed = 5501) {
+    if (["caverna", "fonte", "subterraneo"].includes(geo.tema)) return this.cavernaArt(geo, seed);
+    if (geo.tema === "areazero") return this.areaZeroArt(geo, seed);
+    // a SALA DA LIGA DE BRAGLITCH: quem desenha é src/systems/ligabrag.js (muda de forma)
+    // a ÁRVORE OCA: quem desenha é src/systems/arvoreoca.js
+    if (geo.tema === "ligavoid") { const { cv, ctx } = makeCanvas((geo.planta[0]?.length || 1) * 16, geo.planta.length * 16); ctx.fillStyle = "#000000"; ctx.fillRect(0, 0, cv.width, cv.height); return cv; }   // a LIGA DO VOID: quem pinta é src/systems/ligavoid.js
+    if (geo.tema === "arvoreoca") { const { cv, ctx } = makeCanvas((geo.planta[0]?.length || 1) * 16, geo.planta.length * 16); ctx.fillStyle = "#120a04"; ctx.fillRect(0, 0, cv.width, cv.height); return cv; }
+    if (geo.tema === "ligabrag") { const { cv, ctx } = makeCanvas((geo.planta[0]?.length || 1) * 16, geo.planta.length * 16); ctx.fillStyle = "#08080c"; ctx.fillRect(0, 0, cv.width, cv.height); return cv; }
+    if (geo.tema === "ciber") return this.ciberArt(geo, seed);
     const r = makeRng(seed);
     const planta = geo.planta || [];
     const th = planta.length, tw = planta[0]?.length || 0;
@@ -1387,7 +3222,29 @@ export const Assets = {
         }
       }
     };
-    const PREDIO = "HhLCMIKGA";
+    const PREDIO = "HhLCMIKGAT";
+    // KALOS (src/data/kalos.js): calçada de paralelepípedo no lugar da terra
+    const lumiose = tema === "lumiose";
+    // BRAGLITCH COM OS BLOCOS DO FIRERED (pedido do CAIO, nov/2026): a grama, o
+    // capim alto, a areia, a água e as árvores saem do tileset do FireRed
+    // (src/core/fr-blocos.js); o caminho de terra, o coqueiro e as casas continuam
+    const FR = !!geo.braglitch && !lumiose;
+    const B = FR ? this.blocosFR() : null;
+    const calcada = (x, y) => {
+      const X = x * 16, Y = y * 16;
+      liso(x, y, "#b3ada3");
+      for (let fy = 0; fy < 4; fy++) {             // as pedras em fileiras desencontradas
+        const des = (fy + y) % 2 ? 4 : 0;
+        for (let fx = -des; fx < 16; fx += 8) {
+          const sx = X + Math.max(0, fx), sw = Math.min(fx + 7, 16) - Math.max(0, fx);
+          if (sw <= 0) continue;
+          ctx.fillStyle = r.pick(["#bdb7ad", "#aba59b", "#c4beb3", "#b7b1a6"]);
+          ctx.fillRect(sx, Y + fy * 4, sw, 3);
+          ctx.fillStyle = "#cfc9be";
+          ctx.fillRect(sx, Y + fy * 4, sw, 1);       // a luz em cima da pedra
+        }
+      }
+    };
 
     // O CHÃO. Antes era tudo salpicado de quadradinhos de 4px sorteados, e de
     // longe parecia chuvisco de TV. Agora é como no FireRed: cor lisa, e o
@@ -1396,6 +3253,7 @@ export const Assets = {
     const liso = (x, y, cor) => { ctx.fillStyle = cor; ctx.fillRect(x * 16, y * 16, 16, 16); };
     const px1 = (x, y, cor) => { ctx.fillStyle = cor; ctx.fillRect(x, y, 1, 1); };
     const grama = (x, y) => {
+      if (FR) { ctx.drawImage(B[r.chance(0.8) ? "grama" : r.chance(0.5) ? "grama2" : "grama3"], x * 16, y * 16); return; }
       liso(x, y, GRAMA[0]);
       const X = x * 16, Y = y * 16;
       if (r.chance(0.18)) {                       // uma mancha de grama mais escura
@@ -1432,6 +3290,7 @@ export const Assets = {
       }
     };
     const areia = (x, y) => {
+      if (FR) { ctx.drawImage(B.areia, x * 16, y * 16); return; }
       liso(x, y, AREIA[0]);
       const X = x * 16, Y = y * 16;
       for (let k = 0; k < 5; k++) px1(X + r.int(16), Y + r.int(16), r.chance(0.5) ? AREIA[3] : AREIA[2]);
@@ -1484,13 +3343,43 @@ export const Assets = {
       else if (n && s && !o && !l) ctx.fillRect(X, Y + 5, 16, 6);   // caminho deitado
     };
 
+    // O GELO (o lago congelado, letra g): azul bem clarinho, liso, com o
+    // brilho riscado de quem escorrega, umas rachaduras e a beirada mais
+    // escura onde encosta na terra
+    const ehGelo = (x, y) => at(x, y) === "g";
+    const gelo = (x, y) => {
+      const X = x * 16, Y = y * 16;
+      liso(x, y, "#d4ecf7");
+      if ((x + y) % 2 === 0) { ctx.fillStyle = "#e4f4fb"; ctx.fillRect(X, Y, 16, 16); }
+      // o brilho: dois riscos brancos na diagonal
+      if (r.chance(0.45)) {
+        const sx = X + 2 + r.int(8), sy = Y + 2 + r.int(8);
+        for (let k = 0; k < 5; k++) px1(sx + k, sy + k, "#ffffff");
+        for (let k = 0; k < 3; k++) px1(sx + k + 2, sy + k, "#ffffff");
+      }
+      // uma rachadura fininha
+      if (r.chance(0.25)) {
+        let cx = X + 2 + r.int(12), cy = Y + 2 + r.int(6);
+        for (let k = 0; k < 6; k++) { px1(cx, cy, "#9cc7de"); cx += r.int(3) - 1; cy += 1; }
+      }
+      // a beirada: onde acaba o gelo, uma linha azul mais escura e a neve em volta
+      const B = "#8fbcd6";
+      if (!ehGelo(x, y - 1)) { ctx.fillStyle = B; ctx.fillRect(X, Y, 16, 1); ctx.fillStyle = "#f6fbff"; ctx.fillRect(X, Y + 1, 16, 1); }
+      if (!ehGelo(x, y + 1)) { ctx.fillStyle = B; ctx.fillRect(X, Y + 15, 16, 1); }
+      if (!ehGelo(x - 1, y)) { ctx.fillStyle = B; ctx.fillRect(X, Y, 1, 16); }
+      if (!ehGelo(x + 1, y)) { ctx.fillStyle = B; ctx.fillRect(X + 15, Y, 1, 16); }
+    };
+
     // 1. O CHÃO de todo tile (os prédios e as árvores vão por cima)
     for (let y = 0; y < th; y++) {
       for (let x = 0; x < tw; x++) {
         const c = at(x, y);
-        if (c === "~" || c === "B") {
-          salpica(x, y, AGUA);
-          if (r.chance(0.3)) {                      // crista de onda
+        // (a pedra no meio do lago fica em cima de gelo, não de grama)
+        if (c === "g" || (c === "o" && ehGelo(x - 1, y) && ehGelo(x + 1, y))) gelo(x, y);
+        else if (c === "~" || c === "B") {
+          if (FR) ctx.drawImage(B.agua, x * 16, y * 16);
+          else salpica(x, y, AGUA);
+          if (!FR && r.chance(0.3)) {               // crista de onda
             ctx.fillStyle = "#9fd4f5";
             ctx.fillRect(x * 16 + r.int(10), y * 16 + r.int(14), 4 + r.int(4), 1);
           }
@@ -1517,8 +3406,9 @@ export const Assets = {
         }
         // placa e pedra ficam no chão de quem está do lado: na praia, areia
         else if (/[1-9o]/.test(c) && [at(x - 1, y), at(x + 1, y), at(x, y + 1)].includes("a")) areia(x, y);
+        else if (lumiose && /[PD1-9lT]/.test(c)) calcada(x, y);
         else if (c === "P" || c === "D") terra(x, y);
-        else if (c === "R" || c === "e") salpica(x, y, ["#8d8a84", "#97948d", "#827f79", "#a09c94"]);
+        else if (c === "R" || c === "e" || c === "U") salpica(x, y, ["#8d8a84", "#97948d", "#827f79", "#a09c94"]);
         else if (c === "=") {
           salpica(x, y, AGUA);
           ctx.fillStyle = "#8a5a32";
@@ -1537,7 +3427,37 @@ export const Assets = {
     for (let y = 0; y < th; y++) {
       for (let x = 0; x < tw; x++) {
         const c = at(x, y), X = x * 16, Y = y * 16;
-        if (c === ",") {                            // mato alto
+        if (c === "c") {                            // KALOS: a PAREDE HOLOGRÁFICA da zona selvagem
+          // o chão de baixo é o de quem está do lado de fora (calçada) ou de dentro (grama)
+          const fora = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some((v) => "PD".includes(v));
+          if (fora) calcada(x, y);
+          const vert = at(x, y - 1) === "c" || at(x, y + 1) === "c";
+          const horiz = at(x - 1, y) === "c" || at(x + 1, y) === "c";
+          ctx.fillStyle = "rgba(60,230,255,0.28)";                         // o painel de luz
+          if (horiz || !vert) ctx.fillRect(X, Y + 3, 16, 10);
+          if (vert) ctx.fillRect(X + 4, Y, 8, 16);
+          ctx.fillStyle = "rgba(170,250,255,0.9)";                         // as bordas acesas
+          if (horiz || !vert) { ctx.fillRect(X, Y + 3, 16, 1); ctx.fillRect(X, Y + 12, 16, 1); }
+          if (vert) { ctx.fillRect(X + 4, Y, 1, 16); ctx.fillRect(X + 11, Y, 1, 16); }
+          ctx.fillStyle = "rgba(120,240,255,0.55)";                        // as linhas de varredura
+          if (horiz || !vert) for (let k = 5; k < 12; k += 3) ctx.fillRect(X, Y + k, 16, 1);
+          if (vert) for (let k = 2; k < 16; k += 4) ctx.fillRect(X + 5, Y + k, 6, 1);
+          if ((x + y) % 3 === 0) { ctx.fillStyle = "#ffffff"; ctx.fillRect(X + 7, Y + 7, 2, 2); }   // o brilho
+          ctx.fillStyle = "#1f3b52";                                       // o emissor no chão
+          ctx.fillRect(X + (vert ? 3 : 0), Y + 13, vert ? 10 : 16, 2);
+          continue;
+        }
+        if (c === "l") {                            // KALOS: o poste de luz de ferro
+          ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.fillRect(X + 9, Y + 13, 5, 2);
+          ctx.fillStyle = "#2b2f36"; ctx.fillRect(X + 7, Y + 4, 2, 11); ctx.fillRect(X + 5, Y + 13, 6, 2);
+          ctx.fillStyle = "#2b2f36"; ctx.fillRect(X + 4, Y, 8, 5);
+          ctx.fillStyle = "#ffe08a"; ctx.fillRect(X + 5, Y + 1, 6, 3);
+          ctx.fillStyle = "#fff6cf"; ctx.fillRect(X + 6, Y + 1, 2, 1);
+          continue;
+        }
+        if (c === "," && FR) ctx.drawImage(B.capim, X, Y);   // o capim alto do FireRed
+        else if (c === "#" && FR) { /* a árvore do FireRed vem inteira depois (4) */ }
+        else if (c === ",") {                       // mato alto
           ctx.fillStyle = "#2f7a2c";
           ctx.fillRect(X, Y + 7, 16, 9);
           for (let k = 0; k < 12; k++) {
@@ -1580,7 +3500,7 @@ export const Assets = {
           ctx.fillStyle = "#6b4a22";
           ctx.fillRect(X + 6, Y + 5, 2, 2);
           ctx.fillRect(X + 9, Y + 5, 2, 2);
-        } else if (c === "R") {                     // paredão da serra: pedra em camadas
+        } else if (c === "R" || c === "U") {        // paredão da serra: pedra em camadas
           ctx.fillStyle = "#77736c";
           ctx.fillRect(X, Y, 16, 16);
           for (let k = 0; k < 4; k++) {
@@ -1594,6 +3514,32 @@ export const Assets = {
           ctx.fillStyle = "rgba(20,30,20,0.28)";    // e a que ele joga no chão de baixo
           ctx.fillRect(X, Y + 16, 16, 5);
           if (at(x, y - 1) !== "R") { ctx.fillStyle = "#b3aea4"; ctx.fillRect(X, Y, 16, 2); }
+          if (c === "U") {                          // a BOCA DA CAVERNA (src/data/caverna-serra.js)
+            const BOCA = [
+              "................",
+              "................",
+              ".....aaaaaa.....",
+              "...aakkkkkkaa...",
+              "..akkddddddkka..",
+              ".akddddddddddka.",
+              ".akddddddddddka.",
+              "akdddddddddddkka",
+              "akddddddddddddka",
+              "akddddddddddddka",
+              "akdddddddddddddk",
+              "kddddddddddddddk",
+              "kddddddddddddddk",
+              "kddddddddddddddk",
+              "kddddddddddddddk",
+              "kddddddddddddddk",
+            ];
+            const COR = { a: "#a39e95", k: "#3a3632", d: "#121010" };
+            BOCA.forEach((linha, dy) => [...linha].forEach((ch, dx) => {
+              if (!COR[ch]) return;
+              ctx.fillStyle = COR[ch];
+              ctx.fillRect(X + dx, Y + dy, 1, 1);
+            }));
+          }
         } else if (c === "e") {                     // escadaria de pedra
           for (let k = 0; k < 4; k++) {
             ctx.fillStyle = "#b8b3a8";
@@ -1643,6 +3589,31 @@ export const Assets = {
       }
     }
 
+    // 4 (antes dos prédios, que não encostam em árvore). AS ÁRVORES DO FIRERED
+    // (Braglitch): cada 2x2 de "#" vira uma árvore inteira; sobrou uma coluna de
+    // 2, a fininha; sobrou um só, a moita. O PÉ fica no chão (embaixo do
+    // jogador); a COPA e a PONTA vão pro `over`, a camada que fica POR CIMA de
+    // tudo — a ponta sobe pro bloco de cima e cobre quem estiver lá: o jogador
+    // passando atrás, a árvore de trás, a água.
+    if (FR) {
+      // as ÁRVORES 3D (src/core/arvore3d.js): o overworld desenha cada uma, todo
+      // quadro, na fila de quem está em pé (o jogador passa atrás e na frente).
+      // Aqui só fica a lista (e, no fim, o desenho com elas pintadas, pro isométrico).
+      const lista = [];
+      const usada = new Set(), k = (x, y) => y * tw + x;
+      const livre = (x, y) => x >= 0 && y >= 0 && x < tw && y < th && at(x, y) === "#" && !usada.has(k(x, y));
+      for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
+        if (!livre(x, y)) continue;
+        let tipo, larg, alt;
+        if (livre(x + 1, y) && livre(x, y + 1) && livre(x + 1, y + 1)) { tipo = "arvore"; larg = 2; alt = 2; }
+        else if (livre(x, y + 1)) { tipo = "fininha"; larg = 1; alt = 2; }
+        else { tipo = "moita"; larg = 1; alt = 1; }
+        for (let a = 0; a < larg; a++) for (let b = 0; b < alt; b++) usada.add(k(x + a, y + b));
+        lista.push({ x, y, tipo, larg, alt });
+      }
+      geo._arvoresFR = lista;
+    }
+
     // 3. OS PRÉDIOS: cada bloco de letra igual, inteiro
     const visto = new Set();
     const CASARIO = ["#f2c14e", "#5fa8d3", "#f28ab2", "#7cc48a", "#f08a4b", "#b99be0"];
@@ -1658,6 +3629,7 @@ export const Assets = {
         for (let yy = y; yy <= y1; yy++) for (let xx = x; xx <= x1; xx++) visto.add(`${xx},${yy}`);
         const portas = [];
         for (let xx = x; xx <= x1; xx++) if (at(xx, y1 + 1) === "D") portas.push(xx);
+        this._tema = tema;
         this._predio(ctx, c, x * 16, y * 16, (x1 - x + 1) * 16, (y1 - y + 1) * 16,
                      portas.map((xx) => xx * 16), CASARIO[n++ % CASARIO.length], r);
       }
@@ -1720,6 +3692,13 @@ export const Assets = {
       ctx.fillStyle = r.pick(["#b455ff", "#00ffcc", "#ff0066"]);
       ctx.fillRect(x * 16 + r.int(12), y * 16 + r.int(14), 2 + r.int(4), 1);
     }
+    // o ISOMÉTRICO não desenha a árvore 3D: pra ele, o chão com elas pintadas
+    if (FR && geo._arvoresFR?.length) {
+      const { cv: iso, ctx: ci } = makeCanvas(cv.width, cv.height);
+      ci.drawImage(cv, 0, 0);
+      for (const a of geo._arvoresFR) { const img = B[a.tipo]; ci.drawImage(img, a.x * 16, (a.y + a.alt) * 16 - img.height); }
+      cv.comArvores = iso;
+    }
     return cv;
   },
 
@@ -1749,10 +3728,50 @@ export const Assets = {
     px(X + W / 2 - 12, Y + H - 8, 18, 1, "#6e5a26");
   },
 
+  /** A TORRE PRISMA de LUMIOSE (letra T): treliça de ferro afinando pra cima,
+   *  as luzes amarelas nas vigas e o prisma no alto. O bloco da planta é a
+   *  base; a ponta sobe por cima de quem está atrás. */
+  _torrePrisma(ctx, X, Y, W, H) {
+    const ret = (x, y, w, h, cor) => { ctx.fillStyle = cor; ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h))); };
+    const cx = X + W / 2;
+    ret(X + 4, Y + H - 4, W, 4, "rgba(20,25,35,0.25)");                    // a sombra
+    ret(X + 2, Y + H - 6, W - 4, 6, "#8f8a80");                             // o pedestal
+    ret(X + 2, Y + H - 6, W - 4, 1, "#b0aa9e");
+    const alto = H + 40;                                                     // passa do bloco pra cima
+    const base = Y + H - 6;
+    for (let k = 0; k < alto; k++) {                                         // as duas pernas, afinando
+      const t = k / alto;
+      const meia = (W / 2 - 2) * (1 - t) ** 1.5 + 3;
+      const y = base - k;
+      for (let xx = Math.ceil(cx - meia) + 3; xx < cx + meia - 3; xx++) {    // a treliça por dentro
+        if ((xx + k) % 4 === 0 || (xx - k) % 4 === 0) ret(xx, y, 1, 1, "rgba(70,84,106,0.85)");
+      }
+      ret(cx - meia, y, 3, 1, "#6d7c94");
+      ret(cx + meia - 3, y, 3, 1, "#3f4b5c");
+      if (k % 8 === 0) ret(cx - meia, y, meia * 2, 1, "#6f7d92");           // as vigas de travessa
+      if (k % 8 === 4 && meia > 4) {                                         // o X da treliça
+        ret(cx - meia / 2, y, 1, 1, "#56637a"); ret(cx + meia / 2, y, 1, 1, "#56637a");
+      }
+      if (k % 16 === 0 && meia > 6) {                                        // as luzes
+        ret(cx - meia + 3, y - 1, 2, 2, "#ffe08a"); ret(cx + meia - 5, y - 1, 2, 2, "#ffe08a");
+      }
+    }
+    ret(cx - 10, base - 22, 20, 3, "#7f8ea6");                               // o primeiro andar (a plataforma)
+    ret(cx - 7, base - 50, 14, 2, "#7f8ea6");                                // o segundo
+    const topo = base - alto;
+    ret(cx - 3, topo - 4, 6, 8, "#9fe8ff");                                  // o PRISMA, brilhando
+    ret(cx - 2, topo - 3, 2, 3, "#ffffff");
+    ret(cx - 1, topo - 10, 2, 7, "#5d6b80");                                 // a antena
+  },
+
   /** Um prédio de Braglitch, inteiro. `c` é a letra da planta. */
   _predio(ctx, c, X, Y, W, H, portas, cor, r) {
     const sombra = (x, y, w, h) => { ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(x, y, w, h); };
     if (c === "A") return this._arceusRedentor(ctx, X, Y, W, H);
+    if (c === "T") return this._torrePrisma(ctx, X, Y, W, H);
+    // KALOS: os prédios de Paris — parede creme, telhado de ardósia azul
+    const paris = this._tema === "lumiose" && (c === "h" || c === "H");
+    if (paris) cor = r.pick(["#efe3c8", "#e9dcc0", "#f3ead6", "#e6d6b6"]);
     if (c === "K") {                               // o CORETO: cúpula e colunas
       const cx = X + W / 2;
       ctx.fillStyle = "#e8e2d0";
@@ -1769,10 +3788,10 @@ export const Assets = {
       ctx.fillRect(cx - 1, Y, 2, 4);                // o pináculo
       return;
     }
-    const telhado = c === "C" ? "#d64040" : c === "M" ? "#3a7bd5" : c === "L" ? "#8a9bb0"
+    const telhado = paris ? "#4d5d7a" : c === "C" ? "#d64040" : c === "M" ? "#3a7bd5" : c === "L" ? "#8a9bb0"
       : c === "G" ? "#2f7d4f" : "#b5532e";
     const parede = c === "L" || c === "C" || c === "M" || c === "I" ? "#f4f1ea" : c === "G" ? "#f2d45c" : cor;
-    const casario = c === "H" || c === "h";        // as casas: janela com veneziana e chaminé
+    const casario = (c === "H" || c === "h") && !paris;   // as casas: janela com veneziana e chaminé
     const alturaParede = Math.min(26, Math.round(H * 0.5));
     const yParede = Y + H - alturaParede;
     const topo = Y + (c === "I" ? 10 : 2);
@@ -1842,6 +3861,10 @@ export const Assets = {
       ret(xx + 2, wy + 2, 2, 1, "#d8efff"); ret(xx + 2, wy + 3, 1, 1, "#d8efff");   // o reflexo
       ret(xx + 6, wy + 1, 1, 8, "#ffffff");                                        // o caixilho
       ret(xx - 1, wy + 10, 14, 1, tom(parede, 0.7));                               // o peitoril
+      if (paris) {                                 // a sacadinha de ferro
+        ret(xx - 1, wy + 7, 14, 1, "#2b2f36");
+        for (let k = 0; k < 14; k += 3) ret(xx - 1 + k, wy + 7, 1, 4, "#2b2f36");
+      }
       if (casario && r.chance(0.55)) {             // a floreira debaixo da janela
         ret(xx, wy + 11, 12, 3, "#7a4a2a");
         ret(xx, wy + 11, 12, 1, "#9a6238");

@@ -9,7 +9,10 @@ import path from "path";
 const raiz = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const exigeMais = process.argv.includes("--mais");
 const [, , so, lista] = process.argv.filter((a) => a !== "--mais");
-const ONDAS = new Set(["q", "p", "f", "t", "s", "o", "n", "_"]);
+// as ondas básicas e os timbres a mais (src/core/timbres.js), que o
+// Audio2.grito também toca
+const { TIMBRES } = await import(path.join(raiz, "src/core/timbres.js"));
+const ONDAS = new Set(["q", "p", "f", "t", "s", "o", "n", "_", ...Object.keys(TIMBRES)]);
 let erros = 0;
 const erro = (m) => { erros++; if (erros <= 60) console.log("ERRO", m); };
 

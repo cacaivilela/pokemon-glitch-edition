@@ -1,0 +1,73 @@
+<!doctype html><meta charset="utf-8"><title>depois da festa</title>
+<script type="module">
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const f = document.createElement("iframe");
+f.style.cssText = "position:absolute;left:-2000px;width:240px;height:160px";
+f.src = `../index.html?extrema=festa&dlc=extrema&perfil=extremadepois`;
+document.body.appendChild(f);
+const W = () => f.contentWindow, js = (c) => W().eval(c);
+const tecla = (code, key) => { for (const t of ["keydown", "keyup"]) W().dispatchEvent(new (W().KeyboardEvent)(t, { code, key })); };
+const z = async (n, gap = 450) => { for (let i = 0; i < n; i++) { tecla("KeyZ", "z"); await espera(gap); } };
+const log = [];
+const objetivo = () => js(`import("/src/systems/objetivo.js").then((o) => o.objetivoAtual(window.game.state, "kanto"))`);
+async function foto(nome) {
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: `depois_${nome}`, dataUrl: f.contentDocument.getElementById("screen").toDataURL(), log: log.splice(0).join("\n") }) });
+}
+const fala = (id) => js(`(() => { const s = window.game.scenes.top; s.dlg.active = false;
+  const n = s.npcsHere().find((n) => n.id === "${id}"); if (!n) return "NÃO ACHEI ${id}"; s.talkTo(n); return "falou com ${id}"; })()`);
+const vai = (map, x, y, dir) => js(`(() => { const s = window.game.scenes.top, p = window.game.state.player;
+  Object.assign(p, { map: "${map}", x: ${x}, y: ${y}, dir: "${dir}" }); s.afterTravel(); s.snapCamera(); })()`);
+try {
+  for (let i = 0; i < 60 && !f.contentDocument?.getElementById("screen"); i++) await espera(100);
+  await espera(2500);
+  for (let i = 0; i < 3; i++) { await espera(400); tecla("Enter", "Enter"); }
+  await espera(2500);
+
+  // 1. o você de um ano atrás: vencido (de mentira) e a conversa do fim
+  js(`(window.game.state.npcState["lab.gde_passado"] ||= {}).defeated = true`);
+  log.push(fala("gde_passado"));
+  await z(26);
+  await espera(7000);                  // o cartão "O MISSINGNO ABSORVEU O GIRATINA"
+  log.push("passado: " + js("window.game.state.flags.gde_k_passado") + " fundida: " + js("window.game.state.flags.gdeFundida"));
+  log.push("missão da festa: " + js(`JSON.stringify(window.game.state.missoes.gde_k_festa)`) + " objetivo: " + await objetivo());
+  await foto("1_fundiu");
+
+  // 2. a carteira, em PALLET: entrega a festa
+  vai("pallet", 8, 9, "up");
+  await espera(1500);
+  log.push(fala("missao_gde_k_convite"));
+  await z(14);
+  await espera(1500);
+  log.push("missão da festa: " + js(`JSON.stringify(window.game.state.missoes.gde_k_festa)`) + " foto: " + js(`window.game.state.items["foto de um ano"]`) + " fim: " + js("window.game.state.flags.gde_k_fim"));
+  log.push("objetivo: " + await objetivo());
+  log.push("AZUL em Pallet: " + js(`window.game.scenes.top.npcsHere().filter((n) => n.id.startsWith("gde_azul")).map((n) => n.id).join(",")`));
+  await foto("2_carteira");
+
+  // 3. o laboratório: a IPÊ com o pedido da fenda, e o GLITNEXY
+  vai("lab", 8, 4, "up");
+  await espera(1500);
+  log.push("no lab: " + js(`window.game.scenes.top.npcsHere().map((n) => n.id).join(" ")`));
+  // a IPÊ fica em 8,3; quem fala com ela fica embaixo (8,4 tem a bola, então de 9,3)
+  vai("lab", 9, 3, "left");
+  await espera(800);
+  log.push(fala("missao_gde_k_extrema"));
+  await z(18);
+  await espera(1500);
+  log.push("missão extrema: " + js(`JSON.stringify(window.game.state.missoes.gde_k_extrema)`) + " objetivo: " + await objetivo());
+  await foto("3_ipe");
+
+  // 4. o GLITNEXY sem espetinho
+  js(`(() => { const st = window.game.state; for (const k of Object.keys(st.items)) if (k.startsWith("espetinho")) delete st.items[k]; })()`);
+  vai("lab", 3, 6, "up");
+  await espera(800);
+  log.push(fala("gde_glitnexy"));
+  await z(3);
+  await foto("4_glitnexy_com_fome");
+  await z(10);
+
+  // 5. as berries nas lojas
+  log.push("loja de viridian: " + await js(`import("/src/data/index.js").then((D) => (D.DB.MAPS.viridian_city_mart.npcs.find((n) => n.shop)?.shop || []).filter((x) => x.item.endsWith("berry")).map((x) => x.item + " $" + x.price).join(", "))`));
+  await foto("5_fim");
+} catch (e) { log.push("ERRO: " + e); await foto("erro"); }
+document.title = "pronto";
+</script>

@@ -13,8 +13,9 @@
 // os dois de volta, não montar cópias parecidas.
 import { url as arquivo } from "../core/base.js";
 import { DB } from "../data/index.js";
-import { createMon, recalc, xpForLevel, learnableMoves } from "./mon.js";
+import { createMon, recalc, xpForLevel, learnableMoves, darClarao, evolutionFor } from "./mon.js";
 import { todosGuardados } from "./box.js";
+import { ehBizarro, garantirBizarro } from "./bizarro.js";
 
 const cfg = () => DB.FUSAO || {};
 const PREFIXO = "fus";
@@ -31,12 +32,14 @@ const PREFIXO = "fus";
 // da partida pra saber de onde vêm as fichas.
 let estado = null;
 
-export const chaveFicha = (cabeca, corpo) => `${cabeca}+${corpo}`;
+// FUSÃO TRIPLA: um terceiro Pokémon, as PERNAS. A chave vira "cabeça+meio+pernas"
+// e o id "fus-cabeça-meio-pernas" — sem pernas, tudo continua como sempre foi.
+export const chaveFicha = (cabeca, corpo, pernas = "") => `${cabeca}+${corpo}` + (pernas ? `+${pernas}` : "");
 
 /** Diz de qual partida as fichas vêm (chamado junto com registrarDoEstado). */
 export function ligarEstado(st) { if (st?.player || st?.party) estado = st; }
 
-export const fichaDe = (cabeca, corpo) => estado?.fusoes?.[chaveFicha(cabeca, corpo)] || null;
+export const fichaDe = (cabeca, corpo, pernas = "") => estado?.fusoes?.[chaveFicha(cabeca, corpo, pernas)] || null;
 export const temFicha = (cabeca, corpo) => !!fichaDe(cabeca, corpo);
 /** A ficha do MESMO par, mas com os lados trocados. Fazer a ficha de A+B e
  *  depois fundir B+A é o erro mais fácil de cometer aqui — a máquina passou a
@@ -58,21 +61,100 @@ export function versoesInvertidas(cabeca, corpo) {
 // máquina calcula, ou a ficha que você fez na oficina. Com variante é uma das
 // que já existem no jogo (src/data/fusoes.js) ou que um jogador publicou
 // (src/data/fusoes-feitas.js).
-export const idFusao = (cabeca, corpo, variante = "") =>
-  `${PREFIXO}-${cabeca}-${corpo}` + (variante ? `~${variante}` : "");
+export const idFusao = (cabeca, corpo, variante = "", pernas = "") =>
+  `${PREFIXO}-${cabeca}-${corpo}` + (pernas ? `-${pernas}` : "") + (variante ? `~${variante}` : "");
 
-/** { cabeca, corpo, variante } de um id de fusão, ou null se não for um. */
+/** { cabeca, corpo, pernas, variante } de um id de fusão, ou null se não for
+ *  um. `pernas` só existe na fusão tripla (senão é ""). */
+/** OS NOMES ESCOLHIDOS À MÃO (o CAIO: "mudkip + cubchoo vai ser o mudchoo"):
+ *  "cabeca+corpo" (ou "cabeca+meio+pernas") -> o nome */
+/** AS PÁGINAS ESCRITAS À MÃO (pelo Claude, nov/2026), das fusões que o CAIO
+ *  achou na calculadora: "cabeça+corpo" -> o texto. As outras são misturadas
+ *  sozinhas (`misturarDex`). */
+export const DEX_ESCRITOS = {
+  "cacnea+cacturne": "TODO MUNDO ACHA QUE ELE É UMA COMIDA. ELE ODEIA O PRÓPRIO NOME E SE ESCONDE NO DESERTO NA HORA DO ALMOÇO.",
+  "zekrom+kadabra": "ELE QUERIA TER LISTRAS. TENTOU COM A COLHER, COM O PENSAMENTO E COM UM RAIO. CONTINUA TODO PRETO.",
+  "furfrou+altaria": "FICA BRAVO QUANDO DESPENTEIAM O PELO DELE. COMO O PELO É DE NUVEM, VIVE BRAVO EM DIA DE VENTO.",
+  "baltoy+roggenrola": "GIRA TÃO RÁPIDO QUE SAI VOANDO IGUAL UMA BALA. TEM GENTE QUE JÁ TENTOU CHUPAR. QUEBROU O DENTE.",
+  "gogoat+noivern": "ACHA QUE MANDA NA FLORESTA INTEIRA. DE NOITE, VOA EM CIMA DAS ÁRVORES PRA VER SE TODO MUNDO OBEDECEU.",
+  "machop+sprigatito": "TREINA NO MEIO DO MATO TODO DIA. O CHEIRO DOCE DO PELO FAZ O ADVERSÁRIO DORMIR ANTES DA LUTA COMEÇAR.",
+  "eternatus+magikarp": "TEM PODER PRA ACABAR COM O MUNDO INTEIRO. MAS SÓ SABE USAR SPLASH, ENTÃO FICA PULANDO NO LUGAR PRA SEMPRE.",
+  "gothitelle+nosepass": "MORA NO ALTO DA TORRE POKÉMON. QUANDO ELE GRITA, PARECE A MÚSICA DE UM FILME DE TERROR BEM ANTIGO.",
+  "servine+raichuhack": "ENTRA NOS SERVIDORES PELO FIO DA TOMADA. JÁ DERRUBOU O ONLINE TRÊS VEZES SÓ PRA VER O QUE ACONTECIA.",
+  "cacnea+vullaby": "ESPERA SEM SE MEXER ATÉ ALGUÉM CHEGAR PERTO. AÍ ABRE AS ASAS DE ESPINHO E DÁ UM SUSTO QUE GELA A ESPINHA.",
+  "darmanitan+pichu": "PARECE UM BEBÊ FOFINHO. QUANDO FICA BRAVO, O FOGO DA TESTA ACENDE E OS CHOQUES SAEM PRA TODO LADO.",
+  "froslass+gyarados": "APARECE NO MEIO DA NEVASCA, BEM ATRÁS DE QUEM SE PERDEU. NINGUÉM SABE SE É UM FANTASMA OU UM DRAGÃO.",
+  "pikachu+charmander": "A CAUDA SOLTA FOGO E AS BOCHECHAS SOLTAM CHOQUE. QUANDO ESPIRRA, SAI OS DOIS AO MESMO TEMPO.",
+  "mudkip+cubchoo": "O NARIZ ESCORRE SEM PARAR. ELE USA O CATARRO PRA SENTIR A ÁGUA E O GELO, ENTÃO NUNCA LIMPA.",
+  "eevee+dhelmise": "UM EEVEE QUE CAIU NO MAR E VIROU ÂNCORA. PUXA OS NAVIOS PRO FUNDO SÓ PRA TER COM QUEM BRINCAR.",
+  "roaringmoon+tangrowth": "AS VINHAS VERMELHAS CRESCEM UM METRO POR NOITE. QUEM ENTRA NA MATA DELE NÃO ACHA MAIS A SAÍDA.",
+};
+
+export const NOMES_ESCOLHIDOS = {
+  "mudkip+cubchoo": "MUDCHOO",
+  "pikachu+charmander": "PICHANDER",
+};
+let nomesReais = null;
+/** o nome da fusão: o escolhido à mão, ou o da conta (começo da cabeça + fim do
+ *  corpo) — e se a conta der o nome de um Pokémon DE VERDADE (PIDOVE + PIDGEY
+ *  dava "PIDGEY"), ele pega uma letra a mais da cabeça até ficar diferente */
+/** A PÁGINA DA POKÉDEX DA FUSÃO: um pedaço da página de quem dá a cabeça e um
+ *  da de quem dá o corpo (as pernas, na tripla, entram no fim). Com duas frases
+ *  cada, vai a primeira de um e a última do outro; com uma frase só, ela é
+ *  cortada na vírgula (ou no " E ") e o começo de um emenda no fim do outro.
+ *  O nome de cada um, no meio do texto, vira o nome da fusão. */
+function misturarDex(cab, cor, per, nome) {
+  // (frase curtinha, tipo "FILHOTE.", gruda na seguinte: sozinha não diz nada)
+  const frases = (t) => String(t || "").trim().split(/(?<=[.!?])\s+/).filter(Boolean)
+    .reduce((out, f) => { if (out.length && out[out.length - 1].length < 16) out[out.length - 1] += " " + f; else out.push(f); return out; }, []);
+  const A = frases(cab.dexText), B = frases(cor.dexText);
+  if (!A.length || !B.length) return "";
+  // corta uma frase em duas: [começo, emenda, resto]
+  const cortar = (f) => {
+    const m = f.match(/^(.{8,}?)(, | E | QUE | MAS )(.{8,})$/);
+    return m ? [m[1], m[2], m[3]] : null;
+  };
+  let texto;
+  if (A.length >= 2 && B.length >= 2) texto = `${A[0]} ${B[B.length - 1]}`;
+  else {
+    const a = cortar(A[0]), b = cortar(B[B.length - 1]);
+    if (a && b) texto = `${a[0]}${b[1]}${b[2]}` + (A.length >= 2 ? ` ${A[1]}` : "") ;
+    else texto = A[0] === B[B.length - 1] ? A[0] : `${A[0]} ${B[B.length - 1]}`;
+  }
+  if (per) {
+    const P = frases(per.dexText);
+    if (P.length && !texto.includes(P[P.length - 1])) texto += ` ${P[P.length - 1]}`;
+  }
+  for (const n of [cab.name, cor.name, per?.name].filter(Boolean)) texto = texto.split(n).join(nome);
+  return texto;
+}
+
+function nomeDaFusao(F, cab, cor, per) {
+  const chave = [cab.id, cor.id, per?.id].filter(Boolean).join("+");
+  if (NOMES_ESCOLHIDOS[chave]) return NOMES_ESCOLHIDOS[chave];
+  let nome = per ? F.nome3(cab.name, cor.name, per.name) : F.nome(cab.name, cor.name);
+  nomesReais ||= new Set(Object.values(DB.SPECIES || {}).filter((x) => !x.fusao).map((x) => x.name));
+  // o pedaço que veio da cabeça é o começo em comum com o nome dela; a conta
+  // cresce esse pedaço uma letra por vez, e o fim (do corpo) fica igual
+  const A = String(cab.name);
+  let k = 0;
+  while (k < nome.length && k < A.length && nome[k] === A[k]) k++;
+  const fim = nome.slice(k), base = nome;
+  for (let extra = 1; nomesReais.has(nome) && k + extra <= A.length; extra++) nome = A.slice(0, k + extra) + fim;
+  return nomesReais.has(nome) ? base + "X" : nome;
+}
+
 export function partes(id) {
   if (typeof id !== "string" || !id.startsWith(PREFIXO + "-")) return null;
   const [base, variante = ""] = id.split("~");
-  const [, cabeca, corpo] = base.split("-");   // ids de espécie são só [a-z0-9]
-  return cabeca && corpo ? { cabeca, corpo, variante } : null;
+  const [, cabeca, corpo, pernas = ""] = base.split("-");   // ids de espécie são só [a-z0-9]
+  return cabeca && corpo ? { cabeca, corpo, pernas, variante } : null;
 }
 
 /** As fusões daquela dupla que já vêm escritas: as do jogo primeiro, depois as
  *  que jogadores publicaram pela oficina. */
-export function fichasProntas(cabeca, corpo) {
-  const k = chaveFicha(cabeca, corpo);
+export function fichasProntas(cabeca, corpo, pernas = "") {
+  const k = chaveFicha(cabeca, corpo, pernas);
   const lista = [
     ...(DB.FUSOES?.[k] || []).map((f) => ({ ...f, origem: "jogo" })),
     ...(DB.FUSOES_FEITAS?.[k] || []).map((f) => ({ ...f, origem: "jogador" })),
@@ -82,17 +164,17 @@ export function fichasProntas(cabeca, corpo) {
   return lista.filter((f) => !vistas.has(f.id) && vistas.add(f.id));
 }
 
-export const fichaPronta = (cabeca, corpo, variante) =>
-  fichasProntas(cabeca, corpo).find((f) => f.id === variante) || null;
+export const fichaPronta = (cabeca, corpo, variante, pernas = "") =>
+  fichasProntas(cabeca, corpo, pernas).find((f) => f.id === variante) || null;
 
 /** Tudo que aquela dupla pode virar, na ordem em que o C passa por elas. */
-export function variantes(cabeca, corpo) {
-  const minha = fichaDe(cabeca, corpo);
+export function variantes(cabeca, corpo, pernas = "") {
+  const minha = fichaDe(cabeca, corpo, pernas);
   const lista = [{
     variante: "", ficha: minha, origem: minha ? "sua" : "auto",
     rotulo: minha ? "SUA FICHA" : "AUTOMÁTICA",
   }];
-  for (const f of fichasProntas(cabeca, corpo)) {
+  for (const f of fichasProntas(cabeca, corpo, pernas)) {
     lista.push({
       variante: f.id, ficha: f, origem: f.origem,
       rotulo: f.origem === "jogo" ? "DO JOGO" : `DE ${(f.autor || "ALGUÉM").slice(0, 8)}`,
@@ -104,33 +186,37 @@ export function variantes(cabeca, corpo) {
 export const ehFusao = (mon) => !!partes(mon?.species);
 
 /** Monta a espécie da fusão. Devolve null se um dos lados não existe mais. */
-export function montarEspecie(cabecaId, corpoId, variante = "") {
+export function montarEspecie(cabecaId, corpoId, variante = "", pernasId = "") {
   const cab = DB.SPECIES?.[cabecaId];
   const cor = DB.SPECIES?.[corpoId];
+  const per = pernasId ? DB.SPECIES?.[pernasId] : null;
   if (!cab || !cor || cab.mega || cor.mega || partes(cabecaId) || partes(corpoId)) return null;
+  if (pernasId && (!per || per.mega || partes(pernasId))) return null;
   const F = cfg();
-  const id = idFusao(cabecaId, corpoId, variante);
-  const base = F.stats(cab.base, cor.base);
+  const id = idFusao(cabecaId, corpoId, variante, pernasId);
+  const base = per ? F.stats3(cab.base, cor.base, per.base) : F.stats(cab.base, cor.base);
   const bst = Object.values(base).reduce((a, b) => a + b, 0);
   const sp = {
     id,
     dex: 0,                                    // fusão não entra na Pokédex de Kanto
-    name: F.nome(cab.name, cor.name),
-    types: F.tipos(cab, cor),
+    name: nomeDaFusao(F, cab, cor, per),
+    types: per ? F.tipos3(cab, cor, per) : F.tipos(cab, cor),
     base,
     bst,
     catchRate: Math.floor(((cab.catchRate || 45) + (cor.catchRate || 45)) / 2),
-    xpYield: Math.floor(((cab.xpYield || 60) + (cor.xpYield || 60)) / 2),
-    learnset: F.learnset(cab, cor),
-    dexText: String(F.dexText || "")
-      .replace("{CABECA}", cab.name).replace("{CORPO}", cor.name),
+    xpYield: Math.floor(((cab.xpYield || 60) + (cor.xpYield || 60) + (per ? per.xpYield || 60 : 0)) / (per ? 2.5 : 2)),
+    learnset: F.learnset(cab, cor, per),
+    dexText: "",
     lore: true,
-    codigo: F.codigo(cab, cor),
-    fusao: { cabeca: cabecaId, corpo: corpoId, variante },
+    codigo: F.codigo(cab, cor) + (per ? ((per.dex || 0) % 256).toString(16).toUpperCase().padStart(2, "0") : ""),
+    fusao: { cabeca: cabecaId, corpo: corpoId, variante, ...(per ? { pernas: pernasId } : {}) },
   };
+  // a página da Pokédex: as duas páginas misturadas (pedido do CAIO, nov/2026)
+  sp.dexText = (!per && DEX_ESCRITOS[`${cabecaId}+${corpoId}`]) || misturarDex(cab, cor, per, sp.name) || String((per && F.dexText3) || F.dexText || "")
+    .replace("{CABECA}", cab.name).replace("{CORPO}", cor.name).replace("{PERNAS}", per?.name || "");
   // sem variante vale a sua ficha (a da oficina, que mora no save); com
   // variante vale a ficha escrita no código
-  const ficha = variante ? fichaPronta(cabecaId, corpoId, variante) : fichaDe(cabecaId, corpoId);
+  const ficha = variante ? fichaPronta(cabecaId, corpoId, variante, pernasId) : fichaDe(cabecaId, corpoId, pernasId);
   if (variante && !ficha) return null;          // variante que não existe mais
   return comFicha(sp, ficha);
 }
@@ -140,7 +226,7 @@ export function montarEspecie(cabecaId, corpoId, variante = "") {
 function comFicha(sp, ficha) {
   if (!ficha) return sp;
   if (ficha.nome) sp.name = String(ficha.nome).slice(0, cfg().nomeMax || 11);
-  if (ficha.tipos?.length) sp.types = ficha.tipos.slice(0, 2);
+  if (ficha.tipos?.length) sp.types = ficha.tipos.slice(0, sp.fusao?.pernas ? 3 : 2);
   if (ficha.crescimento) {
     // com crescimento, `recalc` larga a fórmula das espécies e usa esta conta:
     // valor = inicial + crescimento x nível (ver src/systems/mon.js)
@@ -167,11 +253,12 @@ function comFicha(sp, ficha) {
  *  fusão é chato; perder a partida por causa disso seria absurdo. */
 export function garantirEspecie(id) {
   if (DB.SPECIES?.[id]) return DB.SPECIES[id];
+  if (ehBizarro(id)) return garantirBizarro(id);     // o BIZARRO do PORTAL PARADOXO: sai da semente do id
   const p = partes(id);
   if (!p) return null;
-  let sp = montarEspecie(p.cabeca, p.corpo, p.variante);
+  let sp = montarEspecie(p.cabeca, p.corpo, p.variante, p.pernas);
   if (!sp && p.variante) {
-    sp = montarEspecie(p.cabeca, p.corpo);      // a versão sumiu: vale a automática
+    sp = montarEspecie(p.cabeca, p.corpo, "", p.pernas);      // a versão sumiu: vale a automática
     if (sp) sp.id = id;                          // mas o Pokémon continua sendo o mesmo
   }
   if (sp) DB.SPECIES[id] = sp;
@@ -186,7 +273,7 @@ export function registrarDoEstado(st) {
   ligarEstado(st);
   let n = 0;
   for (const mon of [...(st.party || []), ...(st.box || []), ...todosGuardados(st)]) {
-    if (ehFusao(mon) && garantirEspecie(mon.species)) n++;
+    if ((ehFusao(mon) || ehBizarro(mon.species)) && garantirEspecie(mon.species)) n++;
   }
   return n;
 }
@@ -197,9 +284,9 @@ const clone = (mon) => JSON.parse(JSON.stringify(mon));
 
 /** Os golpes que a fusão leva: os da cabeça primeiro, os do corpo depois, sem
  *  repetir, até quatro. Se os dois não souberem nada, cai no learnset. */
-function golpesDaFusao(cab, cor, sp, level) {
+function golpesDaFusao(cab, cor, sp, level, per = null) {
   const escolhidos = [];
-  for (const mv of [...(cab.moves || []), ...(cor.moves || [])]) {
+  for (const mv of [...(cab.moves || []), ...(cor.moves || []), ...(per?.moves || [])]) {
     if (escolhidos.length >= 4 || escolhidos.some((m) => m.id === mv.id)) continue;
     if (!DB.MOVES[mv.id]) continue;
     escolhidos.push({ id: mv.id, pp: mv.pp, ppMax: mv.ppMax });
@@ -211,28 +298,31 @@ function golpesDaFusao(cab, cor, sp, level) {
 
 /** FUNDIR: `cabeca` e `corpo` viram um Pokémon só. Os dois originais vão
  *  inteiros pra dentro dele — é deles que a separação sai. */
-export function fundir(cabeca, corpo, variante = "") {
+export function fundir(cabeca, corpo, variante = "", pernas = null) {
   if (!cabeca || !corpo || cabeca === corpo) return null;
   if (ehFusao(cabeca) || ehFusao(corpo)) return null;
-  const sp = montarEspecie(cabeca.species, corpo.species, variante);
+  if (pernas && (pernas === cabeca || pernas === corpo || ehFusao(pernas))) return null;
+  const sp = montarEspecie(cabeca.species, corpo.species, variante, pernas?.species || "");
   if (!sp) return null;
   DB.SPECIES[sp.id] = sp;
 
-  const level = Math.max(cabeca.level, corpo.level);
+  const todos = [cabeca, corpo, pernas].filter(Boolean);
+  const level = Math.max(...todos.map((m) => m.level));
   const ivs = {};
   for (const k of ["hp", "atk", "def", "spa", "spd", "spe"]) {
-    ivs[k] = Math.round(((cabeca.ivs?.[k] || 0) + (corpo.ivs?.[k] || 0)) / 2);
+    ivs[k] = Math.round(todos.reduce((n, m) => n + (m.ivs?.[k] || 0), 0) / todos.length);
   }
   const mon = createMon(sp.id, level, {
     ivs,
-    shiny: !!(cabeca.shiny || corpo.shiny),
-    corrupt: !!(cabeca.corrupt || corpo.corrupt),
+    shiny: todos.some((m) => m.shiny),
+    luminoso: todos.some((m) => m.luminoso),
+    corrupt: todos.some((m) => m.corrupt),
     seed: cabeca.seed,
   });
-  mon.moves = golpesDaFusao(cabeca, corpo, sp, level);
-  mon.status = cabeca.status || corpo.status || null;
-  mon.hp = Math.max(1, Math.round(mon.maxHp * ((fracao(cabeca) + fracao(corpo)) / 2)));
-  mon.fusao = { cabeca: clone(cabeca), corpo: clone(corpo) };
+  mon.moves = golpesDaFusao(cabeca, corpo, sp, level, pernas);
+  mon.status = todos.map((m) => m.status).find(Boolean) || null;
+  mon.hp = Math.max(1, Math.round(mon.maxHp * (todos.reduce((n, m) => n + fracao(m), 0) / todos.length)));
+  mon.fusao = { cabeca: clone(cabeca), corpo: clone(corpo), ...(pernas ? { pernas: clone(pernas) } : {}) };
   // O BRILHO PEGA. Fundir um shiny com um comum não deixa a cor de um deles
   // pra trás: a fusão sai shiny e os DOIS que estão guardados lá dentro saem
   // shiny também — separar depois devolve os dois brilhando. É a única coisa
@@ -240,7 +330,19 @@ export function fundir(cabeca, corpo, variante = "") {
   if (mon.shiny) {
     mon.fusao.cabeca.shiny = true;
     mon.fusao.corpo.shiny = true;
-    mon.brilhouNaFusao = !(cabeca.shiny && corpo.shiny);   // um só era: pegou no outro
+    if (mon.fusao.pernas) mon.fusao.pernas.shiny = true;
+    mon.brilhouNaFusao = !todos.every((m) => m.shiny);    // um só era: pegou nos outros
+  }
+  // A LUZ PEGA IGUAL, e ganha do shiny: um luminoso fundido com um shiny devolve
+  // luminosos. Ela é a cor mais rara do jogo — sair de dentro da máquina
+  // valendo menos do que entrou seria a máquina cobrando pra fundir.
+  if (mon.luminoso) {
+    mon.shiny = false;
+    for (const k of ["cabeca", "corpo", "pernas"]) {
+      if (mon.fusao[k]) { mon.fusao[k].luminoso = true; mon.fusao[k].shiny = false; }
+    }
+    mon.brilhouNaFusao = !todos.every((m) => m.luminoso);
+    darClarao(mon);   // os golpes da fusão vêm depois do createMon: o clarão volta aqui
   }
   return mon;
 }
@@ -255,7 +357,7 @@ export function fundir(cabeca, corpo, variante = "") {
 export function trocarVariante(mon, variante = "") {
   const p = partes(mon?.species);
   if (!p) return null;
-  const sp = montarEspecie(p.cabeca, p.corpo, variante);
+  const sp = montarEspecie(p.cabeca, p.corpo, variante, p.pernas);
   if (!sp) return null;
   DB.SPECIES[sp.id] = sp;
   const nomeAntigo = mon.name;
@@ -267,7 +369,7 @@ export function trocarVariante(mon, variante = "") {
   return sp;
 }
 
-/** SEPARAR: devolve [cabeça, corpo] como eram — mas com o que a fusão viveu.
+/** SEPARAR: devolve [cabeça, corpo] (ou [cabeça, meio, pernas]) como eram — mas com o que a fusão viveu.
  *  Nível, HP e status voltam pros dois; ninguém sai da máquina mais fraco do
  *  que entrou nem curado de graça. */
 export function separar(fus) {
@@ -287,21 +389,24 @@ export function separar(fus) {
     mon.hp = Math.max(fus.hp > 0 ? 1 : 0, Math.round(mon.maxHp * frac));
     mon.status = fus.status || null;
     if (fus.shiny) mon.shiny = true;
+    if (fus.luminoso) { mon.luminoso = true; mon.shiny = false; }
     return mon;
   };
   const cabeca = sair(guardados.cabeca, p.cabeca);
   const corpo = sair(guardados.corpo, p.corpo);
   if (!cabeca || !corpo) return null;
-  return [cabeca, corpo];
+  if (!p.pernas) return [cabeca, corpo];
+  const pernas = sair(guardados.pernas, p.pernas);
+  return pernas ? [cabeca, corpo, pernas] : null;
 }
 
 /** Quem na equipe pode entrar na máquina (fusão de fusão, não). */
 export const fundivel = (mon) => !!mon && !ehFusao(mon);
 
 /** O nome que a fusão VAI ter, pra máquina mostrar antes de você confirmar. */
-export function previsao(cabeca, corpo, variante = "") {
+export function previsao(cabeca, corpo, variante = "", pernas = null) {
   if (!cabeca || !corpo || cabeca === corpo) return null;
-  const sp = montarEspecie(cabeca.species, corpo.species, variante);
+  const sp = montarEspecie(cabeca.species, corpo.species, variante, pernas?.species || "");
   // registra: é assim que a máquina consegue DESENHAR o resultado antes de
   // você confirmar (Assets.mon monta o sprite a partir da espécie)
   if (sp) DB.SPECIES[sp.id] = sp;
@@ -320,11 +425,13 @@ export function importarFicha(st, texto) {
 
   const chave = String(cru?.chave || "");
   const ficha = cru?.ficha;
-  if (!/^[a-z0-9]+\+[a-z0-9]+$/.test(chave)) return { ok: false, erro: "SEM A DUPLA DENTRO" };
+  if (!/^[a-z0-9]+\+[a-z0-9]+(\+[a-z0-9]+)?$/.test(chave)) return { ok: false, erro: "SEM A DUPLA DENTRO" };
   if (!ficha || typeof ficha !== "object") return { ok: false, erro: "SEM A FICHA DENTRO" };
 
-  const [cabeca, corpo] = chave.split("+");
-  if (!DB.SPECIES[cabeca] || !DB.SPECIES[corpo]) return { ok: false, erro: "ESSA DUPLA NÃO EXISTE AQUI" };
+  const [cabeca, corpo, pernas = ""] = chave.split("+");
+  if (!DB.SPECIES[cabeca] || !DB.SPECIES[corpo] || (pernas && !DB.SPECIES[pernas])) {
+    return { ok: false, erro: "ESSA DUPLA NÃO EXISTE AQUI" };
+  }
 
   const nome = String(ficha.nome || "").toUpperCase().slice(0, cfg().nomeMax || 11).trim();
   if (!nome) return { ok: false, erro: "FICHA SEM NOME" };
@@ -332,7 +439,7 @@ export function importarFicha(st, texto) {
   const tipos = (Array.isArray(ficha.tipos) ? ficha.tipos : [])
     .map((t) => String(t).toUpperCase())
     .filter((t) => (DB.TYPES || []).includes(t))
-    .slice(0, 2);
+    .slice(0, pernas ? 3 : 2);
   if (!tipos.length) return { ok: false, erro: "TIPO QUE NÃO EXISTE" };
 
   const numeros = (fonte, min, max) => {
@@ -362,9 +469,9 @@ export function importarFicha(st, texto) {
     ...(ficha.lore ? { lore: String(ficha.lore).slice(0, 200) } : {}),
     ...(ficha.autor ? { autor: String(ficha.autor).toUpperCase().slice(0, 10) } : {}),
   };
-  const sp = salvarFicha(st, cabeca, corpo, limpa);
+  const sp = salvarFicha(st, cabeca, corpo, limpa, pernas);
   if (!sp) return { ok: false, erro: "NÃO DEU PRA MONTAR A ESPÉCIE" };
-  return { ok: true, sp, cabeca, corpo };
+  return { ok: true, sp, cabeca, corpo, pernas };
 }
 
 /** Acha a espécie por NÚMERO da Pokédex ou por NOME — é assim que a oficina
@@ -403,11 +510,11 @@ export function fichaParaEditar(cabecaId, corpoId) {
 
 /** Grava a ficha no save e faz valer na hora: a espécie é remontada e todo
  *  mundo que já é dessa fusão recalcula (nome, tipos e atributos novos). */
-export function salvarFicha(st, cabecaId, corpoId, ficha) {
+export function salvarFicha(st, cabecaId, corpoId, ficha, pernasId = "") {
   if (!st || !ficha) return null;
-  (st.fusoes ||= {})[chaveFicha(cabecaId, corpoId)] = ficha;
+  (st.fusoes ||= {})[chaveFicha(cabecaId, corpoId, pernasId)] = ficha;
   ligarEstado(st);
-  const sp = montarEspecie(cabecaId, corpoId);
+  const sp = montarEspecie(cabecaId, corpoId, "", pernasId);
   if (!sp) return null;
   DB.SPECIES[sp.id] = sp;
   for (const mon of [...(st.party || []), ...todosGuardados(st)]) {
@@ -503,4 +610,19 @@ async function chamarMundo(corpo) {
     if (!r.ok) return { ok: false, erro: dado.erro || "o servidor recusou" };
     return dado;
   } catch { return { ok: false, erro: "o servidor não respondeu" }; }
+}
+
+
+/** A FUSÃO EVOLUI (pedido do CAIO, nov/2026): como no Infinite Fusion, CADA
+ *  METADE evolui no nível (ou na amizade) dela — um CHARMANDER+PIDGEY vira
+ *  CHARMELEON+PIDGEY no 16 e CHARMELEON+PIDGEOTTO no 18. Devolve o id da fusão
+ *  nova (já montada), ou null. A variante da ficha não vai junto (é outra dupla). */
+export function evolucaoDaFusao(mon, mapa = null) {
+  const p = partes(mon?.species);
+  if (!p) return null;
+  const evo = (id) => (id ? evolutionFor({ ...mon, species: id }, mapa) : null);
+  const c = evo(p.cabeca), b = evo(p.corpo), pe = evo(p.pernas);
+  if (!c && !b && !pe) return null;
+  const id = idFusao(c || p.cabeca, b || p.corpo, "", pe || p.pernas);
+  return garantirEspecie(id) ? id : null;
 }

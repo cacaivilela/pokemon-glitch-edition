@@ -1,0 +1,97 @@
+<!doctype html>
+<!-- GLITCH DIMENSION EXTREMA (dlc/extrema.js): abre o jogo no laboratório,
+     um ano depois, com berries na mochila; o GLITNEXY faz o espetinho (três
+     ORAN), e a viagem cai na KANTO DISTORCIDA; confere o relógio, os +100 dos
+     selvagens, o empréstimo da equipe, que só o primeiro chefe aparece, e a
+     volta pelo vão. Cada passo vira um retrato em dev/captures/extrema_*.png,
+     com o log do lado. `&offline`: o jogo de teste não entra na sala online
+     de quem está jogando.
+     Uso: /dev/extremacheck.html (?regiao=braglitch faz o caminho de lá) -->
+<meta charset="utf-8">
+<title>extremacheck</title>
+<style>
+  body { background: #111; color: #ddd; font: 13px monospace; margin: 8px; }
+  figure { display: inline-block; margin: 4px; vertical-align: top; }
+  img { width: 480px; height: 320px; image-rendering: pixelated; display: block; }
+  figcaption { max-width: 480px; white-space: pre-wrap; }
+  iframe { position: absolute; left: -2000px; width: 240px; height: 160px; }
+</style>
+<div id="saida"></div>
+<script type="module">
+const q = new URLSearchParams(location.search);
+const brag = q.get("regiao") === "braglitch";
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const saida = document.getElementById("saida");
+const f = document.createElement("iframe");
+// perfil próprio (NUNCA gravar no save.json de quem joga) e offline
+f.src = `../index.html?extrema=glitnexy&dlc=extrema${brag ? "&regiao=braglitch" : ""}&perfil=extremacheck&offline`;
+document.body.appendChild(f);
+const W = () => f.contentWindow;
+const tecla = (code, key) => {
+  for (const type of ["keydown", "keyup"]) W().dispatchEvent(new (W().KeyboardEvent)(type, { code, key }));
+};
+const apertaZ = async (n, gap = 450) => { for (let i = 0; i < n; i++) { tecla("KeyZ", "z"); await espera(gap); } };
+const js = (codigo) => W().eval(codigo);
+const log = [];
+const nota = (s) => { log.push(s); };
+
+async function foto(nome) {
+  const dataUrl = f.contentDocument.getElementById("screen").toDataURL();
+  const texto = log.splice(0).join("\n");
+  fetch("/__capture", { method: "POST", body: JSON.stringify({ name: `extrema_${nome}`, dataUrl, log: texto }) }).catch(() => {});
+  const fig = document.createElement("figure");
+  fig.innerHTML = `<img src="${dataUrl}"><figcaption>${nome}\n${texto}</figcaption>`;
+  saida.appendChild(fig);
+}
+const niveis = () => js(`window.game.state.party.map((m) => m.species + ":" + m.level + (m.nivelEmprestado ? "(+" + m.nivelEmprestado + ")" : "")).join(" ")`);
+const npcs = () => js(`window.game.scenes.top.npcsHere().map((n) => n.id).join(" ")`);
+const fala = (id) => js(`(() => { const s = window.game.scenes.top; s.dlg.active = false;
+  const n = s.npcsHere().find((n) => n.id === "${id}"); if (!n) return "não achei ${id}"; s.talkTo(n); return "falou com ${id}"; })()`);
+const vai = (x, y, dir) => js(`(() => { const s = window.game.scenes.top, p = window.game.state.player;
+  p.x = ${x}; p.y = ${y}; p.dir = "${dir}"; s.snapCamera(); })()`);
+
+try {
+  for (let i = 0; i < 60 && !f.contentDocument?.getElementById("screen"); i++) await espera(100);
+  await espera(2500);
+  for (let i = 0; i < 6; i++) { await espera(400); tecla("Enter", "Enter"); }
+  await espera(6500);                       // o cartão da fusão passa
+  nota("mapa: " + js("window.game.state.player.map") + "  equipe: " + niveis());
+  await foto("1_lab");
+
+  // o GLITNEXY: três ORAN (a primeira opção, três vezes), sem tempero
+  nota(fala("gde_glitnexy"));
+  await apertaZ(30);
+  await espera(4000);
+  nota("mapa: " + js("window.game.state.player.map") + "  extrema: " + js("!!window.game.state.mission?.extrema")
+       + "  relógio: " + js("Math.round(window.game.state.mission?.left || 0)") + "s");
+  nota("equipe: " + niveis());
+  nota("npcs: " + npcs());
+  await foto("2_distorcida");
+
+  // um selvagem de lá: +100
+  nota(await js(`Promise.all([import("/src/systems/mon.js"), import("/src/data/index.js")]).then(([M, D]) => {
+    const b = { mon: M.createMon("drifloon", 30) };
+    for (const g of D.DB.GANCHOS.encontrar) g(window.game.state, b);
+    return "drifloon 30 -> " + b.mon.level;
+  })`));
+
+  // o primeiro chefe (só ele aparece), de perto
+  await apertaZ(6);
+  const chefe = js(`JSON.stringify(window.game.scenes.top.npcsHere().filter((n) => n.id.startsWith("gde_chefe")).map((n) => [n.id, n.x, n.y]))`);
+  nota("chefes à vista: " + chefe);
+  const [, cx, cy] = JSON.parse(chefe)[0] || [];
+  if (cx != null) { vai(cx, cy + 2, "up"); await espera(500); }
+  await foto("3_chefe_no_mapa");
+
+  // volta pelo vão: os níveis emprestados voltam
+  nota(fala("gde_vao"));
+  await apertaZ(3, 500);
+  await espera(3500);
+  nota("mapa: " + js("window.game.state.player.map") + "  equipe: " + niveis() + "  missão: " + js("JSON.stringify(window.game.state.mission)"));
+  await foto("4_volta");
+} catch (e) {
+  nota("ERRO: " + e);
+  await foto("erro");
+}
+document.title = "extremacheck pronto";
+</script>

@@ -231,7 +231,7 @@ export const CIDADES = [
     lider: { nome: "JACIRA", sprite: "superf", titulo: "A GUARDIÃ DA MATA",
              fala: ["EU SOU JACIRA. CRESCI ENTRE SAMAÚMA E IGARAPÉ.", "AQUI A MATA LUTA JUNTO COMIGO. VAMOS VER SE VOCÊ AGUENTA A FLORESTA INTEIRA!"],
              depois: ["A MATA RESPEITA QUEM A ENFRENTA COM HONESTIDADE. LEVA A INSÍGNIA."],
-             time: [["sauvinha", 12], ["acaizinho", 12], ["guaraninho", 14]] },
+             time: [["sauvinha", 12], ["acaizinho", 12], ["fus-guaraninho-sauvinha", 13], ["guaraninho", 14]] },
     insignia: { id: "samauma", nome: "INSÍGNIA SAMAÚMA" },
     treinadores: [["MATEIRA CIDA", "garota", [["sauvinha", 10], ["acaizinho", 11]]],
                   ["EXTRATIVISTA ZECA", "garoto", [["vitoriregia", 12]]]],
@@ -247,7 +247,7 @@ export const CIDADES = [
     lider: { nome: "CHICO MANGUE", sprite: "pescador", titulo: "O CARANGUEJO COM CÉREBRO",
              fala: ["EU SOU CHICO MANGUE. DA LAMA AO CAOS, DO CAOS À LAMA.", "MEUS POKÉMON SAEM DO MANGUE PRO MUNDO. BORA!"],
              depois: ["TU TEM SUINGUE. A INSÍGNIA É TUA, MAS O MANGUE CONTINUA MEU."],
-             time: [["caranguejinho", 17], ["piranhita", 18], ["botinho", 20]] },
+             time: [["caranguejinho", 17], ["piranhita", 18], ["fus-caranguejinho-piranhita", 19], ["botinho", 20]] },
     insignia: { id: "mangue", nome: "INSÍGNIA MANGUE" },
     treinadores: [["NADADORA LIA", "garota", [["botinho", 16], ["piranhita", 16]]],
                   ["PESCADOR BIU", "pescador", [["caranguejinho", 17]]]],
@@ -263,7 +263,7 @@ export const CIDADES = [
     lider: { nome: "MESTRE GINGA", sprite: "lutador", titulo: "O MESTRE DA RODA",
              fala: ["IÊ! EU SOU MESTRE GINGA.", "CAPOEIRA É LUTA QUE PARECE DANÇA — E DANÇA QUE DERRUBA. ENTRA NA RODA!"],
              depois: ["CAMARADA, TU TEM GINGA. VOLTA QUANDO QUISER JOGAR."],
-             time: [["macacoeira", 22], ["lobisomem", 23], ["gingao", 26]] },
+             time: [["macacoeira", 22], ["lobisomem", 23], ["fus-gingao-lobisomem", 25], ["gingao", 26]] },
     insignia: { id: "berimbau", nome: "INSÍGNIA BERIMBAU" },
     treinadores: [["CAPOEIRISTA DENDÊ", "lutador", [["macacoeira", 21], ["macacoeira", 21]]]],
     placa: "SALVADITTO — A PRIMEIRA CAPITAL.\nLADEIRAS, ACARAJÉ E UM DITTO EM CADA ESQUINA.",
@@ -278,7 +278,7 @@ export const CIDADES = [
     lider: { nome: "ZEFA DA FOGUEIRA", sprite: "tecnica", titulo: "A RAINHA DO ARRAIÁ",
              fala: ["OXE! EU SOU ZEFA, E AQUI TODO DIA É SÃO JOÃO.", "OLHA A COBRA! É MENTIRA! OLHA O FOGO! ESSE É VERDADE!"],
              depois: ["ANARRIÊ! PODE LEVAR A INSÍGNIA, E UM PEDAÇO DE PAMONHA."],
-             time: [["balaozinho", 27], ["mandacaru", 28], ["fogueirinha", 28], ["fogueirao", 31]] },
+             time: [["balaozinho", 27], ["mandacaru", 28], ["fogueirinha", 28], ["fus-fogueirao-mandacaru", 30], ["fogueirao", 31]] },
     insignia: { id: "fogueira", nome: "INSÍGNIA FOGUEIRA" },
     treinadores: [["SANFONEIRO LUIZ", "gentleman", [["fogueirinha", 26], ["balaozinho", 26]]],
                   ["QUADRILHEIRA NINA", "garota", [["mandacaru", 27]]]],
@@ -294,7 +294,7 @@ export const CIDADES = [
     lider: { nome: "GAMBI", sprite: "tecnico", titulo: "O ELETRICISTA DA GAMBIARRA",
              fala: ["EU SOU O GAMBI. CONSERTO QUALQUER COISA COM FITA ISOLANTE E FÉ.", "FOI UM CURTO NA MINHA OFICINA QUE... NÃO, ESQUECE. BORA LUTAR!"],
              depois: ["TÁ BOM, TÁ BOM, FUI EU QUE PUXEI O GATO DO POSTE. MAS O APAGÃO NÃO FOI SÓ ISSO — FOI LÁ EM CIMA, NA CAPITAL."],
-             time: [["gatonet", 32], ["orelhao", 33], ["araraio", 34], ["gambiarra", 36]] },
+             time: [["gatonet", 32], ["orelhao", 33], ["araraio", 34], ["fus-gambiarra-gatonet", 35], ["gambiarra", 36]] },
     insignia: { id: "tomada", nome: "INSÍGNIA TOMADA" },
     treinadores: [["MOTOBOY RAFA", "motoqueiro", [["gatonet", 31], ["araraio", 31]]],
                   ["TÉCNICA SUELI", "tecnica", [["orelhao", 32]]]],
@@ -310,7 +310,7 @@ export const CIDADES = [
     lider: { nome: "LUZIA DAS ALMAS", sprite: "velha", titulo: "A CONTADORA DE CAUSOS",
              fala: ["BOA NOITE, MEU FILHO. EU SOU LUZIA.", "CADA CASARÃO DESTA CIDADE TEM UMA ALMA, E CADA ALMA TEM UM CAUSO. HOJE O CAUSO É VOCÊ."],
              depois: ["UAI... VOCÊ NÃO TEM MEDO DE ASSOMBRAÇÃO. TOMA A INSÍGNIA, E UM PÃO DE QUEIJO."],
-             time: [["penadinha", 37], ["lobisomem", 39], ["assombracao", 41]] },
+             time: [["penadinha", 37], ["lobisomem", 39], ["fus-assombracao-penadinha", 40], ["assombracao", 41]] },
     insignia: { id: "lampiao", nome: "INSÍGNIA LAMPIÃO" },
     treinadores: [["ESTUDANTE TIÃO", "garoto", [["penadinha", 36], ["penadinha", 36]]],
                   ["BEATA DORINHA", "velha", [["assombracao", 38]]]],
@@ -331,7 +331,7 @@ export const CIDADES = [
     lider: { nome: "RAINHA LUA", sprite: "superf", titulo: "A RAINHA DA BATERIA",
              fala: ["EU SOU LUA, RAINHA DA BATERIA DA ESCOLA MAIS BONITA DA AVENIDA!", "AQUI A BATALHA TEM SAMBA-ENREDO. SEGURA O RITMO!"],
              depois: ["NOTA DEZ! NOTA DEZ! A INSÍGNIA É SUA — E O DESFILE TAMBÉM."],
-             time: [["brigadeirinho", 42], ["beijaflorzinha", 42], ["encantado", 45]] },
+             time: [["brigadeirinho", 42], ["beijaflorzinha", 42], ["fus-encantado-beijaflorzinha", 44], ["encantado", 45]] },
     insignia: { id: "pandeiro", nome: "INSÍGNIA TAMBORIM" },   // o id segue "pandeiro" (saves antigos)
     treinadores: [["PASSISTA JU", "garota", [["beijaflorzinha", 41], ["brigadeirinho", 41]]],
                   ["MESTRE-SALA JORGE", "gentleman", [["plumario", 43]]]],
@@ -354,7 +354,7 @@ export const CIDADES = [
                       "MAS NO TESTE EU ACORDEI UMA COISA QUE NÃO DEVIA: O DESTROIUM, A MÁQUINA QUE O SERVIDOR USAVA PRA APAGAR DADO VELHO.",
                       "ELE ESTÁ DORMINDO EMBAIXO DA REGIÃO, E A MATA ESTÁ DE OLHO NELE.",
                       "DIZEM QUE AS LENDAS SÓ ACORDAM PRA QUEM FECHAR AS OITO ILHAS DA PROFA. IPÊ. EU ACREDITO."],
-             time: [["chuvisco", 48], ["gambiarra", 49], ["concretao", 50], ["saci", 50]] },
+             time: [["chuvisco", 48], ["gambiarra", 49], ["concretao", 50], ["fus-concretao-saci", 50], ["saci", 50]] },
     insignia: { id: "cupula", nome: "INSÍGNIA CÚPULA" },
     treinadores: [["SERVIDOR PÚBLICO RUI", "gentleman", [["chuvisco", 46], ["orelhao", 46]]],
                   ["ESTAGIÁRIA BIA", "tecnica", [["gambiarra", 47]]]],
@@ -386,13 +386,13 @@ export const FLORESTA = {
 export const ESTRADAS = [
   // o id segue "transamazonica" (é o nome do mapa no save de quem já passou)
   { id: "transamazonica", nome: "MATA ATLÂNTICA", semente: 101, tema: "mata", lagoa: true, niveis: [9, 14],
-    mato: [["sauvinha", 22], ["acaizinho", 18], ["guaraninho", 12], ["capivarinha", 16], ["vitoriregia", 6], ["biquinho", 14], ["bantevy", 10], ["weepinbell", 6], ["rocador", 1]],
+    mato: [["sauvinha", 22], ["acaizinho", 18], ["amebo", 12], ["guaraninho", 12], ["capivarinha", 16], ["vitoriregia", 6], ["biquinho", 14], ["bantevy", 10], ["weepinbell", 6], ["rocador", 1]],
     treinadores: [["MATEIRO JOÃO", "garoto", [["sauvinha", 11], ["biquinho", 12]]], ["BOTÂNICA ÉRICA", "tecnica", [["acaizinho", 13]]]] },
   { id: "br232", nome: "BR-232", semente: 232, deitada: true, tema: "litoral", lagoa: true, niveis: [14, 19],
     mato: [["caranguejinho", 18], ["piranhita", 16], ["capivarinha", 14], ["biquinho", 12], ["bantevy", 10], ["tatubola", 12], ["botinho", 6], ["submarinum", 1]],
     treinadores: [["SURFISTA GUGA", "garoto", [["botinho", 16], ["piranhita", 17]]], ["CATADORA DE SIRI", "garota", [["caranguejinho", 18]]]] },
   { id: "br101n", nome: "BR-101 NORTE", semente: 1012, tema: "litoral", niveis: [19, 24],
-    mato: [["macacoeira", 18], ["tatubola", 14], ["beijaflorzinha", 12], ["caranguejinho", 12], ["piranhita", 10], ["biquinho", 10]],
+    mato: [["macacoeira", 18], ["macameba", 10], ["tatubola", 14], ["beijaflorzinha", 12], ["caranguejinho", 12], ["piranhita", 10], ["biquinho", 10]],
     treinadores: [["CAPOEIRISTA NENEM", "lutador", [["macacoeira", 21]]], ["BAIANA DO ACARAJÉ", "velha", [["beijaflorzinha", 20], ["tatubola", 21]]]] },
   { id: "br324", nome: "BR-324", semente: 324, deitada: true, tema: "sertao", niveis: [23, 28],
     mato: [["fogueirinha", 18], ["balaozinho", 14], ["mandacaru", 14], ["tatubola", 12], ["macacoeira", 10], ["spinda", 10], ["tratorao", 1]],
@@ -429,7 +429,7 @@ const SERRA_DE_PE = {
   "###..#.,,,,..PPP.....,,,,..###",
   "###.....1....P........o....###",
   "###..........PPPPPPPPPPPP..###",
-  "###RRRRRRRvvvvRRRRRRRRRReeRR##",
+  "###RRURRRRvvvvRRRRRRRRRReeRR##",   // U: a boca de BAIXO da CAVERNA DO MONTE SERRA (src/data/caverna-serra.js)
   "###.,,,,..........,,,,..PP..##",
   "###.,,,,...o......,,,,..P...##",
   "##....#......~~~~.......P...##",
@@ -446,7 +446,7 @@ const SERRA_DE_PE = {
   "###RRRRRRRRRRvvvvRRRRRRReeR###",
   "##..,,,,,...........,,,,.PP.##",
   "##..,,,,,..o........,,,,.P..##",
-  "##...........PPPPPPPPPPPPP..##",
+  "##.RRUR......PPPPPPPPPPPPP..##",   // a pedra com a boca de CIMA, no topo (depois dos WOOLOO)
   "###..#.......P..........o..###",
   "###....,,,,..P..,,,,.......###",
   "####...,,,,..P..,,,,......####",
@@ -461,6 +461,11 @@ const SERRA_DE_PE = {
     { x: 20, y: 19, dir: "left", nome: "ESCOTEIRA BEL", sprite: "garota", time: [["araraio", 42], ["tatubola", 42]] },
     { x: 10, y: 23, dir: "right", nome: "TROPEIRO NICO", sprite: "gentleman", time: [["capivarao", 40], ["lobisomem", 41]] },
   ],
+  // OS WOOLOO PASTANDO no alto da serra (pedido do CAIO): a fila fica bem na
+  // frente das duas subidas pro topo — o barranco e a escadaria — e ninguém
+  // passa por cima; o caminho é pela CAVERNA (src/data/caverna-serra.js).
+  // Posições na serra DE PÉ (a virada recalcula o y).
+  wooloo: [[13, 20], [14, 20], [15, 20], [16, 20], [24, 20], [25, 20], [8, 26], [20, 27]],
   placas: {
     1: "MONTE SERRA — O ALTO DA ESTRADA REAL.\nDAQUI PRA FRENTE É SÓ DESCIDA ATÉ O RIO DE JANEEVEE.",
     2: "MIRANTE. EM DIA SEM NEBLINA DÁ PRA VER O MAR.\n(HOJE TEM NEBLINA.)",
@@ -475,6 +480,7 @@ export const SERRA = {
   ...SERRA_DE_PE,
   planta: [...SERRA_DE_PE.planta].reverse().map((l) => l.replace(/v/g, "^")),
   treinadores: SERRA_DE_PE.treinadores.map((t) => ({ ...t, y: SERRA_DE_PE.planta.length - 1 - t.y })),
+  wooloo: SERRA_DE_PE.wooloo.map(([x, y]) => [x, SERRA_DE_PE.planta.length - 1 - y]),
   placas: {
     ...SERRA_DE_PE.placas,
     1: "MONTE SERRA — O ALTO DA ESTRADA REAL.\nDAQUI PRA BAIXO É SÓ DESCIDA ATÉ O RIO DE JANEEVEE.",
@@ -547,13 +553,15 @@ export const LAYOUT = {
   sampa:              { pos: [70, 72], liga: { up: "br116", right: "br381" } },
   br381:              { pos: [74, 68], liga: { left: "sampa", right: "ouropreto" } },
   ouropreto:          { pos: [78, 63], liga: { left: "br381", down: "estrada_real" } },
-  estrada_real:       { pos: [79, 67], liga: { up: "ouropreto", down: "monte_serra" } },
-  monte_serra:        { pos: [80, 70], liga: { up: "estrada_real", down: "rio" } },
-  rio:                { pos: [81, 73], liga: { up: "monte_serra", left: "br040" } },
+  estrada_real:       { pos: [79, 67], liga: { up: "ouropreto", down: "rio" } },
+  rio:                { pos: [81, 73], liga: { up: "estrada_real", left: "br040" } },
   br040:              { pos: [72, 61], liga: { right: "rio", left: "brasilia" } },
   brasilia:           { pos: [65, 53], liga: { right: "br040", up: "chapada", left: "pantanal", down: "esplanada" } },
-  // a ESPLANADA DA LIGA (src/data/braglitch-liga.js): embaixo da capital, sem outra saída
-  esplanada:          { pos: [65, 58], liga: { up: "brasilia" } },
+  // a ESPLANADA DA LIGA (src/data/braglitch-liga.js): embaixo da capital
+  esplanada:          { pos: [65, 58], liga: { up: "brasilia", down: "monte_serra" } },
+  // o MONTE SERRA vem DEPOIS DA ESPLANADA (o CAIO, nov/2026: "depois da esplanada
+  // da liga veio o mt. serra"); a ESTRADA REAL liga direto OURO GASTLY e o RIO
+  monte_serra:        { pos: [65, 62], liga: { up: "esplanada" } },
   pantanal:           { pos: [48, 59], liga: { right: "brasilia", left: "cuiaba" } },
   cuiaba:             { pos: [39, 55], liga: { right: "pantanal" } },
   chapada:            { pos: [64, 44], liga: { down: "brasilia", up: "floresta_amazonica" } },
@@ -699,7 +707,9 @@ export const INSIGNIAS_BRAG = CIDADES.map((c) => ({ id: c.insignia.id, name: c.i
 export const INSIGNIAS_ILHAS = ILHAS_DA_HISTORIA.map((l, i) => ({ id: `ilha_${l.id}`, name: l.nome, city: `ILHA ${i + 1}` }));
 
 const time = (lista) => lista.map(([id, lvl]) => ({ id, lvl }));
-const tabela = (lista, [min, max]) => lista.map(([id, w]) => ({ id, min, max, w }));
+// um bicho do mato pode trazer o nível dele: [id, peso, [min, max]] (o VOLTURG
+// na ILHA DA QUEIMADA, mais forte que o resto da ilha)
+const tabela = (lista, [min, max]) => lista.map(([id, w, niv]) => ({ id, min: niv?.[0] ?? min, max: niv?.[1] ?? max, w }));
 
 /** O conteúdo (nome, música, NPCs, mato) de cada mapa do mundo, no formato de
  *  src/data/maps.js. `geos` é o que `montarBraglitch` já montou — é de lá que
@@ -813,6 +823,9 @@ export function conteudoDoMundo(geos) {
       name: l.nome, music: l.musica || (l.tipo === "rota" ? "br101" : "saolucario"),
       encounters: l.mato?.length ? tabela(l.mato, l.niveis) : [],
       npcs: l.npcs || [], placas: l.placas || {},
+      // a SALA DA LIGA (src/data/braglitch-liga.js): dentro, e desenhada pelo src/systems/ligabrag.js
+      ...(l.tipo === "sala" ? { interior: true, spawn: { x: 7, y: 11, dir: "up" } } : {}),
+      ...(l.ligaBrag ? { ligaBrag: true } : {}),
     };
     if (INTERIORES_MUNDO[`${l.id}_pokemon_center_1f`]) {
       out[`${l.id}_pokemon_center_1f`] = {
@@ -842,7 +855,11 @@ export function conteudoDoMundo(geos) {
       lines: ["UFA... SUBIR A SERRA CANSA. UMA BATALHA PRA DESCANSAR?"],
       afterLines: ["LÁ EM CIMA TEM O MIRANTE. SE A NEBLINA DEIXAR, DÁ PRA VER O MAR."],
       trainer: { name: t.nome, prize: 700, sight: 4, party: time(t.time) },
-    })),
+    })).concat((SERRA.wooloo || []).map(([x, y], k) => ({
+      id: `wooloo${k}`, x, y, dir: ["down", "left", "right"][k % 3], sprite: "mon:wooloo",
+      lines: ["O WOOLOO ESTÁ PASTANDO E NÃO SAI DO LUGAR.", "NEM ADIANTA EMPURRAR: É SÓ LÃ, E A LÃ AFUNDA.",
+              "(TALVEZ DÊ PRA PASSAR POR DENTRO DA SERRA...)"],
+    }))),
     placas: SERRA.placas,
   };
   return out;

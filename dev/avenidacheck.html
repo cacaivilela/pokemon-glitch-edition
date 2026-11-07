@@ -1,0 +1,43 @@
+<!doctype html>
+<!-- KALOS: as avenidas da LUMIOSE. Um save de teste no CENTRO, na beira de cada
+     avenida; segura a seta e confere se caiu no bairro certo (e volta). Perfil
+     próprio e `&offline`. Uso: /dev/avenidacheck.html -->
+<meta charset="utf-8"><title>avenidacheck</title>
+<body style="background:#222"><pre id="out" style="color:#ddd"></pre>
+<script type="module">
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const f = document.createElement("iframe");
+f.style.cssText = "position:absolute;left:-2000px;width:240px;height:160px";
+f.src = "../index.html?perfil=avenidacheck&offline";
+document.body.appendChild(f);
+const W = () => f.contentWindow, js = (c) => W().eval(c);
+const seta = async (dir, ms) => {
+  const code = { up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight" }[dir];
+  W().dispatchEvent(new (W().KeyboardEvent)("keydown", { code, key: code }));
+  await espera(ms);
+  W().dispatchEvent(new (W().KeyboardEvent)("keyup", { code, key: code }));
+};
+const log = [];
+const onde = () => js(`(({ map, x, y }) => map + " " + x + "," + y)(window.game.state.player)`);
+const vai = (map, x, y, dir) => js(`(() => { const s = window.game.scenes.top, p = window.game.state.player;
+  Object.assign(p, { map: "${map}", x: ${x}, y: ${y}, dir: "${dir}" }); s.afterTravel(); s.snapCamera(); s.dlg.active = false; })()`);
+try {
+  for (let i = 0; i < 60 && !f.contentDocument?.getElementById("screen"); i++) await espera(100);
+  await espera(2500);
+  for (let i = 0; i < 8; i++) { await espera(300); W().dispatchEvent(new (W().KeyboardEvent)("keydown", { code: "Enter", key: "Enter" })); W().dispatchEvent(new (W().KeyboardEvent)("keyup", { code: "Enter", key: "Enter" })); }
+  await espera(2500);
+  await js(`import("/src/systems/mon.js").then((M) => { const st = window.game.state; st.party = [M.createMon("raichu", 60)]; st.flags.starterChosen = true; })`);
+  for (const [nome, x, y, dir, volta] of [["leste", 44, 18, "right", "left"], ["norte", 23, 2, "up", "down"], ["sul", 23, 39, "down", "up"],
+                                          ["leste", 45, 18, "right", "left"], ["oeste", 2, 18, "left", "right"]]) {
+    vai("lumiose", x, y, dir);
+    await espera(600);
+    await seta(dir, 1500);
+    const la = onde();
+    await seta(volta, 1500);
+    log.push(`${nome}: foi pra ${la} | voltou pra ${onde()}`);
+  }
+} catch (e) { log.push("ERRO: " + e); }
+document.getElementById("out").textContent = log.join("\n");
+await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "avenidas", dataUrl: f.contentDocument.getElementById("screen").toDataURL(), log: log.join("\n") }) });
+document.title = "avenidacheck pronto";
+</script>

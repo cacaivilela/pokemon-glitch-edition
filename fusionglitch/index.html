@@ -47,12 +47,17 @@
   .escolha img { width: 48px; height: 48px; image-rendering: pixelated; background: #0d0a17; border-radius: 6px; }
   .escolha .quem { font-size: 12px; }
   .escolha .quem b { color: var(--neon); display: block; }
+  .quadros { display: flex; gap: 4px; align-items: center; margin-top: 4px; font-size: 11px; color: var(--fraco); }
+  .quadros button { padding: 2px 7px; }
+  .quadros input[type=range] { flex: 1; padding: 0; }
+  .quadros span { min-width: 64px; text-align: center; }
   .telaWrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   #tela {
     image-rendering: pixelated; cursor: crosshair; border-radius: 8px;
     background:
       repeating-conic-gradient(#1b1730 0% 25%, #221d3a 0% 50%) 0 0 / 24px 24px;
     border: 1px solid var(--linha); touch-action: none;
+    max-width: 100%; aspect-ratio: 1 / 1; height: auto;
   }
   .paleta { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin-top: 8px; }
   .paleta button { height: 22px; padding: 0; border-radius: 4px; }
@@ -83,15 +88,45 @@
 <div class="grade">
   <!-- ------------------------------------------------------------ os dois -->
   <div class="caixa">
+    <div class="linha-botoes modos" role="group" aria-label="tipo de fusão" style="margin:0 0 10px">
+      <button id="modoDupla" class="on" data-modo="dupla">DUPLA</button>
+      <button id="modoTripla" data-modo="tripla">TRIPLA</button>
+    </div>
     <h2>Quem entra</h2>
 
-    <label for="cabeca">CABEÇA — dá o rosto, o 1º tipo e o lado especial</label>
+    <label for="cabeca" id="rotCabeca">CABEÇA — dá o rosto, o 1º tipo e o lado especial</label>
     <input id="cabeca" list="lista" placeholder="número (025) ou nome (PIKACHU)" autocomplete="off">
     <div class="escolha"><img id="imgCabeca" alt=""><div class="quem"><b id="nomeCabeca">—</b><span id="tipoCabeca"></span></div></div>
+    <div class="quadros" data-lado="cabeca">
+      <button data-passo="-1" title="quadro anterior">◀</button>
+      <input type="range" min="0" max="0" value="0" title="quadro da animação">
+      <button data-passo="1" title="próximo quadro">▶</button>
+      <span>PARADO</span>
+    </div>
 
-    <label for="corpo">CORPO — dá o resto, o 2º tipo e a força física</label>
+    <label for="corpo" id="rotCorpo">CORPO — dá o resto, o 2º tipo e a força física</label>
     <input id="corpo" list="lista" placeholder="número (006) ou nome (CHARIZARD)" autocomplete="off">
     <div class="escolha"><img id="imgCorpo" alt=""><div class="quem"><b id="nomeCorpo">—</b><span id="tipoCorpo"></span></div></div>
+    <div class="quadros" data-lado="corpo">
+      <button data-passo="-1" title="quadro anterior">◀</button>
+      <input type="range" min="0" max="0" value="0" title="quadro da animação">
+      <button data-passo="1" title="próximo quadro">▶</button>
+      <span>PARADO</span>
+    </div>
+    <div class="soTripla" hidden>
+      <label for="pernas">PERNAS — dá o que fica embaixo, o 3º tipo e a velocidade</label>
+      <input id="pernas" list="lista" placeholder="número (007) ou nome (SQUIRTLE)" autocomplete="off">
+      <div class="escolha"><img id="imgPernas" alt=""><div class="quem"><b id="nomePernas">—</b><span id="tipoPernas"></span></div></div>
+      <div class="quadros" data-lado="pernas">
+        <button data-passo="-1" title="quadro anterior">◀</button>
+        <input type="range" min="0" max="0" value="0" title="quadro da animação">
+        <button data-passo="1" title="próximo quadro">▶</button>
+        <span>PARADO</span>
+      </div>
+    </div>
+    <p class="aviso soTripla" hidden>Na <b>TRIPLA</b> o bicho sai com <b>3 tipos</b>: um da cabeça, um do meio e um das pernas.</p>
+
+    <p class="aviso">◀ ▶ escolhe o <b>quadro da animação</b> de cada um (PARADO é o sprite de sempre). Trocar o quadro refaz a montagem — o ↶ Desfazer traz o seu desenho de volta.</p>
 
     <datalist id="lista"></datalist>
 
@@ -108,22 +143,31 @@
       <button data-peca="base">Só a base</button>
       <button id="auto">↺ Montagem automática</button>
     </div>
-    <p class="aviso">A montagem automática é o que o jogo faria sozinho: o corpo com a cor da cabeça, e a cabeça por cima. Daí em diante o desenho é seu.</p>
+    <p class="aviso">A montagem automática é a mesma do jogo: acha o pescoço, tira só a cabeça (rabo e asa ficam), pinta cada parte do corpo com uma cor da cabeça (a sombra vai junto) e encaixa a cabeça nova no lugar da velha. Daí em diante o desenho é seu.</p>
   </div>
 
   <!-- --------------------------------------------------------- o desenho -->
   <div class="caixa telaWrap">
     <h2 style="align-self:flex-start">O desenho — 64x64, o tamanho da batalha</h2>
-    <canvas id="tela" width="64" height="64" style="width:384px;height:384px"></canvas>
+    <canvas id="tela" width="64" height="64" style="width:384px"></canvas>
 
     <div class="linha-botoes" style="justify-content:center">
       <button class="ferramenta on" data-ferramenta="pincel">✏️ Pincel</button>
       <button class="ferramenta" data-ferramenta="borracha">🧽 Borracha</button>
       <button class="ferramenta" data-ferramenta="balde">🪣 Balde</button>
       <button class="ferramenta" data-ferramenta="pipeta">💧 Conta-gotas</button>
+      <button class="ferramenta" data-ferramenta="linha">📏 Linha</button>
       <button id="mover">✋ Mover tudo</button>
-      <button id="desfazer">↶ Desfazer</button>
+    </div>
+    <div class="linha-botoes" style="justify-content:center">
+      <button id="espelhar" title="vira de lado (a peça solta, ou o desenho todo)">⇋ Espelhar</button>
+      <button id="contorno" title="borda de 1 pixel na cor escolhida em volta de tudo">⬚ Contorno</button>
+      <button id="desfazer" title="Ctrl+Z">↶ Desfazer</button>
+      <button id="refazer" title="Ctrl+Y">↷ Refazer</button>
       <button id="limpar">🗑 Limpar</button>
+      <span style="font-size:11px;color:var(--fraco);margin-left:6px">Zoom</span>
+      <button id="zoomMenos">−</button>
+      <button id="zoomMais">+</button>
     </div>
     <div class="aviso" id="dicaMover" hidden style="margin:0">
       ✋ <b>Peça solta.</b> Arraste ela pra onde quiser, ou empurre com as setas do teclado
@@ -148,17 +192,25 @@
     <label for="nome">Nome (até 11 letras)</label>
     <input id="nome" maxlength="11" placeholder="BULBANDER">
 
+    <div class="soBicho">
     <label for="tipo1">Tipo 1</label>
     <select id="tipo1"></select>
     <label for="tipo2">Tipo 2</label>
     <select id="tipo2"></select>
+    <div class="soTripla" hidden>
+      <label for="tipo3">Tipo 3</label>
+      <select id="tipo3"></select>
+    </div>
+    </div>
 
     <label for="autor">Quem desenhou</label>
     <input id="autor" maxlength="10" placeholder="SEU NOME">
 
+    <div class="soBicho">
     <h2 style="margin-top:14px">Quanto sobe por nível</h2>
     <div id="stats"></div>
     <div class="previa" id="previa"></div>
+    </div>
 
     <button class="grande principal" id="baixar">⬇ BAIXAR A FICHA</button>
     <button class="grande" id="copiar">📋 Copiar o código</button>
@@ -230,10 +282,12 @@ const ctx = tela.getContext("2d", { willReadFrequently: true });
 ctx.imageSmoothingEnabled = false;
 
 const estado = {
-  cabeca: null, corpo: null,
+  modo: "dupla",                  // "dupla" ou "tripla" (3 Pokémon, 3 tipos)
+  cabeca: null, corpo: null, pernas: null,
   ferramenta: "pincel", grosso: 1, cor: "#000000",
   peca: null,                     // a peça solta, quando tem uma (ver soltar())
-  paleta: "PADRÃO", undos: [], pintando: false,
+  paleta: "PADRÃO", undos: [], refazer: [], pintando: false, linha: null, zoom: 6,
+  quadro: { cabeca: 0, corpo: 0, pernas: 0 },  // 0 = o sprite parado; 1.. = quadro da animação
   crescimento: { hp: 2, atk: 1.5, def: 1.5, spa: 1.5, spd: 1.5, spe: 1.5 },
   inicial: { hp: 10, atk: 5, def: 5, spa: 5, spd: 5, spe: 5 },
 };
@@ -246,6 +300,12 @@ $("lista").innerHTML = ESPECIES
   .map((sp) => `<option value="${rotulo(sp)}"${sp.regiao ? ` label="${sp.regiao}"` : ""}>`).join("");
 
 const limpaTexto = (t) => String(t).toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+/** o id do elemento daquele lado: ID("img", "pernas") = "imgPernas" */
+const ID = (k, lado) => k + lado[0].toUpperCase() + lado.slice(1);
+/** os lados que o modo usa */
+const lados = () => (estado.modo === "tripla" ? ["cabeca", "corpo", "pernas"] : ["cabeca", "corpo"]);
+const completo = () => lados().every((l) => estado[l]);
 
 /** Acha pelo que foi digitado: o rótulo inteiro da lista, o nome, o id, ou o
  *  número — e o número sozinho é a forma de Kanto (037 é o VULPIX; o de Alola
@@ -298,15 +358,17 @@ function nullmon(lado = 64) {
 // O arquivo do sprite: o nº da Pokédex com três dígitos, ou o que a lista
 // mandar (`sprite`: a forma na PokeAPI pra VULPIX-ALOLA e os bonés, "decamark"
 // pro ??????????). Quem não tem nenhum dos dois é o MISSINGNO., feito em código.
-const arquivoSprite = (sp) => sp.sprite || (sp.dex ? String(sp.dex).padStart(3, "0") : null);
+// A FORMA ÚNICA traz o caminho inteiro (`url`, o `spriteUrl` do jogo).
+const arquivoSprite = (sp) => sp.url ? null : sp.sprite || (sp.dex ? String(sp.dex).padStart(3, "0") : null);
 const spriteUrl = (sp) =>
-  arquivoSprite(sp) ? `${JOGO}/assets/sprites/pokemon/${arquivoSprite(sp)}.png` : nullmon().toDataURL();
+  sp.url ? `${JOGO}/${sp.url}`
+  : arquivoSprite(sp) ? `${JOGO}/assets/sprites/pokemon/${arquivoSprite(sp)}.png` : nullmon().toDataURL();
 
 const cacheImg = new Map();
 function carregar(sp) {
   if (cacheImg.has(sp.id)) return cacheImg.get(sp.id);
   const p = new Promise((resolve) => {
-    if (!arquivoSprite(sp)) return resolve(nullmon());   // o que não tem arquivo, desenha
+    if (!sp.url && !arquivoSprite(sp)) return resolve(nullmon());   // o que não tem arquivo, desenha
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
@@ -317,15 +379,124 @@ function carregar(sp) {
   return p;
 }
 
+// ------------------------------------------------------------ os quadros
+// A ANIMAÇÃO DE CADA UM (a mesma do jogo: assets/sprites/pokemon/anim/, ver
+// tools/fetch_bw_anim.py). Cada folha é uma grade de quadros do tamanho do
+// bicho; aqui cada quadro vai pra uma tela 96x96, o tamanho do sprite parado,
+// com os pés e o meio no mesmo lugar dos pés e do meio do parado — senão trocar
+// de quadro fazia o bicho pular de lugar na montagem. Quadro igual ao anterior
+// (o B/W repete muito) sai da lista: ◀ ▶ sempre mostra uma pose nova.
+const LADO_SPRITE = 96;
+let indiceAnim = null;
+const indiceDosQuadros = () => (indiceAnim ||= fetch(`${JOGO}/assets/sprites/pokemon/anim/quadros.json`)
+  .then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
+const cacheQuadros = new Map();
+function quadrosDe(sp) {
+  if (cacheQuadros.has(sp.id)) return cacheQuadros.get(sp.id);
+  const p = (async () => {
+    const chave = arquivoSprite(sp);
+    if (!chave) return [];
+    const e = (await indiceDosQuadros())[chave];
+    if (!e?.f) return [];
+    const folha = await new Promise((res) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => res(img);
+      img.onerror = () => res(null);
+      img.src = `${JOGO}/assets/sprites/pokemon/anim/${chave}.png`;
+    });
+    if (!folha) return [];
+    const [w, h, col, crus] = e.f;
+    const n = Array.isArray(crus[0]) ? crus.reduce((a, [, k]) => a + k, 0) : crus.length;
+    // onde ficam os pés e o meio no sprite parado
+    const parado = await carregar(sp);
+    const pp = parado ? caixa(pixelsDe(parado)) : null;
+    const pe = pp ? pp.maxy + 1 : LADO_SPRITE, meio = pp ? (pp.minx + pp.maxx + 1) / 2 : LADO_SPRITE / 2;
+    const f = Math.min(1, LADO_SPRITE / Math.max(w, h));
+    const lw = Math.round(w * f), lh = Math.round(h * f);
+    const saida = [];
+    let antes = "";
+    for (let i = 0; i < n; i++) {
+      const um = document.createElement("canvas");
+      um.width = w; um.height = h;
+      um.getContext("2d").drawImage(folha, (i % col) * w, Math.floor(i / col) * h, w, h, 0, 0, w, h);
+      const marca = um.toDataURL();
+      if (marca === antes) continue;
+      antes = marca;
+      const cv = document.createElement("canvas");
+      cv.width = cv.height = LADO_SPRITE;
+      const c = cv.getContext("2d");
+      c.imageSmoothingEnabled = false;
+      // o quadro do B/W vem com folga em volta: o que se alinha é o desenho
+      const q = caixa(pixelsDe(um, w, h), w, h) || { minx: 0, maxx: w - 1, maxy: h - 1 };
+      const x = Math.round(meio - ((q.minx + q.maxx + 1) / 2) * f);
+      const y = Math.round(pe - (q.maxy + 1) * f);
+      c.drawImage(um, Math.max(0, Math.min(LADO_SPRITE - lw, x)), Math.max(0, Math.min(LADO_SPRITE - lh, y)), lw, lh);
+      saida.push(cv);
+    }
+    return saida;
+  })();
+  cacheQuadros.set(sp.id, p);
+  return p;
+}
+
+/** A imagem que entra na montagem: o quadro escolhido, ou o sprite parado. */
+async function baseDe(lado) {
+  const sp = estado[lado];
+  if (!sp) return null;
+  const n = estado.quadro[lado];
+  if (n > 0) {
+    const q = await quadrosDe(sp);
+    if (q[n - 1]) return q[n - 1];
+  }
+  return carregar(sp);
+}
+
+/** Acerta o ◀ ▶ daquele lado (quantos quadros tem, qual está) e a miniatura. */
+async function mostrarQuadros(lado) {
+  const sp = estado[lado];
+  const caixaQ = document.querySelector(`.quadros[data-lado="${lado}"]`);
+  const barra = caixaQ.querySelector("input"), rot = caixaQ.querySelector("span");
+  const q = sp ? await quadrosDe(sp) : [];
+  if (estado[lado] !== sp) return;              // trocou de bicho no meio
+  estado.quadro[lado] = Math.min(estado.quadro[lado], q.length);
+  barra.max = q.length;
+  barra.value = estado.quadro[lado];
+  caixaQ.style.opacity = q.length ? 1 : 0.4;
+  rot.textContent = !q.length ? "SEM ANIMAÇÃO" : estado.quadro[lado] ? `${estado.quadro[lado]} DE ${q.length}` : "PARADO";
+  const img = $(ID("img", lado));
+  img.src = estado.quadro[lado] && q[estado.quadro[lado] - 1] ? q[estado.quadro[lado] - 1].toDataURL() : sp ? spriteUrl(sp) : "";
+}
+
+let montarDepois = null;
+function trocarQuadro(lado, n) {
+  const barra = document.querySelector(`.quadros[data-lado="${lado}"] input`);
+  estado.quadro[lado] = Math.max(0, Math.min(+barra.max, n));
+  mostrarQuadros(lado);
+  // arrastar a barra passa por vários quadros: a montagem espera ela parar
+  // (e assim o desfazer guarda um passo só, e não um por quadro)
+  clearTimeout(montarDepois);
+  montarDepois = setTimeout(montarAuto, 220);
+}
+document.querySelectorAll(".quadros").forEach((cq) => {
+  const lado = cq.dataset.lado;
+  cq.querySelector("input").addEventListener("input", (ev) => trocarQuadro(lado, +ev.target.value));
+  cq.querySelectorAll("button").forEach((b) => {
+    b.onclick = () => trocarQuadro(lado, estado.quadro[lado] + +b.dataset.passo);
+  });
+});
+
 async function escolher(lado, texto) {
   const sp = acharEspecie(texto);
   estado[lado] = sp;
-  $(lado === "cabeca" ? "nomeCabeca" : "nomeCorpo").textContent = sp ? sp.nome : "—";
-  $(lado === "cabeca" ? "tipoCabeca" : "tipoCorpo").textContent =
+  $(ID("nome", lado)).textContent = sp ? sp.nome : "—";
+  $(ID("tipo", lado)).textContent =
     sp ? sp.tipos.join("/") + (sp.regiao ? ` · ${sp.regiao}` : "") : "";
-  const img = $(lado === "cabeca" ? "imgCabeca" : "imgCorpo");
+  const img = $(ID("img", lado));
   img.src = sp ? spriteUrl(sp) : "";
-  if (estado.cabeca && estado.corpo) {
+  estado.quadro[lado] = 0;                     // bicho novo começa parado
+  mostrarQuadros(lado);
+  if (completo()) {
     sugerirFicha();
     await montarAuto();
   }
@@ -349,6 +520,22 @@ function nomeFusao(a, b) {
   return (A.slice(0, corte) + B.slice(ini)).slice(0, 11);
 }
 
+/** O NOME DA TRIPLA — a mesma conta do jogo (DB.FUSAO.nome3, src/data/fusao.js):
+ *  começo da cabeça + a sílaba do meio do meio + o fim das pernas. */
+function nomeTripla(a, b, c) {
+  const so = (t) => t.replace(/[^A-ZÁÂÃÉÊÍÓÔÕÚ0-9]/g, "");
+  const A = so(a), B = so(b), C = so(c);
+  if (!A || !B || !C) return (A + B + C).slice(0, 11);
+  const fim = C.slice(Math.min(ultimaSilaba(C), Math.max(0, C.length - 2)));
+  const ini = Math.max(1, Math.floor(B.length / 2) - 1);
+  let meio = B.slice(ini, ini + 3);
+  if (meio.length > 2 && !VOGAIS.includes(meio[meio.length - 1]) && VOGAIS.includes(meio[meio.length - 2])) meio = meio.slice(0, 2);
+  let cab = A.slice(0, Math.max(2, ultimaSilaba(A)));
+  const sobra = 11 - fim.length - meio.length;
+  if (cab.length > sobra) cab = A.slice(0, Math.max(2, sobra));
+  return (cab + meio + fim).slice(0, 11);
+}
+
 /** O nome que entra na conta do nome da fusão: sem a região (VULPIX-ALOLA é
  *  VULPIX — "VULPIXALOMANDER" não é nome de ninguém) e, nos bonés, o bicho
  *  inteiro (PIKA KANTO é PIKACHU). */
@@ -358,73 +545,71 @@ function nomeBase(sp) {
 }
 
 function sugerirFicha() {
-  const { cabeca, corpo } = estado;
-  if (!cabeca || !corpo) return;
-  if (!$("nome").dataset.mexido) $("nome").value = nomeFusao(nomeBase(cabeca), nomeBase(corpo));
+  const { cabeca, corpo, pernas } = estado;
+  if (!completo()) return;
+  const tripla = estado.modo === "tripla";
+  if (!$("nome").dataset.mexido) {
+    $("nome").value = tripla ? nomeTripla(nomeBase(cabeca), nomeBase(corpo), nomeBase(pernas))
+      : nomeFusao(nomeBase(cabeca), nomeBase(corpo));
+  }
   if (!$("tipo1").dataset.mexido) $("tipo1").value = cabeca.tipos[0];
   if (!$("tipo2").dataset.mexido) $("tipo2").value = corpo.tipos[1] || corpo.tipos[0];
+  if (tripla && !$("tipo3").dataset.mexido) $("tipo3").value = pernas.tipos[1] || pernas.tipos[0];
   atualizarPrevia();
 }
 
 // --------------------------------------------------------------- o desenho
 function guardarUndo() {
   estado.undos.push(ctx.getImageData(0, 0, LADO, LADO));
-  if (estado.undos.length > 20) estado.undos.shift();
+  if (estado.undos.length > 40) estado.undos.shift();
+  estado.refazer.length = 0;       // mexeu de novo: o que tinha pra refazer já era
+}
+
+// ------------------------------------------------------ a montagem esperta
+// É A MESMA DO JOGO (src/systems/montagem.js, explicada lá): vem do jogo, como
+// os sprites. Assim o que a oficina monta é o que o jogo mostraria.
+const { montarFusao, montarTripla } = await import(`${JOGO}/src/systems/montagem.js`);
+const OPACO = 40;
+
+function pixelsDe(img, w = LADO_SPRITE, h = LADO_SPRITE) {
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const x = c.getContext("2d", { willReadFrequently: true });
+  x.imageSmoothingEnabled = false;
+  x.drawImage(img, 0, 0, w, h);
+  return x.getImageData(0, 0, w, h);
+}
+
+/** A caixa do desenho (o que não é transparente). */
+function caixa(im, w = im.width, h = im.height) {
+  const d = im.data;
+  let minx = w, maxx = -1, miny = h, maxy = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (d[(y * w + x) * 4 + 3] <= OPACO) continue;
+      if (x < minx) minx = x; if (x > maxx) maxx = x;
+      if (y < miny) miny = y; if (y > maxy) maxy = y;
+    }
+  }
+  return maxx < 0 ? null : { minx, maxx, miny, maxy, w: maxx - minx + 1, h: maxy - miny + 1 };
 }
 
 async function montarAuto() {
-  const { cabeca, corpo } = estado;
-  if (!cabeca || !corpo) return;
+  if (!completo()) return;
   esquecerPeca();                  // a automática recomeça o desenho do zero
-  const [ic, ib] = await Promise.all([carregar(cabeca), carregar(corpo)]);
+  const [ic, ib, ip] = await Promise.all([baseDe("cabeca"), baseDe("corpo"), baseDe("pernas")]);
   guardarUndo();
   ctx.clearRect(0, 0, LADO, LADO);
-  if (ib) {
-    ctx.drawImage(ib, 0, 0, LADO, LADO);
-    const cor = corMedia(ic);
-    if (cor) {
-      ctx.save();
-      ctx.globalAlpha = 0.5;
-      ctx.globalCompositeOperation = "color";
-      ctx.fillStyle = cor;
-      ctx.fillRect(0, 0, LADO, LADO);
-      ctx.globalCompositeOperation = "destination-in";
-      ctx.globalAlpha = 1;
-      ctx.drawImage(ib, 0, 0, LADO, LADO);
-      ctx.restore();
-    }
-  }
-  if (ic) {
-    const alturaCab = Math.round(ic.height * 0.46);
-    ctx.drawImage(ic, 0, 0, ic.width, alturaCab, 0, 0, LADO, Math.round(LADO * 0.46));
-    ctx.save();
-    ctx.globalCompositeOperation = "source-atop";
-    ctx.fillStyle = "rgba(0,0,0,.22)";
-    ctx.fillRect(0, Math.round(LADO * 0.46) - 1, LADO, 1);
-    ctx.restore();
-  }
-}
-
-function corMedia(img) {
-  if (!img) return null;
-  const c = document.createElement("canvas");
-  c.width = c.height = 16;
-  const x = c.getContext("2d", { willReadFrequently: true });
-  x.drawImage(img, 0, 0, 16, 16);
-  let r = 0, g = 0, b = 0, n = 0;
-  const d = x.getImageData(0, 0, 16, 16).data;
-  for (let i = 0; i < d.length; i += 4) {
-    if (d[i + 3] < 128) continue;
-    r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
-  }
-  return n ? `rgb(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)})` : null;
+  // a TRIPLA: as pernas do terceiro entram embaixo do meio (montarTripla, a mesma do jogo)
+  if (estado.modo === "tripla") ctx.drawImage(montarTripla(ic, ib, ip, LADO), 0, 0);
+  else if (ic || ib) ctx.drawImage(montarFusao(ic, ib, LADO), 0, 0);
 }
 
 async function encaixar(qual) {
   const { cabeca, corpo } = estado;
-  const sp = qual === "cabeca" || qual === "topo" ? cabeca : corpo;
-  if (!sp) return recado("Escolha os dois primeiro.", "erro");
-  const img = await carregar(sp);
+  const lado = qual === "cabeca" || qual === "topo" ? "cabeca" : "corpo";
+  if (!cabeca || !corpo) return recado("Escolha os dois primeiro.", "erro");
+  const img = await baseDe(lado);             // o quadro escolhido, ou o parado
   if (!img) return recado("Não consegui carregar esse sprite.", "erro");
   guardarUndo();
   // A peça nasce onde a montagem automática colocaria, mas SOLTA: daí você
@@ -579,6 +764,13 @@ tela.addEventListener("pointerdown", (ev) => {
   if (estado.ferramenta === "pipeta") return pipeta(x, y);
   guardarUndo();
   if (estado.ferramenta === "balde") return balde(x, y);
+  if (estado.ferramenta === "linha") {
+    // a LINHA é puxada: enquanto o botão está apertado ela é refeita a cada
+    // movimento em cima do desenho de antes, e fica onde soltar
+    estado.linha = { x0: x, y0: y, antes: ctx.getImageData(0, 0, LADO, LADO) };
+    try { tela.setPointerCapture(ev.pointerId); } catch { /* ponteiro de teste */ }
+    return linhaAte(x, y);
+  }
   estado.pintando = true;
   tela.setPointerCapture(ev.pointerId);
   pintar(x, y);
@@ -590,10 +782,90 @@ tela.addEventListener("pointermove", (ev) => {
     estado.peca.y = y - estado.arrastando.y;
     return redesenhar();
   }
+  if (estado.linha) return linhaAte(x, y);
   if (!estado.pintando) return;
   pintar(x, y);
 });
-addEventListener("pointerup", () => { estado.pintando = false; estado.arrastando = null; });
+addEventListener("pointerup", () => { estado.pintando = false; estado.arrastando = null; estado.linha = null; });
+
+/** A linha reta de onde apertou até (x, y), pixel por pixel (Bresenham), com
+ *  a grossura do pincel. */
+function linhaAte(x1, y1) {
+  const l = estado.linha;
+  ctx.putImageData(l.antes, 0, 0);
+  let x = l.x0, y = l.y0;
+  const dx = Math.abs(x1 - x), dy = -Math.abs(y1 - y), sx = x < x1 ? 1 : -1, sy = y < y1 ? 1 : -1;
+  let erro = dx + dy;
+  for (;;) {
+    pintar(x, y);
+    if (x === x1 && y === y1) break;
+    const e2 = 2 * erro;
+    if (e2 >= dy) { erro += dy; x += sx; }
+    if (e2 <= dx) { erro += dx; y += sy; }
+  }
+}
+
+/** Vira de lado: a peça solta, se tiver uma; senão o desenho todo. */
+function espelhar() {
+  const virar = (cv) => {
+    const o = document.createElement("canvas");
+    o.width = cv.width; o.height = cv.height;
+    const c = o.getContext("2d");
+    c.translate(cv.width, 0); c.scale(-1, 1);
+    c.drawImage(cv, 0, 0);
+    return o;
+  };
+  if (estado.peca) { estado.peca.cv = virar(estado.peca.cv); return redesenhar(); }
+  guardarUndo();
+  const copia = virar(tela);
+  ctx.clearRect(0, 0, LADO, LADO);
+  ctx.drawImage(copia, 0, 0);
+}
+
+/** Uma borda de 1 pixel, na cor escolhida, em volta de tudo que está
+ *  desenhado — por fora, sem pintar em cima de nada. */
+function contorno() {
+  fixarPeca();
+  guardarUndo();
+  const im = ctx.getImageData(0, 0, LADO, LADO), d = im.data;
+  const cheio = (x, y) => x >= 0 && y >= 0 && x < LADO && y < LADO && d[(y * LADO + x) * 4 + 3] > OPACO;
+  const borda = [];
+  for (let y = 0; y < LADO; y++)
+    for (let x = 0; x < LADO; x++)
+      if (!cheio(x, y) && (cheio(x - 1, y) || cheio(x + 1, y) || cheio(x, y - 1) || cheio(x, y + 1))) borda.push([x, y]);
+  ctx.fillStyle = estado.cor;
+  for (const [x, y] of borda) ctx.fillRect(x, y, 1, 1);
+}
+
+function desfazer() {
+  // Com uma peça solta, desfazer é tirar ela de cima.
+  if (devolverPeca()) return;
+  const img = estado.undos.pop();
+  if (!img) return;
+  estado.refazer.push(ctx.getImageData(0, 0, LADO, LADO));
+  ctx.putImageData(img, 0, 0);
+}
+function refazer() {
+  fixarPeca();
+  const img = estado.refazer.pop();
+  if (!img) return;
+  estado.undos.push(ctx.getImageData(0, 0, LADO, LADO));
+  ctx.putImageData(img, 0, 0);
+}
+
+function zoom(passo) {
+  estado.zoom = Math.max(3, Math.min(10, estado.zoom + passo));
+  tela.style.width = `${LADO * estado.zoom}px`;
+}
+
+// CTRL+Z desfaz, CTRL+Y (ou CTRL+SHIFT+Z) refaz — fora dos campos de texto,
+// que têm o desfazer deles
+addEventListener("keydown", (ev) => {
+  if (!(ev.ctrlKey || ev.metaKey) || /^(INPUT|SELECT|TEXTAREA)$/.test(ev.target.tagName)) return;
+  const k = ev.key.toLowerCase();
+  if (k === "z" && !ev.shiftKey) { desfazer(); ev.preventDefault(); }
+  else if (k === "y" || (k === "z" && ev.shiftKey)) { refazer(); ev.preventDefault(); }
+});
 
 // As setas empurram de 1 em 1 (com SHIFT, de 8 em 8) — é como se acerta o
 // pixel certo sem tremer a mão. Só quando não estou escrevendo num campo.
@@ -639,18 +911,19 @@ document.querySelectorAll(".grosso").forEach((b) => {
 document.querySelectorAll("[data-peca]").forEach((b) => { b.onclick = () => encaixar(b.dataset.peca); });
 $("auto").onclick = montarAuto;
 $("mover").onclick = moverTudo;
-$("desfazer").onclick = () => {
-  // Com uma peça solta, desfazer é tirar ela de cima.
-  if (devolverPeca()) return;
-  const img = estado.undos.pop();
-  if (img) ctx.putImageData(img, 0, 0);
-};
+$("desfazer").onclick = desfazer;
+$("refazer").onclick = refazer;
+$("espelhar").onclick = espelhar;
+$("contorno").onclick = contorno;
+$("zoomMais").onclick = () => zoom(1);
+$("zoomMenos").onclick = () => zoom(-1);
 $("limpar").onclick = () => { esquecerPeca(); guardarUndo(); ctx.clearRect(0, 0, LADO, LADO); };
 
 // ----------------------------------------------------------------- a ficha
 $("tipo1").innerHTML = TIPOS.map((t) => `<option>${t}</option>`).join("");
 $("tipo2").innerHTML = ["—", ...TIPOS].map((t) => `<option>${t}</option>`).join("");
-["nome", "tipo1", "tipo2"].forEach((id) => {
+$("tipo3").innerHTML = ["—", ...TIPOS].map((t) => `<option>${t}</option>`).join("");
+["nome", "tipo1", "tipo2", "tipo3"].forEach((id) => {
   $(id).addEventListener("input", (ev) => { ev.target.dataset.mexido = "1"; atualizarPrevia(); });
 });
 
@@ -673,8 +946,7 @@ const valorNo = (k, nv) => Math.max(1, Math.min(999,
 
 function atualizarPrevia() {
   const nome = $("nome").value || "—";
-  const t1 = $("tipo1").value, t2 = $("tipo2").value;
-  const tipos = t2 && t2 !== "—" && t2 !== t1 ? `${t1}/${t2}` : t1;
+  const tipos = tiposEscolhidos().join("/");
   const linha = (nv) => STATS.map(([k]) => valorNo(k, nv)).join(" ");
   $("previa").innerHTML =
     `<b>${nome}</b> — ${tipos}<br>` +
@@ -701,10 +973,12 @@ async function quantoMexi() {
   const g = guardado.getContext("2d", { willReadFrequently: true });
   g.imageSmoothingEnabled = false;
   const antes = ctx.getImageData(0, 0, LADO, LADO);
+  const refazerGuardado = [...estado.refazer];
   await montarAuto();                      // desenha a automática na tela...
   const auto = ctx.getImageData(0, 0, LADO, LADO).data;
   ctx.putImageData(antes, 0, 0);           // ...e devolve o seu na hora
   estado.undos.pop();                      // (o undo daquele passo não conta)
+  estado.refazer = refazerGuardado;
   let dif = 0, pintados = 0;
   for (let i = 0; i < meu.length; i += 4) {
     const a1 = meu[i + 3] > 40, a2 = auto[i + 3] > 40;
@@ -727,15 +1001,27 @@ async function conferirDesenho() {
     "Publicar assim mesmo?");
 }
 
+/** os tipos da ficha, sem repetir: até 3 na TRIPLA, até 2 na DUPLA */
+function tiposEscolhidos() {
+  const ids = estado.modo === "tripla" ? ["tipo1", "tipo2", "tipo3"] : ["tipo1", "tipo2"];
+  const out = [];
+  for (const id of ids) { const t = $(id).value; if (t && t !== "—" && !out.includes(t)) out.push(t); }
+  return out;
+}
+
 function montarFicha() {
   fixarPeca();                     // o que está solto entra na ficha
-  const { cabeca, corpo } = estado;
-  if (!cabeca || !corpo) { recado("Escolha a cabeça e o corpo.", "erro"); return null; }
-  const nome = ($("nome").value || nomeFusao(nomeBase(cabeca), nomeBase(corpo))).toUpperCase().slice(0, 11);
-  const t1 = $("tipo1").value, t2 = $("tipo2").value;
-  const tipos = t2 && t2 !== "—" && t2 !== t1 ? [t1, t2] : [t1];
+  const { cabeca, corpo, pernas } = estado;
+  if (!completo()) {
+    recado(estado.modo === "tripla" ? "Escolha a cabeça, o meio e as pernas." : "Escolha a cabeça e o corpo.", "erro");
+    return null;
+  }
+  const tripla = estado.modo === "tripla";
+  const nome = ($("nome").value || (tripla ? nomeTripla(nomeBase(cabeca), nomeBase(corpo), nomeBase(pernas))
+    : nomeFusao(nomeBase(cabeca), nomeBase(corpo)))).toUpperCase().slice(0, 11);
+  const tipos = tiposEscolhidos();
   return {
-    chave: `${cabeca.id}+${corpo.id}`,
+    chave: tripla ? `${cabeca.id}+${corpo.id}+${pernas.id}` : `${cabeca.id}+${corpo.id}`,
     ficha: {
       id: limpaTexto(nome) || "ficha",
       nome,
@@ -744,7 +1030,8 @@ function montarFicha() {
       inicial: { ...estado.inicial },
       crescimento: { ...estado.crescimento },
       sprite: tela.toDataURL("image/png"),
-      lore: `${cabeca.nome} NA CABEÇA, ${corpo.nome} NO CORPO.`,
+      lore: tripla ? `${cabeca.nome} NA CABEÇA, ${corpo.nome} NO MEIO, ${pernas.nome} NAS PERNAS.`
+        : `${cabeca.nome} NA CABEÇA, ${corpo.nome} NO CORPO.`,
     },
   };
 }
@@ -800,31 +1087,48 @@ $("publicar").onclick = async () => {
   recado("Não achei o jogo rodando. Use BAIXAR A FICHA e importe pelo jogo — funciona sempre.", "erro");
 };
 
+const esquecerMexidos = () => ["nome", "tipo1", "tipo2", "tipo3"].forEach((id) => delete $(id).dataset.mexido);
+
 $("sortear").onclick = () => {
-  const a = ESPECIES[Math.floor(Math.random() * ESPECIES.length)];
-  let b = ESPECIES[Math.floor(Math.random() * ESPECIES.length)];
-  while (b.id === a.id) b = ESPECIES[Math.floor(Math.random() * ESPECIES.length)];
-  $("cabeca").value = rotulo(a);
-  $("corpo").value = rotulo(b);
-  delete $("nome").dataset.mexido;
-  delete $("tipo1").dataset.mexido;
-  delete $("tipo2").dataset.mexido;
-  escolher("cabeca", $("cabeca").value);
-  escolher("corpo", $("corpo").value);
+  const fonte = ESPECIES, nomeDe = rotulo;
+  const usados = [];
+  for (const lado of lados()) {
+    let x;
+    do x = fonte[Math.floor(Math.random() * fonte.length)]; while (usados.includes(x.id));
+    usados.push(x.id);
+    $(lado).value = nomeDe(x);
+  }
+  esquecerMexidos();
+  for (const lado of lados()) escolher(lado, $(lado).value);
 };
+
+/** troca de DUPLA / TRIPLA: limpa a bancada e sorteia de novo */
+function trocarModo(modo) {
+  estado.modo = modo;
+  document.querySelectorAll(".modos button").forEach((b) => b.classList.toggle("on", b.dataset.modo === modo));
+  document.querySelectorAll(".soTripla").forEach((el) => { el.hidden = modo !== "tripla"; });
+  $("rotCorpo").textContent = modo === "tripla" ? "MEIO — dá o tronco e os braços, o 2º tipo e a força física"
+    : "CORPO — dá o resto, o 2º tipo e a força física";
+  for (const id of ["cabeca", "corpo", "pernas"]) {
+    estado[id] = null;
+    estado.quadro[id] = 0;
+  }
+  $("sortear").textContent = modo === "tripla" ? "🎲 Sortear trio" : "🎲 Sortear dupla";
+  $("sortear").click();
+}
+document.querySelectorAll(".modos button").forEach((b) => { b.onclick = () => trocarModo(b.dataset.modo); });
 
 $("inverter").onclick = () => {
   const a = $("cabeca").value, b = $("corpo").value;
   $("cabeca").value = b; $("corpo").value = a;
-  delete $("nome").dataset.mexido;
-  delete $("tipo1").dataset.mexido;
-  delete $("tipo2").dataset.mexido;
+  esquecerMexidos();
   escolher("cabeca", b);
   escolher("corpo", a);
 };
 
 $("cabeca").addEventListener("change", (ev) => escolher("cabeca", ev.target.value));
 $("corpo").addEventListener("change", (ev) => escolher("corpo", ev.target.value));
+$("pernas").addEventListener("change", (ev) => escolher("pernas", ev.target.value));
 
 desenharPaleta();
 atualizarPrevia();

@@ -592,7 +592,9 @@ export function comEspessura(ctx, m, desenhar, dx, dy, n) {
 
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  for (let i = n; i >= 1; i--) ctx.drawImage(e, Math.round(dx * i), dy * i);
+  // a folha é do tamanho da tela de verdade (3x: ESCALA_TELA); a grossura é em pixels do jogo
+  const E = W / 240;
+  for (let i = n; i >= 1; i--) ctx.drawImage(e, Math.round(dx * i) * E, dy * i * E);
   ctx.drawImage(f, 0, 0);
   ctx.restore();
 }
@@ -688,16 +690,6 @@ export function bichoNoPalco(ctx, img, x, y, w, h, n = 5) {
   if (!img) return;
   if (!isoLigado()) return void ctx.drawImage(img, x, y, w, h);
   comEspessura(ctx, ctx.getTransform(), (c) => c.drawImage(img, x, y, w, h), 1, -0.5, n);
-}
-
-/** onde fica, na tela, o pé de quem está em `x` no palco inclinado em (px, py) */
-export const peNoPalco = (x, px, py) => py + (x - px) * 0.5;
-
-/** o chão da cutscene: losangos do horizonte pra baixo e as plataformas dos
- *  bichos (`xs`: o x de cada um; a plataforma desce junto com a inclinação) */
-export function chaoDeCena(ctx, W, H, px, py, cores, xs = [], corPlataforma = "#3a2a70") {
-  chaoDeBatalhaIso(ctx, W, py - 16, H, cores);
-  for (const x of xs) plataformaIso(ctx, x, peNoPalco(x, px, py), 30, corPlataforma, 5);
 }
 
 /** OS PIXELS DAS CUTSCENES NO ISOMÉTRICO: cada um vira um cubinho — o topo

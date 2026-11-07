@@ -12,6 +12,7 @@ import json
 import os
 import queue
 import re
+import shutil
 import socketserver
 import sys
 import threading
@@ -36,7 +37,7 @@ _git_lock = threading.Lock()
 # pedia, entao a fusao ficava so no arquivo e ninguem sabia. Desligue aqui se
 # um dia quiser publicar a mao.
 AUTO_PUBLICAR = True
-# Pra testar o REGIOMAKER sem commit nem push: SEM_PUBLICAR=1 ./run.sh
+# Pra testar sem commit nem push: SEM_PUBLICAR=1 ./run.sh
 if os.environ.get("SEM_PUBLICAR"):
     AUTO_PUBLICAR = False
 
@@ -115,6 +116,65 @@ def watcher():
             print("\033[35m[hot]\033[0m " + ", ".join(rel), flush=True)
             broadcast({"type": "change", "files": rel, "t": time.time()})
         prev = cur
+
+
+# AS COPIAS DO SAVE: antes de gravar por cima, o save que estava no disco vai
+# pra save/copias/ — no maximo uma a cada COPIA_MIN minutos por perfil, e so as
+# COPIAS_MAX mais novas ficam. Em out/2026 uma partida inteira (8 insignias, o
+# MISSINGNO, o DLC) virou jogo novo gravado por cima, e nao tinha de onde voltar.
+COPIA_MIN = 10
+COPIAS_MAX = 30
+
+
+def progresso(save):
+    """Quanto a partida andou: insignias, Pokemon pegos, nivel da equipe e
+    tempo de jogo. So pra comparar duas versoes do MESMO save."""
+    if not isinstance(save, dict) or not save.get("player"):
+        return 0
+    return (len(save.get("badges") or []) * 1000 + len(save.get("caught") or []) * 20
+            + sum(m.get("level", 0) for m in save.get("party") or [] if isinstance(m, dict))
+            + (save.get("playtime") or 0) / 60)
+
+
+def guardar_copia(caminho, perfil, novo=None):
+    """Copia o save do disco antes de ele ser trocado por `novo` (None = vai
+    ser apagado). A copia normal e no maximo uma a cada COPIA_MIN minutos; mas
+    se o que chega e MENOS partida que o que esta no disco (um jogo novo por
+    cima, um apagar), a copia sai na hora, com "-antes-de-perder" no nome: e
+    exatamente ela que o RECUPERAR SAVE da tela de titulo precisa."""
+    if not os.path.exists(caminho):
+        return
+    pasta = os.path.join(os.path.dirname(caminho), "copias")
+    os.makedirs(pasta, exist_ok=True)
+    minhas = sorted(f for f in os.listdir(pasta) if f.startswith(perfil + "-") and f.endswith(".json"))
+    try:
+        with open(caminho, encoding="utf-8") as f:
+            antes = progresso(json.load(f))
+    except Exception:
+        antes = 0
+    perdendo = antes > 0 and progresso(novo) < antes * 0.9
+    recente = minhas and time.time() - os.path.getmtime(os.path.join(pasta, minhas[-1])) < COPIA_MIN * 60
+    if recente and not perdendo:
+        return
+    marca = "-antes-de-perder" if perdendo else ""
+    shutil.copy2(caminho, os.path.join(pasta, f"{perfil}-{time.strftime('%Y%m%d-%H%M%S')}{marca}.json"))
+    for velha in minhas[: max(0, len(minhas) + 1 - COPIAS_MAX)]:
+        os.remove(os.path.join(pasta, velha))
+
+
+def ler_copias(caminho, perfil):
+    """As copias de um perfil, mais nova primeiro, com o save dentro."""
+    pasta = os.path.join(os.path.dirname(caminho), "copias")
+    if not os.path.isdir(pasta):
+        return []
+    out = []
+    for nome in sorted((f for f in os.listdir(pasta) if f.startswith(perfil + "-") and f.endswith(".json")), reverse=True):
+        try:
+            with open(os.path.join(pasta, nome), encoding="utf-8") as f:
+                out.append({"arquivo": nome, "quando": os.path.getmtime(os.path.join(pasta, nome)), "save": json.load(f)})
+        except Exception:
+            pass
+    return out
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -232,6 +292,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.delay()
         if route == "/__save":
             return self.save_get()
+        if route == "/__copias":
+            return self.json_out({"copias": ler_copias(*self.save_file())})
         if self.gzip_estatico():
             return
         return super().do_GET()
@@ -407,7 +469,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         n = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(n) or b"null"
         apagar = "clear" in (self.path.split("?", 1)[1] if "?" in self.path else "")
-        base = self.headers.get("X-Save-Base")
+        base = self.headers.get("X-Save-Base") or self.query("base")   # o beacon manda na URL
         autor = self.headers.get("X-Client", "?")
         with _save_lock:
             atual = _versoes.get(perfil, 0)
@@ -420,12 +482,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return
             try:
                 if apagar or raw.strip() in (b"", b"null"):
+                    guardar_copia(caminho, perfil, None)
                     if os.path.exists(caminho):
                         os.remove(caminho)
                     print(f"\033[33m[save]\033[0m {perfil} apagado", flush=True)
                 else:
-                    json.loads(raw)                  # recusa lixo
+                    novo = json.loads(raw)           # recusa lixo
                     os.makedirs(os.path.dirname(caminho), exist_ok=True)
+                    guardar_copia(caminho, perfil, novo)
                     tmp = caminho + ".tmp"           # grava atomico: nunca meio save
                     with open(tmp, "wb") as f:
                         f.write(raw)
@@ -661,6 +725,35 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.publicar_sozinho(f"fora {fora.get('nome')}", "", prefixo="faxina")
         return self._responde({"ok": True, "nome": fora.get("nome")})
 
+    def som_post(self):
+        """O EDITOR DE SONS (dev/editorsom.html) salvou um som do jogo: o WAV
+        editado vira assets/sons/<nome>.wav, que o jogo toca no lugar do
+        <nome>.mp3 original. `apagar=1` tira o .wav (volta ao original). So
+        vale pra som que ja existe em assets/sons/ (o .mp3 original nunca e
+        tocado aqui)."""
+        from urllib.parse import parse_qs
+        q = parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "")
+        nome = (q.get("nome") or [""])[0]
+        pasta = os.path.join(ROOT, "assets", "sons")
+        if not re.fullmatch(r"[a-z0-9-]{1,40}", nome) or not os.path.exists(os.path.join(pasta, nome + ".mp3")):
+            return self.send_error(400)
+        destino = os.path.join(pasta, nome + ".wav")
+        if (q.get("apagar") or [""])[0]:
+            if os.path.exists(destino):
+                os.remove(destino)
+        else:
+            n = int(self.headers.get("Content-Length", 0))
+            if n <= 44 or n > 20 * 1024 * 1024:
+                return self.send_error(400)
+            corpo = self.rfile.read(n)
+            if corpo[:4] != b"RIFF" or corpo[8:12] != b"WAVE":
+                return self.send_error(400)
+            with open(destino, "wb") as f:
+                f.write(corpo)
+        print(f"\033[36m[som]\033[0m {nome}: {'original' if (q.get('apagar') or [''])[0] else 'editado salvo'}", flush=True)
+        self.send_response(204)
+        self.end_headers()
+
     def ficha_post(self):
         """A oficina publicou uma ficha de fusao: ela vira CODIGO.
 
@@ -676,7 +769,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.send_error(400)
         chave = str(payload.get("chave", ""))
         ficha = payload.get("ficha") or {}
-        if not re.fullmatch(r"[a-z0-9]+\+[a-z0-9]+", chave) or not ficha.get("id"):
+        # "cabeca+corpo" e a TRIPLA "cabeca+meio+pernas"
+        if not re.fullmatch(r"[a-z0-9]+\+[a-z0-9]+(\+[a-z0-9]+)?", chave) or not ficha.get("id"):
             return self.send_error(400)
         if payload.get("acao") == "apagar":
             return self.ficha_apagar(chave, str(ficha["id"]), str(payload.get("senha") or ""))
@@ -933,6 +1027,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.faxina_post()
         if self.path.split("?")[0] == "/__mundo":
             return self.mundo_post()
+        if self.path.split("?")[0] == "/__som":
+            return self.som_post()
         if self.path.split("?")[0] != "/__capture":
             self.send_error(404)
             return

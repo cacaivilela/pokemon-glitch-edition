@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>checagem do gigante 3D</title>
+<style>body{background:#111;color:#9fd;font:13px ui-monospace,monospace;margin:0;padding:8px}
+iframe{width:740px;height:560px;border:0}#log{white-space:pre-wrap;color:#7fd;margin-bottom:6px}</style>
+</head>
+<body>
+<div id="log">rodando...</div>
+<iframe id="fr" src=""></iframe>
+<img id="hold" alt="" width="1" height="1">
+<script>
+// O RAYQUAZA CRUZANDO O CÉU (src/core/gigante3d.js), no jogo de verdade:
+// ?gigante=rayquaza faz ele passar logo. Em headless o rAF não roda, então o
+// update é bombeado na mão e o quadro é desenhado num canvas nosso.
+const fr = document.getElementById("fr"), log = document.getElementById("log");
+const linhas = [], errs = [], quadros = [];
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+window.addEventListener("error", (e) => errs.push("PAI: " + e.message));
+
+(async () => {
+ try {
+  // ?seguir=1: em vez do evento, o RAYQUAZA já pego, te seguindo em 2D
+  const seguir = new URLSearchParams(location.search).has("seguir");
+  // ?seguir=regiglitch: quem segue é esse (sem valor, o RAYQUAZA)
+  const quemSegue = new URLSearchParams(location.search).get("seguir") || "rayquaza";
+  // ?jade=1: compra a ESFERA DE JADE do cientista de Fuchsia e chama ele com ela
+  const jade = new URLSearchParams(location.search).has("jade");
+  // ?regi=regirock: vai pra câmara dele em Tanoby, encosta na placa e acorda ele
+  const regi = new URLSearchParams(location.search).get("regi");
+  const CAMARAS = { regirock: "monean", regice: "liptoo", registeel: "weepth", regieleki: "dilford",
+                    regidrago: "scufib", regigigas: "rixy", regiglitch: "viapois" };
+  fr.src = regi ? `/?perfil=gigantecheck&map=seven_island_tanoby_ruins_${CAMARAS[regi]}_chamber&x=11&y=9` : jade ? "/?perfil=gigantecheck&map=fuchsia_city" : seguir ? `/?perfil=gigantecheck&map=route1&party=${quemSegue}:70` : "/?perfil=gigantecheck&map=route1&gigante=rayquaza";
+  let w;
+  for (let i = 0; i < 100 && !(w = fr.contentWindow)?.game?.scenes?.top?.update; i++) await espera(100);
+  w.addEventListener("error", (e) => errs.push("JOGO: " + e.message));
+  await espera(1500);
+  const cena = () => w.game.scenes.top;
+  const sc = cena();
+  sc.dlg.chars = 1e9; while (sc.dlg.active) { sc.dlg.chars = 1e9; sc.dlg.next(); }
+  const cv = document.createElement("canvas"); cv.width = 240; cv.height = 160;
+  const ctx = cv.getContext("2d");
+  const foto = (nome) => { ctx.clearRect(0, 0, 240, 160); sc.render(ctx); quadros.push(cv.toDataURL()); linhas.push(`  foto ${nome}`); };
+  if (regi) {
+    const st = sc.st;
+    const passa = () => { for (let n = 0; n < 40 && (sc.dlg.active || sc.dlg.choice); n++) {
+      if (sc.dlg.choice) { linhas.push(`  pergunta: ${sc.dlg.choice.text} ${JSON.stringify(sc.dlg.choice.options)}`); const ch = sc.dlg.choice; sc.dlg.choice = null; ch.cb(0); continue; }
+      linhas.push(`  fala: ${(sc.dlg.lines || []).join(" ")}`); sc.dlg.chars = 1e9; sc.dlg.next(); } };
+    // os que ele exige já foram pegos (o REGIGIGAS e o REGIGLITCH esperam os outros)
+    const antes = { regigigas: ["regirock", "regice", "registeel"],
+                    regiglitch: ["regirock", "regice", "registeel", "regieleki", "regidrago", "regigigas"] }[regi] || [];
+    const npc = sc.npcsHere().find((n) => n.regi === regi);
+    linhas.push(`placa: ${npc ? `(${npc.x},${npc.y}) ${npc.sprite}` : "NÃO ACHEI"} | jogador (${st.player.x},${st.player.y})`);
+    if (antes.length) {
+      sc.talkTo(npc); passa();
+      linhas.push(`trancado? gigante=${!!sc.gigante}`);
+      st.flags.gigantes = Object.fromEntries(antes.map((r) => [r, true]));
+    }
+    st.player.dir = "up";
+    for (let i = 0; i < 5; i++) { sc.update(1 / 30); sc.render(ctx); }
+    foto("placa");
+    sc.talkTo(npc); passa();
+    linhas.push(`acordando: fase=${sc.gigante?.fase} tipo=${sc.gigante?.tipo}`);
+    for (let i = 0; i < 300 && !sc.dlg.active; i++) {
+      sc.update(1 / 30);
+      if ([20, 50, 84, 110].includes(i)) foto(`${sc.gigante?.fase} ${sc.gigante?.t?.toFixed(1)}`);
+    }
+    linhas.push(`antes da luta: fase=${sc.gigante?.fase} cam.y=${sc.cam.y} pan=${sc.panGigante}`);
+    foto("fala");
+    passa();
+    for (let i = 0; i < 60; i++) cena().update(1 / 30);
+    linhas.push(`batalha: ${cena().constructor.name} ${cena().foe?.species} nv${cena().foe?.level}`);
+    // a batalha ao longo do tempo de verdade (o PNG chega pela rede): o
+    // sprite tem que aparecer, não a arte provisória
+    const { SpriteStore } = await w.eval("import('/src/core/sprites.js')");
+    for (const ms of [300, 1500, 4000]) {
+      await espera(ms);
+      for (let i = 0; i < 20; i++) cena().update(1 / 30);
+      ctx.clearRect(0, 0, 240, 160); cena().render(ctx); quadros.push(cv.toDataURL());
+      linhas.push(`  +${ms}ms: sprite carregado=${!!SpriteStore.pokemon[regi]} faltando=${SpriteStore.missing.has(regi)}`);
+    }
+  }
+  if (jade) {
+    const st = sc.st, passa = () => { for (let n = 0; n < 40 && (sc.dlg.active || sc.dlg.choice); n++) {
+      if (sc.dlg.choice) { linhas.push(`  pergunta: ${sc.dlg.choice.text} ${JSON.stringify(sc.dlg.choice.options)}`); const ch = sc.dlg.choice; sc.dlg.choice = null; ch.cb(0); continue; }
+      linhas.push(`  fala: ${(sc.dlg.lines || []).join(" ")}`); sc.dlg.chars = 1e9; sc.dlg.next(); } };
+    const npc = sc.npcsHere().find((n) => n.id === "cientista_jade");
+    linhas.push(`cientista: ${npc ? `(${npc.x},${npc.y}) ${npc.sprite}` : "NÃO ACHEI"}`);
+    st.player.x = 12; st.player.y = 17; st.player.dir = "up";
+    st.money = 1000; sc.talkTo(npc); passa();
+    linhas.push(`sem grana: esfera=${st.items["esfera de jade"] || 0} dinheiro=${st.money}`);
+    st.money = 9000; sc.talkTo(npc); passa();
+    linhas.push(`com grana: esfera=${st.items["esfera de jade"] || 0} dinheiro=${st.money}`);
+    sc.talkTo(npc); passa();
+    sc.invocarGigante("rayquaza"); passa();
+    for (let i = 0; i < 90; i++) sc.update(1 / 30);
+    foto("chamado");
+    linhas.push(`depois de chamar: fase=${sc.gigante?.fase} t=${sc.gigante?.t?.toFixed(1)}`);
+    for (let i = 0; i < 200 && !sc.dlg.active; i++) sc.update(1 / 30);
+    foto("desceu");
+    passa();
+    for (let i = 0; i < 60; i++) cena().update(1 / 30);
+    linhas.push(`batalha: ${cena().constructor.name} ${cena().foe?.species}`);
+  }
+  if (seguir) {
+    const pt = sc.st.party, r = pt.findIndex((m) => m.species === quemSegue);
+    pt.unshift(...pt.splice(r, 1));            // ele na frente: é ele quem segue
+    // ele logo atrás de você (andar no teste esbarra em cerca conforme o spawn)
+    const p = sc.st.player;
+    sc.compa = { x: p.x, y: p.y + 1, de: { x: p.x, y: p.y + 1 }, dir: "up" };
+    for (let i = 0; i < 10; i++) sc.update(1 / 30);
+    foto("seguindo");
+    linhas.push(`segue: ${sc.quemSegue()?.species} compa=${JSON.stringify(sc.compa && { x: sc.compa.x, y: sc.compa.y })}`);
+  }
+  for (let i = 0; i < (seguir || jade || regi ? 0 : 400); i++) {
+    sc.update(1 / 30);
+    const g = sc.gigante;
+    if (i % 15 === 0) linhas.push(`t=${(i / 30).toFixed(1)} fase=${g?.fase} gt=${g?.t?.toFixed(2)} dlg=${!!sc.dlg.active} tremor=${sc.tremor?.toFixed(2)}`);
+    if ([60, 120, 280].includes(i)) foto(i);
+    if (sc.dlg.active) { foto("fala"); break; }
+  }
+  if (!seguir && !jade && !regi) {
+  // passa a fala: tem que abrir a batalha
+  while (sc.dlg.active) { sc.dlg.chars = 1e9; sc.dlg.next(); }
+  for (let i = 0; i < 60; i++) cena().update(1 / 30);
+  const top = cena();
+  linhas.push(`depois da fala: cena=${top.constructor.name} inimigo=${top.foe?.species} nv=${top.foe?.level}`);
+  }
+
+  const texto = linhas.join("\n") + "\n" + (errs.length ? "ERROS: " + errs.join(" | ") : "sem erros");
+  log.textContent = texto;
+  for (let i = 0; i < quadros.length; i++)
+    await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "gigante" + i, dataUrl: quadros[i], log: i ? "" : texto }) });
+ } catch (e) {
+  await fetch("/__capture", { method: "POST",
+    body: JSON.stringify({ name: "gigante0", log: linhas.join("\n") + "\nQUEBROU: " + (e && e.stack || e) }) }).catch(()=>{});
+ }
+})();
+document.getElementById("hold").src = "/__delay?ms=20000";
+</script>
+</body></html>

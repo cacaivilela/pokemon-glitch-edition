@@ -8,4 +8,9 @@ export const GRITOS = {
   zygarde10: { som: "ZI-GÁ! AU-AU! ZZM", mais: ["AU-AU! ZI-GÁ! ZM!", "ZI...? ARF... ARF... ZM"], s: [[900, 950, 110, "q", 0, 0.15], [0, 0, 30, "_"], [800, 600, 160, "s", 0, 0.25], [0, 0, 50, "_"], [700, 500, 80, "p", 0, 0.35], [0, 0, 40, "_"], [700, 480, 100, "p", 0, 0.35], [500, 300, 300, "s", 35, 0.3]] },
   // o COMPLETO é o gigante: grave, longo, e o zumbido das células no fim
   zygardecompleto: { som: "ZIII-GÁÁÁRD... ZZZZZMMM", mais: ["ZI-GÁÁRD! ZZZM!", "ZIII... GRRR... NATUREZA"], s: [[300, 320, 280, "s", 0, 0.3], [0, 0, 50, "_"], [260, 180, 520, "s", 4, 0.4], [0, 0, 50, "_"], [140, 130, 900, "s", 35, 0.5], [600, 60, 400, "n"]] },
+  // O 200%: vê a fraqueza num milissegundo (o ZI! metálico), ataca no
+  // seguinte (três cortes, um de cada núcleo: branco agudo, vermelho, azul
+  // grave), ruge o GÁÁRD distorcido, engole como o GUZZLORD (o ÔÔMM de bocão)
+  // e as células assentam no ronco do fim
+  zygarde200: { som: "ZI! KRÁ-KRÁ-KRÁ! GÁÁÁRD... ÔÔÔMMM... ZZZM", mais: ["KRÁ! KRÁ! KRÁ! ZI-GÁÁRD!", "...ÔÔÔMMM... ZZZM..."], s: [[1800, 2400, 50, "rng", 0, 0.1], [0, 0, 30, "_"], [1500, 1100, 50, "sup", 0, 0.2], [900, 650, 50, "sup", 0, 0.2], [520, 360, 60, "sup", 0, 0.25], [0, 0, 60, "_"], [260, 170, 520, "dst", 6, 0.35], [0, 0, 40, "_"], [150, 85, 480, "vo", 3, 0.2], [0, 0, 30, "_"], [500, 60, 520, "n"], [70, 48, 420, "bx", 28, 0.15]] },
 };

@@ -21,11 +21,22 @@
 
 export const POKEDEX_TEXTO = {
   entrega: [
-    "PROF. CARVALHO: AGORA QUE VOCÊ TEM UM POKÉMON, LEVA ISTO TAMBÉM.",
+    "PROF. CARVALHO: E AGORA, PELO FAVOR DE TRAZER A ENCOMENDA, LEVA ISTO.",
     "É UMA POKÉDEX. ELA ANOTA TODO POKÉMON QUE VOCÊ VIR E TODO QUE FOR SEU.",
     "O QUE VOCÊ SÓ VIU, ELA DESENHA. O QUE VOCÊ PEGOU, ELA CONTA TUDO: TIPO, PESO, ONDE VIVE.",
   ],
   ganhou: "VOCÊ RECEBEU A POKÉDEX!",
+  // A ENCOMENDA (pedido do CAIO: "tem que ir lá pra viridian pegar o pacote e
+  // entregar"): igual ao jogo original. O balconista da loja de VIRIDIAN dá o
+  // pacote; entregando, o professor dá a POKÉDEX e 5 POKÉ BOLAS.
+  bolas: ["PROF. CARVALHO: E TOMA, CINCO POKÉ BOLAS PRA VOCÊ COMEÇAR A PEGAR POKÉMON.", "VOCÊ RECEBEU 5 POKÉ BOLAS!"],
+  encomenda: {
+    item: "encomenda do carvalho",
+    loja: ["BALCONISTA: OI! VOCÊ É DE PALLET?", "CHEGOU UMA ENCOMENDA PRO PROF. CARVALHO. VOCÊ LEVA PRA ELE?", "VOCÊ RECEBEU A ENCOMENDA DO CARVALHO!"],
+    lojaDeNovo: ["BALCONISTA: LEVA A ENCOMENDA PRO PROF. CARVALHO, LÁ EM PALLET!", "DEPOIS VOCÊ VOLTA PRA COMPRAR."],
+    oakSem: ["PROF. CARVALHO: AH, A LOJA DE VIRIDIAN FICOU DE MANDAR UMA ENCOMENDA MINHA...", "SE VOCÊ PASSAR POR LÁ, TRAZ PRA MIM?"],
+    oakRecebe: ["PROF. CARVALHO: OH! A MINHA ENCOMENDA! É ISSO MESMO QUE EU ESTAVA ESPERANDO.", "MUITO OBRIGADO! EM TROCA, TENHO UMA COISA PRA VOCÊ..."],
+  },
   explica: [
     "ABRE PELO MENU (X). C TROCA A ABA: KANTO, NACIONAL E FORMAS.",
     "E ME AVISA COMO ELA ESTÁ INDO. A CADA TANTO QUE VOCÊ PEGAR, EU MANDO ALGUMA COISA.",
@@ -35,12 +46,12 @@ export const POKEDEX_TEXTO = {
     "PROF. CARVALHO: BOA ESCOLHA! AGORA SIGA PELA ROTA 1.",
     "VIRIDIAN FICA AO NORTE. LÁ TEM CENTRO POKÉMON E LOJA.",
   ],
-  registrou: "OS DADOS DE {MON} FORAM REGISTRADOS NA POKÉDEX!",
+  registrou: "{MON} FOI ANOTADO NA POKÉDEX: PEGO!",
   abas: ["KANTO", "NACIONAL", "FORMAS"],
   vistos: "VISTOS",
   pegos: "PEGOS",
   semDados: "CAPTURE PRA LER OS DADOS.",
-  paginas: ["DADOS", "ATRIBUTOS", "ONDE"],
+  paginas: ["DADOS", "ATRIBUTOS", "ONDE", "MISSÕES"],
   semLugar: "NÃO VIVE SOLTO EM LUGAR NENHUM QUE A POKÉDEX CONHEÇA.",
   ajudaLista: "C ABA  <> PULA 10  Z VER",
   ajudaFicha: "<> PÁGINA  ▲▼ OUTRO",
@@ -67,8 +78,40 @@ export const MARCOS = [
     fala: "CENTO E CINQUENTA E UM. A POKÉDEX DE KANTO ESTÁ COMPLETA. EU NÃO SEI O QUE DIZER. ISTO AQUI É SEU." },
 ];
 
+/** OS PRÊMIOS DA NACIONAL (pedido do CAIO, nov/2026: "faz a pkdex ter
+ *  recompensas pelo nº de pkmns na sua pkdex"). Contam TODOS os pegos da
+ *  NACIONAL (todas as regiões, Braglitch e os extras), e são pagos do mesmo
+ *  jeito que os de Kanto: ao abrir a Pokédex, uma vez cada. */
+export const MARCOS_NACIONAL = [
+  { n: 200, item: "doce raro", qtd: 5,
+    fala: "DUZENTOS NA NACIONAL! VOCÊ JÁ SAIU DE KANTO DE VERDADE. DOCES PRA QUEM FICOU PRA TRÁS." },
+  { n: 300, item: "pepita", qtd: 5,
+    fala: "TREZENTOS. VENDE ESSAS PEPITAS E COMPRA BOLA, QUE AINDA FALTA MUITO." },
+  { n: 400, item: "master ball", qtd: 1,
+    fala: "QUATROCENTOS! ISTO AQUI PEGA QUALQUER UM. GUARDA PRA UM QUE VALHA A PENA." },
+  { n: 500, item: "ovo da sorte", qtd: 1,
+    fala: "QUINHENTOS! METADE DO MUNDO. DÁ ESTE OVO PRA QUEM PRECISA CRESCER RÁPIDO." },
+  { n: 600, item: "doce raro", qtd: 20,
+    fala: "SEISCENTOS. EU JÁ NEM SEI DE ONDE VOCÊ TIRA TANTO POKÉMON. TOMA MAIS DOCES." },
+  { n: 700, item: "master ball", qtd: 2,
+    fala: "SETECENTOS! DUAS MASTER BALLS. NÃO CONTA PRO MEU NETO QUE EU TE DEI." },
+  { n: 800, item: "pepita", qtd: 20,
+    fala: "OITOCENTOS. VOCÊ É O TREINADOR MAIS RICO EM POKÉMON QUE EU JÁ CONHECI. AGORA EM DINHEIRO TAMBÉM." },
+  { n: 900, item: "master ball", qtd: 3,
+    fala: "NOVECENTOS! OS QUE FALTAM SÃO OS LENDÁRIOS ESCONDIDOS. ESTAS SÃO PRA ELES." },
+  { n: 1000, item: "doce raro", qtd: 50,
+    fala: "MIL!!! MIL POKÉMON! EU VOU TER QUE ESCREVER UM LIVRO SOBRE VOCÊ." },
+  { n: 1100, item: "master ball", qtd: 10,
+    fala: "MIL E CEM. A POKÉDEX NACIONAL ESTÁ QUASE TODA PREENCHIDA. NÃO TENHO MAIS NADA PRA TE ENSINAR." },
+  // TODOS: o número é o tamanho da NACIONAL (calculado na hora: entra
+  // Pokémon novo, o marco anda junto). Cem MASTER BALLS ("com todos os pkmns
+  // 100 master balls", CAIO, nov/2026). A MASTER BALL na loja vem da LIGA.
+  { todos: true, item: "master ball", qtd: 100,
+    fala: "TODOS. TODOS OS POKÉMON DO MUNDO. A POKÉDEX ESTÁ COMPLETA! TOMA CEM MASTER BALLS. VOCÊ MERECE CADA UMA." },
+];
+
 /** O PRÊMIO DE COMPLETAR KANTO: com ele na mochila, a chance de um selvagem
- *  nascer shiny triplica. É o mesmo número que o SANDUÍCHE
+ *  nascer shiny (ou luminoso) triplica. É o mesmo número que o SANDUÍCHE
  *  AMARGO do acampamento usa — e os dois somam na mesma conta. */
 export const AMULETO = {
   item: "amuleto brilhante",

@@ -86,7 +86,9 @@ export function todosGuardados(state) {
 }
 
 export const ocupados = (box) => (box?.mons || []).filter(Boolean).length;
-export const totalGuardados = (state) => todosGuardados(state).length;
+// arruma o formato ANTES de contar: no save antigo (só `state.box`) não existe
+// `state.boxes` ainda, e a conta dava zero vagas — "BOX cheio" com o BOX quase
+// vazio, e o PRESENTE MISTERIOSO pulava os Pokémon sem avisar (nov/2026)
 export const vagas = (state) =>
-  (state?.boxes || []).reduce((n, b) => n + b.mons.filter((m) => !m).length, 0);
+  (state ? garantirBoxes(state) : []).reduce((n, b) => n + b.mons.filter((m) => !m).length, 0);
 export const cheio = (state) => vagas(state) === 0;

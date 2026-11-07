@@ -1,0 +1,28 @@
+<!doctype html>
+<!-- O ATRASO DE CADA INSTRUMENTO, MEDIDO (não chutado): cada um toca sozinho
+     num áudio de mentira (OfflineAudioContext) no instante 0,5 s, e a página
+     mostra em que milésimo ele começa a soar. Manda o resultado pro /__capture
+     (dev/captures/atrasos.log). Uso: /dev/atrasos.html -->
+<meta charset="utf-8"><title>atrasos</title>
+<style>body{background:#111;color:#ddd;font:14px monospace;padding:16px}td{padding:4px 12px}</style>
+<h3>atraso de cada instrumento (ms depois do instante pedido)</h3>
+<table id="t"></table>
+<script type="module">
+import { DB } from "../src/data/index.js";
+import { Audio2, nota } from "../src/core/audio.js";
+const M = DB.MUSIC.megaDescontrolada.tracks;
+const casos = {
+  "guitarra solo (E4)": (A, t) => A._guitarraEm(nota("E4"), t, 0.3, { ...M[0], adianta: 0 }, M[0].vol),
+  "guitarra ritmo (E2)": (A, t) => A._guitarraEm(nota("E2"), t, 0.3, M[1], M[1].vol),
+  "baixo triângulo (E1)": (A, t) => A._notaEm(nota("E1"), t, 0.3, M[2], M[2].vol),
+  "bateria bumbo (K)": (A, t) => A._bateriaEm("K", t, M[3].vol),
+  "bateria caixa (S)": (A, t) => A._bateriaEm("S", t, M[3].vol),
+  "bateria prato (KC)": (A, t) => A._bateriaEm("KC", t, M[3].vol),
+};
+// ?com=1 mede COM a compensação; sem, mede o atraso cru
+if (!new URLSearchParams(location.search).has("com")) { Audio2.adiantaGuitarra = 0; Audio2.adiantaNota = 0; }
+const r = await Audio2.medirAtrasos(casos);
+document.getElementById("t").innerHTML = Object.entries(r).map(([k, v]) => `<tr><td>${k}</td><td>${v.comeca_ms} ms</td><td>pico ${v.pico}</td></tr>`).join("");
+await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: new URLSearchParams(location.search).has("com") ? "atrasos_com" : "atrasos", log: JSON.stringify(r) }) });
+document.title = "atrasos pronto";
+</script>

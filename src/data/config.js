@@ -104,6 +104,14 @@ export const CONFIG = {
   // Shiny solto pela grama de Kanto: 1 em 1024 selvagens vem com a cor trocada.
   // (dentro da fenda a regra é outra: 1 a cada SHINY_EVERY vistos, em extra.js)
   shinyOdds: 1 / 1024,
+  // LUMINOSO: a cor mais rara do jogo, 1 em 9999. Ele é sorteado ANTES do
+  // shiny e ganha dele — um Pokémon é comum, shiny OU luminoso, nunca dois. Um
+  // shiny aparece de vez em quando; um luminoso é a história que o dono conta
+  // pros outros, então ele não pode ser "shiny com um extra": ele acende.
+  luminosoOdds: 1 / 9999,
+  // ...mas só depois desta missão (AS CORES TRAVADAS, src/data/missoes.js):
+  // antes dela nenhum bicho nasce shiny. Tirar a linha libera desde o começo.
+  shinyMissao: "cores-travadas",
 
   // OS SPINDAS RAROS: o TODO BRANCO (nenhuma mancha) e o TODO VERMELHO (o corpo
   // inteiro da cor das manchas). Nos jogos de verdade nenhum dos dois existe —

@@ -10,10 +10,13 @@
 //   assets/sprites/pokemon/anim/back/025.png  (tools/fetch_bw_anim.py; índice em anim/quadros.json)
 //   assets/sprites/overworld/hero.png     folha 4 colunas x 3 linhas (baixo/cima/esquerda)
 //   assets/sprites/tiles/grama.png        tile de 16x16
+import { tirarArvores } from "./arvoreskanto.js";
 import { url } from "./base.js";
 import { DB } from "../data/index.js";
+import { fundoArt } from "./fundoarte.js";
 
 export const SpriteStore = {
+  arvores: {},      // mapa -> as árvores 3D de Kanto (src/core/arvoreskanto.js)
   pokemon: {},      // id -> canvas/Image
   pokemonBack: {},
   pokemonShiny: {},     // id -> a arte shiny oficial, quando o PNG existe
@@ -36,7 +39,9 @@ export function loadImage(url) {
   const p = new Promise((resolve) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
+    // a FALHA não fica guardada: uma conexão que caiu uma vez (servidor
+    // ocupado, várias abas carregando junto) não pode valer pro resto da sessão
+    img.onerror = () => { cache.delete(url); resolve(null); };
     img.src = url;
   });
   cache.set(url, p);
@@ -56,14 +61,14 @@ async function findMon(dir, id, dex) {
 }
 
 /** Fatia uma folha 4 colunas x 3 linhas (baixo, cima, lado) de 16x16. */
-function sliceActorSheet(img) {
-  const fw = Math.floor(img.width / 4);
+function sliceActorSheet(img, colunas = 4) {
+  const fw = Math.floor(img.width / colunas);
   const fh = Math.floor(img.height / 3);
   const rows = ["down", "up", "left"];
   const out = {};
   rows.forEach((dir, r) => {
     out[dir] = [];
-    for (let c = 0; c < 4; c++) {
+    for (let c = 0; c < colunas; c++) {
       const cv = document.createElement("canvas");
       cv.width = fw; cv.height = fh;
       const ctx = cv.getContext("2d");
@@ -87,21 +92,48 @@ function sliceActorSheet(img) {
  *  `<id>.png` é o chão (fica atrás do jogador) e `<id>_over.png` é a camada que
  *  passa por cima dele — copa das árvores, telhados, batentes de porta. */
 export function mapArt(id) {
+  // O FUNDO DO MAR (src/data/fundo-do-mar.js) é pintado em código, na primeira
+  // vez que alguém mergulha ali (são dezenas: desenhar todos na abertura pesaria)
+  if (!(id in SpriteStore.maps) && String(id).startsWith("fundo_") && DB.KANTO?.[id]) {
+    SpriteStore.maps[id] = fundoArt(DB.KANTO[id]);
+    SpriteStore.maps[id + "_over"] = null;
+  }
   if (!(id in SpriteStore.maps)) {
     SpriteStore.maps[id] = null;
     // `arte`: o mapa usa o desenho de outro (os interiores de BRAGLITCH são
     // os de Kanto com as portas trocadas — src/data/braglitch.js)
-    const arq = DB.KANTO?.[id]?.arte || id;
-    loadImage(url(`assets/maps/${arq}.png`)).then((img) => {
+    const chao = arquivoMapa(id);
+    const pChao = loadImage(url(chao)).then((img) => {
       SpriteStore.maps[id] = img;
-      if (!img) console.warn(`[mapa] assets/maps/${arq}.png não encontrado — rode: python3 tools/fetch_maps.py`);
+      if (!img) console.warn(`[mapa] ${chao} não encontrado — rode: python3 tools/fetch_maps.py`);
+      return img;
     });
-    loadImage(url(`assets/maps/${arq}_over.png`)).then((img) => { SpriteStore.maps[id + "_over"] = img; });
+    const pOver = loadImage(url(arquivoMapa(id, true))).then((img) => { SpriteStore.maps[id + "_over"] = img; return img; });
+    // AS ÁRVORES 3D DE KANTO (src/core/arvoreskanto.js): saem do desenho e
+    // ficam em pé, empilhadas em fatias
+    Promise.all([pChao, pOver]).then(([b, o]) => {
+      const r = b && tirarArvores(b, o);
+      if (!r) return;
+      SpriteStore.maps[id] = r.base;
+      if (r.over) SpriteStore.maps[id + "_over"] = r.over;
+      SpriteStore.arvores[id] = r.lista;
+    });
   }
   return SpriteStore.maps[id];
 }
 
+/** O arquivo do desenho do mapa (`over`: a camada de cima). Mapas IGUAIS
+ *  guardam um arquivo só: o kanto.json diz em `png`/`pngOver` qual mapa tem o
+ *  arquivo (tools/compacta_mapas.py). */
+export function arquivoMapa(id, over = false) {
+  const arq = DB.KANTO?.[id]?.arte || id;
+  const g = DB.KANTO?.[arq];
+  return over ? `assets/maps/${g?.pngOver || arq}_over.png` : `assets/maps/${g?.png || arq}.png`;
+}
+
 export const mapOverlay = (id) => SpriteStore.maps[id + "_over"] || null;
+/** as árvores 3D do mapa de Kanto (src/core/arvoreskanto.js), ou null */
+export const arvoresDoMapa = (id) => SpriteStore.arvores[id] || null;
 
 /** O DESENHO INTEIRO do mapa: o chão com a camada de cima já colada nele. É o
  *  que o ISOMÉTRICO usa pros blocos (src/core/isometrico.js): no FireRed o
@@ -247,6 +279,21 @@ function sementeDe(id) {
 const talvezHackear = (id, img, lado) =>
   (img && DB.SPECIES?.[id]?.hack) ? corromperSprite(img, sementeDe(id + lado)) : img;
 
+/** Quantas vezes um sprite que não veio é pedido DE NOVO, e quanto se espera
+ *  entre uma e outra. Antes não havia segunda vez: um pedido que caísse uma
+ *  única vez deixava aquela espécie com a arte provisória até recarregar a
+ *  página — e quem caía nisso eram justamente os que só são pedidos na hora em
+ *  que aparecem (os REGIS acordando, src/data/regis.js). */
+const DE_NOVO = 3, ESPERA_DE_NOVO = 1200;
+const tentativas = new Map();
+/** Não veio: tenta de novo daqui a pouco; esgotou, aí sim está faltando. */
+function deNovo(id, pedir) {
+  const n = tentativas.get(id) || 0;
+  if (n >= DE_NOVO) { SpriteStore.missing.add(id); return; }
+  tentativas.set(id, n + 1);
+  setTimeout(() => { pedidos.delete(id); pedir(); }, ESPERA_DE_NOVO * (n + 1));
+}
+
 /** Pede o sprite daquela espécie (frente e costas), uma vez só. Enquanto ele
  *  não chega, quem desenha usa a arte provisória — nada fica preto. */
 export function pedirMon(id, dex) {
@@ -259,21 +306,24 @@ export function pedirMon(id, dex) {
   pedidos.add(id);
   findMon("pokemon", id, dex).then((img) => {
     if (img) { SpriteStore.pokemon[id] = talvezHackear(id, img, "f"); SpriteStore.loaded++; }
-    else SpriteStore.missing.add(id);
+    else deNovo(id, () => pedirMon(id, dex));
   });
-  findMon("pokemon/back", id, dex).then((img) => {
-    if (img) SpriteStore.pokemonBack[id] = talvezHackear(id, img, "c");
-  });
+  if (!SpriteStore.pokemonBack[id]) {
+    findMon("pokemon/back", id, dex).then((img) => {
+      if (img) SpriteStore.pokemonBack[id] = talvezHackear(id, img, "c");
+    });
+  }
 }
 
 /** O DESENHO DE UMA FORMA ÚNICA (src/data/formas-unicas.js): um PNG com
  *  caminho próprio (assets/unicas/...), e não o número da Pokédex. */
-export function pedirMonUrl(id, caminho) {
-  if (!id || pedidos.has(id)) return;
-  pedidos.add(id);
+export function pedirMonUrl(id, caminho, costas = false) {
+  const chave = costas ? id + ":costas" : id;
+  if (!id || pedidos.has(chave)) return;
+  pedidos.add(chave);
   loadImage(url(caminho)).then((img) => {
-    if (img) { SpriteStore.pokemon[id] = img; SpriteStore.loaded++; }
-    else SpriteStore.missing.add(id);
+    if (img) { (costas ? SpriteStore.pokemonBack : SpriteStore.pokemon)[id] = img; SpriteStore.loaded++; }
+    else deNovo(chave, () => pedirMonUrl(id, caminho, costas));
   });
 }
 
@@ -331,15 +381,41 @@ let indiceAndar = null;
 const pedidosAndar = new Set();
 const LINHAS_ANDAR = ["baixo", "cima", "esq", "dir"];
 
+/** O VOO (tools/fetch_andar.py --voo): mesma folha de 4 linhas, em andar/voo/,
+ *  guardada em SpriteStore.voo. É o "Hover"/"FlapAround" do Mystery Dungeon, ou
+ *  o parado dele batendo as asas. */
+let indiceVoo = null;
+const pedidosVoo = new Set();
+export function pedirVoo(id, dex) {
+  if (!id || !dex || pedidosVoo.has(id)) return;
+  pedidosVoo.add(id);
+  indiceVoo ||= fetch(url("assets/sprites/pokemon/andar/voo/voo.json"))
+    .then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+  carregarAndar(indiceVoo, "andar/voo", dex, (out) => { (SpriteStore.voo ||= {})[id] = out; });
+}
+/** o quadro voando pra `lado` naquele instante, ou null */
+export function quadroVoo(id, lado, ms) {
+  const a = SpriteStore.voo?.[id]?.[lado];
+  if (!a) return null;
+  const t = ((ms % a.total) + a.total) % a.total;
+  let i = 0;
+  while (a.fim[i] <= t) i++;
+  return a.quadros[i];
+}
+
 export function pedirAndar(id, dex) {
   if (!id || !dex || pedidosAndar.has(id)) return;
   pedidosAndar.add(id);
   indiceAndar ||= fetch(url("assets/sprites/pokemon/andar/andar.json"))
     .then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
-  indiceAndar.then(async (indice) => {
+  carregarAndar(indiceAndar, "andar", dex, (out) => { SpriteStore.andar[id] = out; });
+}
+
+function carregarAndar(indicePromessa, pasta, dex, guardar) {
+  indicePromessa.then(async (indice) => {
     const e = indice[pad3(dex)];
     if (!e) return;
-    const img = await loadImage(url(`assets/sprites/pokemon/andar/${pad3(dex)}.png`));
+    const img = await loadImage(url(`assets/sprites/pokemon/${pasta}/${pad3(dex)}.png`));
     if (!img) return;
     const [w, h, n, tempos] = e;
     const out = {};
@@ -355,7 +431,7 @@ export function pedirAndar(id, dex) {
       let soma = 0;
       out[lado] = { quadros, fim: tempos.map((ms) => (soma += ms)), total: soma };
     });
-    SpriteStore.andar[id] = out;
+    guardar(out);
   });
 }
 
@@ -384,10 +460,19 @@ export function pedirAnimDoJogador(id, anim) {
 
 /** o quadro daquele instante (`ms`, em milissegundos), ou null sem animação.
  *  `frenteServe`: sem costas, vale a frente (a FORMA ÚNICA só tem a frente) */
-export function quadroAnim(id, costas, ms, frenteServe = false) {
+export function quadroAnim(id, costas, ms, frenteServe = false, faixa = null) {
   const tem = SpriteStore.anim[id];
   const a = tem?.[costas ? "c" : "f"] || (frenteServe ? tem?.f : null);
   if (!a) return null;
+  // `faixa` [primeiro, último]: só esse pedaço da animação, repetindo (o
+  // BLACEPHALON ALFA da missão fica só no "six seven", src/data/missoes.js)
+  if (faixa && a.fim.length > faixa[1]) {
+    const de = faixa[0] > 0 ? a.fim[faixa[0] - 1] : 0, ate = a.fim[faixa[1]];
+    const t = de + ((ms % (ate - de)) + (ate - de)) % (ate - de);
+    let i = faixa[0];
+    while (a.fim[i] <= t) i++;
+    return a.quadros[i];
+  }
   const t = ((ms % a.total) + a.total) % a.total;
   let i = 0;
   while (a.fim[i] <= t) i++;
@@ -478,7 +563,17 @@ export async function loadExternalSprites(actorNames) {
 
   for (const name of actorNames) {
     jobs.push(loadImage(url(`assets/sprites/overworld/${name}.png`)).then((img) => {
-      if (img) { SpriteStore.overworld[name] = sliceActorSheet(img); SpriteStore.loaded++; }
+      if (!img) return;
+      const folha = sliceActorSheet(img);
+      SpriteStore.overworld[name] = folha;
+      SpriteStore.loaded++;
+      // O MEIO PASSO (tools/andar_meio.py): 2 colunas x 3 linhas, viram os
+      // quadros 4 (meio A) e 5 (meio B) de cada direção
+      return loadImage(url(`assets/sprites/overworld/meio/${name}.png`)).then((m) => {
+        if (!m) return;
+        const meio = sliceActorSheet(m, 2);
+        for (const d of ["down", "up", "left", "right"]) folha[d].push(...meio[d]);
+      });
     }));
   }
   for (const [ch, file] of Object.entries(TILE_FILES)) {

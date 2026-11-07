@@ -1,0 +1,76 @@
+<!doctype html>
+<!-- AS MÚSICAS DOS LUGARES DE BRAGLITCH (src/data/musicas-braglitch.js), pra
+     ouvir cada uma sem andar a região inteira. -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Músicas de Braglitch — Pokémon Glitch Edition</title>
+<style>
+  :root { color-scheme: dark; }
+  body { background:#0b0d10; color:#d6dde6; font:15px/1.5 ui-monospace, Menlo, Consolas, monospace; padding:16px; margin:0; }
+  h1 { font-size:18px; margin:0 0 12px; } h1 span { color:#b455ff; }
+  .lista { display:flex; flex-direction:column; gap:8px; max-width:520px; }
+  button { background:#151a21; border:1px solid #2a323d; color:#d6dde6; padding:10px 14px; border-radius:8px; cursor:pointer; font:inherit; text-align:left; }
+  button:hover { border-color:#b455ff; }
+  button.on { background:#0e3a1c; border-color:#1d7a3a; color:#00ff41; }
+  small { color:#7a8594; display:block; }
+</style>
+</head>
+<body>
+<h1>MÚSICAS DE <span>BRAGLITCH</span></h1>
+<div class="lista" id="lista"></div>
+<p><button id="parar">⏹ PARAR</button></p>
+<script type="module">
+import { Audio2 } from "/src/core/audio.js";
+import { DB } from "/src/data/index.js";
+const FAIXAS = [
+  ["bragSaoLucario", "SÃO LUCARIO DO SUL", "bossa nova"],
+  ["bragBelem", "BELÉM DO PARASECT", "carimbó"],
+  ["bragRecife", "RECIFEEBAS", "frevo"],
+  ["bragSalvador", "SALVADITTO", "axé / samba-reggae"],
+  ["bragCaruaru", "CARUARU DO MAGMAR", "forró pé-de-serra"],
+  ["bragSampa", "SAMPIKACHU", "samba-rock"],
+  ["bragOuroPreto", "OURO GASTLY", "seresta de assombração"],
+  ["bragRio", "RIO DE JANEEVEE", "samba"],
+  ["bragBasculinha", "BASCULINHA", "eletrônica do servidor"],
+  ["bragCuritiba", "CURITIMBURR", "valsa de inverno"],
+  ["bragFloripa", "FLORIPACHIRISU", "surf rock"],
+  ["bragCarvoriu", "CARVORIÚ", "eletrônica de praia"],
+  ["bragLarvanjal", "PRAIA DO LARVANJAL", "reggae"],
+  ["bragNatal", "NATALTAIR", "côco"],
+  ["bragFortaleza", "FORTALEZARD", "baião"],
+  ["bragManaus", "MANAUSQUIRTLE", "boi-bumbá"],
+  ["bragCuiaba", "CUIABULBA", "rasqueado"],
+  ["bragIlhas", "AS 8 ILHAS", "o mar calmo"],
+  ["bragLiga", "ESPLANADA DA LIGA", "o hino"],
+  ["bragBr101", "BR-101", "o forró de antes, mais comprido"],
+  ["bragMata", "MATA ATLÂNTICA, FERNÃO DIAS, ESTRADA REAL, FLORESTA AMAZÔNICA", "a mata"],
+  ["bragLitoral", "BR-232, BR-101 NORTE", "o litoral"],
+  ["bragSertao", "BR-324", "o sertão"],
+  ["bragCerrado", "BR-116, BR-040", "o cerrado"],
+  ["bragSerra", "MONTE SERRA", "a serra"],
+  ["bragPantanal", "PANTANAL", "o pantanal"],
+  ["bragChapada", "CHAPADA DOS VEADEIROS", "os cristais"],
+  ["bragCentro", "CENTRO POKÉMON", "de Braglitch"],
+  ["bragLoja", "LOJA", "de Braglitch"],
+  ["bragGinasio", "GINÁSIO", "de Braglitch"],
+  ["bragFundo", "FUNDO DO MAR", "de Braglitch"],
+  ["bragCaverna", "CAVERNA DO MONTE SERRA", "eco e gota pingando"],
+  ["mataDoSaci", "MATA DO SACI", "a de sempre (não mudou)"],
+];
+const lista = document.getElementById("lista");
+for (const [nome, titulo, sub] of FAIXAS) {
+  const b = document.createElement("button");
+  b.innerHTML = `▶ ${titulo}<small>${sub}</small>`;
+  b.onclick = () => {
+    for (const x of lista.children) x.classList.remove("on");
+    b.classList.add("on");
+    Audio2.playMusic(nome, DB.MUSIC[nome]);
+  };
+  lista.append(b);
+}
+document.getElementById("parar").onclick = () => { Audio2.stopLoop(); for (const x of lista.children) x.classList.remove("on"); };
+</script>
+</body>
+</html>

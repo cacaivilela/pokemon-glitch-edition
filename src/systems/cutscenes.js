@@ -360,6 +360,37 @@ function borrao(c, cor = "#ffffff", n = 6) {
 // antes de você ver. As tabelas por tipo e por categoria continuam existindo
 // como rede: golpe novo, escrito amanhã, já nasce com animação.
 const PORGOLPE = {
+  // O CLARÃO ILUMINADO (tipo LUZ, o golpe dos LUMINOSOS): primeiro ele PUXA a
+  // luz — estrelinhas e um anel fechando em volta dele, o som subindo —, e aí
+  // solta tudo de uma vez no outro: a tela clareia, raios de luz saem do alvo
+  // pra todo lado e um anel abre. Do dia mais sombrio: luz contra sombra.
+  claraoiluminado: async (c) => {
+    const cores = ["#ffffff", "#fff3b0", "#e8f6ff"];
+    for (let i = 0; i < 14; i++) {
+      const a = rnd(0, Math.PI * 2), r = rnd(26, 40);
+      c.fx({ forma: "estrela", cor: escolha(cores), r: 3, x: c.de.x + Math.cos(a) * r, y: c.de.y + Math.sin(a) * r,
+             vx: -Math.cos(a) * r / 0.5, vy: -Math.sin(a) * r / 0.5, vida: 0.5 });
+    }
+    c.fx({ forma: "anel", cor: "#fff3b0", r: 34, h: 2, x: c.de.x, y: c.de.y, cresce: -60, vida: 0.5, fade: true });
+    for (let i = 0; i < 5; i++) { c.som.tone(1046 * Math.pow(1.26, i), 0.08, "sine", 0.35); await c.wait(0.09); }
+    // O CLARÃO
+    c.flash(1);
+    c.som.tone(4186, 0.25, "triangle", 0.5); c.som.noise(0.18, 0.35);
+    for (let i = 0; i < 12; i++) {
+      const a = (Math.PI * 2 * i) / 12;
+      c.fx({ forma: "risco", cor: escolha(cores), w: 30, h: 2, ang: a,
+             x: c.para.x + Math.cos(a) * 6, y: c.para.y + Math.sin(a) * 6,
+             vx: Math.cos(a) * 120, vy: Math.sin(a) * 120, vida: 0.35 });
+    }
+    c.fx({ forma: "anel", cor: "#ffffff", r: 4, h: 3, x: c.para.x, y: c.para.y, cresce: 170, vida: 0.4 });
+    estouro(c, cores, 14, 110);
+    c.shake(0.3); c.piscaAlvo(0.6);
+    await c.wait(0.25);
+    for (let i = 0; i < 8; i++) {
+      c.fx({ forma: "estrela", cor: escolha(cores), r: rnd(2, 4), x: c.para.x + rnd(-22, 22), y: c.para.y + rnd(-20, 20), vida: 0.5 });
+    }
+    await c.wait(0.3);
+  },
   // ----------------------------------------------------------- NORMAL
   // corre e bate: o rastro fica pra trás enquanto ele avança
   investida: async (c) => {

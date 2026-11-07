@@ -1,7 +1,15 @@
 // O PESO DE CADA POKÉMON, EM QUILOS. Gerado por tools/fetch_pesos.py a
 // partir da tabela da PokeAPI — a chave é o id de lá, o mesmo do sprite
 // (`spriteDex` ou `dex`). Quem lê é `pesoDe`, em src/systems/habilidades.js.
+// (o ETERNATUS ETERNAMAX, 10190, vem com 0 da PokeAPI — o jogo oficial não
+// diz quanto ele pesa. O CAIO, nov/2026: "bote 999,9")
+// O PESO MÁXIMO de um Pokémon (o CAIO, nov/2026: "faz o peso máximo de um
+// pokémon ser 9.999,9 e encontrium vai pesar isso"): ninguém passa disso, nem
+// com pokébloco (src/systems/pokeblocos.js). O ENCONTRIUM (1091) pesa o máximo.
+export const PESO_MAXIMO = 9999.9;
+
 export const PESOS = {
+  1091: 9999.9,
   1: 6.9, 2: 13, 3: 100, 4: 8.5, 5: 19, 6: 90.5, 7: 9, 8: 22.5, 9: 85.5, 10: 2.9, 11: 9.9, 12: 32,
   13: 3.2, 14: 10, 15: 29.5, 16: 1.8, 17: 30, 18: 39.5, 19: 3.5, 20: 18.5, 21: 2, 22: 38, 23: 6.9,
   24: 65, 25: 6, 26: 30, 27: 12, 28: 29.5, 29: 7, 30: 20, 31: 60, 32: 9, 33: 19.5, 34: 62,
@@ -135,7 +143,7 @@ export const PESOS = {
   10160: 6, 10161: 7.5, 10162: 24, 10163: 80, 10164: 36, 10165: 70.5, 10166: 42, 10167: 16,
   10168: 56.8, 10169: 50.9, 10170: 58.2, 10171: 66, 10172: 79.5, 10173: 0.5, 10174: 17.5,
   10175: 32.5, 10176: 40, 10177: 120, 10178: 120, 10179: 1.5, 10180: 20.5, 10181: 33.5, 10182: 18,
-  10183: 18, 10184: 40, 10185: 89, 10186: 28, 10187: 3, 10188: 355, 10189: 785, 10190: 0,
+  10183: 18, 10184: 40, 10185: 89, 10186: 28, 10187: 3, 10188: 355, 10189: 785, 10190: 999.9,
   10191: 105, 10192: 70, 10193: 809.1, 10194: 53.6, 10195: 1000, 10196: 1000, 10197: 1000,
   10198: 1000, 10199: 1000, 10200: 1000, 10201: 1000, 10202: 1000, 10203: 1000, 10204: 1000,
   10205: 1000, 10206: 1000, 10207: 1000, 10208: 1000, 10209: 1000, 10210: 1000, 10211: 1000,

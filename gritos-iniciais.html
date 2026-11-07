@@ -1,0 +1,95 @@
+<!doctype html>
+<!-- OS GRITOS DOS 9 INICIAIS (Kanto, Johto e Hoenn), pedido do CAIO (nov/2026):
+     cada um com o grito ANTIGO (o do Game Boy, no chip — e os de Hoenn, que
+     nasceram no Game Boy Advance, com o do GBA) e o do SWITCH (os gritos novos,
+     da PokeAPI "latest", em assets/gritos/). Toca com o Audio2 do jogo.
+     Uso: http://localhost:5173/gritos-iniciais.html -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gritos dos Iniciais</title>
+<style>
+  :root { --fundo:#14121c; --cartao:#201c2e; --borda:#3a3352; --texto:#ece6ff; --apagado:#9a90b8; --gb:#9bbc0f; --sw:#e60012; }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--fundo); color:var(--texto); font:14px ui-monospace, "SF Mono", Menlo, Consolas, monospace; padding:20px 16px 60px; }
+  h1 { font-size:22px; letter-spacing:1px; }
+  header p { color:var(--apagado); margin-top:6px; font-size:12px; max-width:720px; line-height:1.5; }
+  h2 { font-size:15px; margin:26px 0 10px; color:var(--apagado); letter-spacing:2px; }
+  .linha { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; }
+  .cartao { background:var(--cartao); border:1px solid var(--borda); border-radius:10px; padding:12px; display:flex; gap:12px; align-items:center; }
+  .cartao img { width:72px; height:72px; image-rendering:pixelated; flex:none; }
+  .nome { font-size:13px; font-weight:bold; letter-spacing:1px; }
+  .botoes { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+  button { font:inherit; font-size:12px; border:0; border-radius:6px; padding:8px 10px; cursor:pointer; text-align:left; color:#111; }
+  button.gb { background:var(--gb); }
+  button.sw { background:var(--sw); color:#fff; }
+  button:active { transform:translateY(1px); }
+  button.tocando { outline:2px solid #fff; }
+</style>
+</head>
+<body>
+<header>
+  <h1>GRITOS DOS 9 INICIAIS (E DOS ARTICUNOS)</h1>
+  <p>Cada inicial com o grito <b style="color:var(--gb)">ANTIGO</b> (Kanto e Johto no chip do Game Boy; Hoenn, que nasceu no Game Boy Advance, com o do GBA) e o grito do <b style="color:#ff5a64">SWITCH</b>. Clica pra ouvir.</p>
+</header>
+<main id="regioes"></main>
+<script type="module">
+import { DB } from "./src/data/index.js";
+import { Audio2 } from "./src/core/audio.js";
+import { gritoDe } from "./src/systems/gritos.js";
+import { GB_GRITOS, GBC_GRITOS } from "./src/data/gritos-gb.js";
+// o grito ANTIGO de verdade: Kanto no chip do Game Boy, Johto no do Color, Hoenn o arquivo do GBA
+const GBA = { treecko: 252, torchic: 255, mudkip: 258 };   // os de Hoenn: o do GBA, guardado em assets/gritos/gba/
+const antigo = (id) => GB_GRITOS[id] ? { gb: GB_GRITOS[id] } : GBC_GRITOS[id] ? { gb: [...GBC_GRITOS[id], "gsc"] }
+  : GBA[id] ? { arquivo: `assets/gritos/gba/${String(GBA[id]).padStart(4, "0")}.mp3` } : gritoDe(id, false);
+
+const REGIOES = [
+  { nome: "KANTO", antigo: "GAME BOY", ids: [["bulbasaur", 1], ["charmander", 4], ["squirtle", 7]] },
+  { nome: "JOHTO", antigo: "GAME BOY COLOR", ids: [["chikorita", 152], ["cyndaquil", 155], ["totodile", 158]] },
+  { nome: "HOENN", antigo: "GAME BOY ADVANCE", ids: [["treecko", 252], ["torchic", 255], ["mudkip", 258]] },
+];
+// OS DOIS ARTICUNOS: o normal (Game Boy e Switch) e o DE GALAR (só existe no Switch)
+const ARTICUNOS = [
+  { id: "articuno", nome: "ARTICUNO", sprite: "144", antigo: "GAME BOY", sw: "assets/gritos/0144.mp3" },
+  { id: "articunogalar", nome: "ARTICUNO DE GALAR", sprite: "10169", antigo: null, sw: "assets/gritos/formas/10169.mp3" },
+];
+const num = (n) => String(n).padStart(3, "0");
+const marca = (b, s) => { b.classList.add("tocando"); setTimeout(() => b.classList.remove("tocando"), Math.max(300, s * 1000)); };
+const raiz = document.getElementById("regioes");
+for (const r of REGIOES) {
+  raiz.insertAdjacentHTML("beforeend", `<h2>${r.nome}</h2><div class="linha"></div>`);
+  const linha = raiz.lastElementChild;
+  for (const [id, dex] of r.ids) {
+    const nome = DB.SPECIES[id]?.name || id.toUpperCase();
+    linha.insertAdjacentHTML("beforeend", `<div class="cartao">
+      <img src="assets/sprites/pokemon/${num(dex)}.png" alt="${nome}">
+      <div><div class="nome">#${num(dex)} ${nome}</div>
+        <div class="botoes">
+          <button class="gb">▶ ${r.antigo}</button>
+          <button class="sw">▶ SWITCH</button>
+        </div></div></div>`);
+    const [gb, sw] = linha.lastElementChild.querySelectorAll("button");
+    gb.onclick = () => { Audio2.unlock(); marca(gb, Audio2.grito(antigo(id))); };
+    sw.onclick = () => { Audio2.unlock(); marca(sw, Audio2.grito({ arquivo: `assets/gritos/${String(dex).padStart(4, "0")}.mp3` })); };
+  }
+}
+// os ARTICUNOS
+raiz.insertAdjacentHTML("beforeend", `<h2>OS ARTICUNOS</h2><div class="linha"></div>`);
+const linhaA = raiz.lastElementChild;
+for (const a of ARTICUNOS) {
+  linhaA.insertAdjacentHTML("beforeend", `<div class="cartao">
+    <img src="assets/sprites/pokemon/${a.sprite}.png" alt="${a.nome}">
+    <div><div class="nome">${a.nome}</div>
+      <div class="botoes">
+        ${a.antigo ? `<button class="gb">▶ ${a.antigo}</button>` : ""}
+        <button class="sw">▶ SWITCH</button>
+      </div></div></div>`);
+  const cartao = linhaA.lastElementChild;
+  const gb = cartao.querySelector(".gb"), sw = cartao.querySelector(".sw");
+  if (gb) gb.onclick = () => { Audio2.unlock(); marca(gb, Audio2.grito(antigo(a.id))); };
+  sw.onclick = () => { Audio2.unlock(); marca(sw, Audio2.grito({ arquivo: a.sw })); };
+}
+</script>
+</body>
+</html>

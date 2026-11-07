@@ -39,6 +39,12 @@ LEADERS = {
     "sabrina": "leader_sabrina",
     "blaine": "leader_blaine",
     "giovanni": "leader_giovanni",
+    # A ELITE 4 DE KANTO e o AZUL campeão (a LIGA, nov/2026)
+    "lorelei": "elite_four_lorelei",
+    "bruno": "elite_four_bruno",
+    "agatha": "elite_four_agatha",
+    "lance": "elite_four_lance",
+    "azulcampeao": "champion_rival",
 }
 
 # os outros treinadores que já andam pelo jogo

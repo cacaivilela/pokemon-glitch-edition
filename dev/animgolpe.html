@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Animação de Golpe</title>
+<!-- O ESTÚDIO DE ANIMAÇÃO DE GOLPE (pedido do CAIO, nov/2026: "faz um site pra eu
+     fazer a animação"). A tela é a da batalha (240x160): o seu Pokémon de costas
+     embaixo à esquerda, o inimigo em cima à direita. Você desenha por cima, quadro
+     por quadro. SALVAR manda pro dev_server (/__capture): dev/captures/anim_<golpe>.png
+     (os quadros lado a lado) e .log (o tempo e os efeitos de cada quadro).
+     ?golpe=poderancestral escolhe o golpe; ?eu=142&ele=6 trocam os Pokémon. -->
+<style>
+  :root { --fundo: #1b2030; --painel: #262d42; --texto: #eef2ff; --acento: #ffd860; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fundo); color: var(--texto); font: 15px/1.3 system-ui, sans-serif; }
+  header { padding: 10px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0; color: var(--acento); }
+  main { display: flex; gap: 16px; padding: 0 16px 16px; flex-wrap: wrap; }
+  #palco { position: relative; width: 720px; height: 480px; image-rendering: pixelated; border: 3px solid #000; cursor: crosshair; flex: none; }
+  #palco canvas { position: absolute; inset: 0; width: 720px; height: 480px; image-rendering: pixelated; }
+  .lado { display: flex; flex-direction: column; gap: 10px; min-width: 260px; flex: 1; }
+  .caixa { background: var(--painel); border-radius: 10px; padding: 10px; }
+  .caixa h2 { margin: 0 0 8px; font-size: 15px; color: var(--acento); }
+  button { background: #3a4466; color: var(--texto); border: 0; border-radius: 8px; padding: 8px 10px; font-size: 14px; cursor: pointer; }
+  button:hover { background: #4a5680; }
+  button.on { background: #e8a820; color: #000; }
+  #cores { display: grid; grid-template-columns: repeat(8, 28px); gap: 4px; }
+  #cores div { width: 28px; height: 28px; border-radius: 6px; border: 2px solid #000; cursor: pointer; }
+  #cores div.sel { outline: 3px solid #fff; }
+  #quadros { display: flex; gap: 6px; overflow-x: auto; padding: 4px; background: var(--painel); border-radius: 10px; margin: 0 16px 16px; }
+  #quadros .q { flex: none; width: 124px; text-align: center; cursor: pointer; border-radius: 8px; padding: 4px; background: #1b2030; border: 2px solid transparent; }
+  #quadros .q.sel { border-color: var(--acento); }
+  #quadros canvas { width: 120px; height: 80px; image-rendering: pixelated; background: #889; display: block; }
+  label { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
+  input[type=number] { width: 70px; }
+  #msg { font-weight: bold; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎬 ANIMAÇÃO DE GOLPE: <span id="nomeGolpe"></span></h1>
+  <button id="volta">↩ VOLTAR</button>
+  <button id="refaz">↪ REFAZER</button>
+  <button id="tocar">▶ TOCAR</button>
+  <button id="salvar">💾 SALVAR</button>
+  <span id="msg"></span>
+</header>
+<main>
+  <div id="palco">
+    <canvas id="fundo" width="240" height="160"></canvas>
+    <canvas id="casca" width="240" height="160"></canvas>
+    <canvas id="tinta" width="240" height="160"></canvas>
+  </div>
+  <div class="lado">
+    <div class="caixa">
+      <h2>PINCEL</h2>
+      <div>
+        <button data-f="lapis" class="on">✏️ LÁPIS</button>
+        <button data-f="borracha">🧽 BORRACHA</button>
+        <button data-f="balde">🪣 BALDE</button>
+      </div>
+      <label>TAMANHO <button data-g="1" class="on">1</button><button data-g="2">2</button><button data-g="3">3</button><button data-g="5">5</button></label>
+      <div id="cores"></div>
+      <label>OUTRA COR <input type="color" id="corLivre" value="#ff00ff"></label>
+    </div>
+    <div class="caixa">
+      <h2>ESTE QUADRO</h2>
+      <label>DURA <input type="number" id="dura" min="20" max="2000" step="10"> ms</label>
+      <label><input type="checkbox" id="treme"> A TELA TREME</label>
+      <label><input type="checkbox" id="clarao"> CLARÃO BRANCO</label>
+      <label><input type="checkbox" id="pisca"> O INIMIGO PISCA (LEVOU O GOLPE)</label>
+      <label><input type="checkbox" id="esconde"> ESCONDER O MEU POKÉMON</label>
+    </div>
+    <div class="caixa">
+      <h2>QUADROS</h2>
+      <button id="novo">➕ NOVO</button>
+      <button id="copia">📄 COPIAR ESTE</button>
+      <button id="apaga">🗑️ APAGAR</button>
+      <button id="esq">◀</button><button id="dir">▶</button>
+      <label><input type="checkbox" id="fantasma" checked> VER O QUADRO DE ANTES (CLARINHO)</label>
+      <button id="limpa">🧹 LIMPAR ESTE QUADRO</button>
+    </div>
+  </div>
+</main>
+<div id="quadros"></div>
+<script>
+const q = new URLSearchParams(location.search);
+const GOLPE = (q.get("golpe") || "poderancestral").replace(/[^a-z0-9_-]/gi, "");
+const EU = (q.get("eu") || "142").padStart(3, "0"), ELE = (q.get("ele") || "6").padStart(3, "0");
+const NOMES = { poderancestral: "PODER ANCESTRAL", lancachamas: "LANÇA-CHAMAS", explosao: "EXPLOSÃO" };
+document.getElementById("nomeGolpe").textContent = NOMES[GOLPE] || GOLPE.toUpperCase();
+const W = 240, H = 160, ESC = 3;
+const CHAVE = "animgolpe_" + GOLPE;
+
+// ---------------------------------------------------------------- o palco
+const fundo = document.getElementById("fundo").getContext("2d");
+const casca = document.getElementById("casca").getContext("2d");
+const tinta = document.getElementById("tinta").getContext("2d");
+const imgs = {};
+const carrega = (k, src) => new Promise((ok) => { const i = new Image(); i.onload = () => { imgs[k] = i; ok(); }; i.onerror = ok; i.src = src; });
+let esconder = false, piscar = false, tremer = 0;
+function desenhaFundo() {
+  fundo.imageSmoothingEnabled = false;
+  const g = fundo.createLinearGradient(0, 0, 0, 112);
+  g.addColorStop(0, "#a8d8f8"); g.addColorStop(1, "#e8f8d0");
+  fundo.fillStyle = g; fundo.fillRect(0, 0, W, H);
+  const dx = tremer ? Math.round((Math.random() - 0.5) * 6) : 0;
+  fundo.save(); fundo.translate(dx, 0);
+  // as plataformas
+  fundo.fillStyle = "#90c060"; fundo.beginPath(); fundo.ellipse(178, 64, 46, 10, 0, 0, Math.PI * 2); fundo.fill();
+  fundo.fillStyle = "#78a850"; fundo.beginPath(); fundo.ellipse(48, 104, 56, 11, 0, 0, Math.PI * 2); fundo.fill();
+  if (imgs.ele && !piscar) fundo.drawImage(imgs.ele, 146, 4, 64, 64);
+  if (imgs.eu && !esconder) fundo.drawImage(imgs.eu, 14, 46, 64, 64);
+  fundo.restore();
+  // a caixa de texto de baixo
+  fundo.fillStyle = "#283048"; fundo.fillRect(0, 112, W, 48);
+  fundo.fillStyle = "#f8f8f8"; fundo.fillRect(4, 116, W - 8, 40);
+  fundo.fillStyle = "#283048"; fundo.font = "10px monospace";
+  fundo.fillText((q.get("nome") || (EU === "074" ? "GEODUDE" : "AERODACTYL")) + " USOU " + (NOMES[GOLPE] || GOLPE.toUpperCase()) + "!", 10, 132);
+}
+
+// ---------------------------------------------------------------- os quadros
+let quadros = [];   // { px: Uint32 (240x160, 0 = vazio), dura, treme, clarao, pisca, esconde }
+let atual = 0;
+const novoQuadro = () => ({ px: new Array(W * H).fill(0), dura: 80, treme: false, clarao: false, pisca: false, esconde: false });
+
+const CORES = ["#000000", "#ffffff", "#5a3a20", "#8a5a30", "#b88850", "#d8b880", "#6a6a6a", "#a0a0a8",
+               "#c8c8d0", "#ffe060", "#ffb020", "#ff6020", "#d02020", "#80e8ff", "#3080ff", "#a060ff",
+               "#ff80c0", "#60d060", "#207020", "#fff6c0", "#f0a0ff", "#ff2080", "#40f0d0", "#303040"];
+let cor = "#8a5a30", ferramenta = "lapis", grossura = 1;
+const caixaCores = document.getElementById("cores");
+CORES.forEach((c) => {
+  const d = document.createElement("div"); d.style.background = c; d.title = c;
+  d.onclick = () => { cor = c; [...caixaCores.children].forEach((x) => x.classList.toggle("sel", x === d)); if (ferramenta === "borracha") escolheFerramenta("lapis"); };
+  if (c === cor) d.classList.add("sel");
+  caixaCores.appendChild(d);
+});
+document.getElementById("corLivre").oninput = (e) => { cor = e.target.value; [...caixaCores.children].forEach((x) => x.classList.remove("sel")); };
+const hex = (c) => { const n = parseInt(c.slice(1), 16); return (0xff000000 | ((n & 0xff) << 16) | (n & 0xff00) | ((n >> 16) & 0xff)) >>> 0; };
+function escolheFerramenta(f) { ferramenta = f; document.querySelectorAll("[data-f]").forEach((b) => b.classList.toggle("on", b.dataset.f === f)); }
+document.querySelectorAll("[data-f]").forEach((b) => b.onclick = () => escolheFerramenta(b.dataset.f));
+document.querySelectorAll("[data-g]").forEach((b) => b.onclick = () => { grossura = +b.dataset.g; document.querySelectorAll("[data-g]").forEach((x) => x.classList.toggle("on", x === b)); });
+
+function pintaQuadro(ctx, q, alfa = 1) {
+  const im = ctx.createImageData(W, H), d = new Uint32Array(im.data.buffer);
+  for (let i = 0; i < q.px.length; i++) d[i] = q.px[i];
+  ctx.clearRect(0, 0, W, H);
+  const tmp = document.createElement("canvas"); tmp.width = W; tmp.height = H;
+  tmp.getContext("2d").putImageData(im, 0, 0);
+  ctx.globalAlpha = alfa; ctx.drawImage(tmp, 0, 0); ctx.globalAlpha = 1;
+}
+function mostra() {
+  const qq = quadros[atual];
+  esconder = qq.esconde; piscar = false; tremer = 0;
+  desenhaFundo();
+  if (document.getElementById("fantasma").checked && atual > 0) pintaQuadro(casca, quadros[atual - 1], 0.3); else casca.clearRect(0, 0, W, H);
+  pintaQuadro(tinta, qq);
+  document.getElementById("dura").value = qq.dura;
+  for (const k of ["treme", "clarao", "pisca", "esconde"]) document.getElementById(k).checked = qq[k];
+  tiras();
+}
+function tiras() {
+  const caixa = document.getElementById("quadros");
+  caixa.innerHTML = "";
+  quadros.forEach((qq, i) => {
+    const div = document.createElement("div"); div.className = "q" + (i === atual ? " sel" : "");
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const g = c.getContext("2d"); g.drawImage(document.getElementById("fundo"), 0, 0);
+    const t = document.createElement("canvas"); t.width = W; t.height = H; pintaQuadro(t.getContext("2d"), qq); g.drawImage(t, 0, 0);
+    div.appendChild(c);
+    div.appendChild(document.createTextNode(`QUADRO ${i + 1} · ${qq.dura}ms`));
+    div.onclick = () => { atual = i; mostra(); };
+    caixa.appendChild(div);
+  });
+}
+// VOLTAR (pedido do CAIO): o que foi feito fica guardado pra desfazer. Um risco
+// guarda só o quadro dele; mexer nos quadros (novo, apagar, trocar) guarda tudo.
+const antes = [], depois = [];
+const fotoQuadro = () => ({ i: atual, px: quadros[atual].px.slice() });
+const fotoTudo = () => ({ tudo: JSON.parse(JSON.stringify(quadros)), i: atual });
+function lembra(tudo = false) { antes.push(tudo ? fotoTudo() : fotoQuadro()); if (antes.length > 60) antes.shift(); depois.length = 0; }
+function aplica(f) {
+  if (f.tudo) { const agora = fotoTudo(); quadros = f.tudo; atual = Math.min(f.i, quadros.length - 1); return agora; }
+  const agora = { i: f.i, px: quadros[f.i]?.px.slice() };
+  if (quadros[f.i]) quadros[f.i].px = f.px;
+  atual = f.i;
+  return agora;
+}
+function voltar() { const f = antes.pop(); if (!f) return; depois.push(aplica(f)); guarda(); mostra(); }
+function refazer() { const f = depois.pop(); if (!f) return; antes.push(aplica(f)); guarda(); mostra(); }
+function guarda() { try { localStorage.setItem(CHAVE, JSON.stringify(quadros)); } catch {} }
+
+// ---------------------------------------------------------------- desenhar
+const palco = document.getElementById("palco");
+let apertado = false, ultimo = null;
+const ponto = (e) => { const r = palco.getBoundingClientRect(); return [Math.floor((e.clientX - r.left) / ESC), Math.floor((e.clientY - r.top) / ESC)]; };
+function pinta(x, y) {
+  const qq = quadros[atual], v = ferramenta === "borracha" ? 0 : hex(cor);
+  const m = Math.floor((grossura - 1) / 2);
+  for (let dy = 0; dy < grossura; dy++) for (let dx = 0; dx < grossura; dx++) {
+    const X = x - m + dx, Y = y - m + dy;
+    if (X >= 0 && Y >= 0 && X < W && Y < H) qq.px[Y * W + X] = v;
+  }
+}
+function linha(a, b) {
+  let [x0, y0] = a; const [x1, y1] = b;
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  for (;;) { pinta(x0, y0); if (x0 === x1 && y0 === y1) break; const e2 = 2 * err; if (e2 >= dy) { err += dy; x0 += sx; } if (e2 <= dx) { err += dx; y0 += sy; } }
+}
+function balde(x, y) {
+  const qq = quadros[atual], alvo = qq.px[y * W + x], v = hex(cor);
+  if (alvo === v) return;
+  const pilha = [[x, y]];
+  while (pilha.length) {
+    const [a, b] = pilha.pop();
+    if (a < 0 || b < 0 || a >= W || b >= H || qq.px[b * W + a] !== alvo) continue;
+    qq.px[b * W + a] = v;
+    pilha.push([a + 1, b], [a - 1, b], [a, b + 1], [a, b - 1]);
+  }
+}
+palco.onpointerdown = (e) => {
+  const p = ponto(e);
+  lembra();
+  if (ferramenta === "balde") { balde(...p); pintaQuadro(tinta, quadros[atual]); guarda(); tiras(); return; }
+  apertado = true; ultimo = p; pinta(...p); pintaQuadro(tinta, quadros[atual]);
+  palco.setPointerCapture(e.pointerId);
+};
+palco.onpointermove = (e) => { if (!apertado) return; const p = ponto(e); linha(ultimo, p); ultimo = p; pintaQuadro(tinta, quadros[atual]); };
+palco.onpointerup = () => { if (apertado) { apertado = false; guarda(); tiras(); } };
+
+// ---------------------------------------------------------------- botões
+document.getElementById("dura").onchange = (e) => { quadros[atual].dura = Math.max(20, +e.target.value || 80); guarda(); tiras(); };
+for (const k of ["treme", "clarao", "pisca", "esconde"]) document.getElementById(k).onchange = (e) => { quadros[atual][k] = e.target.checked; guarda(); mostra(); };
+document.getElementById("fantasma").onchange = mostra;
+document.getElementById("volta").onclick = voltar;
+document.getElementById("refaz").onclick = refazer;
+addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); voltar(); }
+  else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "y" || (e.key.toLowerCase() === "z" && e.shiftKey))) { e.preventDefault(); refazer(); }
+});
+document.getElementById("novo").onclick = () => { lembra(true); quadros.splice(atual + 1, 0, novoQuadro()); atual++; guarda(); mostra(); };
+document.getElementById("copia").onclick = () => { lembra(true); const c = JSON.parse(JSON.stringify(quadros[atual])); quadros.splice(atual + 1, 0, c); atual++; guarda(); mostra(); };
+document.getElementById("apaga").onclick = () => { lembra(true); if (quadros.length === 1) quadros[0] = novoQuadro(); else { quadros.splice(atual, 1); atual = Math.max(0, atual - 1); } guarda(); mostra(); };
+document.getElementById("limpa").onclick = () => { lembra(); quadros[atual].px.fill(0); guarda(); mostra(); };
+document.getElementById("esq").onclick = () => { lembra(true); if (atual > 0) { [quadros[atual - 1], quadros[atual]] = [quadros[atual], quadros[atual - 1]]; atual--; guarda(); mostra(); } };
+document.getElementById("dir").onclick = () => { lembra(true); if (atual < quadros.length - 1) { [quadros[atual + 1], quadros[atual]] = [quadros[atual], quadros[atual + 1]]; atual++; guarda(); mostra(); } };
+
+// TOCAR: a animação inteira, com os efeitos
+let tocando = false;
+document.getElementById("tocar").onclick = async () => {
+  if (tocando) return;
+  tocando = true; casca.clearRect(0, 0, W, H);
+  for (const qq of quadros) {
+    const fim = performance.now() + qq.dura;
+    while (performance.now() < fim) {
+      esconder = qq.esconde; piscar = qq.pisca && Math.floor(performance.now() / 60) % 2 === 0; tremer = qq.treme;
+      desenhaFundo(); pintaQuadro(tinta, qq);
+      if (qq.clarao) { tinta.fillStyle = "rgba(255,255,255,0.6)"; tinta.fillRect(0, 0, W, H); }
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+  }
+  tocando = false; mostra();
+};
+
+// SALVAR: os quadros lado a lado num PNG só, e o tempo/efeitos no .log
+const msg = document.getElementById("msg");
+document.getElementById("salvar").onclick = async () => {
+  msg.textContent = "salvando...";
+  const folha = document.createElement("canvas"); folha.width = W * quadros.length; folha.height = H;
+  const g = folha.getContext("2d");
+  quadros.forEach((qq, i) => { const t = document.createElement("canvas"); t.width = W; t.height = H; pintaQuadro(t.getContext("2d"), qq); g.drawImage(t, i * W, 0); });
+  const info = quadros.map(({ dura, treme, clarao, pisca, esconde }) => ({ dura, treme, clarao, pisca, esconde }));
+  try {
+    const r = await fetch("/__capture", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "anim_" + GOLPE, dataUrl: folha.toDataURL(), log: JSON.stringify({ golpe: GOLPE, quadros: info }) }) });
+    msg.textContent = r.ok ? `✅ SALVO! ${quadros.length} quadros. Pode falar pro Claude.` : "❌ não salvou (o servidor do jogo está ligado?)";
+  } catch { msg.textContent = "❌ não salvou (o servidor do jogo está ligado?)"; }
+};
+
+// abre: o que ficou guardado neste navegador
+(async () => {
+  await Promise.all([carrega("eu", `/assets/sprites/pokemon/back/${EU}.png`), carrega("ele", `/assets/sprites/pokemon/${ELE}.png`)]);
+  try { const s = JSON.parse(localStorage.getItem(CHAVE) || "null"); if (Array.isArray(s) && s.length) quadros = s; } catch {}
+  if (!quadros.length) quadros = [novoQuadro()];
+  mostra();
+})();
+</script>
+</body>
+</html>

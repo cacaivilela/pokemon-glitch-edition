@@ -1,0 +1,53 @@
+<!doctype html>
+<!-- MEDE O VOLUME DE CADA MÚSICA: toca cada uma de DB.MUSIC por uns segundos
+     (sem ajuste nenhum), mede o volume de verdade no fio das músicas
+     (Audio2.medidorMusica) e calcula o ajuste pra todas soarem na altura da do
+     meio. Manda o resultado pro /__capture (dev/captures/volumes.log), que vira
+     src/data/volumes-musica.js. Roda sozinho no chrome headless com
+     --autoplay-policy=no-user-gesture-required. -->
+<html lang="pt-BR"><head><meta charset="utf-8"><title>volumes</title></head>
+<body style="background:#111;color:#9fd;font:13px monospace"><pre id="log">medindo...</pre>
+<script type="module">
+import { Audio2 } from "/src/core/audio.js";
+import { DB } from "/src/data/index.js";
+const log = document.getElementById("log");
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const q = new URLSearchParams(location.search);
+const SEGUNDOS = +(q.get("s") || 6);
+// ?conferir=1: mede com os ajustes ligados (pra ver se ficaram todas na mesma altura)
+const conferir = q.has("conferir");
+const analisador = Audio2.medidorMusica(conferir);
+const buf = new Float32Array(analisador.fftSize);
+const medidas = {};
+// ?so=fr: só as que começam com "fr" (e ?alvo=0.0584: a altura de antes)
+const nomes = Object.keys(DB.MUSIC).filter((n) => DB.MUSIC[n] && (DB.MUSIC[n].tracks || DB.MUSIC[n].gb)
+  && (!q.has("so") || n.startsWith(q.get("so"))));
+for (const nome of nomes) {
+  Audio2.playMusic(nome, DB.MUSIC[nome]);
+  await espera(1200);                       // passa o comecinho (o ataque, a geração do GB)
+  let soma = 0, n = 0;
+  const fim = performance.now() + SEGUNDOS * 1000;
+  while (performance.now() < fim) {
+    analisador.getFloatTimeDomainData(buf);
+    for (const x of buf) soma += x * x;
+    n += buf.length;
+    await espera(40);
+  }
+  Audio2.stopLoop();
+  medidas[nome] = Math.sqrt(soma / Math.max(1, n));
+  log.textContent += `\n${nome}: ${medidas[nome].toFixed(4)}`;
+  await espera(300);
+}
+// a altura alvo: a do meio (mediana); o ajuste fica entre 0,25x e 4x
+const vals = Object.values(medidas).filter((v) => v > 1e-5).sort((a, b) => a - b);
+const alvo = q.has("alvo") ? +q.get("alvo") : vals[Math.floor(vals.length / 2)];
+const ajustes = {};
+for (const [nome, v] of Object.entries(medidas)) {
+  if (v > 1e-5) ajustes[nome] = Math.round(Math.min(4, Math.max(0.25, alvo / v)) * 100) / 100;
+}
+const saida = JSON.stringify({ alvo, medidas, ajustes });
+log.textContent += "\n\n" + saida;
+await fetch("/__capture", { method: "POST", headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ name: conferir ? "volumes_conferido" : "volumes", dataUrl: "", log: saida }) });
+log.textContent += "\nPRONTO";
+</script></body></html>

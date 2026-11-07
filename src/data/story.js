@@ -13,6 +13,32 @@ export const TRUNFO_TEXTO = {
 };
 
 export const STORY = {
+  /** A HISTÓRIA DOS LUMINOSOS (contada pelo CAIO, nov/2026). Aparece na
+   *  batalha, a primeira vez que você encontra um luminoso. */
+  historiaLuminoso: [
+    "DIZEM QUE TEVE UM DIA MAIS SOMBRIO QUE TODOS OS OUTROS.",
+    "ESTAVA MUITO ESCURO. O CÉU SUMIU ATRÁS DAS NUVENS DYNAMAX, E AS SOMBRAS DE POKÉMON GIGANTES COBRIAM TUDO.",
+    "AÍ ARCEUS DEU A ALGUNS POKÉMON O PODER DE CONTROLAR E GERAR LUZ.",
+    "A LUZ DELES É TANTA QUE PARECE QUE ELES TÊM OUTRA COR. É POR ISSO QUE CHAMAM ELES DE LUMINOSOS.",
+  ],
+  // O COMEÇO CLÁSSICO (src/scenes/overworld.js, `carvalhoImpede` e a porta do
+  // laboratório): sem Pokémon, a ROTA 1 não deixa; e do lab só se sai com o
+  // inicial e depois da primeira luta com o rival.
+  carvalhoImpede: {
+    grita: [
+      "PROF. CARVALHO: ESPERA! NÃO VÁ!",
+      "PROF. CARVALHO: É PERIGOSO! POKÉMON SELVAGENS VIVEM NO MATO ALTO!",
+      "PROF. CARVALHO: VOCÊ PRECISA DO SEU PRÓPRIO POKÉMON PRA SE PROTEGER. VEM COMIGO!",
+    ],
+    noLab: [
+      "PROF. CARVALHO: PRONTO, {NOME}. ESSES TRÊS NA MESA SÃO OS ÚLTIMOS QUE EU TENHO.",
+      "PROF. CARVALHO: ESCOLHA UM. ELE VAI SER O SEU PRIMEIRO PARCEIRO.",
+      "{RIVAL}: EI, VÔ! E EU? EU CHEGUEI PRIMEIRO!",
+      "PROF. CARVALHO: CALMA, {RIVAL}. VOCÊ ESCOLHE DEPOIS.",
+    ],
+    semInicial: "PROF. CARVALHO: {NOME}, ESPERA! VOCÊ AINDA NÃO ESCOLHEU O SEU POKÉMON!",
+    rivalChama: "{RIVAL}: ESPERA AÍ, {NOME}! NINGUÉM SAI DAQUI SEM LUTAR COMIGO!",
+  },
   // A CRECHE DA ROTA 5 (src/systems/creche.js): o senhor na frente da casa
   creche: {
     oi: ["OLÁ! EU SOU O SENHOR DA CRECHE.", "CUIDO DE ATÉ DOIS POKÉMON SEUS. ELES CRESCEM ENQUANTO VOCÊ ANDA POR AÍ — E, SE SE DEREM BEM, PODE APARECER UM OVO."],
@@ -200,7 +226,7 @@ export const STORY = {
         "EI! ESPERA AÍ!",
         "DESCULPA A CORRERIA — EU SOU O CONOR, ASSISTENTE DO PROF. CARVALHO.",
         "ELE PEDIU PRA EU TE BUSCAR ASSIM QUE VOCÊ GANHASSE MAIS UMA INSÍGNIA.",
-        "É URGENTE. VEM COMIGO PRA VILA PALETA!",
+        "É URGENTE. VEM COMIGO PRA CIDADE DE PALLET!",
       ],
       2: [
         "DE NOVO EU! DESSA VEZ EU CORRI MAIS RÁPIDO.",
@@ -342,7 +368,7 @@ export const STORY = {
     "SÓ EXISTE UM JEITO DE FECHAR ISSO: UMA POKÉ BOLA.",
     "UM DADO QUE NÃO EXISTE PRECISA DE UM LUGAR PRA EXISTIR. DÊ UM A ELE.",
     "ELE VAI ESTAR EM TODO LUGAR E EM LUGAR NENHUM — NA GRAMA ALTA, EM QUALQUER ROTA.",
-    "MAS SE EU FOSSE VOCÊ, EU COMEÇAVA PELO CANTEIRO DE FLORES DA VILA PALETA.",
+    "MAS SE EU FOSSE VOCÊ, EU COMEÇAVA PELO CANTEIRO DE FLORES DA CIDADE DE PALLET.",
     "AQUELAS FLORES ESTÃO NO CARTUCHO DESDE O PRIMEIRO DIA. É O PEDAÇO DE TELA MAIS GASTO QUE EXISTE.",
   ],
 
@@ -403,7 +429,7 @@ export const STORY = {
     ],
     // a tela da máquina
     titulo: "DECODIFICADOR DE GENOMA",
-    menu: ["FUNDIR", "SEPARAR", "TROCAR A VERSÃO", "OFICINA", "MUNDO", "DESLIGAR"],
+    menu: ["FUNDIR", "SEPARAR", "TROCAR A VERSÃO", "OFICINA", "MUNDO", "FUNDIR 3", "DESLIGAR"],
     escolheCabeca: "QUEM ENTRA COMO CABEÇA?",
     escolheCorpo: "QUEM ENTRA COMO CORPO?",
     escolheFusao: "QUAL GENOMA EU ABRO?",
@@ -458,6 +484,14 @@ export const STORY = {
     copiou: "A FICHA DE {NOME} VEIO PRO OUTRO LADO. O DESENHO VEIO JUNTO.",
     // recusas
     poucos: "A MÁQUINA PRECISA DE DOIS POKÉMON NA EQUIPE.",
+    // FUSÃO TRIPLA (ideia do CAIO): cabeça, meio e pernas; o bicho sai com os três tipos
+    escolheMeio: "QUEM ENTRA COMO MEIO?",
+    escolhePernas: "QUEM ENTRA COMO PERNAS?",
+    poucos3: "PRA FUNDIR 3, A MÁQUINA PRECISA DE TRÊS POKÉMON NA EQUIPE QUE AINDA NÃO SÃO FUSÃO.",
+    confirmaFundir3: "GRAVAR {CABECA} + {CORPO} + {PERNAS} COMO {NOME}?",
+    fundiu3: "{CABECA}, {CORPO} E {PERNAS} VIRARAM {NOME}!",
+    separou3: "{NOME} SE ABRIU EM {CABECA}, {CORPO} E {PERNAS}!",
+    triplaNaOficina: "A BANCADA DAQUI SÓ DESENHA DUPLAS. A TRIPLA SE DESENHA NO FUSIONGLITCH.",
     semFusao: "VOCÊ NÃO TEM NENHUM GENOMA GRAVADO PRA ABRIR.",
     jaFundido: "ESSE JÁ É UMA FUSÃO. A FITA NÃO DOBRA DUAS VEZES.",
     naoDaParaFundir: "A LEITURA NÃO FECHOU. TENTE OUTRA DUPLA.",
@@ -646,6 +680,26 @@ export const STORY = {
     raidGanhou: "A CASCA VIROU BOLA, E A BOLA É SUA. VOCÊ AINDA ACHOU $ {DINHEIRO} NO CHÃO.",
   },
 
+  /** AS ULTRA RAIDS: o que muda nos textos da raid quando um evento `ultra`
+   *  (src/data/eventos.js) está aberto. O que não está aqui vem de `glitch`. */
+  ultra: {
+    rasgoPrimeiro: [
+      "O CÉU ABRIU UM BURACO REDONDO, CHEIO DE LUZ.",
+      "NÃO É A FENDA. É UM ULTRA BURACO — E DO OUTRO LADO TEM FESTA.",
+    ],
+    rasgoEntrou: ["VOCÊ ENCOSTA NO ULTRA BURACO. UMA ULTRA BEAST PASSA POR ELE, NO RITMO DA BATERIA."],
+    raidApareceu: [
+      "O ULTRA BURACO SE ABRIU TODO.",
+      "ISSO NÃO É UM POKÉMON SELVAGEM. É UMA ULTRA RAID!",
+    ],
+    raidBugado: "{NOME} VEIO CHEIO DE ULTRA ENERGIA: CADA PONTO DE DANO QUE ELE TOMAR VIRA ATRIBUTO. BATER NELE O DEIXA MAIOR.",
+    raidEscudo: "TEM UMA BARREIRA DE ULTRA ENERGIA NA FRENTE DELE.",
+    escudoQuebrou: "A BARREIRA ESTOUROU! AGORA O DANO CHEGA NELE.",
+    raidSemBola: "A BARREIRA AINDA ESTÁ DE PÉ. A BOLA NEM ENCOSTA.",
+    raidCaiu: "{NOME} CANSOU DE SAMBAR. A ULTRA ENERGIA DELE ESTÁ ACABANDO.",
+    raidGanhou: "A BARREIRA VIROU BOLA, E A BOLA É SUA. VOCÊ AINDA ACHOU $ {DINHEIRO} NO CHÃO DA AVENIDA.",
+  },
+
   /** LEILÃO (balcão da loja, com a BARRACA DE LEILÃO na mochila). */
   leilao: {
     oferta: "QUER COMPRAR OU LEILOAR ALGUÉM?",
@@ -666,6 +720,7 @@ export const STORY = {
     tenteMenos: "PEÇA MENOS DA PRÓXIMA VEZ — OU ESPERE APARECER QUEM PAGUE.",
     vendido: "{NOME} FOI VENDIDO POR $ {PRECO}!",
     shiny: "PAGARAM O DOBRO SÓ PELA COR.",
+    luminoso: "PAGARAM CINCO VEZES. NINGUÉM ALI TINHA VISTO UM ACESO.",
     caixa: "AGORA VOCÊ TEM $ {TOTAL}.",
     naoPode: {
       semBarraca: "VOCÊ NÃO TEM UMA BARRACA DE LEILÃO.",
@@ -724,6 +779,37 @@ export const STORY = {
       "O CÉU DA FENDA É O MESMO PEDAÇO DE CÉU, REPETIDO.",
       "SE VOCÊ OLHAR DEMAIS, DÁ PRA VER ONDE ELE EMENDA.",
     ],
+  },
+
+  /** AS COISAS IMENSAS (src/core/gigante3d.js): um gigante cruza o céu em 3D,
+   *  volta, e desce pra lutar. */
+  gigantes: {
+    sombra: "UMA SOMBRA IMENSA CRUZOU O CHÃO.",
+    desceu: [
+      "O CÉU RUGIU.",
+      "{MON} DESCEU DA CAMADA MAIS ALTA DO CÉU!",
+    ],
+    pego: [
+      "{MON} DESCEU DE VEZ.",
+      "LONGE DO CÉU ELE CABE NUM DESENHO. MAS CONTINUA SENDO ELE.",
+    ],
+    fugiu: "{MON} SUBIU DE VOLTA PRO CÉU. UM DIA ELE PASSA DE NOVO.",
+    // a ESFERA DE JADE: o cientista na frente do POKÉ MART de Fuchsia
+    cientista: [
+      "EU ESTUDO O CÉU. NÃO ESSE AQUI DE BAIXO: O QUE FICA EM CIMA DE TUDO.",
+      "ACHEI ISTO NUMA CRATERA. É UMA ESFERA DE JADE — ELA VIBRA QUANDO ALGO IMENSO PASSA LÁ EM CIMA.",
+    ],
+    pergunta: "LEVA A ESFERA DE JADE POR ${PRECO}?",
+    opcoes: ["COMPRAR", "AGORA NÃO"],
+    semGrana: "AINDA FALTA DINHEIRO. A ESFERA ESPERA. O CÉU TAMBÉM.",
+    recusa: "EU NÃO SAIO DAQUI. O MART TEM AR-CONDICIONADO, MAS O CÉU É AQUI FORA.",
+    comprou: "VOCÊ COMPROU A ESFERA DE JADE!",
+    dica: "ERGA ELA PELA MOCHILA, EM QUALQUER LUGAR COM CÉU ABERTO. E SEGURA FIRME.",
+    depois: "E AÍ, ELE DESCEU? DAQUI EU SÓ VI A SOMBRA PASSAR.",
+    invocou: ["VOCÊ ERGUEU A ESFERA DE JADE.", "ELA ACENDEU VERDE, E O CÉU RESPONDEU."],
+    semCeu: "A ESFERA NÃO ACENDE AQUI. ELA PRECISA DE CÉU ABERTO.",
+    semTime: "NINGUÉM DA EQUIPE ESTÁ DE PÉ PRA RECEBER O QUE VEM DE LÁ.",
+    visita: ["{MON} VEIO QUANDO VOCÊ CHAMOU.", "ELE DEU UMA VOLTA EM CIMA DE VOCÊ E SUBIU DE NOVO."],
   },
 
   /** MEGA EVOLUÇÃO. O ANEL MEGA sai da mão do professor; as megapedras estão
@@ -964,7 +1050,7 @@ export const STORY = {
     ],
     subir: "SUBIR NO AVIÃO DE PAPEL?",
     voando: "O AVIÃO SOBE SOZINHO E ATRAVESSA O MAR EM LINHA RETA.",
-    voandoKanto: "O AVIÃO SOBE ACIMA DAS NUVENS E CORTA KANTO EM LINHA RETA.",
+    voandoKanto: "O AVIÃO SOBE ACIMA DAS NUVENS E VAI EM LINHA RETA PRO DESTINO.",
     semDestino: "O AVIÃO SÓ SABE POUSAR EM CIDADE. VOCÊ JÁ ESTÁ NA ÚNICA QUE ELE CONHECE.",
     voltando: "O AVIÃO TE LEVA DE VOLTA PRO CONTINENTE.",
     dentro: "AQUI DENTRO NÃO TEM CÉU PRO AVIÃO SUBIR.",
@@ -981,7 +1067,8 @@ export const STORY = {
       chegou: "BIRTH ISLAND. SÓ AREIA, MAR E UMA PEDRA TRIANGULAR NO MEIO.",
     },
     // O BILHETE VOO não tem destino impresso: o avião leva pra qualquer cidade
-    // de Kanto, até as que você nunca pisou, e se desdobra inteiro no pouso.
+    // de Kanto ou de Braglitch, até as que você nunca pisou, e se desdobra
+    // inteiro no pouso.
     "bilhete voo": {
       kanto: true,          // sem destino fixo: a lista abre na hora de subir
       gasta: false,
@@ -1044,7 +1131,7 @@ export const STORY = {
     jaAberto: "O PAINEL ESTÁ FECHADO E A BARREIRA, DESLIGADA. O CAMINHO ESTÁ LIVRE.",
   },
 
-  /** O canteiro de flores da VILA PALETA depois que o mundo bugou: é ali que
+  /** O canteiro de flores da CIDADE DE PALLET depois que o mundo bugou: é ali que
    *  MISSINGNO. encosta com mais força (ver `flores` em src/data/maps.js). */
   flores: {
     primeira: [

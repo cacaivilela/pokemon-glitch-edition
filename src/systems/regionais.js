@@ -74,10 +74,3 @@ export function alvoDaPedra(item, especie, mapa) {
 
 /** A região de uma espécie (ALOLA/GALAR/HISUI/PALDEA), ou null pro resto. */
 export const regiaoDe = (especie) => DB.REGIAO?.[especie] || null;
-
-/** true quando a espécie é uma forma regional. */
-export const ehRegional = (especie) => !!regiaoDe(especie);
-
-/** Todas as formas de uma região. */
-export const daRegiao = (regiao) =>
-  Object.keys(DB.REGIAO || {}).filter((id) => DB.REGIAO[id] === regiao);

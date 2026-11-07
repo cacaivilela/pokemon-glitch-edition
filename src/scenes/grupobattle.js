@@ -16,6 +16,7 @@
 // O QUE NÃO TEM: captura (é sempre treinador ou totem — ninguém aqui é de
 // pegar), fuga pelo mesmo motivo, MEGA e GLITCHBOOSTER, que continuam sendo
 // coisa de um contra um.
+import { musicaDaBatalha } from "../systems/musicabatalha.js";
 import { DB } from "../data/index.js";
 import { prepararBatalha, fatorXp } from "../systems/pedras.js";
 import { ajustarInimigo, fatorDano, naBatalha } from "../systems/dificuldade.js";
@@ -169,7 +170,12 @@ export class GrupoBattleScene {
     this.xpPendente = 0;
     for (const v of this.lado.f) { const m = this.monDe("f", v); if (m) st.seen[m.species] = true; }
 
-    Audio2.playMusic("batalha", DB.MUSIC?.batalha);
+    {
+      // a música da região e do tipo de batalha (src/systems/musicabatalha.js);
+      // vinda do mapa, a entrada da batalha já começou ela
+      const nome = musicaDaBatalha(this, st.player?.map);
+      if (!Audio2.estaTocando(nome)) Audio2.playMusic(nome, DB.MUSIC?.[nome] || DB.MUSIC?.batalha);
+    }
     this.run(this.intro());
   }
 
@@ -668,6 +674,13 @@ export class GrupoBattleScene {
       await this.say(`${user.nickname} SOFREU O RECUO!`);
       if (isFainted(user)) await this.desmaiou(k, v);
     }
+    // EXPLOSÃO: quem usou vai junto
+    if (mv.explode && acertou && !isFainted(user)) {
+      user.hp = 0;
+      await this.syncHp();
+      await this.say(`${user.nickname} EXPLODIU E DESMAIOU!`);
+      await this.desmaiou(k, v);
+    }
     // o PREÇO do PEGA ALMA: 14 de HP de quem usou
     if (custo && !isFainted(user)) {
       user.hp = Math.max(0, user.hp - custo);
@@ -829,6 +842,26 @@ export class GrupoBattleScene {
         this.st.flags.oakPending = true;
         this.st.flags.escortPending = true;
       }
+      // A SALA DA LIGA: venceu a etapa → a sala se transforma pra próxima
+      // (a cena é do overworld, `trocaDaLiga`); o campeão é a última
+      if (this.trainer.etapaLiga != null && this.trainer.etapaLiga < 4) {
+        this.st.flags.ligaPendente = this.trainer.etapaLiga + 1;
+      }
+      // A FÁBRICA DE POKÉBOLAS (src/data/fabrica.js): a EQUIPE ROCKET ACABA
+      if (this.trainer.fabricaRocket && !this.st.flags.rocketDesfeita) {
+        this.st.flags.rocketDesfeita = true;
+        try { this.game.autosave?.(true); } catch {}
+        Audio2.heal();
+        for (const linha of DB.FABRICA.fim) await this.say(linha);
+      }
+      // A LIGA DE KANTO (src/data/liga-kanto.js): venceu o AZUL campeão (em dupla)
+      if (this.trainer.ligaKanto && !this.st.flags.kantoCampeao) {
+        this.st.flags.kantoCampeao = true;
+        this.st.flags.hallPendente = true;    // o HALL DA FAMA registra o time (src/scenes/halldafama.js)
+        Audio2.heal();
+        await this.say(`${this.st.player?.name || "VOCÊ"} VIROU CAMPEÃO DE KANTO!`);
+        await this.say("AGORA AS LOJAS VENDEM MASTER BALL PRA VOCÊ!");
+      }
       // A LIGA DE BRAGLITCH (src/data/braglitch-liga.js): quem vence vira campeão
       if (this.trainer.ligaBrag && !this.st.flags.bragCampeao) {
         const L = DB.LIGA_BRAG;
@@ -837,6 +870,7 @@ export class GrupoBattleScene {
         this.st.flags.bragCampeao = true;
         Audio2.heal();
         await this.say(L.campeao.replace("{NOME}", nome));
+        this.st.flags.hallBragPendente = true;   // o HALL DA FAMA DE BRAGLITCH (as garras), ali mesmo na CÚPULA
       }
     } else if (this.npcKey) {
       // o TOTEM: quem paga o cristal é o overworld, olhando esta marca
@@ -1150,7 +1184,8 @@ export class GrupoBattleScene {
       return void BattleScene.prototype.drawDiglettBombado.call(this, ctx, img, bob, s, mon, p.cx, p.pe,
         this.n === 3 ? 0.55 : 0.68);
     }
-    const img = k === "f" ? Assets.mon(mon.species, mon.seed) : Assets.monBack(mon.species, mon.seed);
+    // (a sua FUSÃO fica de frente pra você, como na batalha de um contra um)
+    const img = k === "f" || DB.SPECIES[mon.species]?.fusao ? Assets.mon(mon.species, mon.seed) : Assets.monBack(mon.species, mon.seed);
     // o quadro ANIMADO do Black/White, quando tem (na escala da vaga: p.tam/64)
     const anim = Assets.monAnim(mon, k === "p", this.t * 1000 + (k === "f" ? 500 : 0) + p.cx * 37);
     const arte = anim || Assets.comCor(img, mon, k === "p");
@@ -1186,7 +1221,7 @@ export class GrupoBattleScene {
     const vez = k === "p" && this.menu && !this.busy && this.vagaAtual === v;
     panel(ctx, x, y, w, h);
     if (vez) { ctx.fillStyle = "#ffd166"; ctx.fillRect(x + 2, y + 2, 2, h - 4); }
-    const cor = mon.shiny ? "#d8a828" : mon.corrupt ? PAL.glitch : PAL.ink;
+    const cor = mon.luminoso ? "#fff3b0" : mon.shiny ? "#d8a828" : mon.corrupt ? PAL.glitch : PAL.ink;
     drawText(ctx, mon.nickname.slice(0, 9), x + 6, y + 3, cor);
     drawText(ctx, `N${mon.level}`, x + w - 26, y + 3, PAL.ink);
     const pct = Math.max(0, v.disp) / mon.maxHp;

@@ -21,8 +21,27 @@ const PAPEL = "#f4ecd6", TINTA = "#1c1a20", LEGENDA = "#ffe27a";
 
 /** A arte de quem aparece no quadro: `@vitor`/`@andre` é o retrato de
  *  treinador; o resto, o sprite de frente da espécie (fusão montada na hora). */
+// `%ipe`: gente que só tem o boneco do mapa (assets/sprites/overworld/): o
+// quadro de frente, num quadrado com os pés embaixo
+const bonecos = {};
+function boneco(nome) {
+  if (!(nome in bonecos)) {
+    bonecos[nome] = null;
+    const im = new Image();
+    im.onload = () => {
+      const cv = document.createElement("canvas"); cv.width = 32; cv.height = 32;
+      const g = cv.getContext("2d"); g.imageSmoothingEnabled = false;
+      g.drawImage(im, 0, 0, 16, 32, 8, 0, 16, 32);
+      bonecos[nome] = cv;
+    };
+    im.src = `assets/sprites/overworld/${nome}.png`;
+  }
+  return bonecos[nome];
+}
+
 function arte(id) {
   if (id.startsWith("@")) return trainerArt(id.slice(1));
+  if (id.startsWith("%")) return boneco(id.slice(1));
   if (!DB.SPECIES[id] && partes(id)) garantirEspecie(id);
   return Assets.mon(id);
 }
@@ -51,12 +70,35 @@ export function desenharQuadro(ctx, q, x0, y0, { letras = Infinity, t = 0 } = {}
     const img = arte(id);
     if (img) {
       ctx.save();
-      if (o.v) { ctx.translate(x + s, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0, s, s); }
-      else ctx.drawImage(img, x, y, s, s);
+      // `v` vira pra direita, `vc` põe de cabeça pra baixo (dá pra usar os dois)
+      ctx.translate(o.v ? x + s : x, o.vc ? y + s : y);
+      ctx.scale(o.v ? -1 : 1, o.vc ? -1 : 1);
+      ctx.drawImage(img, 0, 0, s, s);
       ctx.restore();
     }
     return { cx: x + s / 2, topo: y + s * 0.2 };
   });
+
+  // ÁGUA (`agua: [x, y, w, h]`, no quadro): azul por cima de quem está nela,
+  // com a ondinha balançando em cima
+  if (q.agua) {
+    const [ax, ay, aw, ah] = q.agua;
+    ctx.fillStyle = "rgba(70,140,230,.55)";
+    ctx.fillRect(x0 + ax, y0 + ay, aw, ah);
+    ctx.fillStyle = "#2a5fb0";
+    for (let k = 0; k < aw; k += 2) ctx.fillRect(x0 + ax + k, y0 + ay + Math.round(Math.sin(k / 4 + t * 4)), 2, 1);
+  }
+  // FOGO (`fogo: [[x, y], ...]`, a base de cada chama): tremendo sem parar
+  for (const [fx, fy] of q.fogo || []) {
+    for (let k = 0; k < 3; k++) {
+      const alto = 10 - k * 3 + Math.round(Math.sin(t * 14 + fx + k) * 2);
+      ctx.fillStyle = ["#e8401c", "#ff9a1f", "#ffe27a"][k];
+      for (let r = 0; r < alto; r++) {
+        const meia = Math.max(0, Math.round((5 - k * 1.5) * (1 - r / alto)));
+        ctx.fillRect(x0 + fx - meia, y0 + fy - r, meia * 2 + 1, 1);
+      }
+    }
+  }
 
   // ZZZ subindo
   if (q.fx === "zzz") {
@@ -86,7 +128,8 @@ export function desenharQuadro(ctx, q, x0, y0, { letras = Infinity, t = 0 } = {}
     resta -= fala.length;
     const p = pos[quem] || pos[0];
     if (!p) continue;
-    const cols = (q.bichos || []).length >= 3 ? 12 : 16;
+    // `colunas` no quadro: balão mais largo (e mais baixo), pra não cobrir ninguém
+    const cols = q.colunas || ((q.bichos || []).length >= 3 ? 12 : 16);
     const cheias = wrapText(fala, cols);            // o tamanho é o da fala inteira
     // as linhas são as da fala inteira, reveladas letra por letra: quebrar só
     // o pedaço já escrito põe palavra na linha errada e ela vaza do balão

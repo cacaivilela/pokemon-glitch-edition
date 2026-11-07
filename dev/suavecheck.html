@@ -1,0 +1,27 @@
+<!doctype html>
+<!-- TELA SUAVE: retrato de um mapa com o suave em alguns níveis (manda pro
+     /__capture: dev/captures/suave_<mapa>_<nível>.png). Uso:
+     /dev/suavecheck.html?map=glitchdim&x=22&y=29&niveis=0,3 -->
+<meta charset="utf-8"><title>suavecheck</title>
+<style>body{background:#111;color:#ddd;font:13px monospace;margin:8px}img{width:720px;image-rendering:pixelated;display:block}iframe{position:absolute;left:-2000px;width:720px;height:480px}</style>
+<div id="saida"></div>
+<script type="module">
+const q = new URLSearchParams(location.search), espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const map = q.get("map") || "glitchdim", x = q.get("x") || 22, y = q.get("y") || 29;
+const tols = (q.get("tols") || "").split(",").filter(Boolean);
+for (const n of (tols.length ? tols.map((t) => q.get("nivel") || "3") : (q.get("niveis") || "0,3").split(","))) {
+  const tol = tols.shift();
+  const f = document.createElement("iframe");
+  f.src = `../index.html?map=${map}&x=${x}&y=${y}&suave=${n}${tol != null ? "&tolsuave=" + tol : ""}&perfil=suavecheck`;
+  document.body.appendChild(f);
+  for (let i = 0; i < 60 && !f.contentDocument?.getElementById("screen"); i++) await espera(100);
+  await espera(3000);
+  for (let i = 0; i < 6; i++) { await espera(400); for (const type of ["keydown", "keyup"]) f.contentWindow.dispatchEvent(new f.contentWindow.KeyboardEvent(type, { code: "Enter", key: "Enter" })); }
+  await espera(2500);
+  const dataUrl = f.contentDocument.getElementById("screen").toDataURL();
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: `suave_${map}_${n}${tol != null ? "_t" + tol : ""}`, dataUrl, log: n }) });
+  const img = document.createElement("img"); img.src = dataUrl; document.getElementById("saida").appendChild(img);
+  f.remove();
+}
+document.title = "suavecheck pronto";
+</script>

@@ -14,6 +14,10 @@ const PADRAO = {
   falaVel: 1,           // índice em FALA_VELOCIDADES: 0 lenta ... 3 na hora
   falaSom: true,        // o tique das letras aparecendo
   falaAuto: false,      // a página vira sozinha depois de dar tempo de ler
+  suave: 0,             // a TELA SUAVE, nível 0 (desligada) a 5,5 (src/core/suave.js)
+  // O ESTILO DE TROCA, como no FireRed: "alternar" (o treinador vai mandar o
+  // próximo e o jogo pergunta se você quer trocar) ou "set" (não pergunta)
+  estiloTroca: "alternar",
 };
 
 let atual = null;

@@ -79,3 +79,15 @@ export const ARISCOS = [
   "chansey", "dratini", "porygon", "lickitung", "tangela", "mr. mime",
 ];
 
+
+/** SOMEM (pedido do CAIO, nov/2026: "um abra te viu? ele se teleporta em 3
+ *  seg."). No MAPA: viram você e, 3 segundos depois, somem num brilho — o ABRA
+ *  do teleporte, a CHANSEY rara, os lendários que andam por aí e os tímidos.
+ *  Dá pra pegar se você chegar neles antes. (O ALFA não some: não tem medo.) */
+export const SO_FOGEM = [
+  "abra", "chansey", "blissey", "happiny",
+  "raikou", "entei", "suicune", "latias", "latios", "mesprit", "cresselia",
+  "tornadus", "thundurus", "gimmighoul",
+  "dunsparce", "wynaut", "pichu", "smoochum", "azurill", "minccino", "bunnelby",
+  "skwovet", "wooloo", "nickit", "tandemaus", "lechonk", "shroodle",
+];

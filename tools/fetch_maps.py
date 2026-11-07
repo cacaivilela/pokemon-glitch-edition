@@ -72,6 +72,7 @@ DiglettsCave_NorthEntrance DiglettsCave_SouthEntrance
 """.split()
 
 SERVICES = """
+Route25_SeaCottage
 ViridianCity_PokemonCenter_1F ViridianCity_Mart
 PewterCity_PokemonCenter_1F PewterCity_Mart
 CeruleanCity_PokemonCenter_1F CeruleanCity_Mart
@@ -81,7 +82,7 @@ CeladonCity_PokemonCenter_1F SaffronCity_PokemonCenter_1F SaffronCity_Mart
 FuchsiaCity_PokemonCenter_1F FuchsiaCity_Mart
 CinnabarIsland_PokemonCenter_1F CinnabarIsland_Mart
 Route4_PokemonCenter_1F Route10_PokemonCenter_1F
-PalletTown_PlayersHouse_1F PalletTown_ProfessorOaksLab
+PalletTown_PlayersHouse_1F PalletTown_PlayersHouse_2F PalletTown_ProfessorOaksLab PalletTown_RivalsHouse
 
 OneIsland_PokemonCenter_1F TwoIsland_PokemonCenter_1F
 ThreeIsland_PokemonCenter_1F ThreeIsland_Mart
@@ -144,12 +145,21 @@ TrainerTower_4F TrainerTower_5F TrainerTower_6F TrainerTower_7F
 TrainerTower_8F TrainerTower_Elevator TrainerTower_Lobby TrainerTower_Roof
 """.split()
 
-MAPS = OUTDOOR + GATES + SERVICES + GYMS + DUNGEONS
+# A LIGA POKÉMON DE KANTO (pedido do CAIO, nov/2026: "faz ter liga em kanto"):
+# o PLANALTO ÍNDIGO, as quatro salas da ELITE 4, a do campeão e o HALL DA FAMA
+LIGA = """
+IndigoPlateau_Exterior IndigoPlateau_PokemonCenter_1F
+PokemonLeague_LoreleisRoom PokemonLeague_BrunosRoom PokemonLeague_AgathasRoom
+PokemonLeague_LancesRoom PokemonLeague_ChampionsRoom PokemonLeague_HallOfFame
+""".split()
+
+MAPS = OUTDOOR + GATES + SERVICES + GYMS + DUNGEONS + LIGA
 
 # ids curtos para os mapas do começo (compatibilidade com src/data/maps.js)
 ALIAS = {
     "PalletTown": "pallet", "Route1": "route1", "ViridianCity": "viridian",
-    "PalletTown_PlayersHouse_1F": "home", "PalletTown_ProfessorOaksLab": "lab",
+    "PalletTown_PlayersHouse_1F": "home", "PalletTown_PlayersHouse_2F": "quarto",
+    "PalletTown_ProfessorOaksLab": "lab",
     "ViridianCity_PokemonCenter_1F": "center", "ViridianCity_Mart": "mart",
     "BirthIsland_Exterior": "birth_island",
 }

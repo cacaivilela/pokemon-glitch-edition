@@ -13,7 +13,7 @@
 import { Assets } from "../core/assets.js";
 import { Audio2 } from "../core/audio.js";
 import { Dialogue } from "../systems/dialogue.js";
-import { gritoDe } from "../systems/gritos.js";
+import { gritoDe, tocarGrito } from "../systems/gritos.js";
 import { fade } from "../core/gfx.js";
 
 const W = 240, H = 160;
@@ -67,7 +67,7 @@ export class SoltarScene {
       this.tf = 0;
       const f = this.fase;
       if (f === "abre") { this.flash = 0.8; Audio2.tone(880, 0.06); Audio2.tone(1175, 0.1); }
-      if (f === "olha") Audio2.grito(gritoDe(this.mon.species));
+      if (f === "olha") tocarGrito(this.mon);
       if (f === "fim") {
         this.acabou = true;
         this.dlg.say(this.frase, () => { this.saindo = true; this.fadeDir = 1; });

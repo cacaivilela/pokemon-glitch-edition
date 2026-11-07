@@ -37,10 +37,11 @@ export const FUSAO = {
   catalogo: { cabecas: 255, corpos: 256 },
 
   nomeMax: 11,          // cabe na lista da equipe e no balão da batalha
-  corte: 0.46,          // altura do pescoço: daqui pra cima é a cabeça
-  tintaCorpo: 0.5,      // quanto da cor da cabeça escorre no corpo (0 a 1)
+  corte: 0.46,          // onde a oficina corta as peças TOPO e BASE (a montagem
+                        // automática acha o pescoço sozinha: src/systems/montagem.js)
 
   dexText: "GENOMA {CABECA}+{CORPO}, ESCRITO NO DECODIFICADOR. NÃO NASCEU ASSIM: FOI LIDO ASSIM.",
+  dexText3: "GENOMA {CABECA}+{CORPO}+{PERNAS}: TRÊS FITAS NUMA SÓ. A MÁQUINA ESQUENTOU E ESCREVEU ASSIM MESMO.",
 
   /** total de combinações que o catálogo cobre */
   get combinacoes() { return this.catalogo.cabecas * this.catalogo.corpos; },
@@ -65,6 +66,54 @@ export const FUSAO = {
     let nome = A.slice(0, corte) + fim;
     if (nome.length > this.nomeMax) nome = A.slice(0, Math.max(2, this.nomeMax - fim.length)) + fim;
     return nome.slice(0, this.nomeMax) || "???";
+  },
+
+  // ------------------------------------------------ FUSÃO TRIPLA (do CAIO)
+  // Três entram: a CABEÇA (o rosto), o MEIO (o tronco e os braços) e as
+  // PERNAS (o que fica embaixo: pernas, rabo, base). O bicho sai com os TRÊS
+  // tipos — um de cada —, e cada um dá dois atributos.
+
+  /** NOME: começo da cabeça + meio do meio + última sílaba das pernas.
+   *  PIKACHU + CHARMANDER + SQUIRTLE = PIKAMARTLE. */
+  nome3(nomeCab, nomeMeio, nomePernas) {
+    const A = letras(nomeCab), B = letras(nomeMeio), C = letras(nomePernas);
+    if (!A || !B || !C) return (A + B + C).slice(0, this.nomeMax) || "???";
+    const fim = C.slice(Math.min(ultimaSilaba(C), Math.max(0, C.length - 2)));
+    // o pedaço do meio: a sílaba do meio do nome dele (2 a 3 letras)
+    const ini = Math.max(1, Math.floor(B.length / 2) - 1);
+    let meio = B.slice(ini, ini + 3);
+    if (meio.length > 2 && !ehVogal(meio[meio.length - 1]) && ehVogal(meio[meio.length - 2])) meio = meio.slice(0, 2);
+    let cab = A.slice(0, Math.max(2, ultimaSilaba(A)));
+    const sobra = this.nomeMax - fim.length - meio.length;
+    if (cab.length > sobra) cab = A.slice(0, Math.max(2, sobra));
+    return (cab + meio + fim).slice(0, this.nomeMax) || "???";
+  },
+
+  /** ATRIBUTOS: cada um manda em dois (cabeça: HP e ATQ ESP; meio: ATQ e DEF;
+   *  pernas: DEF ESP e VELOCIDADE) — metade de quem manda, um quarto de cada
+   *  um dos outros dois. */
+  stats3(cab, meio, pernas) {
+    const mix = (dono, a, b) => Math.floor((2 * dono + a + b) / 4);
+    return {
+      hp:  mix(cab.hp,  meio.hp,  pernas.hp),
+      atk: mix(meio.atk, cab.atk, pernas.atk),
+      def: mix(meio.def, cab.def, pernas.def),
+      spa: mix(cab.spa, meio.spa, pernas.spa),
+      spd: mix(pernas.spd, cab.spd, meio.spd),
+      spe: mix(pernas.spe, cab.spe, meio.spe),
+    };
+  },
+
+  /** TIPOS: os TRÊS. O primeiro da cabeça, o segundo do meio (o único dele,
+   *  se só tem um) e o das pernas. Tipo repetido não conta duas vezes: aí
+   *  entra o outro tipo de quem repetiu, se ele tiver. */
+  tipos3(cab, meio, pernas) {
+    const out = [];
+    const por = (lista) => { for (const t of lista) if (t && !out.includes(t)) { out.push(t); return; } };
+    por([cab.types[0], cab.types[1]]);
+    por([meio.types[1] || meio.types[0], meio.types[0]]);
+    por([pernas.types[1] || pernas.types[0], pernas.types[0]]);
+    return out;
   },
 
   /** ATRIBUTOS: 2/3 de quem manda naquele atributo, 1/3 do outro. */
@@ -176,9 +225,9 @@ export const FUSAO = {
 
   /** GOLPES: o learnset dos dois, sem repetir, cada um no nível mais baixo em
    *  que aparece. A fusão aprende o que qualquer um dos lados aprenderia. */
-  learnset(cab, cor) {
+  learnset(cab, cor, pernas = null) {
     const menor = new Map();
-    for (const [lvl, id] of [...(cab.learnset || []), ...(cor.learnset || [])]) {
+    for (const [lvl, id] of [...(cab.learnset || []), ...(cor.learnset || []), ...(pernas?.learnset || [])]) {
       if (!menor.has(id) || menor.get(id) > lvl) menor.set(id, lvl);
     }
     return [...menor].map(([id, lvl]) => [lvl, id]).sort((a, b) => a[0] - b[0]);

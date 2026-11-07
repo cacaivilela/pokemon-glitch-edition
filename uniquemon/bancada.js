@@ -1,5 +1,4 @@
-// A BANCADA DE DESENHO: a tela de pixel art do UNIQUEMON (uniquemon/) e do
-// REGIOMAKER (regiomaker/). Lápis, borracha, balde, conta-gotas, pincel de 1 a
+// A BANCADA DE DESENHO: a tela de pixel art do UNIQUEMON (uniquemon/). Lápis, borracha, balde, conta-gotas, pincel de 1 a
 // 4, espelho, desfazer/refazer (CTRL+Z / CTRL+Y) e botão direito pintando com
 // transparente. A tela pode ser retangular (a skin do jogador é 64x96).
 //

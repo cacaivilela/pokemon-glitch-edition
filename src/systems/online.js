@@ -26,6 +26,7 @@ export const Online = {
   pronto: false,
   game: null,
   peers: new Map(),        // id -> jogador com posição já suavizada pra desenhar
+  basesDosOutros: new Map(), // id -> { nome, bases: [{ regiao, mapa, x, y }] } (as portas SECRETAS: não se desenham)
   ocupacao: LIVRE,         // livre | troca | batalha
   convitePendente: null,   // convite que CHEGOU e ainda não foi respondido
   conviteEnviado: null,    // convite que EU mandei e ainda não voltou
@@ -49,6 +50,7 @@ export const Online = {
     Net.on("saiu", (m) => {
       const p = this.peers.get(m.id);
       this.peers.delete(m.id);
+      this.basesDosOutros.delete(m.id);
       if (p) this._avisaTela(txt("saiu", { NOME: p.nome }));
       this._perdeuOParceiro(m.id);
     });
@@ -58,7 +60,14 @@ export const Online = {
       this._sincronizaPeers();
     });
 
-    if (cfg().ativo) this.conectar();
+    // `?offline` no endereço: não entra na sala. É o que os testes usam (dev/*),
+    // senão o jogo de teste aparece pra quem está jogando de verdade
+    // `?sala=X`: entra direto nessa sala (os testes usam uma separada da de quem joga)
+    const salaUrl = new URLSearchParams(location.search).get("sala");
+    // (e só entra sozinho com `entraSozinho` ligado em src/data/online.js, ou
+    // pedindo a sala no endereço — o padrão agora é abrir FORA do online)
+    const sozinho = cfg().entraSozinho || !!salaUrl;
+    if (cfg().ativo && sozinho && !new URLSearchParams(location.search).has("offline")) this.conectar(salaUrl || undefined);
     addEventListener("pagehide", () => Net.avisaSaida());
   },
 
@@ -196,7 +205,26 @@ export const Online = {
 
   _doJogo(msg) {
     switch (msg.tipo) {
-      case "sala": case "entrou": this._sincronizaPeers(); break;
+      case "sala": case "entrou": this._sincronizaPeers(); this.anunciarBases(); break;
+      // AS BASES SECRETAS (src/data/bases.js): onde ficam as portas dos outros
+      // (pra achar esbarrando), o pedido de visita e a base que chega
+      case "bases": {
+        const nome = this.peers.get(msg.de)?.nome || Net.jogadores.get(msg.de)?.nome || "?";
+        this.basesDosOutros.set(msg.de, { nome, bases: Array.isArray(msg.bases) ? msg.bases.slice(0, 3) : [] });
+        break;
+      }
+      case "pedeBase": {
+        const st = this.game?.state, b = st?.bases?.[msg.regiao];
+        if (!b) break;
+        import("./bases.js").then(({ pacoteDaBase }) => {
+          Net.manda("base", { base: pacoteDaBase(b, msg.regiao), nome: (st.player?.name || "?").slice(0, 12) }, msg.de);
+        });
+        // o dono fica sabendo: acharam a base secreta dele
+        const quem = this.peers.get(msg.de)?.nome || "?";
+        this._avisaTela((DB.BASES_TEXTO?.achouSua || "{NOME} ACHOU A SUA BASE!").replace("{NOME}", quem));
+        break;
+      }
+      case "base": this._emite("base", msg); break;
       case "pos": {
         const j = Net.jogadores.get(msg.de);
         if (!j) break;
@@ -208,6 +236,7 @@ export const Online = {
         const p = this.peers.get(msg.de);
         const texto = String(msg.texto || "").slice(0, cfg().maxChat || 40);
         if (p) p.balao = { texto, t: cfg().balao || 4 };
+        this._guardaNoChat(p?.nome || Net.jogadores.get(msg.de)?.nome || "?", texto, false);
         this._emite("chat", { de: msg.de, nome: p?.nome || "?", texto });
         break;
       }
@@ -225,6 +254,36 @@ export const Online = {
         else if (msg.tipo?.startsWith("batalha")) this._emite("batalha", msg);
         break;
     }
+  },
+
+  /** AS BASES SECRETAS: avisa a sala onde ficam as SUAS portas (cada um
+   *  guarda e não desenha: a porta é secreta, só se acha esbarrando) */
+  anunciarBases() {
+    if (!Net.ligado()) return;
+    // a base ESCONDIDA (no PC dela) não vai pra ninguém: nem esbarrando se acha
+    const bs = Object.entries(this.game?.state?.bases || {}).filter(([, b]) => b && !b.escondida)
+      .map(([regiao, b]) => ({ regiao, mapa: b.mapa, x: b.x, y: b.y }));
+    Net.manda("bases", { bases: bs });
+  },
+  /** de quem é a base secreta com a porta nesse bloco (dos outros), ou null */
+  baseNaPorta(mapa, x, y) {
+    for (const [id, o] of this.basesDosOutros) {
+      const b = o.bases.find((b) => b.mapa === mapa && b.x === x && b.y === y);
+      if (b && this.peers.has(id)) return { id, nome: o.nome, regiao: b.regiao };
+    }
+    return null;
+  },
+  /** bate na porta: pede a base pro dono; resolve com { base, nome } ou null */
+  pedirBase(id, regiao) {
+    return new Promise((ok) => {
+      let feito = false;
+      const sai = this.on("base", (msg) => {
+        if (msg.de !== id || feito) return;
+        feito = true; sai(); ok(msg);
+      });
+      Net.manda("pedeBase", { regiao }, id);
+      setTimeout(() => { if (!feito) { feito = true; sai(); ok(null); } }, 5000);
+    });
   },
 
   /** Manda a posição — no máximo `ritmoPos` por segundo, e só se mudou algo. */
@@ -297,10 +356,19 @@ export const Online = {
   },
 
   // ------------------------------------------------------------------ chat
+  /** O HISTÓRICO DO CHAT (a caixinha do canto, src/scenes/overworld.js
+   *  `drawChat`): as últimas mensagens de todo mundo, as suas também */
+  historico: [],
+  _guardaNoChat(nome, texto, meu) {
+    this.historico.push({ nome: String(nome).slice(0, 12), texto, meu, t: performance.now() });
+    if (this.historico.length > 30) this.historico.shift();
+  },
+
   falar(texto) {
     const limpo = String(texto || "").toUpperCase().slice(0, cfg().maxChat || 40).trim();
     if (!limpo || !this.podeOnline()) return false;
     Net.manda("chat", { texto: limpo });
+    this._guardaNoChat(this.game?.state?.player?.name || "EU", limpo, true);
     return limpo;
   },
 
@@ -368,7 +436,7 @@ export const Online = {
     return {
       species: mon.species, nickname: mon.nickname, level: mon.level, xp: mon.xp,
       ivs: mon.ivs, moves: (mon.moves || []).map((m) => ({ id: m.id, pp: m.pp, ppMax: m.ppMax })),
-      status: mon.status || null, shiny: !!mon.shiny,
+      status: mon.status || null, shiny: !!mon.shiny, luminoso: !!mon.luminoso,
       corrupt: !!mon.corrupt,
       seed: mon.seed | 0, hp: mon.hp,
     };
@@ -400,7 +468,8 @@ export const Online = {
         ivs,
         moves: golpes.length ? golpes.map((g) => g.id) : undefined,
         nickname: String(cru.nickname || sp.name).slice(0, 12),
-        shiny: !!(cru.shiny || cru.luminoso),   // luminoso de quem ainda joga a versão antiga vira shiny
+        shiny: !!cru.shiny,
+        luminoso: !!cru.luminoso,
         corrupt: !!cru.corrupt,
         seed: Math.max(0, Math.min(9999, cru.seed | 0)),
       });

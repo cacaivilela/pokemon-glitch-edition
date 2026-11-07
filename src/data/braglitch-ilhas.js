@@ -219,7 +219,8 @@ export const LUGARES = [
     carvalho: { x: 12, y: 17 },
     niveis: [15, 19],
     formas: F3,
-    mato: mato(F3),
+    // + o VOLTURG (criado pelo CAIO): mais raro e mais forte que as formas da ilha
+    mato: [...mato(F3), ["volturg", 4, [28, 32]]],
     npcs: [
       chefe(13, 6, "arbokbrag", 23, ["O CAPIM SE ABRE. UMA SUCURI QUE NÃO TERMINA NUNCA VAI SE ENROLANDO NA SUA FRENTE.",
                                      "O ARBOK-BRAG É A RAINHA DA ILHA DAS COBRAS."]),

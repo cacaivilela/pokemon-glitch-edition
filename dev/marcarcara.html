@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Marcar a Cara</title>
+<!-- MARCAR A CARA DA FUSÃO (pedido do CAIO, nov/2026: "era pra marcar a cara").
+     Você PINTA por cima do Pokémon a região da cara que vai pra fusão (os olhos,
+     a boca, a testa, o que for "a cara dele"). Na fusão, quando ele dá a CABEÇA,
+     é exatamente esse pedaço que vai pra cara do outro (src/systems/montagem.js).
+     SALVAR manda tudo pro dev_server: dev/captures/caras_fusao.log (o jogo lê).
+     ?n=142 abre direto num sprite. -->
+<style>
+  body { margin: 0; background: #1b2030; color: #eef2ff; font: 15px system-ui, sans-serif; }
+  header { padding: 10px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0; color: #ffd860; }
+  main { display: flex; gap: 16px; padding: 0 16px 16px; flex-wrap: wrap; }
+  canvas { image-rendering: pixelated; border: 3px solid #000; background: #fff; cursor: crosshair; }
+  button { background: #3a4466; color: #eef2ff; border: 0; border-radius: 8px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
+  button:hover { background: #4a5680; }
+  button.on { background: #e8a820; color: #000; }
+  .caixa { background: #262d42; border-radius: 10px; padding: 10px; min-width: 240px; }
+  #msg { font-weight: bold; }
+  input { width: 180px; padding: 6px; border-radius: 6px; border: 0; }
+  #lista { max-height: 300px; overflow: auto; display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  #lista span { background: #1b2030; padding: 2px 6px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+  #lista span.feito { background: #2a6a3a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎭 MARCAR A CARA</h1>
+  <button id="ant">◀ ANTERIOR</button>
+  <button id="prox">PRÓXIMO ▶</button>
+  <input id="busca" placeholder="nome ou número (ex.: aerodactyl)">
+  <button id="ir">IR</button>
+  <button id="salvar">💾 SALVAR</button>
+  <span id="msg"></span>
+</header>
+<main>
+  <canvas id="tela" width="576" height="576"></canvas>
+  <div class="caixa">
+    <div id="nome" style="font-size:20px;color:#ffd860"></div>
+    <p>PINTE A <b>CARA</b> (fica vermelhinha). É esse pedaço que vai pra fusão.</p>
+    <div>
+      <button data-f="pinta" class="on">🖌️ PINTAR</button>
+      <button data-f="apaga">🧽 APAGAR</button>
+    </div>
+    <p>PINCEL: <button data-g="1">1</button> <button data-g="2" class="on">2</button> <button data-g="4">4</button> <button data-g="6">6</button></p>
+    <button id="limpa">🧹 LIMPAR ESTE</button>
+    <p style="font-size:12px;opacity:.8">VERDE = JÁ MARCADO</p>
+    <div id="lista"></div>
+  </div>
+</main>
+<script type="module">
+import { DB } from "/src/data/index.js";
+const tela = document.getElementById("tela"), g = tela.getContext("2d");
+const ESC = 6;
+// os Pokémon de verdade (com sprite numerado)
+const nums = [...new Set(Object.values(DB.SPECIES).filter((s) => s.dex > 0 && s.dex <= 1025 && !s.fusao && (s.spriteDex || s.dex) === s.dex).map((s) => s.dex))].sort((a, b) => a - b);
+const nome = new Map(); for (const s of Object.values(DB.SPECIES)) if (s.dex > 0 && !nome.has(s.dex)) nome.set(s.dex, s.name);
+let caras = {};
+try { caras = JSON.parse(localStorage.getItem("caras_fusao") || "{}"); } catch {}
+for (const arq of ["/src/data/caras-fusao.json", "/dev/captures/caras_fusao.log"]) {
+  try { const r = await fetch(arq + "?t=" + Date.now()); if (r.ok) caras = { ...JSON.parse(await r.text() || "{}"), ...caras }; } catch {}
+}
+let idx = 0, img = null, W = 96, H = 96, mascara = new Uint8Array(96 * 96), ferramenta = "pinta", grossura = 2;
+const q = new URLSearchParams(location.search);
+if (q.get("n")) idx = Math.max(0, nums.indexOf(+q.get("n")));
+
+// a máscara guardada em pedaços de linha: [[y, x0, x1], ...]
+const paraLinhas = () => { const out = []; for (let y = 0; y < H; y++) { let x = 0; while (x < W) { if (mascara[y * W + x]) { const a = x; while (x < W && mascara[y * W + x]) x++; out.push([y, a, x - 1]); } else x++; } } return out; };
+const deLinhas = (l) => { mascara = new Uint8Array(W * H); for (const [y, a, b] of l || []) for (let x = a; x <= b; x++) if (x < W && y < H) mascara[y * W + x] = 1; };
+function guarda() { const n = nums[idx]; const l = paraLinhas(); if (l.length) caras[n] = { w: W, h: H, l }; else delete caras[n]; try { localStorage.setItem("caras_fusao", JSON.stringify(caras)); } catch {} lista(); }
+
+function desenha() {
+  g.imageSmoothingEnabled = false;
+  g.fillStyle = "#fff"; g.fillRect(0, 0, tela.width, tela.height);
+  if (img) g.drawImage(img, 0, 0, W * ESC, H * ESC);
+  g.fillStyle = "rgba(255,40,40,0.45)";
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (mascara[y * W + x]) g.fillRect(x * ESC, y * ESC, ESC, ESC);
+}
+async function abrir(i) {
+  idx = (i + nums.length) % nums.length;
+  const n = nums[idx];
+  document.getElementById("nome").textContent = `#${n} ${nome.get(n) || ""}`;
+  img = await new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = `/assets/sprites/pokemon/${String(n).padStart(3, "0")}.png`; });
+  W = img?.width || 96; H = img?.height || 96;
+  tela.width = W * ESC; tela.height = H * ESC;
+  deLinhas(caras[n]?.l);
+  desenha();
+}
+function lista() {
+  const caixa = document.getElementById("lista"); caixa.innerHTML = "";
+  for (const n of Object.keys(caras).map(Number).sort((a, b) => a - b)) {
+    const s = document.createElement("span"); s.textContent = `${n} ${nome.get(n) || ""}`; s.className = "feito";
+    s.onclick = () => abrir(nums.indexOf(n)); caixa.appendChild(s);
+  }
+}
+
+let apertado = false;
+const ponto = (e) => { const r = tela.getBoundingClientRect(); return [Math.floor((e.clientX - r.left) / (r.width / W)), Math.floor((e.clientY - r.top) / (r.height / H))]; };
+function pinta(x, y) {
+  const m = Math.floor((grossura - 1) / 2);
+  for (let dy = 0; dy < grossura; dy++) for (let dx = 0; dx < grossura; dx++) {
+    const X = x - m + dx, Y = y - m + dy;
+    if (X >= 0 && Y >= 0 && X < W && Y < H) mascara[Y * W + X] = ferramenta === "pinta" ? 1 : 0;
+  }
+  desenha();
+}
+tela.onpointerdown = (e) => { apertado = true; tela.setPointerCapture(e.pointerId); pinta(...ponto(e)); };
+tela.onpointermove = (e) => { if (apertado) pinta(...ponto(e)); };
+tela.onpointerup = () => { if (apertado) { apertado = false; guarda(); } };
+tela.oncontextmenu = (e) => e.preventDefault();
+
+document.querySelectorAll("[data-f]").forEach((b) => b.onclick = () => { ferramenta = b.dataset.f; document.querySelectorAll("[data-f]").forEach((x) => x.classList.toggle("on", x === b)); });
+document.querySelectorAll("[data-g]").forEach((b) => b.onclick = () => { grossura = +b.dataset.g; document.querySelectorAll("[data-g]").forEach((x) => x.classList.toggle("on", x === b)); });
+document.getElementById("limpa").onclick = () => { mascara.fill(0); guarda(); desenha(); };
+document.getElementById("ant").onclick = () => abrir(idx - 1);
+document.getElementById("prox").onclick = () => abrir(idx + 1);
+addEventListener("keydown", (e) => { if (e.target.tagName === "INPUT") return; if (e.key === "ArrowRight") abrir(idx + 1); if (e.key === "ArrowLeft") abrir(idx - 1); });
+document.getElementById("ir").onclick = () => {
+  const t = document.getElementById("busca").value.trim().toUpperCase();
+  const n = +t || [...nome.entries()].find(([, v]) => v === t || v.startsWith(t))?.[0];
+  if (n && nums.includes(n)) abrir(nums.indexOf(n));
+};
+const msg = document.getElementById("msg");
+document.getElementById("salvar").onclick = async () => {
+  guarda();
+  msg.textContent = "salvando...";
+  try {
+    const r = await fetch("/__capture", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "caras_fusao", dataUrl: "", log: JSON.stringify(caras) }) });
+    msg.textContent = r.ok ? `✅ SALVO! ${Object.keys(caras).length} caras. Pode falar pro Claude.` : "❌ não salvou";
+  } catch { msg.textContent = "❌ não salvou (o servidor do jogo está ligado?)"; }
+};
+lista();
+abrir(idx);
+</script>
+</body>
+</html>

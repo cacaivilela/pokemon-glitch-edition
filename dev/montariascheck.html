@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>montarias 3D</title>
+<style>body{background:#111;margin:0}canvas{image-rendering:pixelated}</style></head>
+<body><canvas id="c"></canvas>
+<script type="module">
+// AS MONTARIAS 3D (src/core/gigante3d.js, MONTARIAS_3D): cada uma nas quatro
+// direções, com o herói (um retângulo de 16x22) na sela. Sem abrir o jogo.
+import { desenharMontaria, GIRO_DA_DIRECAO } from "../src/core/gigante3d.js";
+const ids = ["charizard", "dragonite", "pidgeot", "salamence", "lugia", "hooh"];
+const dirs = ["left", "right", "up", "down"];
+const c = document.getElementById("c");
+c.width = 240 * 4; c.height = 160 * ids.length;
+const g = c.getContext("2d");
+const tile = document.createElement("canvas"); tile.width = 240; tile.height = 160;
+const t = tile.getContext("2d");
+const linhas = [];
+ids.forEach((id, i) => dirs.forEach((d, k) => {
+  t.fillStyle = "#78b060"; t.fillRect(0, 0, 240, 160);
+  t.fillStyle = "#5a8c48"; for (let x = 0; x < 240; x += 16) for (let y = 0; y < 160; y += 16) if ((x + y) % 32 === 0) t.fillRect(x, y, 16, 16);
+  // o herói tem 22 px: um de régua do lado
+  t.fillStyle = "#2040c0"; t.fillRect(30, 120 - 22, 16, 22);
+  const sela = desenharMontaria(t, id, 120, 120, 0.3, GIRO_DA_DIRECAO[d]);
+  if (sela) { t.fillStyle = "#ff00ff"; t.fillRect(Math.round(sela[0]) - 1, Math.round(sela[1]) - 1, 3, 3); }
+  t.fillStyle = "#000"; t.font = "10px monospace"; t.fillText(id + " " + d, 4, 12);
+  g.drawImage(tile, k * 240, i * 160);
+  linhas.push(`${id} ${d}: sela ${sela?.map(Math.round)}`);
+}));
+await fetch("/__capture", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "montariascheck", dataUrl: c.toDataURL(), log: linhas.join("\n") }) });
+</script></body></html>

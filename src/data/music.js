@@ -1,4 +1,6 @@
-// Trilha do jogo — músicas ORIGINAIS escritas no estilo das faixas de GBA:
+// Trilha do jogo — músicas ORIGINAIS escritas no estilo das faixas de GBA
+// (a exceção são as quatro batalhas de KANTO, que são as do Red/Blue — ver
+// `kantoSelvagem` mais abaixo):
 // melodia em onda quadrada, contracanto/arpejo, baixo em triângulo e um
 // chiadinho de percussão. Não são as músicas do FireRed (essas são da Nintendo /
 // Game Freak e do Junichi Masuda); a ideia é soar do mesmo tempo e do mesmo
@@ -539,7 +541,9 @@ export const MUSIC = {
   //  - os canais têm comprimentos diferentes (6, 5, 4 e 3 tempos), então eles se
   //    desencontram e o ciclo inteiro só fecha a cada 60 tempos (~24s);
   //  - `glitch: 0.16` faz o motor engolir, desafinar ou apressar notas soltas.
-  glitchdim: {
+  // a primeira GLITCH DIMENSION (rápida e nervosa), guardada. As outras que
+  // nasceram pra fenda viraram a da EXTREMA e a da MATA DO SACI.
+  glitchdimAntiga: {
     bpm: 152,
     glitch: 0.16,
     tracks: [
@@ -566,6 +570,174 @@ export const MUSIC = {
         ] },
     ],
   },
+  // A GLITCH DIMENSION (a quarta): chiptune de chefe, quebrado. DÓ# MENOR com
+  // as notas "erradas" de propósito (o SOL e o RÉ, um meio-tom fora), duas
+  // ondas de chip na melodia e na harmonia, o baixo correndo de oitava em
+  // oitava, a bateria de chip, e as BOLHAS estourando onde o glitch quiser.
+  // MAIS SINISTRA (pedido do CAIO): mais devagar, a melodia tremendo e
+  // desafinada como fita estragada, um zumbido grave de órgão por baixo com o
+  // SOL (o trítono) aparecendo, e um sino longe tocando a nota errada.
+  // Introdução de 4 tempos (bateria e baixo), laço de 32.
+  // O CIBERESPAÇO (src/data/ciberespaco.js, nov/2026): o lugar de dentro do
+  // computador, onde o PORYGON te leva. LÁ MENOR, rápido e brilhante: o arpejo
+  // correndo em semicolcheias (os dados passando), o baixo pulando oitava, a
+  // bateria de máquina e, a cada volta sim, volta não, uma melodia por cima.
+  // Acordes: Lám, Fá, Dó, Sol — um compasso cada.
+  ciberespaco: {
+    bpm: 132,
+    tracks: [
+      { wave: "pulso", duty: 0.125, vol: 0.22, legato: 0.6, eco: true,
+        notes: [["A4", "C5", "E5", "A5"], ["F4", "A4", "C5", "F5"], ["C5", "E5", "G5", "C6"], ["G4", "B4", "D5", "G5"]]
+          .flatMap(([r, t, f, o]) => [r, t, f, o, f, t, r, t, r, t, f, o, f, t, r, t].map((n) => [n, 0.25])) },
+      { wave: "pulso", duty: 0.5, vol: 0.1, legato: 0.95,
+        notes: [["A3", 4], ["F3", 4], ["C4", 4], ["G3", 4]] },
+      { wave: "triangle", vol: 0.55, legato: 0.75,
+        notes: ["A1", "F1", "C2", "G1"].flatMap((n) => {
+          const o = n.replace(/\d/, (d) => String(+d + 1));
+          return Array.from({ length: 4 }, () => [[n, 0.5], [o, 0.5]]).flat();
+        }) },
+      { wave: "bateria", vol: 0.28,
+        notes: [
+          ...Array.from({ length: 3 }, () => ["K", "", "H", "", "S", "", "H", "H", "K", "", "K", "H", "S", "", "H", ""]).flat(),
+          "K", "", "H", "", "S", "", "H", "H", "K", "K", "S", "", "S", "S", "T", "T",
+        ].map((x) => [x || "-", 0.25]) },
+      { wave: "pulso", duty: 0.25, vol: 0.2, legato: 0.85, eco: true, vibrato: { hz: 5, cents: 18 },
+        notes: [
+          ["E5", 1], ["A5", 1], ["G5", 0.5], ["A5", 0.5], ["E5", 1],
+          ["F5", 1], ["E5", 0.5], ["C5", 0.5], ["A4", 2],
+          ["G5", 1], ["E5", 1], ["C6", 1], ["G5", 1],
+          ["B5", 1.5], ["A5", 0.5], ["G5", 1], ["D5", 1],
+          ["-", 16],
+        ] },
+    ],
+  },
+
+  glitchdim: {
+    bpm: 128,
+    glitch: 0.14,
+    tracks: [
+      { wave: "pulso", duty: 0.25, vol: 0.32, legato: 0.85, detune: 16, eco: true, glitch: 0.5,
+        vibrato: { hz: 4.2, cents: 34 }, intro: [["-", 4]],
+        notes: [
+          ["C#5", 0.5], ["E5", 0.5], ["G#5", 0.5], ["G5", 0.5], ["F#5", 1], ["E5", 1],
+          ["D#5", 0.5], ["E5", 0.5], ["F#5", 0.5], ["G#5", 0.5], ["C#5", 2],
+          ["C#6", 0.25], ["-", 0.25], ["C#6", 0.25], ["-", 0.25], ["B5", 0.5], ["A5", 0.5], ["G#5", 1], ["E5", 1],
+          ["F#5", 0.5], ["G#5", 0.5], ["A5", 0.5], ["G5", 0.5], ["G#5", 2],
+          ["E5", 0.5], ["G#5", 0.5], ["B5", 0.5], ["C6", 0.5], ["C#6", 1], ["B5", 1],
+          ["A5", 0.5], ["G#5", 0.5], ["F#5", 0.5], ["E5", 0.5], ["D#5", 2],
+          ["C#5", 0.25], ["D5", 0.25], ["C#5", 0.25], ["D5", 0.25], ["E5", 0.5], ["G5", 0.5], ["G#5", 1], ["B5", 1],
+          ["C#6", 2], ["D6", 0.5], ["C#6", 1.5],
+        ] },
+      { wave: "pulso", duty: 0.5, vol: 0.14, legato: 0.9, intro: [["-", 4]],
+        notes: [["E4", 2], ["C#4", 2], ["B3", 2], ["G#3", 2], ["E4", 2], ["C#4", 2], ["D#4", 2], ["E4", 2],
+                ["G#4", 2], ["A4", 2], ["F#4", 2], ["B3", 2], ["E4", 2], ["D4", 2], ["E4", 4]] },
+      { wave: "triangle", vol: 0.6, legato: 0.8,
+        intro: [["C#2", 0.5], ["C#3", 0.5], ["C#2", 0.5], ["C#3", 0.5], ["C#2", 0.5], ["C#3", 0.5], ["C#2", 0.5], ["C#3", 0.5]],
+        notes: [["C#2", "C#3"], ["B1", "B2"], ["A1", "A2"], ["G#1", "G#2"], ["C#2", "C#3"], ["F#1", "F#2"], ["D2", "D3"], ["C#2", "C#3"]]
+          .flatMap(([a, b]) => Array.from({ length: 4 }, () => [[a, 0.5], [b, 0.5]]).flat()) },
+      { wave: "bateria", vol: 0.3,
+        intro: ["K", "", "S", "", "K", "S", "", "S", "T", "T", "T", "T", "S", "S", "S", "S"].map((x) => [x || "-", 0.25]),
+        notes: [
+          ...Array.from({ length: 7 }, () => ["K", "", "H", "H", "S", "", "H", "", "K", "K", "H", "", "S", "", "H", "H"]).flat(),
+          "K", "", "S", "S", "K", "S", "S", "", "T", "T", "T", "", "SKC", "", "", "",
+        ].map((x) => [x || "-", 0.25]) },
+      { timbre: "bol", vol: 0.08, glitch: 2, intro: [["-", 4]],
+        notes: ["C#5", "G5", "E5", "D5", "C#5", "G5", "F#5", "G#5"].flatMap((n) => [["-", 3.5], [n, 0.5]]) },
+      // o zumbido de órgão, grave: DÓ# parado, e o SOL (trítono) entrando por cima
+      { timbre: "org", vol: 0.12, legato: 1, eco: true,
+        intro: [["C#3", 4]],
+        notes: [["C#3", 8], ["G3", 4], ["C#3", 4], ["C#3", 8], ["G3", 4], ["D3", 4]] },
+      { timbre: "org", vol: 0.1, legato: 1,
+        intro: [["C#2", 4]],
+        notes: [["C#2", 32]] },
+      // o sino longe, de 8 em 8 tempos, na nota errada
+      { timbre: "sin", vol: 0.16, eco: true, intro: [["-", 4]],
+        notes: [["-", 7], ["G5", 1], ["-", 7], ["D6", 1], ["-", 7], ["G5", 1], ["-", 6], ["G5", 0.5], ["C#6", 1.5]] },
+    ],
+  },
+
+  // A GLITCH DIMENSION EXTREMA (o DLC, dlc/extrema.js): uma canção de ninar
+  // numa caixinha de música quebrada. Devagar, em MI MENOR com o trítono (LÁ#) aparecendo onde não
+  // devia; o órgão fantasma segura os acordes, o baixo bate igual coração, a
+  // bateria quase para, e o chip chia baixinho por cima, errando.
+  // Introdução de 8 tempos (só o órgão e o coração), laço de 32.
+  glitchdimExtrema: {
+    bpm: 96,
+    glitch: 0.12,
+    tracks: [
+      { timbre: "sin", vol: 0.34, eco: true, glitch: 0.8, intro: [["-", 8]],
+        notes: [
+          ["E5", 1], ["G5", 0.5], ["B5", 0.5], ["A#5", 1.5], ["-", 0.5],
+          ["B5", 0.5], ["A5", 0.5], ["G5", 0.5], ["F#5", 0.5], ["E5", 2],
+          ["E5", 1], ["G5", 0.5], ["B5", 0.5], ["E6", 1], ["D#6", 1],
+          ["D6", 0.5], ["C6", 0.5], ["A#5", 1], ["-", 2],
+          ["G5", 1], ["A#5", 0.5], ["G5", 0.5], ["F#5", 1], ["E5", 1],
+          ["F#5", 0.5], ["G5", 0.5], ["A5", 0.5], ["A#5", 0.5], ["B5", 2],
+          ["E6", 0.25], ["-", 0.25], ["E6", 0.25], ["-", 0.25], ["D#6", 0.5], ["B5", 0.5], ["A#5", 1], ["G5", 1],
+          ["E5", 3], ["-", 1],
+        ] },
+      { timbre: "org", vol: 0.16, legato: 1, eco: true,
+        intro: [["B4", 4], ["A#4", 4]],
+        notes: [["B4", 4], ["A4", 4], ["B4", 4], ["A#4", 4], ["G4", 4], ["A#4", 4], ["B4", 4], ["B4", 4]] },
+      { timbre: "org", vol: 0.13, legato: 1,
+        intro: [["G4", 4], ["E4", 4]],
+        notes: [["G4", 4], ["F#4", 4], ["E4", 4], ["E4", 4], ["D4", 4], ["E4", 4], ["D#4", 4], ["E4", 4]] },
+      { wave: "triangle", vol: 0.6, legato: 0.9,
+        intro: [["E2", 0.25], ["-", 0.5], ["E2", 0.25], ["-", 3], ["E2", 0.25], ["-", 0.5], ["E2", 0.25], ["-", 3]],
+        notes: ["E2", "D2", "C2", "A#1", "G1", "C2", "B1", "E2"].flatMap((n) => [[n, 0.25], ["-", 0.5], [n, 0.25], ["-", 3]]) },
+      { wave: "bateria", vol: 0.3, intro: [["-", 8]],
+        notes: [
+          ...Array.from({ length: 7 }, () => ["K", "", "", "", "H", "", "", "", "S", "", "", "H", "", "K", "", ""]).flat(),
+          "K", "", "S", "", "K", "S", "", "S", "T", "T", "T", "", "C", "", "", "",
+        ].map((x) => [x || "-", 0.25]) },
+      { wave: "pulso", duty: 0.125, vol: 0.08, legato: 0.4, glitch: 2, intro: [["-", 8]],
+        notes: Array.from({ length: 32 }, () => [["E5", 0.25], ["B5", 0.25], ["G5", 0.25], ["A#5", 0.25]]).flat() },
+    ],
+  },
+  // A MATA DO SACI (BRAGLITCH): eletrônico escuro, em RÉ FRÍGIO (o MI bemol
+  // é a nota "do mal"). Bumbo em todo tempo, a melodia no 8 BITS SUJO, a
+  // MÁQUINA (voz de robô) respondendo no fim das frases, o baixo funk pulando
+  // de oitava, a SUPER SERRA por baixo e o chip chiando por cima. Nasceu pra
+  // GLITCH DIMENSION; o CAIO mandou pra mata, "menos bugada": só o chip ainda
+  // erra um pouco. Introdução de 8 tempos (bateria e baixo), laço de 32.
+  mataDoSaci: {
+    bpm: 128,
+    glitch: 0,
+    tracks: [
+      { timbre: "crs", vol: 0.32, legato: 0.9, eco: true, intro: [["-", 8]],
+        notes: [
+          ["D5", 0.75], ["F5", 0.75], ["A5", 0.5], ["G5", 1], ["D#5", 1],
+          ["D5", 0.5], ["-", 0.5], ["C5", 0.5], ["D5", 0.5], ["F5", 2],
+          ["A5", 0.75], ["C6", 0.75], ["A#5", 0.5], ["A5", 1], ["F5", 1],
+          ["G5", 0.5], ["F5", 0.5], ["D#5", 0.5], ["D5", 0.5], ["-", 2],
+          ["D6", 0.5], ["-", 0.25], ["D6", 0.25], ["C6", 0.5], ["A#5", 0.5], ["A5", 1], ["G5", 1],
+          ["F5", 0.5], ["G5", 0.5], ["A5", 1], ["D#5", 2],
+          ["D5", 0.25], ["F5", 0.25], ["A5", 0.25], ["D6", 0.25], ["D#6", 1], ["D6", 0.5], ["A5", 0.5], ["F5", 1],
+          ["D5", 3], ["-", 1],
+        ] },
+      { timbre: "rng", vol: 0.14, legato: 0.8, intro: [["-", 8]],
+        notes: [["-", 14], ["A4", 0.5], ["G4", 0.5], ["F4", 0.5], ["D#4", 0.5],
+                ["-", 15], ["D4", 0.25], ["D#4", 0.25], ["D4", 0.5]] },
+      { timbre: "slp", vol: 0.55, legato: 0.7,
+        intro: [["D2", 0.5], ["D3", 0.5], ["D2", 0.5], ["D3", 0.5], ["D2", 0.5], ["D3", 0.5], ["D2", 0.5], ["D3", 0.5],
+                ["D2", 0.5], ["D3", 0.5], ["D2", 0.5], ["D3", 0.5], ["D2", 0.5], ["D3", 0.5], ["D2", 0.5], ["D3", 0.5]],
+        notes: [["D2", "D3"], ["D2", "D3"], ["F2", "F3"], ["D#2", "D#3"], ["A#1", "A#2"], ["C2", "C3"], ["D#2", "D#3"], ["D2", "D3"]]
+          .flatMap(([a, b]) => Array.from({ length: 4 }, () => [[a, 0.5], [b, 0.5]]).flat()) },
+      { timbre: "sup", vol: 0.08, legato: 1, eco: true, intro: [["-", 8]],
+        notes: [["A4", 4], ["A4", 4], ["C5", 4], ["G4", 4], ["F4", 4], ["G4", 4], ["G4", 4], ["A4", 4]] },
+      { wave: "bateria", vol: 0.34,
+        intro: Array.from({ length: 2 }, () => ["K", "", "H", "", "K", "", "H", "", "K", "", "H", "", "K", "", "H", "H"]).flat()
+          .map((x) => [x || "-", 0.25]),
+        notes: [
+          ...Array.from({ length: 7 }, () => ["K", "", "H", "", "SK", "", "H", "", "K", "", "H", "", "SK", "", "H", "H"]).flat(),
+          "K", "", "S", "S", "SK", "", "S", "S", "T", "T", "T", "T", "SKC", "", "S", "",
+        ].map((x) => [x || "-", 0.25]) },
+      { wave: "pulso", duty: 0.125, vol: 0.06, legato: 0.4, glitch: 0.5, intro: [["-", 8]],
+        notes: Array.from({ length: 32 }, () => [["D6", 0.25], ["A5", 0.25], ["F5", 0.25], ["A5", 0.25]]).flat() },
+    ],
+  },
+
+
 
   // Batalha selvagem: rápida, sem tempo pra pensar
   batalha: {
@@ -588,6 +760,17 @@ export const MUSIC = {
       { wave: "ruido", vol: 0.45, notes: [["x", 0.5], ["x", 0.5], ["x", 0.25], ["-", 0.25], ["x", 0.5]] },
     ],
   },
+
+  // AS BATALHAS DE KANTO são as do Red/Blue de verdade (a exceção à regra do
+  // alto deste arquivo, a pedido do CAIO): as notas vêm do pret/pokered
+  // (tools/musicas_gb.py -> src/data/musicas-gb.js) e quem toca é o imitador do
+  // chip do Game Boy (src/core/gb.js). `gb` diz qual delas.
+  kantoSelvagem: { gb: "kantoSelvagem" },
+  kantoTreinador: { gb: "kantoTreinador" },
+  kantoLider: { gb: "kantoLider" },
+  kantoFinal: { gb: "kantoFinal" },
+
+  // A BATALHA EM LUMIOSE é a do X/Y, copiada de um MIDI: src/data/musica-lumiose.js
 
   // Batalha do outro lado da fenda: a mesma pressa, com as notas erradas
   batalhaGlitch: {
@@ -678,6 +861,12 @@ export const MUSIC = {
   },
 };
 
+// AS CÂMARAS DOS REGIS (src/data/maps.js): sem arquivo seu em
+// assets/music/regis.*, tocam o chiptune da casa, como sempre tocaram. É uma
+// cópia, não a mesma: com a mesma, o jogo acharia que a música já está tocando
+// ao sair de uma câmara pra uma casa e não trocaria o arquivo pelo chiptune.
+MUSIC.regis = { ...MUSIC.casa };
+
 /** música de cada tipo de mapa; o que não estiver aqui cai em pallet */
 export const MUSIC_ALIAS = {};
 
@@ -716,9 +905,9 @@ const frase = (raiz, pares) => TONS.flatMap((t) => pares.map(([o, d]) => [o === 
 MUSIC.evolucao = {
   bpm: 150,
   tracks: [
-    { guitarra: true, acorde: [0, 12], ganho: 40, vol: 0.6, eco: true, legato: 0.55,
+    { guitarra: true, acorde: [0, 12], ganho: 40, vol: 0.6, legato: 0.55,
       vibrato: { hz: 5.5, cents: 30 }, notes: frase("E3", SOLO) },
-    { wave: "pulso", duty: 0.125, vol: 0.12, legato: 0.6, eco: true, notes: frase("E3", OSTINATO) },
+    { wave: "pulso", duty: 0.125, vol: 0.12, legato: 0.6, notes: frase("E3", OSTINATO) },
     { guitarra: true, acorde: [0, 7, 12], ganho: 25, vol: 0.38, legato: 0.98, notes: frase("E2", BASE) },
     { wave: "triangle", vol: 0.6, legato: 0.8, notes: frase("E2", BAIXO) },
     { wave: "bateria", vol: 0.55,
@@ -731,7 +920,7 @@ const UMA_VEZ = ["-", 64];
 MUSIC.evolucao_fanfarra = {
   bpm: 150,
   tracks: [
-    { guitarra: true, acorde: [0, 12], ganho: 40, vol: 0.6, eco: true, legato: 0.95,
+    { guitarra: true, acorde: [0, 12], ganho: 40, vol: 0.6, legato: 0.95,
       vibrato: { hz: 5.5, cents: 35 },
       notes: [["B4", 0.5], ["B4", 0.5], ["B4", 0.5], ["E5", 1.5], ["D#5", 0.5], ["E5", 0.5], ["G#5", 0.5], ["B5", 3], UMA_VEZ] },
     { guitarra: true, acorde: [0, 7, 12], ganho: 25, vol: 0.5, legato: 0.95,
@@ -756,7 +945,7 @@ const doisCiclos = (f) => [...ACORDES.flatMap(f), ...ACORDES.flatMap(f)];
 MUSIC.evolucao_festa = {
   bpm: 150,
   tracks: [
-    { guitarra: true, acorde: [0, 12], ganho: 12, vol: 0.5, eco: true, legato: 0.9,
+    { guitarra: true, acorde: [0, 12], ganho: 12, vol: 0.5, legato: 0.9,
       vibrato: { hz: 5.5, cents: 20 },
       notes: [
         ["B4", 1], ["G#4", 0.5], ["B4", 0.5], ["E5", 1], ["D#5", 1],
@@ -768,7 +957,7 @@ MUSIC.evolucao_festa = {
         ["F#5", 1], ["E5", 0.5], ["C#5", 0.5], ["A4", 1], ["C#5", 1],
         ["B4", 1], ["D#5", 1], ["E5", 2],
       ] },
-    { wave: "pulso", duty: 0.125, vol: 0.18, legato: 0.5, eco: true,
+    { wave: "pulso", duty: 0.125, vol: 0.18, legato: 0.5,
       notes: doisCiclos((a) => [...a, ...a].map((n) => [n, 0.5])) },
     { guitarra: true, acorde: [0, 7, 12], abafado: true, ganho: 18, vol: 0.32, legato: 0.5,
       notes: [...RAIZES, ...RAIZES].flatMap((r) => Array.from({ length: 8 }, () => [sobe(r, 12), 0.5])) },
@@ -952,61 +1141,8 @@ MUSIC.troca_fanfarra = {
   ],
 };
 
-// A MEGA DESCONTROLADA (src/data/descontroladas.js): metal, a 200 bpm, em MI
-// frígio — o semitom de cima (o FÁ) é o que deixa tudo com cara de briga.
-// Guitarra base distorcida martelando semicolcheias ("chug") em cima de
-// MI-MI-DÓ-RÉ, guitarra solo com vibrato largo, baixo dobrando a base uma
-// oitava abaixo, e bateria de bumbo duplo. 12 compassos (48 tempos):
-//   ENTRADA 2 · SOLO 8 (a base embaixo) · QUEBRA 2 — e volta.
-const S16 = 0.25;
-/** um compasso de "chug" na raiz: a palhetada abafada, com o semitom e a
- *  terça menor mordendo no fim do compasso */
-const chug = (r) => [0, 0, null, 0, 0, null, 0, 0, 1, null, 0, 0, 3, null, 1, 0]
-  .map((o) => [o === null ? "-" : sobe(r, o), S16]);
-const DESC_ENTRADA = [
-  ["E2", 0.75], ["-", 0.25], ["E2", 0.75], ["-", 0.25], ["F2", 1], ["F#2", 0.5], ["G2", 0.5],
-  ["G2", 0.5], ["F#2", 0.5], ["F2", 0.5], ["E2", 0.5], ...oitavos("E2", 4).map(([n]) => [n, 0.5]),
-];
-const DESC_BASE = ["E2", "E2", "C3", "D3", "E2", "E2", "C3", "B2"].flatMap(chug);
-const DESC_QUEBRA = [
-  ["E2", 1.5], ["-", 0.5], ["E2", 0.5], ["F2", 0.5], ["E2", 1],
-  ["A#2", 1], ["A2", 1], ["G#2", 0.5], ["G2", 0.5], ["F#2", 0.25], ["F2", 0.25], ["E2", 0.5],
-];
-const DESC_RITMO = [...DESC_ENTRADA, ...DESC_BASE, ...DESC_QUEBRA];
-const DESC_SOLO = [
-  ["-", 8],
-  ["E4", 1], ["G4", 0.5], ["A4", 0.5], ["B4", 1.5], ["A4", 0.25], ["G4", 0.25],
-  ["A4", 0.5], ["G4", 0.5], ["F#4", 0.5], ["E4", 0.5], ["F4", 2],
-  ["C5", 1], ["B4", 0.5], ["C5", 0.5], ["E5", 1.5], ["D5", 0.5],
-  ["D5", 0.5], ["C5", 0.5], ["B4", 0.5], ["A4", 0.5], ["B4", 2],
-  ["E5", 0.25], ["D5", 0.25], ["B4", 0.25], ["A4", 0.25], ["E5", 0.25], ["D5", 0.25], ["B4", 0.25], ["A4", 0.25],
-  ["G4", 0.5], ["A4", 0.5], ["B4", 1],
-  ["E5", 1], ["F5", 1], ["E5", 0.5], ["D5", 0.5], ["B4", 1],
-  ["C5", 0.25], ["E5", 0.25], ["G5", 0.25], ["E5", 0.25], ["C5", 0.25], ["E5", 0.25], ["G5", 0.25], ["E5", 0.25],
-  ["B4", 1], ["A4", 1],
-  ["B4", 0.5], ["C5", 0.5], ["D#5", 1], ["E5", 2],
-  ["-", 8],
-];
-/** um compasso de bumbo duplo: semicolcheias no bumbo, caixa no 2 e no 4 */
-const duplo = (prato = false) => [0, 1, 2, 3].flatMap((t) =>
-  [t % 2 ? "KS" : t === 0 && prato ? "KC" : "KH", "K", "K", "K"].map((p) => [p, S16]));
-const DESC_BATERIA = [
-  ["KC", 0.75], ["-", 0.25], ["KC", 0.75], ["-", 0.25], ["KS", 1], ["KS", 0.5], ["KS", 0.5],
-  ...Array.from({ length: 8 }, () => ["S", S16]), ...Array.from({ length: 4 }, () => ["T", S16]), ["KC", 1],
-  ...Array.from({ length: 8 }, (_, i) => duplo(i % 4 === 0)).flat(),
-  ["KC", 1.5], ["-", 0.5], ["K", 0.5], ["K", 0.5], ["KS", 1],
-  ["KS", 1], ["KS", 1], ...Array.from({ length: 4 }, () => ["S", S16]), ...Array.from({ length: 4 }, () => ["T", S16]),
-];
-MUSIC.megaDescontrolada = {
-  bpm: 200,
-  tracks: [
-    { guitarra: true, acorde: [0, 12], ganho: 55, vol: 0.55, eco: true, legato: 0.9,
-      vibrato: { hz: 6.5, cents: 40 }, notes: DESC_SOLO },
-    { guitarra: true, acorde: [0, 7, 12], ganho: 70, vol: 0.42, legato: 0.7, notes: DESC_RITMO },
-    { wave: "triangle", vol: 0.6, legato: 0.8, notes: DESC_RITMO.map(([n, d]) => [n === "-" ? n : sobe(n, -12), d]) },
-    { wave: "bateria", vol: 0.6, notes: DESC_BATERIA },
-  ],
-};
+// (a música da MEGA DESCONTROLADA mora em src/data/musica-mega-descontrolada.js:
+// o "Rogue Mega Evolution Theme" do Legends Z-A, copiado da partitura)
 
 // O GUARDA-ROUPA ÚNICO (src/scenes/vestir.js): um tema de DESFILE em fá maior,
 // saltitante, pra quem entra no armário e sai com roupa nova. Oito compassos

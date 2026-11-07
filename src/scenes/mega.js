@@ -19,6 +19,7 @@
 import { DB } from "../data/index.js";
 import { Assets } from "../core/assets.js";
 import { Audio2 } from "../core/audio.js";
+import { tocarGrito } from "../systems/gritos.js";
 import { Dialogue } from "../systems/dialogue.js";
 import { fade } from "../core/gfx.js";
 import { isoLigado, palcoIso, bichoNoPalco } from "../core/isometrico.js";
@@ -62,15 +63,17 @@ export class MegaScene {
       const a = (k / 8) * Math.PI * 2 - Math.PI / 2;
       return { x: CX + Math.cos(a) * 30, y: CY + Math.sin(a) * 38 };
     });
-    Audio2.tone(330, 0.3, "sine", 0.4);
-    Audio2.tone(494, 0.4, "sine", 0.35);
+    // O SOM DA MEGA EVOLUÇÃO (pedido do CAIO, nov/2026), assets/sons/mega-evolucao.mp3
+    // (do MyInstants, "MEGA EVOLUTION"). Sem o arquivo, as notas de antes.
+    this.somMega = Audio2.somEditado("mega-evolucao", 0.9);
+    if (!this.somMega) { Audio2.tone(330, 0.3, "sine", 0.4); Audio2.tone(494, 0.4, "sine", 0.35); }
   }
 
   get fase() { return FASES[this.i]?.[0] || "fim"; }
   get duracao() { return FASES[this.i]?.[1] || 0; }
   get k() { return prende(this.tf / (this.duracao || 1)); }
 
-  /** a arte do bicho, já com a cor dele (shiny) */
+  /** a arte do bicho, já com a cor dele (shiny, luminoso) */
   arte(id) {
     const vivo = Assets.vivo({ ...this.mon, species: id });   // animado, quando tem
     if (vivo) return vivo;
@@ -82,12 +85,12 @@ export class MegaScene {
     this.i++;
     this.tf = 0;
     const f = this.fase;
-    if (f === "casulo") { Audio2.tone(392, 0.25, "triangle", 0.4); Audio2.tone(523, 0.3, "triangle", 0.4); }
-    if (f === "racha") Audio2.tone(180, 0.6, "sawtooth", 0.25);
+    if (f === "casulo" && !this.somMega) { Audio2.tone(392, 0.25, "triangle", 0.4); Audio2.tone(523, 0.3, "triangle", 0.4); }
+    if (f === "racha" && !this.somMega) Audio2.tone(180, 0.6, "sawtooth", 0.25);
     if (f === "estoura") {
       this.flash = 1;
       this.tremor = 5;
-      Audio2.tone(880, 0.12, "square", 0.5); Audio2.tone(1320, 0.2, "square", 0.45);
+      if (!this.somMega) { Audio2.tone(880, 0.12, "square", 0.5); Audio2.tone(1320, 0.2, "square", 0.45); }
       // os cacos: cada faceta do casulo vira três pedaços voando pra fora
       for (let k = 0; k < 24; k++) {
         const a = Math.random() * Math.PI * 2, v = 60 + Math.random() * 120;
@@ -95,7 +98,8 @@ export class MegaScene {
                           ang: a, tam: 3 + Math.random() * 5, cor: ARCO[k % ARCO.length], vida: 1 });
       }
     }
-    if (f === "revela") { Audio2.heal(); }
+    // a MEGA aparece e GRITA: a voz dela batendo numa câmara de metal (Audio2, cadeiaMetal)
+    if (f === "revela") { if (!this.somMega) Audio2.heal(); tocarGrito({ ...this.mon, species: this.to }, 1, "metal"); }
     if (f === "fim") this.terminar();
   }
 

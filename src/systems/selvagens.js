@@ -92,6 +92,8 @@ export function nascer(lista, jogador, sortear, livre) {
       // o ALFA é bravo seja de que espécie for: alfa não foge de gente
       genio: enc.mon.alfa ? "bravo" : temperamento(enc.mon.species),
       bravo: enc.mon.alfa || ehBravo(enc.mon.species),   // atalho: é o que o desenho pergunta
+      // O QUE SOME (DB.SO_FOGEM): viu você, 3 segundos depois se teletransporta
+      some: !enc.mon.alfa && (DB.SO_FOGEM || []).includes(enc.mon.species),
     };
     lista.push(bicho);
     return bicho;
@@ -103,6 +105,18 @@ export function nascer(lista, jogador, sortear, livre) {
  *  você. Serve pro desenho também: quem persegue tem que dar pra ver que
  *  persegue — e quem NÃO tem como chegar não pode ficar piscando aviso do outro
  *  lado de uma cerca, porque aviso que não vira nada ensina a ignorar aviso. */
+/** O ASSOBIO (pedido do CAIO, nov/2026): os bravos e os curiosos que estão a
+ *  até `raio` tiles vêm até você por `tempo` segundos. O arisco não vem: ele
+ *  foge de gente. Devolve quantos ouviram. */
+export function chamar(lista, jogador, raio = 12, tempo = 7) {
+  let n = 0;
+  for (const b of lista || []) {
+    if (b.genio === "arisco" || Math.abs(b.x - jogador.x) + Math.abs(b.y - jogador.y) > raio) continue;
+    b.chamado = tempo; b.travado = false; n++;
+  }
+  return n;
+}
+
 export function cacando(b, jogador) {
   if (b?.genio !== "bravo" || b.travado) return false;
   return Math.abs(b.x - jogador.x) + Math.abs(b.y - jogador.y) <= (cfg().persegue ?? 5);
@@ -113,7 +127,7 @@ export function cacando(b, jogador) {
 export function fugindo(b, jogador) {
   if (b?.genio !== "arisco") return false;
   if (b.disparada > 0) return true;
-  return Math.abs(b.x - jogador.x) + Math.abs(b.y - jogador.y) <= (cfg().persegue ?? 5);
+  return Math.abs(b.x - jogador.x) + Math.abs(b.y - jogador.y) <= (cfg().persegue ?? 5) + (b.doido ? 3 : 0);
 }
 
 /** O PRÓXIMO PASSO do caminho mais curto até você, ou null se não existe um
@@ -171,38 +185,52 @@ export function andar(lista, dt, jogador, livre, atravessa = livre) {
   const perto = c.perto ?? 12;
   const some = c.some ?? 20;
   const vivos = [];
+  const sumiram = [];
   let encostou = null;
   for (const b of lista) {
     b.vida += dt;
     const dist = Math.abs(b.x - jogador.x) + Math.abs(b.y - jogador.y);
+    // O QUE SOME: te viu (no alcance de vista), conta 3 segundos e se
+    // teletransporta. Longe de novo, o susto passa devagar
+    if (b.some) {
+      if (dist <= (c.persegue ?? 5)) b.viu = (b.viu || 0) + dt;
+      else if (b.viu) b.viu = Math.max(0, b.viu - dt / 2);
+      if (b.viu >= (c.someEm ?? 3)) { sumiram.push(b); continue; }
+    }
     // O BRAVO NÃO ENVELHECE ENQUANTO CAÇA. Sem isto ele evaporava no meio da
     // perseguição, e sumir na cara de quem estava fugindo é pior do que nunca
     // ter vindo: a fuga deixa de significar alguma coisa.
     if (b.disparada > 0) b.disparada -= dt;
     // `travado` é recalculado a cada passo dele; enquanto isso ele conta como
     // bravo pra decidir SE tenta, e só o resultado da busca é que diz se dá
-    const caca = b.genio === "bravo" && dist <= (c.persegue ?? 5);
-    const foge = b.genio === "arisco" && (b.disparada > 0 || dist <= (c.persegue ?? 5));
+    // O ASSOBIO (tecla V, `chamar`): quem ouviu vem até você enquanto dura
+    if (b.chamado > 0) { b.chamado -= dt; b.vida = 0; b.viu = 0; }
+    const chamado = b.chamado > 0;
+    const caca = chamado || (b.genio === "bravo" && dist <= (c.persegue ?? 5));
+    // O FRACO (bem mais fraco que o seu time) foge COMO DOIDO: te vê de mais
+    // longe, corre muito mais rápido e nunca dá o troco
+    const foge = b.genio === "arisco" && (b.disparada > 0 || dist <= (c.persegue ?? 5) + (b.doido ? 3 : 0));
     if ((caca && !b.travado) || foge) b.vida = 0;
     if (dist > perto + 4 || b.vida > some) continue;   // some sem despedida
     b.t -= dt;
     if (b.t <= 0) {
       if (caca) {
         b.t = passo * (c.pressa ?? 0.55);
-        const alvo = passoAte(b, jogador, atravessa, (c.persegue ?? 5) + 2);
+        const alvo = passoAte(b, jogador, atravessa, chamado ? perto + 4 : (c.persegue ?? 5) + 2);
         // sem caminho: ele desiste de caçar (e para de piscar o aviso) até você
         // dar a volta e abrir passagem
         b.travado = !alvo;
         if (alvo) {
-          if (alvo[0] === jogador.x && alvo[1] === jogador.y) encostou = encostou || b;
+          // (o curioso chega do seu lado e fica olhando: só o bravo te ataca)
+          if (alvo[0] === jogador.x && alvo[1] === jogador.y) { if (b.genio === "bravo") encostou = encostou || b; }
           else { b.x = alvo[0]; b.y = alvo[1]; }
         }
       } else if (foge) {
         // O ARISCO. Encurralado — você chegou do lado dele — ele DÁ O TROCO e
         // dispara; senão, só põe distância. É o "bate e corre": ele não vai te
         // procurar, mas também não apanha calado.
-        b.t = passo * (c.fuga ?? 0.45);
-        if (dist <= 1) {
+        b.t = passo * (c.fuga ?? 0.45) * (b.doido ? 0.4 : 1);
+        if (dist <= 1 && !b.doido) {
           encostou = encostou || b;
           b.disparada = c.disparada ?? 4;
         }
@@ -226,7 +254,7 @@ export function andar(lista, dt, jogador, livre, atravessa = livre) {
     }
     vivos.push(b);
   }
-  return { vivos, encostou };
+  return { vivos, encostou, sumiram };
 }
 
 /** Quem está em pé neste tile, ou null. */

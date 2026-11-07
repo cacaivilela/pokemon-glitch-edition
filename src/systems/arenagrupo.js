@@ -25,6 +25,7 @@
 // quando sobra um (e lá as bolas funcionam). Ela chama `iniciar` quando
 // chegaria no menu de turno; as falas pausam o tempo. O TOTEM fica por turno:
 // provação tem regra própria. MEGA e CRISTAL Z também não entram na arena.
+import { pesoDoMon } from "./pokeblocos.js";
 import { DB } from "../data/index.js";
 import { Assets } from "../core/assets.js";
 import { Input } from "../core/input.js";
@@ -530,7 +531,7 @@ function pisao(b, pisa, alvo) {
   if (pisa.tPisao > 0 || alvo.invul > 0 || (pisa.vyAntes || 0) < 40 || !vivo(pisa) || !vivo(alvo)) return;
   const topo = alvo.y - ALTURA;
   if (Math.abs(pisa.x - alvo.x) > 11 || pisa.y < topo - 6 || pisa.y > topo + 9) return;
-  const kg = pesoDe(pisa.mon.species);
+  const kg = pesoDoMon(pisa.mon);   // com o peso a mais do garfo (pokéblocos)
   const dano = Math.max(1, Math.round((2 + Math.sqrt(kg) * 3) * (0.5 + pisa.mon.level / 50) * fatorDano(pisa.k === "p")));
   alvo.mon.hp = Math.max(0, alvo.mon.hp - dano);
   alvo.atordoado = 0.4; alvo.flash = 0.35; alvo.vy = 80; alvo.ataque = null; alvo.aviso = 0; alvo.golpe = null;

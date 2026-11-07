@@ -116,6 +116,7 @@ const TABLE = `
 386 DEOXYS-VELOCIDADE PSÍQUICO 50 95 90 95 90 180
 718 ZYGARDE-10% DRAGÃO/TERRA 54 100 71 61 85 115
 718 ZYGARDE-COMPLETO DRAGÃO/TERRA 216 100 121 91 95 85
+718 ZYGARDE-200% DRAGÃO/TERRA 250 160 150 130 140 110
 `;
 /** os três só aparecem no terreno certo, e quase nunca */
 export const WEATHER_TRIO = { agua: "kyogre", terra: "groudon", ar: "rayquaza" };
@@ -137,6 +138,7 @@ export const LORE = {
   deoxysvelocidade: "FINO, LEVE E RÁPIDO DEMAIS PRA TELA ACOMPANHAR.",
   zygarde10: "SÓ UM DÉCIMO DAS CÉLULAS. VIRA UM CACHORRO MAGRO E CORRE MAIS QUE QUALQUER COISA NO TÚNEL.",
   zygardecompleto: "TODAS AS CÉLULAS JUNTAS. É ALTO COMO UM PRÉDIO, E O NÚCLEO NO PEITO BRILHA QUANDO ALGUÉM ESTRAGA A NATUREZA.",
+  zygarde200: "PUXOU TODAS AS CÉLULAS DE KALOS E ALOLA. TEM UMA FORTE RELAÇÃO DE FORMATO COM GUZZLORD. É ABSURDAMENTE FORTE E INTELIGENTE: VÊ A MAIOR FRAQUEZA DO OPONENTE EM UM MILISSEGUNDO, ATACA NO MILISSEGUNDO SEGUINTE, E UM SEGUNDO DEPOIS O OPONENTE GERALMENTE ESTÁ NO CHÃO, DESMAIADO.",
   porygonz: "NÃO DÁ PRA CHAMAR ISSO DE POKÉMON. SÓ DE GLITCH.",
   cranidos: "CRÂNIO DURO DEMAIS PRA UM BICHO QUE NÃO EXISTE MAIS.",
   rampardos: "BATE DE CABEÇA EM TUDO. O QUE QUEBRA NUNCA É A CABEÇA.",
@@ -204,15 +206,58 @@ for (const line of TABLE.trim().split("\n")) {
 // por tools/fetch_sprites.py): o 10% é um cachorro, o COMPLETO é um gigante
 EXTRA.zygarde10.spriteDex = 10181;
 EXTRA.zygardecompleto.spriteDex = 10120;
+// AS FORMAS DO DEOXYS com o desenho delas (pedido do CAIO, nov/2026: "baixe todos os
+// sprites do deoxys"): o do BLACK/WHITE parado, de costas e shiny, o animado (gen5ani)
+// e o de andar/voar do PMD. Antes as três usavam o desenho do DEOXYS normal.
+EXTRA.deoxysataque.spriteDex = 10001;
+EXTRA.deoxysdefesa.spriteDex = 10002;
+EXTRA.deoxysvelocidade.spriteDex = 10003;
+
+// A CÉLULA DE ZYGARDE (pedido do CAIO, nov/2026: o MINI ZYGARDE do espaço vira
+// CÉLULA): a gotinha verde com o núcleo vermelho. Desenho meu, pixel por pixel
+// (tools/celula/desenha.py: frente, costas e andando). O grito é o do 10% bem fininho.
+EXTRA.celulazygarde = {
+  id: "celulazygarde", dex: 718, name: "CÉLULA ZYGARDE", types: ["DRAGÃO", "TERRA"], spriteDex: 31050, foreign: true,
+  formaDe: "zygarde", learnsetDe: "zygarde10",
+  base: { hp: 20, atk: 25, def: 30, spa: 20, spd: 30, spe: 40 }, bst: 165, catchRate: 200, xpYield: 40,
+  dexText: "UM PEDACINHO DO ZYGARDE. SOZINHA NÃO PENSA EM NADA, MAS SENTE AS OUTRAS CÉLULAS DE LONGE.",
+};
+// o 200% não existe em jogo nenhum: a base é do CAIO (tools/zygarde200_base.png,
+// desenhada em dev/pixelart.html) e o acabamento é tools/acabar_zygarde200.py.
+// O desenho, nas palavras dele: o azul do peito é a BOCA, e o ponto branco
+// dentro dela é o NÚCLEO BRANCO; os detalhes vermelhos são do NÚCLEO VERMELHO
+// (Z1) e os azuis, do NÚCLEO AZUL (Z2) — a capa de um lado e do outro, as
+// marcas dos braços e os olhos das pontas da crista.
+EXTRA.zygarde200.spriteUrl = "assets/sprites/pokemon/zygarde200.png";
+// as costas: o mesmo corpo visto de trás (tools/costas_zygarde200.py)
+EXTRA.zygarde200.spriteCostasUrl = "assets/sprites/pokemon/back/zygarde200.png";
+// A LUZ NULA é o golpe das células: toda forma aprende no 50. No 200% ela
+// vira a EXPLOSÃO DA VIDA OU MORTE (`trocaGolpe`, src/systems/mon.js `evolveTo`),
+// e volta a ser LUZ NULA quando ele sai do 200%
+for (const id of ["zygarde10", "zygarde", "zygardecompleto"]) EXTRA[id].learnsetExtra = [[50, "luznula"]];
+EXTRA.zygarde200.learnsetExtra = [[50, "explosaovidaoumorte"]];
+EXTRA.zygarde200.trocaGolpe = { luznula: "explosaovidaoumorte" };
+
+// O ETERNATUS ETERNAMAX (nov/2026, o CAIO pediu um teste com ele): a forma
+// gigante do SWORD/SHIELD, com o desenho oficial da PokeAPI (10190, baixado por
+// tools/fetch_sprites.py --only 10190) e o andar do PMD (forma "Eternamax")
+EXTRA.eternatuseternamax = {
+  id: "eternatuseternamax", dex: 890, name: "ETERNATUS ETERNAMAX", types: ["VENENO", "DRAGÃO"], spriteDex: 10190, foreign: true,
+  formaDe: "eternatus", learnsetDe: "eternatus",
+  base: { hp: 255, atk: 115, def: 250, spa: 125, spd: 250, spe: 130 }, bst: 1125, catchRate: 3, xpYield: 345,
+  dexText: "O CORPO DELE CRESCEU ATÉ O CÉU COM A ENERGIA DA ESCURIDÃO. O NÚCLEO NO PEITO NUNCA PARA DE BRILHAR.",
+};
 
 /** O CUBO ZYGARDE: guarda as células do ZYGARDE. Usado nele, junta ou
- *  espalha as células e ele muda de forma (10%, 50% ou COMPLETO) — com a
+ *  espalha as células e ele muda de forma (10%, 50%, COMPLETO ou 200%) — com a
  *  cutscene de evolução, no tema verde das células (src/scenes/evolution.js).
- *  Não se gasta, como o CATÁLOGO ROTOM. Vem da missão O Z DO DNA. */
+ *  Não se gasta, como o CATÁLOGO ROTOM. Vem da missão O Z DO DNA. O 200% só
+ *  aparece pra quem já está COMPLETO (o terceiro item da opção: de quem). */
 export const CUBO_ZYGARDE = {
   item: "cubo zygarde",
-  aceita: ["zygarde10", "zygarde", "zygardecompleto"],
-  opcoes: [["zygarde10", "10% (CACHORRO)"], ["zygarde", "50%"], ["zygardecompleto", "COMPLETO"]],
+  aceita: ["zygarde10", "zygarde", "zygardecompleto", "zygarde200"],
+  opcoes: [["zygarde10", "10% (CACHORRO)"], ["zygarde", "50%"], ["zygardecompleto", "COMPLETO"],
+           ["zygarde200", "200%", ["zygardecompleto", "zygarde200"]]],
   pergunta: "O CUBO PULSA VERDE. QUANTAS CÉLULAS {MON} JUNTA?",
   jaE: "{MON} JÁ ESTÁ NESSA FORMA.",
   nada: "O CUBO FICA APAGADO. SÓ AS CÉLULAS DE UM ZYGARDE RESPONDEM A ELE.",
@@ -222,6 +267,71 @@ export const CUBO_ZYGARDE = {
     inicio: "O CUBO ACENDE! AS CÉLULAS DE {MON} ESTÃO SE REORGANIZANDO!",
     fim: "AS CÉLULAS SE ASSENTARAM! {MON} AGORA É {NOVO}!",
   },
+};
+
+/** A CAÇADA DO ZYGARDE (a missão O Z DO DNA). Ele não espera parado como os
+ *  outros: as CÉLULAS do fundo do TÚNEL ROCHA se juntam num ZYGARDE 10% e ele
+ *  FOGE; achado, junta mais células e vira o 50%, e foge; achado de novo,
+ *  vira o COMPLETO, e foge também. Cada forma foge tantos tiles quanto a
+ *  porcentagem dela (contados a pé): o 10% vai 10 tiles, o 50% vai 50 e o
+ *  COMPLETO vai 100 — até a ROTA 10, onde ele espera e luta. Cada etapa é onde
+ *  ele está (`forma`) e no que vira quando você chega (`vira`); a última é o
+ *  COMPLETO esperando, que é um chefe (src/scenes/overworld.js, `zygardeNpcs`
+ *  e `andarZygarde`). `dica` é o que o OBJETIVO diz, e `rastro` é o caminho
+ *  das CÉLULAS VERDES no chão até ele: [mapa, de, até] em cada mapa por onde
+ *  ele passou (`rastroZygarde`). */
+export const ZYGARDE_CACADA = {
+  missao: "z-do-dna",
+  // antes de tudo: 200 CÉLULAS guardadas no CUBO (pedido do CAIO, nov/2026)
+  precisa: 200,
+  nivel: 60,
+  etapas: [
+    {
+      mapa: "rock_tunnel_b1f", x: 24, y: 20, forma: "zygardeenxame", vira: "zygarde10",
+      dica: "SIGA AS CÉLULAS VERDES ATÉ O FUNDO DO TÚNEL ROCHA (O ANDAR DE BAIXO).",
+      // das duas escadas que chegam neste pedaço do B1F
+      rastro: [["rock_tunnel_b1f", [38, 28], [24, 20]], ["rock_tunnel_b1f", [33, 3], [24, 20]]],
+      lines: [
+        "O TÚNEL SE ABRE NUMA SALA QUE NÃO ESTÁ EM MAPA NENHUM.",
+        "O CHÃO ESTÁ COBERTO DE PONTINHOS VERDES QUE SE MEXEM JUNTOS.",
+        "ELES SENTIRAM VOCÊ. ESTÃO SE JUNTANDO!",
+      ],
+      virou: ["AS CÉLULAS VIRARAM UM ZYGARDE 10%!", "É UM CACHORRO MAGRO E PRETO. ELE OLHA PRA VOCÊ..."],
+      fugiu: ["...E SAI CORRENDO! MAS O 10% É PEQUENO: NÃO DEVE TER IDO LONGE."],
+    },
+    {
+      // 10 tiles dali, no corredor do leste
+      mapa: "rock_tunnel_b1f", x: 34, y: 20, forma: "zygarde10", vira: "zygarde",
+      dica: "O ZYGARDE 10% FUGIU AQUI PERTO, NO CORREDOR DO LESTE DO TÚNEL ROCHA (ANDAR DE BAIXO).",
+      rastro: [["rock_tunnel_b1f", [24, 20], [34, 20]]],
+      lines: [
+        "O ZYGARDE 10% ESTÁ PARADO NO CORREDOR, OFEGANDO.",
+        "MAIS CÉLULAS SAEM DAS PEDRAS E CORREM ATÉ ELE!",
+      ],
+      virou: ["O ZYGARDE VIROU O 50%!", "AGORA É UMA SERPENTE EM PÉ, COM UM LEQUE ESCURO NA CABEÇA."],
+      fugiu: ["ELE SE ENROLA E DESLIZA PRA LONGE, LÁ PRO FUNDO DO SUL DO TÚNEL!"],
+    },
+    {
+      // 50 tiles dali, no canto de baixo do B1F
+      mapa: "rock_tunnel_b1f", x: 34, y: 36, forma: "zygarde", vira: "zygardecompleto",
+      dica: "O ZYGARDE 50% FUGIU PRO SUL DO ANDAR DE BAIXO DO TÚNEL ROCHA, PERTO DA ESCADA.",
+      rastro: [["rock_tunnel_b1f", [34, 20], [34, 36]]],
+      lines: [
+        "O ZYGARDE 50% ESTÁ NO CANTO DO TÚNEL, ENROLADO.",
+        "TODAS AS CÉLULAS DO TÚNEL ESTÃO VINDO PRA CÁ!",
+      ],
+      virou: ["É O ZYGARDE COMPLETO!", "O NÚCLEO DO PEITO BRILHA..."],
+      fugiu: ["...E ELE SOBE A ESCADA CORRENDO! O ZYGARDE COMPLETO SAIU DO TÚNEL, PRA ROTA 10!"],
+    },
+    {
+      // 100 tiles dali: a escada, o 1F inteiro até a saída norte, e a ROTA 10
+      // até o canto de cima
+      mapa: "route10", x: 3, y: 7, forma: "zygardecompleto",
+      dica: "O ZYGARDE COMPLETO SAIU DO TÚNEL ROCHA PELA SAÍDA DE CIMA. ELE ESTÁ NA ROTA 10, NO CANTO DO NORTE.",
+      rastro: [["rock_tunnel_b1f", [34, 36], [38, 28]], ["rock_tunnel_1f", [45, 2], [17, 2]], ["route10", [8, 19], [3, 7]]],
+      lines: ["O ZYGARDE COMPLETO ESTÁ DE PÉ NO CANTO DA ROTA, ESPERANDO VOCÊ.", "DESSA VEZ ELE NÃO FOGE. ELE VAI LUTAR!"],
+    },
+  ],
 };
 
 /** encontros dentro da dimensão, por terreno */
@@ -304,7 +414,7 @@ export const RARE_LEGEND = { id: "deoxys", chance: 0.0008, min: 45, max: 60 };
  *  Sem `mapas` ela saía em qualquer grama de Kanto, e um LAPROCUNO — LAPRAS com
  *  ARTICUNO, água e gelo — aparecendo na FLORESTA VIRIDIAN não é raridade, é
  *  erro de lugar. Agora ela mora em volta de CINNABAR, no mar entre a ilha e a
- *  VILA PALETA.
+ *  CIDADE DE PALLET.
  *
  *  E A CHANCE SUBIU MUITO, de 1 em 4096 pra 1 em 220. Não é generosidade, é a
  *  troca: raríssima em Kanto inteira, ela era um acidente que ninguém procurava
@@ -354,6 +464,56 @@ export const TEMPESTADE = ["tornadus", "thundurus", "landorus"];
  *  o nível e as falas saem daqui e têm hot-swap.)
  */
 export const ESTATICOS = [
+  // OS 5 MINIORS SHINY da CHUVA DE MINIORS (src/data/missoes.js): um em cada
+  // andar da CHAPADA DOS VEADEIROS. Só aparecem depois que caem (a cutscene
+  // marca `miniorsCairam`); `chave` separa os cinco (são a mesma espécie)
+  // SÓ TRAZER, NÃO PEGAR (o CAIO): encostar não abre batalha — `levar` faz
+  // você levar ele com cuidado (marca a bandeira e ele some do chão). Cada um
+  // tem um NÚCLEO de uma cor, que é como você escolhe o seu no fim.
+  ...[[24, 4], [10, 11], [22, 17], [25, 25], [24, 35]].map(([x, y], i) => ({
+    id: "minior", chave: `minior_${i + 1}`, mapa: "chapada", x, y, nivel: 38,
+    missao: "chuva-de-miniors", aparece: "miniorsCairam", shiny: true, flagCaptura: `miniorShiny${i + 1}`,
+    levar: true,
+    lines: ["UM MINIOR CAÍDO DO CÉU, AINDA QUENTE. A CASCA ESTÁ RACHADA E SAI UM BRILHO DE DENTRO.",
+            "ELE ESTÁ TONTO DA QUEDA. VOCÊ PEGA ELE NO COLO COM CUIDADO PRA LEVAR PRA ASTRÔNOMA."],
+  })),
+  {
+    // AS CORES TRAVADAS (a missão da CAÇADORA DE CORES de Viridian): o último
+    // shiny de Kanto, escondido no lado oeste da ROTA 2. Pegar ele é o que a
+    // missão pede; entregar libera os shinys no jogo inteiro (shiniesLiberados,
+    // src/systems/mon.js). Derrubou sem pegar? Sai do mapa e ele volta.
+    id: "pikachu", mapa: "route2", x: 8, y: 74, nivel: 12,
+    missao: "cores-travadas", shiny: true, flagCaptura: "pikachuShinyPego",
+    lines: [
+      "UM PIKACHU... MAS A COR ESTÁ ERRADA. MAIS LARANJA, MAIS QUENTE.",
+      "É O ÚNICO BICHO DE KANTO QUE A TRAVA NÃO PEGOU.",
+      "ELE ESTÁ SOLTANDO FAÍSCA. NÃO VAI SE ENTREGAR FÁCIL!",
+    ],
+  },
+  {
+    // O TORNADUS no meio do CÉU DAS NUVENS (src/data/espaco.js): o dono do tornado
+    id: "tornadus", mapa: "ceu_nuvens", x: 26, y: 3, nivel: 60,
+    lines: ["UM VULTO VERDE GIRANDO EM CIMA DE UMA NUVEM. É O TORNADUS, O GÊNIO DO VENTO!", "FOI ELE QUE FEZ O TORNADO. E ELE NÃO GOSTOU NADA DE VOCÊ TER ENTRADO NO OLHO DELE!"],
+  },
+  {
+    // O MITO DO CAMINHÃO (src/core/caminhao.js): embaixo do caminhão do cais de
+    // VERMILION. Só aparece depois que você empurra com FORÇA.
+    id: "mew", chave: "mew_caminhao", mapa: "vermilion_city", x: 36, y: 30, nivel: 30,
+    aparece: "mewCaminhao", flagCaptura: "mewCaminhaoPego",
+    lines: ["MEW!", "ELE ESTAVA ESCONDIDO EMBAIXO DO CAMINHÃO ESSE TEMPO TODO!"],
+  },
+  {
+    // O BLACEPHALON CONTRA ARCEUS (a missão do youtuber, src/data/missoes.js): ALFA,
+    // e a animação dele fica SÓ nos quadros 0 a 76 — o "six seven" das mãos; os
+    // quadros 77+ (a cabeça voando e explodindo) ele nunca faz
+    id: "blacephalon", mapa: "route25", x: 50, y: 7, nivel: 67,
+    missao: "blacephalon-contra-arceus", alfa: true, soQuadros: [0, 76], flag: "blacephalonContraArceus",
+    lines: [
+      "UM BLACEPHALON ENORME, DE PÉ NO MEIO DA ROTA.",
+      "AS MÃOS DELE SOBEM E DESCEM. SOBEM E DESCEM. SIX... SEVEN... SIX... SEVEN...",
+      "ELE NÃO PARA. ELE NUNCA PAROU. ISSO É CONTRA ARCEUS.",
+    ],
+  },
   {
     // O POKÉMON DIVINO. Ele não está num mapa de Kanto: aparece no meio da
     // 011GLITCHDIMENSION110, no vazio entre as ilhas — o único lugar deste jogo
@@ -383,15 +543,6 @@ export const ESTATICOS = [
       "A USINA NUNCA VOLTOU A FUNCIONAR — E NINGUÉM EXPLICOU POR QUÊ.",
       "AS ASAS DELE ESTÃO ABERTAS EM CIMA DO GERADOR MORTO.",
       "AS PONTAS BRILHAM VERMELHO. É A ÚNICA COISA COM ENERGIA AQUI DENTRO.",
-    ],
-  },
-  {
-    id: "zygarde", mapa: "rock_tunnel_b1f", x: 24, y: 20, nivel: 60,
-    missao: "z-do-dna",
-    lines: [
-      "O TÚNEL SE ABRE NUMA SALA QUE NÃO ESTÁ EM MAPA NENHUM.",
-      "O CHÃO ESTÁ COBERTO DE PONTINHOS VERDES QUE SE MEXEM JUNTOS.",
-      "ELES SE JUNTAM QUANDO VOCÊ CHEGA PERTO. AGORA É UM SÓ, E ELE OLHA PRA VOCÊ.",
     ],
   },
   {

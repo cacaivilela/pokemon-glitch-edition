@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>montaria voadora</title>
+<style>body{background:#111;color:#9fd;font:13px monospace;margin:0;padding:8px}iframe{width:740px;height:560px;border:0}#log{white-space:pre-wrap}</style></head>
+<body><div id="log">rodando...</div><iframe id="fr"></iframe>
+<script>
+// A MONTARIA VOADORA (src/scenes/overworld.js, `montar`/`drawMontado`) no jogo
+// de verdade: o menu VOAR LIVRE, voar montado nas 4 direções em 3D, uma sem
+// modelo (2D), o companheiro 3D e o POUSAR. Os quadros vão pro /__capture.
+const fr = document.getElementById("fr"), log = document.getElementById("log");
+const linhas = [], errs = [], quadros = [];
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+async function abrir(url) {
+  fr.src = url;
+  let w;
+  for (let i = 0; i < 150 && !(w = fr.contentWindow)?.game?.scenes?.top?.update; i++) await espera(100);
+  w.addEventListener("error", (e) => errs.push("JOGO: " + e.message));
+  await espera(1200);
+  return w;
+}
+(async () => {
+ try {
+  const cv = document.createElement("canvas"); cv.width = 240; cv.height = 160;
+  const ctx = cv.getContext("2d");
+  const w = await abrir("/?perfil=montarcheck&offline&map=route1&x=10&y=20&party=charizard:40,lugia:50,fearow:30");
+  const cena = () => w.game.scenes.top;
+  const foto = (nome) => { ctx.clearRect(0, 0, 240, 160); cena().render(ctx); quadros.push(cv.toDataURL()); linhas.push(`  foto ${quadros.length - 1}: ${nome}`); };
+  const passa = () => { const s = cena(); for (let n = 0; n < 40 && s.dlg && (s.dlg.active || s.dlg.choice); n++) {
+    if (s.dlg.choice) { const ch = s.dlg.choice; s.dlg.choice = null; ch.cb(0); continue; }
+    linhas.push(`  fala: ${(s.dlg.lines || []).join(" ")}`); s.dlg.chars = 1e9; s.dlg.next(); } };
+  const sc = cena(), st = sc.st;
+  passa();
+  st.party = st.party.filter((m) => ["charizard", "lugia", "fearow"].includes(m.species));
+  // ensina VOAR pros três
+  for (const m of st.party) if (!m.moves.some((v) => v.id === "voar")) m.moves[0] = { id: "voar", pp: 15, ppMax: 15 };
+  linhas.push(`menu: ${sc.itensMenu().join(", ")}`);
+  sc.montar(); passa();
+  linhas.push(`voando=${st.voando} montaria=${st.montaria}`);
+  for (const d of ["left", "up", "right", "down"]) {
+    st.player.dir = d;
+    for (let i = 0; i < 40; i++) sc.update(1 / 30);
+    foto("charizard " + d);
+  }
+  // anda voando por cima de árvore
+  const x0 = st.player.x;
+  st.player.dir = "left";
+  for (let k = 0; k < 4; k++) { sc.tryStep("left"); for (let i = 0; i < 12; i++) sc.update(1 / 30); }
+  linhas.push(`andou de x=${x0} pra x=${st.player.x}`);
+  foto("charizard andando");
+  // o LUGIA como montaria
+  st.montaria = "lugia"; sc.giroMontaria = null; st.player.dir = "up";
+  for (let i = 0; i < 20; i++) sc.update(1 / 30);
+  foto("lugia up");
+  // um sem modelo: o FEAROW em 2D
+  st.montaria = "fearow"; st.player.dir = "left";
+  for (let i = 0; i < 5; i++) sc.update(1 / 30);
+  foto("fearow (2D)");
+  // pousa
+  st.player.x = 10; st.player.y = 20; sc.pousar(); passa();
+  linhas.push(`pousou: voando=${st.voando} montaria=${st.montaria} em ${st.player.x},${st.player.y}`);
+  // o companheiro: o CHARIZARD te seguindo em 3D
+  for (let k = 0; k < 3; k++) { sc.tryStep("down"); for (let i = 0; i < 12; i++) sc.update(1 / 30); }
+  foto("charizard te seguindo (sprite)");
+  linhas.push(errs.length ? "ERROS:\n" + errs.join("\n") : "sem erros");
+ } catch (e) { linhas.push("FALHOU: " + e.stack); }
+ const tira = document.createElement("canvas"), n = Math.max(1, quadros.length);
+ tira.width = 240 * Math.min(3, n); tira.height = 160 * Math.ceil(n / 3);
+ const tc = tira.getContext("2d");
+ for (let i = 0; i < quadros.length; i++) { const im = new Image(); im.src = quadros[i]; await im.decode(); tc.drawImage(im, (i % 3) * 240, Math.floor(i / 3) * 160); }
+ log.textContent = linhas.join("\n");
+ await fetch("/__capture", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "montarcheck", dataUrl: tira.toDataURL(), log: linhas.join("\n") }) });
+})();
+</script></body></html>

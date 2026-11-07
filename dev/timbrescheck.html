@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>checagem dos timbres</title></head>
+<body style="background:#111;color:#9fd;font:13px monospace"><pre id="log">rodando...</pre>
+<script>
+  // erro antes do fim (um import quebrado, por exemplo) também volta pro disco
+  const manda = (t) => fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "timbrescheck", log: t }) });
+  addEventListener("error", (e) => manda("ERRO: " + e.message + " " + (e.filename || "") + ":" + (e.lineno || "")));
+  addEventListener("unhandledrejection", (e) => manda("PROMISE: " + (e.reason?.stack || e.reason)));
+</script>
+<img id="hold" alt="" width="1" height="1">
+<script type="module">
+// Cada timbre (os 8 de sempre e os 20 de src/core/timbres.js) monta uma sílaba
+// no sintetizador do jogo sem erro, e passa pelo limpador do que é salvo.
+import { Audio2 } from "/src/core/audio.js";
+import { ONDAS, silabaLimpa, codigoDoGrito, gritoDoCodigo } from "/src/core/gritosmeus.js";
+const L = [], ruins = [];
+try { Audio2.unlock?.(); } catch {}
+for (const o of ONDAS) {
+  try {
+    const d = Audio2.grito({ s: [[330, 660, 250, o, 0, 0.2], [440, 220, 120, o, 8, 0]] });
+    const limpa = silabaLimpa([330, 660, 250, o, 0, 0]);
+    const ok = limpa && limpa[3] === o;
+    if (!ok) ruins.push(o + " (o limpador trocou o timbre)");
+    L.push(`${o.padEnd(4)} tocou ${d.toFixed(2)} s · limpador ${ok ? "ok" : "TROCOU"}`);
+  } catch (e) { ruins.push(`${o}: ${e.message}`); L.push(`${o.padEnd(4)} ERRO ${e.message}`); }
+}
+const volta = gritoDoCodigo(codigoDoGrito({ nome: "TESTE", alvo: "caterpie", som: "", s: ONDAS.map((o) => [440, 440, 50, o, 0, 0]) }));
+const iguais = volta && volta.s.map((x) => x[3]).join() === ONDAS.join();
+L.push(`código ida e volta com os ${ONDAS.length} timbres: ${iguais ? "ok" : "PERDEU TIMBRE"}`);
+if (!iguais) ruins.push("código");
+L.push(ruins.length ? "RUINS: " + ruins.join(" | ") : "todos ok");
+document.getElementById("log").textContent = L.join("\n");
+await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "timbrescheck", log: L.join("\n") }) });
+</script>
+<script>document.getElementById("hold").src = "/__delay?ms=12000";</script>
+</body></html>

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>checagem do zygarde e dos 3D</title>
+<style>body{background:#111;color:#9fd;font:13px ui-monospace,monospace;margin:0;padding:8px}
+iframe{width:740px;height:560px;border:0}#log{white-space:pre-wrap;color:#7fd;margin-bottom:6px}</style>
+</head>
+<body>
+<div id="log">rodando...</div>
+<iframe id="fr" src=""></iframe>
+<script>
+// A CAÇADA DO ZYGARDE (src/data/extra.js, ZYGARDE_CACADA), no jogo de verdade:
+// as células no TÚNEL ROCHA B1F → o 10% foge 10 tiles → o 50% foge 50 → o
+// COMPLETO foge 100, até a ROTA 10, e lá luta. Em headless o rAF não roda: o update é bombeado na mão e os
+// quadros vão pro /__capture como uma tira só.
+// ?rayquaza=1: em vez disso, o RAYQUAZA selvagem andando em 3D na fenda.
+// ?lenda=arceus: em vez disso, o estático dele em pé em 3D.
+const fr = document.getElementById("fr"), log = document.getElementById("log");
+const linhas = [], errs = [], quadros = [];
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+window.addEventListener("error", (e) => errs.push("PAI: " + e.message));
+const q = new URLSearchParams(location.search);
+const ESTATICOS = { arceus: "glitchdim&x=20&y=22", xerneas: "viridian_forest&x=23&y=33", yveltal: "power_plant&x=24&y=18",
+                    dialga: "pokemon_tower_7f&x=11&y=10", palkia: "five_island_lost_cave_room11&x=5&y=8" };
+
+async function abrir(url) {
+  fr.src = url;
+  let w;
+  for (let i = 0; i < 150 && !(w = fr.contentWindow)?.game?.scenes?.top?.update; i++) await espera(100);
+  w.addEventListener("error", (e) => errs.push("JOGO: " + e.message));
+  await espera(1200);
+  return w;
+}
+
+(async () => {
+ try {
+  const cv = document.createElement("canvas"); cv.width = 240; cv.height = 160;
+  const ctx = cv.getContext("2d");
+  let w, sc;
+  const cena = () => w.game.scenes.top;
+  const foto = (nome) => { ctx.clearRect(0, 0, 240, 160); cena().render(ctx); quadros.push(cv.toDataURL()); linhas.push(`  foto ${quadros.length - 1}: ${nome}`); };
+  const passa = () => { const s = cena(); for (let n = 0; n < 40 && s.dlg && (s.dlg.active || s.dlg.choice); n++) {
+    if (s.dlg.choice) { const ch = s.dlg.choice; s.dlg.choice = null; ch.cb(0); continue; }
+    linhas.push(`  fala: ${(s.dlg.lines || []).join(" ")}`); s.dlg.chars = 1e9; s.dlg.next(); } };
+  const bomba = (n) => { for (let i = 0; i < n; i++) cena().update(1 / 30); };
+
+  if (q.has("rayquaza")) {
+    w = await abrir("/?perfil=zygcheck&offline&map=glitchdim&x=22&y=29&party=pikachu:50&rayquazasolto=1");
+    sc = cena(); passa();
+    sc.st.mission = sc.st.mission || { timed: false };
+    for (let i = 0; i < 400 && !sc.selvagens.some((b) => b.mon.species === "rayquaza"); i++) sc.update(1 / 30);
+    const b = sc.selvagens.find((b) => b.mon.species === "rayquaza");
+    linhas.push(`rayquaza: ${b ? `(${b.x},${b.y}) jogador (${sc.st.player.x},${sc.st.player.y})` : "NÃO NASCEU"} selvagens=${sc.selvagens.map((s) => s.mon.species)}`);
+    if (b) { b.x = sc.st.player.x + 3; b.y = sc.st.player.y - 1; }
+    for (const ms of [0, 400, 400, 400, 400]) { await espera(ms); bomba(6); foto(`rayquaza +${ms}`); }
+  } else if (q.get("lenda")) {
+    const id = q.get("lenda");
+    w = await abrir(`/?perfil=zygcheck&offline&map=${ESTATICOS[id]}&party=pikachu:50`);
+    sc = cena(); passa();
+    const e = w.eval("window.DB || null") || (await w.eval("import('/src/data/index.js')")).DB;
+    const missao = e.ESTATICOS.find((x) => x.id === id)?.missao;
+    (sc.st.missoes ||= {})[missao] = { estado: "ativa", desde: 0 };
+    bomba(4);
+    linhas.push(`npc: ${JSON.stringify(sc.npcsHere().filter((n) => n.id.startsWith("estatico")).map((n) => [n.id, n.x, n.y, n.sprite]))} jogador (${sc.st.player.x},${sc.st.player.y})`);
+    foto(id);
+  } else {
+    w = await abrir("/?perfil=zygcheck&offline&map=rock_tunnel_b1f&x=24&y=22&party=pikachu:50");
+    sc = cena(); passa();
+    (sc.st.missoes ||= {})["z-do-dna"] = { estado: "ativa", desde: 0 };
+    sc.st.flags.zygEtapa = 0;
+    const DB = (await w.eval("import('/src/data/index.js')")).DB;
+    const Z = DB.ZYGARDE_CACADA;
+    for (let e = 0; e < 4; e++) {
+      const p = Z.etapas[e];
+      if (sc.st.player.map !== p.mapa) {
+        sc.st.player.map = p.mapa; sc.st.player.x = p.x; sc.st.player.y = p.y + 2;
+        w.game.scenes.replace ? null : null;
+        sc.afterTravel?.(); sc.snapCamera();
+      } else { sc.st.player.x = p.x; sc.st.player.y = p.y + 2; sc.snapCamera(); }
+      sc.st.player.dir = "up";
+      bomba(4);
+      const npc = sc.npcsHere().find((n) => n.id.startsWith("zygarde"));
+      linhas.push(`etapa ${e}: ${p.mapa} npc=${npc ? `${npc.id} ${npc.sprite} (${npc.x},${npc.y})` : "NÃO ACHEI"} jogador (${sc.st.player.x},${sc.st.player.y})`);
+      foto(`etapa ${e} parado`);
+      if (!npc) break;
+      sc.talkTo(npc); passa();
+      if (!p.vira) {   // o COMPLETO parado: é chefe
+        for (let i = 0; i < 60; i++) cena().update(1 / 30);
+        linhas.push(`  luta: topo=${cena().constructor.name} ${cena().foe?.species || ""} nv${cena().foe?.level || ""}`);
+        break;
+      }
+      for (let i = 0; i < 160 && !sc.dlg.active; i++) {
+        sc.update(1 / 30);
+        if ([20, 70, 85, 100].includes(i)) foto(`etapa ${e} cena t=${sc.zygCena?.t.toFixed(1)}`);
+      }
+      foto(`etapa ${e} virou`);
+      passa();
+      for (let i = 0; i < 20; i++) { sc.update(1 / 30); if (i === 12 && sc.zygCena) foto(`etapa ${e} fugindo`); }
+      passa();
+      for (let i = 0; i < 60; i++) cena().update(1 / 30);
+      linhas.push(`  depois: zygEtapa=${sc.st.flags.zygEtapa} cena=${!!sc.zygCena} topo=${cena().constructor.name} ${cena().foe?.species || ""}`);
+    }
+  }
+  linhas.push(errs.length ? "ERROS:\n" + errs.join("\n") : "sem erros");
+ } catch (e) { linhas.push("FALHOU: " + e.stack); }
+ // a tira: todos os quadros lado a lado, 4 por linha
+ const tira = document.createElement("canvas"), n = Math.max(1, quadros.length);
+ tira.width = 240 * Math.min(4, n); tira.height = 160 * Math.ceil(n / 4);
+ const tc = tira.getContext("2d");
+ for (let i = 0; i < quadros.length; i++) {
+   const im = new Image(); im.src = quadros[i]; await im.decode();
+   tc.drawImage(im, (i % 4) * 240, Math.floor(i / 4) * 160);
+ }
+ log.textContent = linhas.join("\n");
+ await fetch("/__capture", { method: "POST", headers: { "Content-Type": "application/json" },
+   body: JSON.stringify({ name: q.get("nome") || "zygardecheck", dataUrl: tira.toDataURL(), log: linhas.join("\n") }) });
+})();
+</script>
+</body>
+</html>

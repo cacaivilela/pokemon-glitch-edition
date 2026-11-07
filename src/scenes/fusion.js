@@ -73,16 +73,18 @@ export class FusionScene {
     if (this.modo === "fundir") {
       this.cabeca = args.cabeca;
       this.corpo = args.corpo;
-      this.fus = fundir(this.cabeca, this.corpo, args.variante || "");
+      this.pernas = args.pernas || null;           // a FUSÃO TRIPLA
+      this.fus = fundir(this.cabeca, this.corpo, args.variante || "", this.pernas);
       if (!this.fus) return void this.desistir(F().naoDaParaFundir);
       this.sp = DB.SPECIES[this.fus.species];
       this._esq = [this.cabeca.species, this.cabeca.seed];
       this._dir = [this.corpo.species, this.corpo.seed];
       this._meio = [this.fus.species, this.fus.seed];
+      if (this.pernas) this._ter = [this.pernas.species, this.pernas.seed];
       // já pede os três desenhos (o da ficha do jogador é um PNG que demora a
       // abrir: sem isto os pixels se juntariam na montagem automática)
       void [this.esq, this.dir, this.meio];
-      this.nomes = [this.cabeca.nickname, this.corpo.nickname];
+      this.nomes = [this.cabeca.nickname, this.corpo.nickname, ...(this.pernas ? [this.pernas.nickname] : [])];
       this.dlg.say(F().fundindo, () => { this.fase = "doido"; this.td = 0; this.marcos = new Set(); });
     } else {
       this.mon = args.mon;
@@ -93,6 +95,7 @@ export class FusionScene {
       this.k = 1;
       this._esq = [p.cabeca, this.mon.seed];
       this._dir = [p.corpo, this.mon.seed];
+      if (p.pernas) this._ter = [p.pernas, this.mon.seed];
       this._meio = [this.mon.species, this.mon.seed];
       this.nomes = this.partido.map((m) => m.nickname);
       this.dlg.say(F().separando, () => { this.fase = "andando"; });
@@ -107,6 +110,9 @@ export class FusionScene {
   get esq() { return this._esq && Assets.mon(...this._esq); }
   get dir() { return this._dir && Assets.mon(...this._dir); }
   get meio() { return this._meio && Assets.mon(...this._meio); }
+  get ter() { return this._ter && Assets.mon(...this._ter); }
+  /** onde cada um fica quando estão separados (x a partir do centro) */
+  get lados() { return this._ter ? [-76, 76, 0] : [-56, 56]; }
 
   /** deu ruim antes de começar (dados mudaram no meio): avisa e volta */
   desistir(msg) {
@@ -156,32 +162,34 @@ export class FusionScene {
     const msgs = [];
 
     if (this.modo === "fundir") {
-      const i = st.party.indexOf(this.cabeca);
-      const j = st.party.indexOf(this.corpo);
-      const lugar = Math.min(i, j);
-      st.party.splice(Math.max(i, j), 1);
-      st.party.splice(lugar, 1);
+      const quem = [this.cabeca, this.corpo, this.pernas].filter(Boolean);
+      const idx = quem.map((m) => st.party.indexOf(m)).sort((a, b) => b - a);
+      const lugar = idx[idx.length - 1];
+      for (const i of idx) st.party.splice(i, 1);
       st.party.splice(lugar, 0, this.fus);
-      msgs.push(F.fundiu
+      msgs.push((this.pernas ? F.fundiu3 : F.fundiu)
         .replace("{CABECA}", this.nomes[0]).replace("{CORPO}", this.nomes[1])
+        .replace("{PERNAS}", this.nomes[2] || "")
         .replace("{NOME}", this.fus.nickname));
       // o brilho de um passou pro outro: vale dizer, porque muda os dois pra sempre
       if (this.fus.brilhouNaFusao) msgs.push(F.brilhoPegou);
     } else {
-      const [cabeca, corpo] = this.partido;
+      const [cabeca, corpo, pernas] = this.partido;
       const i = st.party.indexOf(this.mon);
       st.party.splice(i, 1, cabeca);
-      msgs.push(F.separou
+      msgs.push((pernas ? F.separou3 : F.separou)
         .replace("{NOME}", this.mon.nickname)
-        .replace("{CABECA}", cabeca.nickname).replace("{CORPO}", corpo.nickname));
-      if (cabeca.shiny && corpo.shiny) msgs.push(F.saiuBrilhando);
-      if (st.party.length < 6) {
-        st.party.splice(i + 1, 0, corpo);
-      } else {
-        // PC lotado também: ele fica na sobra, esperando vaga (ver box.js)
-        if (!guardar(st, corpo)) (st.box ||= []).push(corpo);
-        msgs.push(F.foiProBox.replace("{MON}", corpo.nickname));
-      }
+        .replace("{CABECA}", cabeca.nickname).replace("{CORPO}", corpo.nickname)
+        .replace("{PERNAS}", pernas?.nickname || ""));
+      if (this.partido.every((m) => m.shiny)) msgs.push(F.saiuBrilhando);
+      [corpo, pernas].filter(Boolean).forEach((m, k) => {
+        if (st.party.length < 6) st.party.splice(i + 1 + k, 0, m);
+        else {
+          // PC lotado também: ele fica na sobra, esperando vaga (ver box.js)
+          if (!guardar(st, m)) (st.box ||= []).push(m);
+          msgs.push(F.foiProBox.replace("{MON}", m.nickname));
+        }
+      });
     }
     this.game.autosave?.(true);
     this.dlg.say(msgs, () => { this.fadeDir = 1; this.saindo = true; });
@@ -194,11 +202,13 @@ export class FusionScene {
     if (uma("musica") && DB.MUSIC?.fusao) Audio2.playSong(DB.MUSIC.fusao);
     if (td > 0.2 && uma("grito1")) tocarGrito(this.cabeca);
     if (td > 0.8 && uma("grito2")) tocarGrito(this.corpo);
+    if (this.pernas && td > 1.2 && uma("grito3")) tocarGrito(this.pernas);
     if (td > DOIDO.desfaz && uma("desfaz")) { this.montaPixels(); Audio2.noise(0.4, 0.5); this.flash = 0.35; }
     if (td > DOIDO.mistura && uma("mistura")) {
       // os dois gritos juntos, graves: os dois virando um só
       Audio2.grito(gritoDe(this.cabeca.species), 0.6);
       Audio2.grito(gritoDe(this.corpo.species), 0.55);
+      if (this.pernas) Audio2.grito(gritoDe(this.pernas.species), 0.5);
     }
     if (td > DOIDO.buum && uma("buum")) {
       this.tremor = 5;
@@ -219,9 +229,11 @@ export class FusionScene {
    *  ocupa no desenho da FUSÃO (na ordem de leitura: cabeça vira cabeça) */
   montaPixels() {
     const cx = CENTRO.x, cy = CENTRO.y;
+    const [l0, l1, l2] = this.lados;
     const de = [
-      ...pixelsDe(this.esq).map((p) => ({ ...p, ox: cx - 56 })),
-      ...pixelsDe(this.dir).map((p) => ({ ...p, ox: cx + 56 })),
+      ...pixelsDe(this.esq).map((p) => ({ ...p, ox: cx + l0 })),
+      ...pixelsDe(this.dir).map((p) => ({ ...p, ox: cx + l1 })),
+      ...(this._ter ? pixelsDe(this.ter).map((p) => ({ ...p, ox: cx + l2 })) : []),
     ].sort((a, b) => a.dy - b.dy || a.dx - b.dx);
     const para = pixelsDe(this.meio);
     if (!de.length || !para.length) { this.pixels = []; return; }
@@ -344,8 +356,10 @@ export class FusionScene {
     if (!pronto && td < DOIDO.desfaz) {
       // ENCARAM-SE: o sprite normal dos dois, um de cada lado, tremendo
       const tr = td * 1.5, sx = () => Math.round((Math.random() - 0.5) * tr);
-      bichoNoPalco(ctx, this.esq, cx - 56 - LADO / 2 + sx(), cy - LADO / 2 + sx(), LADO, LADO);
-      bichoNoPalco(ctx, this.dir, cx + 56 - LADO / 2 + sx(), cy - LADO / 2 + sx(), LADO, LADO);
+      const [l0, l1, l2] = this.lados;
+      if (this._ter) bichoNoPalco(ctx, this.ter, cx + l2 - LADO / 2 + sx(), cy - LADO / 2 + sx(), LADO, LADO);
+      bichoNoPalco(ctx, this.esq, cx + l0 - LADO / 2 + sx(), cy - LADO / 2 + sx(), LADO, LADO);
+      bichoNoPalco(ctx, this.dir, cx + l1 - LADO / 2 + sx(), cy - LADO / 2 + sx(), LADO, LADO);
     } else if (!pronto) {
       this.desenhaPixels(ctx);
     } else {
@@ -362,7 +376,7 @@ export class FusionScene {
     // o título e o nome, com a letra tremendo junto
     const F = DB.STORY.fusao;
     drawText(ctx, F.titulo, 8, 8, PAL.glitch);
-    const nome = pronto ? this.fus.nickname : `${this.nomes[0]} + ${this.nomes[1]}`;
+    const nome = pronto ? this.fus.nickname : this.nomes.join(" + ");
     drawText(ctx, nome, Math.round(W / 2 - nome.length * 3), 104, PAL.paper);
     this.dlg.render(ctx);
     if (this.flash > 0) {
@@ -425,11 +439,12 @@ export class FusionScene {
     }
     if (!junto || this.modo === "separar") {
       // os dois lados: longe no começo, colados no fim (a separação é o inverso)
-      const dist = Math.round((1 - this.k) * 44);
+      const dist = Math.round((1 - this.k) * (this._ter ? 72 : 44));
       const esc = 1 - this.k * 0.12;
       const lado = LADO * esc;
       const dy = CENTRO.y - lado / 2;
       const arte = (img) => (junto || this.k < 0.85 ? img : Assets.silhueta(img));
+      if (this._ter) bichoNoPalco(ctx, arte(this.ter), Math.round(CENTRO.x - lado / 2), dy - Math.round((1 - this.k) * 20), lado, lado);
       bichoNoPalco(ctx, arte(this.esq), Math.round(CENTRO.x - dist - lado / 2), dy, lado, lado);
       bichoNoPalco(ctx, arte(this.dir), Math.round(CENTRO.x + dist - lado / 2), dy, lado, lado);
     }
@@ -443,8 +458,7 @@ export class FusionScene {
 
     ctx.restore();
     const nome = junto && this.modo === "fundir" ? this.fus.nickname
-      : junto ? this.nomes.join(" + ")
-      : `${this.nomes[0]} + ${this.nomes[1]}`;
+      : this.nomes.join(" + ");
     drawText(ctx, nome, Math.round(W / 2 - nome.length * 3), 104, PAL.paper);
 
     this.dlg.render(ctx);

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Calculadora de Fusões</title>
+<!-- A CALCULADORA DE FUSÕES (pedido do CAIO, nov/2026): escolhe a CABEÇA, o
+     CORPO (e, se quiser, as PERNAS) e vê a fusão do jeito que o jogo monta —
+     desenho, nome, tipos, status, o número na DEX INFINITA e o grito misturado. -->
+<style>
+  :root { --fundo: #1b2030; --painel: #262d42; --texto: #eef2ff; --acento: #ffd860; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fundo); color: var(--texto); font: 16px system-ui, sans-serif; }
+  header { padding: 14px 16px 4px; }
+  h1 { margin: 0; color: var(--acento); font-size: 24px; }
+  main { display: flex; flex-wrap: wrap; gap: 16px; padding: 12px 16px 24px; }
+  .caixa { background: var(--painel); border-radius: 12px; padding: 14px; }
+  .escolha { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+  .parte { width: 170px; text-align: center; }
+  .parte label { display: block; font-weight: bold; margin-bottom: 6px; }
+  .parte input { width: 100%; padding: 8px; border-radius: 8px; border: 0; font-size: 15px; }
+  .parte canvas { width: 128px; height: 128px; image-rendering: pixelated; background: #fff; border-radius: 10px; margin-top: 8px; }
+  .botoes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  button { background: #3a4466; color: var(--texto); border: 0; border-radius: 8px; padding: 9px 14px; font-size: 15px; cursor: pointer; }
+  button:hover { background: #4a5680; }
+  #resultado { flex: 1; min-width: 300px; }
+  #grande { width: 256px; height: 256px; image-rendering: pixelated; background: #fff; border-radius: 12px; display: block; }
+  #nome { font-size: 30px; font-weight: bold; color: var(--acento); margin: 10px 0 4px; }
+  .tipo { display: inline-block; padding: 3px 10px; border-radius: 6px; margin-right: 6px; font-weight: bold; color: #111; }
+  .stat { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+  .stat span:first-child { width: 90px; }
+  .barra { flex: 1; height: 12px; background: #1b2030; border-radius: 6px; overflow: hidden; }
+  .barra div { height: 100%; }
+  #numero { color: #c8d0ff; margin-bottom: 8px; }
+  .aviso { color: #c8d0ff; font-size: 14px; }
+</style>
+</head>
+<body>
+<header><h1>🧬 CALCULADORA DE FUSÕES</h1><p class="aviso">Escreva o nome (ou o número) de cada um. As pernas são opcionais: com elas vira FUSÃO TRIPLA.</p></header>
+<main>
+  <div class="caixa">
+    <div class="escolha">
+      <div class="parte"><label>CABEÇA</label><input id="cab" list="nomes" value="PIKACHU"><canvas id="vcab" width="64" height="64"></canvas></div>
+      <div class="parte"><label>CORPO</label><input id="cor" list="nomes" value="CHARMANDER"><canvas id="vcor" width="64" height="64"></canvas></div>
+      <div class="parte"><label>PERNAS (opcional)</label><input id="per" list="nomes" value=""><canvas id="vper" width="64" height="64"></canvas></div>
+    </div>
+    <div class="botoes">
+      <button id="fundir">🧬 FUNDIR</button>
+      <button id="trocar">🔄 TROCAR CABEÇA E CORPO</button>
+      <button id="sorte">🎲 SORTEAR</button>
+      <button id="grito">🔊 OUVIR O GRITO</button>
+    </div>
+    <datalist id="nomes"></datalist>
+  </div>
+  <div class="caixa" id="resultado">
+    <canvas id="grande" width="64" height="64"></canvas>
+    <div id="nome">...</div>
+    <div id="numero"></div>
+    <div id="tipos"></div>
+    <div id="stats" style="margin-top:10px"></div>
+  </div>
+</main>
+<script type="module">
+import { DB } from "/src/data/index.js";
+import { Assets } from "/src/core/assets.js";
+import { pedirMon } from "/src/core/sprites.js";
+import * as F from "/src/systems/fusao.js";
+import { tocarGrito } from "/src/systems/gritos.js";
+Assets.init?.();
+
+// os Pokémon de verdade (os mesmos da DEX INFINITA)
+const BASE = Object.values(DB.SPECIES).filter((sp) => sp.dex > 0 && sp.dex <= 1025 && !sp.fusao
+  && (sp.spriteDex || sp.dex) === sp.dex && !/mega|gmax|brag|vinculo|carnaval|-/.test(sp.id)).sort((a, b) => a.dex - b.dex);
+const lista = document.getElementById("nomes");
+for (const sp of BASE) { const o = document.createElement("option"); o.value = sp.name; lista.appendChild(o); }
+const acha = (t) => {
+  t = String(t || "").trim().toUpperCase();
+  if (!t) return null;
+  if (/^\d+$/.test(t)) return BASE.find((s) => s.dex === +t) || null;
+  return BASE.find((s) => s.name === t) || BASE.find((s) => s.name.startsWith(t)) || null;
+};
+const NOMES_STAT = { hp: "HP", atk: "ATAQUE", def: "DEFESA", spa: "ATQ ESP", spd: "DEF ESP", spe: "VELOCIDADE" };
+let atual = null;
+
+function desenha(cv, img) {
+  const g = cv.getContext("2d"); g.imageSmoothingEnabled = false;
+  g.clearRect(0, 0, cv.width, cv.height);
+  if (img) g.drawImage(img, 0, 0, cv.width, cv.height);
+}
+async function esperaSprites(ids) {
+  for (const id of ids) { const sp = DB.SPECIES[id]; pedirMon(sp.id, sp.spriteDex || sp.dex); }
+  // o desenho chega pela rede; tenta algumas vezes até os três estarem lá
+  for (let k = 0; k < 40; k++) { if (ids.every((id) => Assets.mon(id, 7) && Assets.mon(id, 7).width > 16)) return; await new Promise((r) => setTimeout(r, 150)); }
+}
+
+async function fundir() {
+  const cab = acha(document.getElementById("cab").value), cor = acha(document.getElementById("cor").value), per = acha(document.getElementById("per").value);
+  if (!cab || !cor) { document.getElementById("nome").textContent = "ESCOLHA A CABEÇA E O CORPO"; return; }
+  const ids = [cab.id, cor.id, ...(per ? [per.id] : [])];
+  document.getElementById("nome").textContent = "FUNDINDO...";
+  await esperaSprites(ids);
+  desenha(document.getElementById("vcab"), Assets.mon(cab.id, 7));
+  desenha(document.getElementById("vcor"), Assets.mon(cor.id, 7));
+  desenha(document.getElementById("vper"), per ? Assets.mon(per.id, 7) : null);
+  const id = F.idFusao(cab.id, cor.id, "", per ? per.id : "");
+  const sp = F.garantirEspecie(id);
+  if (!sp) { document.getElementById("nome").textContent = "ESSA NÃO DÁ PRA FUNDIR"; return; }
+  atual = id;
+  // a montagem pode levar um instante: desenha de novo quando os pedaços mudarem
+  desenha(document.getElementById("grande"), Assets.mon(id, 7));
+  setTimeout(() => desenha(document.getElementById("grande"), Assets.mon(id, 7)), 400);
+  document.getElementById("nome").textContent = sp.name;
+  const n = per ? null : BASE.findIndex((s) => s.id === cab.id) * BASE.length + BASE.findIndex((s) => s.id === cor.id) + 1;
+  document.getElementById("numero").textContent = n ? `Nº ${String(n).padStart(7, "0")} NA DEX INFINITA  ·  TOTAL ${sp.bst}` : `FUSÃO TRIPLA  ·  TOTAL ${sp.bst}`;
+  document.getElementById("tipos").innerHTML = sp.types.map((t) => `<span class="tipo" style="background:${DB.TYPE_COLOR?.[t] || "#ccc"}">${t}</span>`).join("");
+  document.getElementById("stats").innerHTML = Object.entries(NOMES_STAT).map(([k, nome]) => {
+    const v = sp.base?.[k] || 0, cor = v >= 100 ? "#40d060" : v >= 70 ? "#e8c030" : "#e06040";
+    return `<div class="stat"><span>${nome}</span><span style="width:34px;text-align:right">${v}</span><div class="barra"><div style="width:${Math.min(100, v / 1.8)}%;background:${cor}"></div></div></div>`;
+  }).join("");
+}
+document.getElementById("fundir").onclick = fundir;
+for (const i of ["cab", "cor", "per"]) document.getElementById(i).addEventListener("change", fundir);
+document.getElementById("trocar").onclick = () => { const a = document.getElementById("cab"), b = document.getElementById("cor"); [a.value, b.value] = [b.value, a.value]; fundir(); };
+document.getElementById("sorte").onclick = () => {
+  const r = () => BASE[Math.floor(Math.random() * BASE.length)].name;
+  document.getElementById("cab").value = r(); document.getElementById("cor").value = r(); document.getElementById("per").value = "";
+  fundir();
+};
+document.getElementById("grito").onclick = () => { if (atual) tocarGrito(atual); };
+// ?cab=pikachu&cor=charmander&per=machamp abre já com esses
+const q = new URLSearchParams(location.search);
+for (const [k, i] of [["cab", "cab"], ["cor", "cor"], ["per", "per"]]) if (q.get(k)) document.getElementById(i).value = q.get(k).toUpperCase();
+fundir();
+</script>
+</body>
+</html>

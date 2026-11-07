@@ -1,10 +1,12 @@
 // Encontros na grama alta + a chance corrompida da GLITCH EDITION.
+import { extraShiny } from "./pesquisa.js";
+import { golpeDeAlfa } from "./maquinas.js";
 import { DB } from "../data/index.js";
-import { createMon, sortearBrilho } from "./mon.js";
+import { fatorEstatua } from "./subterraneo.js";
+import { createMon, sortearBrilho, shiniesLiberados } from "./mon.js";
+import { alfaDoEvento } from "./raid.js";
 import { garantirEspecie } from "./fusao.js";
 import { randRange, chance } from "../core/rng.js";
-
-export const ENCOUNTER_RATE = 0.11; // fallback; o valor real vem de DB.CONFIG.encounterRate
 
 /** Encontro dentro da 011GLITCHDIMENSION110.
  *  A tabela depende do terreno do tile (ar / terra / água) e cada terreno tem
@@ -20,7 +22,8 @@ export function rollDimEncounter(terrain, state) {
   // você vai e virou uma coisa que vaza pra cá.
 
   state.dimSeen = (state.dimSeen || 0) + 1;
-  // aqui o shiny é contado, não sorteado
+  // aqui o shiny é contado, não sorteado; o luminoso é sorteado como em todo
+  // lugar — e quando sai, é ele que aparece
   const brilho = sortearBrilho({ shiny: state.dimSeen % (DB.SHINY_EVERY || 2956) === 0 });
 
   // o intruso não olha terreno nenhum
@@ -42,15 +45,18 @@ export function rollDimEncounter(terrain, state) {
       // `corrupt: true` na entrada nasce corrompido SEMPRE (é o caso das FORMAS
       // HACKEANAS, que são literalmente isso) — igual ao que a tabela de Kanto
       // já fazia logo abaixo. O resto da fenda continua na chance de sempre.
+      // as MISSÕES DA POKÉDEX completas: mais 2 sorteios de shiny (3x no total)
+      let cor = brilho;
+      if (!cor.shiny && !cor.luminoso && extraShiny(globalThis.game?.state, e.id)) { const c2 = sortearBrilho({ sorte: extraShiny(globalThis.game?.state, e.id) }); if (c2.shiny) cor = c2; }
       const { lvl, opts } = talvezAlfa(randRange(e.min, e.max),
-        { ...brilho, corrupt: !!e.corrupt || chance(0.15) });
+        { ...cor, corrupt: !!e.corrupt || chance(0.15) });
       return { mon: createMon(e.id, lvl, opts), glitch: true };
     }
   }
   return null;
 }
 
-/** As flores da VILA PALETA depois que o mundo bugou (`flores` em maps.js).
+/** As flores da CIDADE DE PALLET depois que o mundo bugou (`flores` em maps.js).
  *  Não olha tabela de encontro nem corrupção: se o mundo está quebrado, é ali
  *  que MISSINGNO. encosta — a flor é o pedaço de tela mais velho do cartucho. */
 export function rollFlores(min = 5, max = 12) {
@@ -71,22 +77,26 @@ function formaDoMissingno() {
  *  raridade deles. Devolve as opções de createMon já com o nível ajustado. */
 function talvezAlfa(lvl, opts = {}) {
   const C = DB.CONFIG || {};
-  if (!chance(C.alfaOdds ?? 0)) return { lvl, opts };
+  // o TERROR ALFA (src/data/eventos.js): no dia dele, todo selvagem é alfa
+  if (!alfaDoEvento() && !chance(C.alfaOdds ?? 0)) return { lvl, opts };
   const [a, b] = C.alfaNiveis || [6, 12];
   return { lvl: Math.min(100, lvl + randRange(a, b)), opts: { ...opts, alfa: true } };
 }
 
-export function rollEncounter(mapId, corruption = 0, glitchOn = false, sorte = 1, brilhoForcado = null) {
+export function rollEncounter(mapId, corruption = 0, glitchOn = false, sorte = 1, brilhoForcado = null, pos = null) {
   const map = DB.MAPS[mapId];
-  const table = map?.encounters || [];
+  // ZONAS (as ZONAS SELVAGENS de LUMIOSE, src/data/kalos.js): um retângulo do
+  // mapa com a tabela própria — cada zona tem os bichos e o nível dela
+  const zona = pos && map?.zonas?.find((z) => pos.x >= z.x0 && pos.x <= z.x1 && pos.y >= z.y0 && pos.y <= z.y1);
+  const table = zona?.encounters || map?.encounters || [];
   if (!table.length) return null;
 
   // MISSINGNO. só existe com o modo glitch ligado (src/data/config.js)
   const on = glitchOn || DB.CONFIG?.glitchMode;
   const glitchChance = !on || corruption < 25 ? 0 : Math.min(0.35, (corruption - 25) / 200);
-  // a cor do bicho: comum ou shiny — ou o que um DLC já decidiu (a SHINY
-  // ZONE manda a cor pronta)
-  const brilho = brilhoForcado || sortearBrilho({ sorte });
+  // a cor do bicho: comum, shiny ou luminoso — ou o que um DLC já decidiu
+  // (a SHINY ZONE manda a cor pronta, pra mexer no shiny sem inflar o luminoso)
+  const brilho = (shiniesLiberados() && brilhoForcado) || sortearBrilho({ sorte });
   if (chance(glitchChance)) {
     const lvl = randRange(5, 12);
     return { mon: createMon(formaDoMissingno(), lvl, { corrupt: true, ...brilho }), glitch: true };
@@ -109,8 +119,22 @@ export function rollEncounter(mapId, corruption = 0, glitchOn = false, sorte = 1
       // `corrupt: true` na entrada da tabela: esse nasce corrompido sempre (é
       // o que os DLCs usam pra pôr bicho bugado num lugar específico)
       const corrupt = !!e.corrupt || (!!on && corruption > 40 && chance(Math.min(0.15, corruption / 800)));
-      const { lvl, opts } = talvezAlfa(randRange(e.min, e.max), { corrupt, ...brilho });
-      return { mon: createMon(e.id, lvl, opts), glitch: false };
+      // A ESTÁTUA na base da região (src/systems/subterraneo.js): mais uma chance,
+      // de 4x, por cima da normal — no total, 5x
+      let cor = brilho;
+      if (!cor.shiny && !cor.luminoso && fatorEstatua(e.id, mapId) > 1) cor = sortearBrilho({ sorte: sorte * (fatorEstatua(e.id, mapId) - 1) });
+      const { lvl, opts } = talvezAlfa(randRange(e.min, e.max), { corrupt, ...cor });
+      // fusão na tabela (o GOTHITEPASS da TORRE POKÉMON): monta a espécie antes
+      if (!DB.SPECIES[e.id] && String(e.id).startsWith("fus-")) garantirEspecie(e.id);
+      const mon = createMon(e.id, lvl, opts);
+      // o ALFA nasce sabendo um GOLPE FORTE de MT (src/systems/maquinas.js: GIGA IMPACTO, HIPER-RAIO...)
+      if (mon.alfa) {
+        const g = golpeDeAlfa(mon);
+        if (g) { const novo = { id: g, pp: DB.MOVES[g].pp, ppMax: DB.MOVES[g].pp }; if (mon.moves.length < 4) mon.moves.push(novo); else mon.moves[mon.moves.length - 1] = novo; }
+      }
+      // os MINI lendários do espaço (src/data/espaco.js): pequenininhos, com "MINI" no nome
+      if (e.mini) { mon.mini = true; mon.alfa = false; mon.nickname = `MINI ${mon.nickname}`; }
+      return { mon, glitch: false };
     }
   }
   return null;

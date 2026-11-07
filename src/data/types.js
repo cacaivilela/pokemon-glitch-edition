@@ -14,6 +14,9 @@ export const TYPE_COLOR = {
   "AÇO": "#b8b8d0", FOGO: "#f08030", "ÁGUA": "#6890f0", PLANTA: "#78c850",
   "ELÉTRICO": "#f8d030", "PSÍQUICO": "#f85888", GELO: "#98d8d8", "DRAGÃO": "#7038f8",
   SOMBRIO: "#705848", FADA: "#ee99ac", GLITCH: "#b455ff",
+  // LUZ: o tipo do CLARÃO ILUMINADO, o golpe dos LUMINOSOS. Só existe em golpe —
+  // nenhum Pokémon é do tipo LUZ, por isso ele fica fora de TYPES
+  LUZ: "#fff3b0",
 };
 
 // CHART[atacante][defensor] = multiplicador (omitido = 1)
@@ -37,6 +40,9 @@ export const CHART = {
   SOMBRIO:    { "PSÍQUICO": 2, FANTASMA: 2, LUTADOR: 0.5, SOMBRIO: 0.5, "AÇO": 0.5, FADA: 0.5 },
   FADA:       { LUTADOR: 2, "DRAGÃO": 2, SOMBRIO: 2, FOGO: 0.5, VENENO: 0.5, "AÇO": 0.5 },
   GLITCH:     { NORMAL: 2, GLITCH: 0.5, INSETO: 0.5 },
+  // a luz que ARCEUS deu aos luminosos no dia mais sombrio: acaba com sombra e
+  // fantasma; o AÇO reflete ela
+  LUZ:        { SOMBRIO: 2, FANTASMA: 2, "AÇO": 0.5 },
 };
 
 export function effectiveness(atkType, defTypes) {

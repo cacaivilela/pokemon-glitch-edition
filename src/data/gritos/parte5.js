@@ -292,6 +292,14 @@ export const GRITOS = {
   paubrasilisco: { som: "PÁU-BRA-SÍ-LIS-CÔÔ! CRAAAC", mais: ["PÁU! BRA-SIL! CRAC!", "LIS-CÔ... CREEC... VENTO"], s: [[300, 320, 120, "s", 0, 0.3], [340, 360, 100, "s"], [380, 420, 110, "q"], [360, 380, 100, "q"], [380, 220, 500, "s", 5, 0.45], [0, 0, 40, "_"], [150, 120, 400, "s", 25, 0.6], [800, 100, 200, "n"]] },
 
   saci: { som: "FIU-FIIU! HEHÉ! TUC... FUUUU", mais: ["FIU! HEHÉ! TUC-TUC!", "FUUUU... CADÊ MEU GORRO?"], s: [[1800, 2600, 90, "o", 6], [0, 0, 30, "_"], [1800, 2800, 140, "o", 6], [0, 0, 50, "_"], [1400, 1300, 60, "p"], [0, 0, 30, "_"], [1600, 1400, 80, "p"], [0, 0, 40, "_"], [300, 180, 50, "t", 0, 0.3], [0, 0, 60, "_"], [500, 3500, 350, "n"], [3500, 400, 350, "n"]] },
+  // o VOLTURG (criado pelo CAIO): a explosão do casco, o "volto" e o rugido
+  volturg: { som: "KABUM! VOLTO... RUUUUUGAA!", mais: ["KABUM! KABUM!", "VOLTO... VOLTO..."], s: [[200, 60, 120, "n", 0, 0.6], [90, 50, 180, "t", 0, 0.6], [0, 0, 90, "_"], [420, 380, 110, "q"], [0, 0, 25, "_"], [360, 300, 160, "q"], [0, 0, 220, "_"], [140, 180, 500, "s", 8, 0.5], [180, 240, 350, "s", 6, 0.5]] },
+  // o VOLTABUM: o mesmo grito, mais grave, com a explosão maior
+  voltabum: { som: "KABUUUM! VOLTO... RUUUUUGAA!", mais: ["KABUUUM!", "TSSSS... KABUM!"], s: [[160, 40, 200, "n", 0, 0.7], [70, 35, 260, "t", 0, 0.7], [0, 0, 90, "_"], [330, 300, 120, "q"], [0, 0, 25, "_"], [280, 230, 180, "q"], [0, 0, 200, "_"], [110, 150, 600, "s", 8, 0.55], [150, 200, 420, "s", 6, 0.55]] },
+  // o GHOTOLT: o chiado do espírito saindo da casca
+  ghotolt: { som: "SSSSSSH... GHOTOST....", mais: ["SSSSH...", "GHO... TOST..."], s: [[4000, 2500, 500, "n", 0, 0.25], [0, 0, 120, "_"], [300, 260, 220, "o", 10, 0.4], [0, 0, 60, "_"], [260, 180, 520, "o", 12, 0.35]] },
+  // a MONSTELA: o chiado da TV ligando, o "TEEEE" comprido e o "LAA" caindo
+  monstela: { som: "TEEEEEEEELAA!", mais: ["TELA! TELA!", "TEEELA... CHHHH..."], s: [[3200, 3200, 70, "n", 0, 0.2], [0, 0, 30, "_"], [880, 950, 560, "q", 6, 0.3], [950, 600, 280, "q", 0, 0.35], [0, 0, 40, "_"], [1760, 1760, 40, "f"]] },
 
   capivarinha: { som: "CRRÔ-CRRÔ... UÍN?", mais: ["CRÔ! CRÔ! UÍN!", "CRRÔ... ZZZ... UÍN..."], s: [[320, 350, 160, "t", 28, 0.2], [0, 0, 50, "_"], [300, 320, 180, "t", 28, 0.2], [0, 0, 120, "_"], [800, 1250, 180, "o"]] },
   capivarao: { som: "CRRRÔÔÔ... HUMMM. CRÔ", mais: ["CRÔ-CRÔ! HUM!", "HUUUMMM... DE BOA... ZZZ"], s: [[200, 220, 300, "t", 22, 0.25], [220, 190, 300, "t", 22, 0.25], [0, 0, 150, "_"], [260, 240, 400, "o", 3], [0, 0, 80, "_"], [180, 170, 200, "t", 22, 0.2]] },

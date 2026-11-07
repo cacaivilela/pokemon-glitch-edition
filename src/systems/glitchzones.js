@@ -9,7 +9,7 @@
 import { DB } from "../data/index.js";
 import { makeRng } from "../core/rng.js";
 import { makeCanvas, TILE } from "../core/assets.js";
-import { SpriteStore, loadImage } from "../core/sprites.js";
+import { SpriteStore, loadImage, arquivoMapa } from "../core/sprites.js";
 import { url } from "../core/base.js";
 
 /** o id do mapa da zona. É um só: existe no máximo uma zona por save. */
@@ -43,7 +43,7 @@ export function mapasPossiveis() {
   fontes = Object.entries(DB.KANTO || {})
     .filter(([id, geo]) => {
       if (fora.has(id) || id === ZONA || !geo?.tags) return false;
-      if (DB.MAPS?.[id]?.interior) return false;
+      if (DB.MAPS?.[id]?.interior || DB.MAPS?.[id]?.fenda) return false;   // fenda não é fonte (dlc/extrema.js)
       if ((DB.ERAS || []).some((e) => e.mapa === id)) return false;
       return geo.w * geo.h >= minimo;
     })
@@ -249,8 +249,7 @@ export function entrarNaZona(st, z, volta) {
 // ------------------------------------------------- zonas personalizadas
 // Uma zona é POUCA COISA: fonte, semente, tamanho dos pedaços, pimenta, o tile
 // onde se cai, as trocas feitas na mão e um nome. Cabe numa linha — e uma
-// linha cabe num link. É assim que uma zona montada na oficina (glitchzone/)
-// chega em outra pessoa: o código vai no `?area=` e o jogo dela remonta o
+// linha cabe num link. É assim que uma zona montada chega em outra pessoa: o código vai no `?area=` e o jogo dela remonta o
 // MESMO lugar, tile por tile.
 //
 //   fonte.semente.bloco.soltos.x.y.trocas[.nome]
@@ -367,11 +366,11 @@ export function prepararArte(z) {
     }
     return cv;
   };
-  loadImage(url(`assets/maps/${z.fonte}.png`)).then((img) => {
+  loadImage(url(arquivoMapa(z.fonte))).then((img) => {
     if (DB.KANTO?.[ZONA]?.seed !== z.seed) return;      // trocou de zona no meio
     SpriteStore.maps[ZONA] = monta(img, false);
   });
-  loadImage(url(`assets/maps/${z.fonte}_over.png`)).then((img) => {
+  loadImage(url(arquivoMapa(z.fonte, true))).then((img) => {
     if (DB.KANTO?.[ZONA]?.seed !== z.seed) return;
     SpriteStore.maps[ZONA + "_over"] = img ? monta(img, true) : null;
   });

@@ -9,6 +9,10 @@
 export const ONLINE = {
   /** liga as funções online. Desligado, o jogo é exatamente o de antes. */
   ativo: true,
+  /** entrar SOZINHO na sala quando o jogo abre. Desligado a pedido do CAIO
+   *  (nov/2026): o jogo abre fora do online, e quem quiser entra pelo menu
+   *  ONLINE (ou com `?sala=X` no endereço) */
+  entraSozinho: false,
   /** sala de quem não escolheu nenhuma */
   salaPadrao: "kanto",
   /** manda a posição no máximo a cada tantos segundos (só quando muda) */
@@ -102,4 +106,18 @@ export const ONLINE_TEXTO = {
   batalhaPerdeu: "VOCÊ PERDEU PRA {NOME}.",
   batalhaFugiu: "{NOME} DESISTIU DA BATALHA.",
   batalhaNadaVale: "NINGUÉM GANHA XP NEM DINHEIRO NA BATALHA LINK. É SÓ ORGULHO.",
+};
+
+/** OS BONECOS DA IA (online_robos.py, no servidor). Com eles a batalha é
+ *  COMUM — a de treinador, com a tela de sempre, XP e dinheiro — e a troca é a
+ *  COMUM, a de NPC (src/scenes/trocanpc.js). `retrato`: o desenho de batalha
+ *  (assets/sprites/trainers/); `time`: de onde saem os 3 da batalha (no nível
+ *  médio da sua equipe); `trocas`: o que ele oferece (no nível do que você dá).
+ *  As listas são as mesmas do online_robos.py (TIMES, TROCAS). */
+export const BONECOS_IA = {
+  "ia-zeca": { retrato: "garoto", time: ["pidgeot", "arcanine", "dugtrio", "sandslash"], trocas: ["eevee", "vulpix", "growlithe", "ponyta"] },
+  "ia-bia": { retrato: "garota", time: ["clefable", "wigglytuff", "raichu", "togetic"], trocas: ["pikachu", "jigglypuff", "togepi", "oddish"] },
+  "ia-tonho": { retrato: "pescador", time: ["gyarados", "starmie", "kingler", "lapras"], trocas: ["poliwag", "psyduck", "staryu", "shellder"] },
+  "ia-lulu": { retrato: "cientista", time: ["alakazam", "porygon2", "magneton", "exeggutor"], trocas: ["abra", "porygon", "magnemite", "voltorb"] },
+  "ia-dudu": { retrato: "motoqueiro", time: ["dragonite", "gengar", "snorlax", "machamp", "tyranitar"], trocas: ["dratini", "gastly", "machop", "larvitar"] },
 };

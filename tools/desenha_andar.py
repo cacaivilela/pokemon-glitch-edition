@@ -23,7 +23,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pixelart import Tela, escurecer  # noqa: E402
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(RAIZ, "assets", "sprites", "pokemon", "andar")
+# desde 02/nov/2026 o jogo usa os do Mystery Dungeon (tools/fetch_andar.py); os
+# desenhados ficam guardados à parte, pra voltar se o CAIO quiser
+OUT = os.path.join(RAIZ, "assets", "sprites", "pokemon", "andar", "desenhados")
 from andar_base import *  # noqa: E402,F401,F403
 import andar_base  # noqa: E402
 
@@ -752,7 +754,9 @@ def main():
         prev.convert("RGB").resize((prev.width * 5, prev.height * 5), 0).save(saida)
         return print("prévia em", saida)
     os.makedirs(OUT, exist_ok=True)
-    indice = {}
+    # mantém os baixados do Mystery Dungeon (tools/fetch_andar.py); os daqui ganham
+    arq = os.path.join(OUT, "andar.json")
+    indice = json.load(open(arq, encoding="utf-8")) if os.path.exists(arq) else {}
     for dex, desenho in sorted(desenhos.items()):
         folha_do(desenho, tamanhos.get(dex, 1)).save(os.path.join(OUT, f"{dex:03d}.png"))
         indice[f"{dex:03d}"] = [L, L, len(QUADROS), [150] * len(QUADROS)]

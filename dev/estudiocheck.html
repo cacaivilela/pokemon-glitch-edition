@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>checagem dos efeitos do estúdio</title></head>
+<body style="background:#111;color:#9fd;font:13px monospace">
+<div id="log">rodando...</div>
+<iframe id="fr" style="width:1200px;height:900px;border:0"></iframe>
+<img id="hold" alt="" width="1" height="1">
+<script>
+// Clica em cada efeito do ESTÚDIO DE GRITOS (estudio/) num Pokémon e confere
+// que o grito continua válido: sílabas com número de verdade, dentro da faixa
+// do sintetizador, e nunca vazio. Não salva nada (a galeria é do navegador).
+const fr = document.getElementById("fr"), log = document.getElementById("log");
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+(async () => {
+  const L = [], ruins = [];
+  try {
+    fr.src = "/estudio/?mon=caterpie";
+    let d;
+    for (let i = 0; i < 100 && !(d = fr.contentDocument)?.querySelector("[data-ef]"); i++) await espera(100);
+    await espera(500);
+    const bts = [...d.querySelectorAll("[data-ef]")];
+    L.push(`efeitos na página: ${bts.length} | grupos: ${[...d.querySelectorAll(".efeitos .grupo")].map((g) => g.textContent).join(", ")}`);
+    const medida = () => d.getElementById("medida").textContent;
+    for (const b of bts) {
+      d.getElementById("recomeca").click();
+      const antes = medida();
+      b.click();
+      await espera(30);
+      const depois = medida();
+      // o grito em edição não é global: lê o que o rolo mostra pela medida e
+      // confere que não quebrou (texto com segundos e sílabas)
+      const ok = /^\d+,\d\d s · \d+ sílaba/.test(depois);
+      if (!ok) ruins.push(`${b.dataset.ef}: "${depois}"`);
+      L.push(`  ${b.dataset.ef.padEnd(11)} ${antes}  →  ${depois}`);
+    }
+  } catch (e) { L.push("QUEBROU: " + (e && e.stack || e)); }
+  L.push(ruins.length ? "RUINS: " + ruins.join(" | ") : "todos ok");
+  log.textContent = L.join("\n");
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "estudiocheck", log: L.join("\n") }) });
+})();
+document.getElementById("hold").src = "/__delay?ms=20000";
+</script></body></html>

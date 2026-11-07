@@ -35,6 +35,8 @@ export const CATALOGO = [
     descricao: "Cor trocada em dobro: shiny quatro vezes mais fácil em Kanto inteira, uma feirante em Celadon, e nove cartões com um shiny cada." },
   { id: "vizinhas", nome: "REGIÕES VIZINHAS", arquivo: "dlc/vizinhas.js",
     descricao: "Os iniciais e as formas das outras regiões saem da fenda e nascem no mato de Kanto; nove cartões trazem um de cada região." },
+  { id: "extrema", nome: "GLITCH DIMENSION EXTREMA", arquivo: "dlc/extrema.js",
+    descricao: "Um ano depois do fim da sua história (Kanto ou Braglitch): a festa dos professores, você de um ano atrás e o MISSINGNO que absorveu o GIRATINA. A fenda e o Mundo Distorcido viraram uma coisa só — tudo lá tem +100 níveis, e quem leva é o GLITNEXY, por um espetinho de berries." },
 ];
 
 const CHAVE = "pge.dlc";
@@ -89,6 +91,7 @@ function especieDoDLC(id, sp) {
     ...(sp.learnset ? { learnset: sp.learnset } : {}),
     ...(sp.dexText || sp.lore ? { dexText: sp.dexText || sp.lore } : {}),
     ...(sp.spriteDex ? { spriteDex: sp.spriteDex } : {}),
+    ...(sp.formaDe ? { formaDe: sp.formaDe } : {}),     // uma forma de outra espécie (o GLITNEXY EXTREMO)
     ...(sp.placeholder ? { placeholder: sp.placeholder } : {}),
   };
   const pronta = buildSpecies({ [id]: crua }, DB.TYPE_COLOR || {})[id];
@@ -112,7 +115,7 @@ function escrever(caminho, valor) {
 
 /** Registra um gancho: `viajar(st)` depois de trocar de mapa, `encontrar(st, bicho)`
  *  quando um selvagem vira batalha, `brilho(st, sorte)` na hora de sortear a
- *  cor de um selvagem (devolve outra sorte, ou a cor pronta { shiny }),
+ *  cor de um selvagem (devolve outra sorte, ou a cor pronta { shiny, luminoso }),
  *  `hud(ctx, st, g)` pra desenhar por cima do
  *  mapa (g traz panel, drawText, bar, PAL, W, H) (src/scenes/overworld.js). */
 function gancho(quando, f) { (DB.GANCHOS ||= { viajar: [], encontrar: [], brilho: [], hud: [] })[quando]?.push(f); }

@@ -1,0 +1,121 @@
+<!doctype html>
+<!-- MARCAR A CARA DO DITTO (pedido do CAIO, nov/2026). Clica no OLHO 1, no
+     OLHO 2 e na BOCA de cada Pokémon. Salva sozinho em dev/captures/cara_ditto.log
+     (o jogo lê de lá e de src/data/cara-ditto.json). -->
+<meta charset="utf-8"><title>CARA DE DITTO</title>
+<style>
+  body { background: #2a2238; color: #fff; font: 16px monospace; margin: 12px; }
+  h1 { font-size: 22px; margin: 4px 0; color: #e0b0ff; }
+  #tela { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  canvas { image-rendering: pixelated; background: #eef; border: 3px solid #b878d0; cursor: crosshair; }
+  #ver { cursor: default; }
+  button { font: 16px monospace; padding: 8px 14px; margin: 4px; background: #b878d0; color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
+  button:hover { background: #d098e8; }
+  #dica { font-size: 20px; color: #ffe070; margin: 8px 0; }
+  #lista { display: flex; flex-wrap: wrap; gap: 3px; max-width: 980px; margin-top: 12px; }
+  #lista span { padding: 2px 5px; background: #443a55; border-radius: 4px; cursor: pointer; font-size: 12px; }
+  #lista span.feito { background: #3a8a4a; }
+  #lista span.agora { outline: 2px solid #ffe070; }
+</style>
+<h1>CARA DE DITTO</h1>
+<div id="dica">carregando...</div>
+<div id="tela">
+  <canvas id="marca" width="576" height="576"></canvas>
+  <div>
+    <div>COMO FICA:</div>
+    <canvas id="ver" width="288" height="288"></canvas>
+    <div>
+      <button id="ant">◀ ANTERIOR</button><button id="prox">PRÓXIMO ▶</button><br>
+      <button id="apagar">APAGAR ESTE</button><button id="pular">PULAR PRO PRÓXIMO SEM MARCA</button><br>
+      <label>IR PRO NÚMERO: <input id="ir" size="6"></label>
+    </div>
+    <div id="conta"></div>
+  </div>
+</div>
+<div id="lista"></div>
+<script type="module">
+import { DB } from "/src/data/index.js";
+import { pintarCaraDitto } from "/src/systems/caraditto.js";
+
+const pad = (n) => (n < 1000 ? String(n).padStart(3, "0") : String(n));
+// os desenhos de frente, um por número de sprite, com o nome
+const nomes = new Map();
+for (const sp of Object.values(DB.SPECIES)) {
+  const n = sp.spriteDex || sp.dex;
+  if (typeof n === "number" && !nomes.has(n)) nomes.set(n, sp.name);
+}
+const NUMS = [...nomes.keys()].sort((a, b) => a - b);
+
+let MARCAS = {};
+for (const url of ["/src/data/cara-ditto.json", "/dev/captures/cara_ditto.log"]) {
+  try { const r = await fetch(url + "?t=" + Date.now()); if (r.ok) Object.assign(MARCAS, JSON.parse(await r.text() || "{}")); } catch {}
+}
+try { Object.assign(MARCAS, JSON.parse(localStorage.getItem("cara_ditto") || "{}")); } catch {}
+
+const salvar = () => {
+  try { localStorage.setItem("cara_ditto", JSON.stringify(MARCAS)); } catch {}
+  fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "cara_ditto", log: JSON.stringify(MARCAS) }) });
+};
+
+const cvM = document.getElementById("marca"), cM = cvM.getContext("2d");
+const cvV = document.getElementById("ver"), cV = cvV.getContext("2d");
+cM.imageSmoothingEnabled = cV.imageSmoothingEnabled = false;
+let idx = 0, img = null, cliques = [];
+const dica = document.getElementById("dica");
+
+function desenhar() {
+  const n = NUMS[idx];
+  cM.clearRect(0, 0, 576, 576); cV.clearRect(0, 0, 288, 288);
+  if (!img) return;
+  const E = 576 / img.width;
+  cM.drawImage(img, 0, 0, 576, 576);
+  const m = MARCAS[n];
+  const pts = cliques.length ? cliques : m ? [...m.o, m.b] : [];
+  pts.forEach(([x, y], i) => {
+    cM.strokeStyle = i < 2 ? "#ff3060" : "#30a0ff"; cM.lineWidth = 3;
+    cM.strokeRect(x * E, y * E, E, E);
+  });
+  // como fica
+  const t = document.createElement("canvas"); t.width = img.width; t.height = img.height;
+  const tc = t.getContext("2d"); tc.drawImage(img, 0, 0);
+  const marca = cliques.length === 3 ? { o: [cliques[0], cliques[1]], b: cliques[2] } : !cliques.length ? m : null;
+  if (marca) { const dd = tc.getImageData(0, 0, t.width, t.height); pintarCaraDitto(dd, marca); tc.putImageData(dd, 0, 0); }
+  cV.drawImage(t, 0, 0, 288, 288);
+  const falta = ["CLIQUE NO OLHO 1", "AGORA NO OLHO 2", "AGORA NA BOCA (onde vai o sorriso)"][cliques.length];
+  dica.textContent = `#${n} ${nomes.get(n)} — ` + (cliques.length ? falta : m ? "JÁ MARCADO! (clique pra marcar de novo)" : falta);
+  document.getElementById("conta").textContent = `${Object.keys(MARCAS).length} marcados de ${NUMS.length}`;
+  document.querySelectorAll("#lista span").forEach((s) => { s.className = (MARCAS[s.dataset.n] ? "feito" : "") + (+s.dataset.n === n ? " agora" : ""); });
+}
+
+function abrir(i) {
+  idx = (i + NUMS.length) % NUMS.length; cliques = []; img = null; desenhar();
+  const n = NUMS[idx], im = new Image();
+  im.onload = () => { if (NUMS[idx] === n) { img = im; desenhar(); } };
+  im.onerror = () => { dica.textContent = `#${n} sem desenho de frente`; };
+  im.src = `/assets/sprites/pokemon/${pad(n)}.png`;
+}
+
+cvM.addEventListener("click", (e) => {
+  if (!img) return;
+  const r = cvM.getBoundingClientRect(), E = 576 / img.width;
+  cliques.push([Math.floor((e.clientX - r.left) / E), Math.floor((e.clientY - r.top) / E)]);
+  if (cliques.length === 3) {
+    MARCAS[NUMS[idx]] = { o: [cliques[0], cliques[1]], b: cliques[2] };
+    salvar(); desenhar();
+    setTimeout(() => abrir(idx + 1), 700);
+    return;
+  }
+  desenhar();
+});
+document.getElementById("ant").onclick = () => abrir(idx - 1);
+document.getElementById("prox").onclick = () => abrir(idx + 1);
+document.getElementById("apagar").onclick = () => { delete MARCAS[NUMS[idx]]; cliques = []; salvar(); desenhar(); };
+document.getElementById("pular").onclick = () => { for (let k = 1; k <= NUMS.length; k++) if (!MARCAS[NUMS[(idx + k) % NUMS.length]]) return abrir(idx + k); };
+document.getElementById("ir").onchange = (e) => { const i = NUMS.indexOf(+e.target.value); if (i >= 0) abrir(i); };
+addEventListener("keydown", (e) => { if (e.key === "ArrowRight") abrir(idx + 1); if (e.key === "ArrowLeft") abrir(idx - 1); });
+
+const lista = document.getElementById("lista");
+NUMS.forEach((n, i) => { const s = document.createElement("span"); s.textContent = n; s.dataset.n = n; s.title = nomes.get(n); s.onclick = () => abrir(i); lista.appendChild(s); });
+// ?n=142 abre direto naquele sprite (o AERODACTYL)
+{ const pedido = +new URLSearchParams(location.search).get("n"); const i = NUMS.indexOf(pedido); abrir(i >= 0 ? i : 0); }
+</script>

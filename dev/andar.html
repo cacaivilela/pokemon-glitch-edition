@@ -1,0 +1,76 @@
+<!doctype html>
+<!-- TESTE DO ANDAR NO MAPA: todo Pokémon do andar.json andando, girando pelas
+     4 direções (ou a que você escolher). Os desenhados à mão e os baixados do
+     Mystery Dungeon (tools/fetch_andar.py). Uso: http://localhost:5173/dev/andar.html -->
+<meta charset="utf-8"><title>Andar no mapa</title>
+<style>
+  body { background:#2f5d34; color:#eee; font:13px ui-monospace, monospace; margin:0; padding:12px 16px; }
+  .barra { position:sticky; top:0; background:#2f5d34; padding:6px 0 10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; z-index:1; }
+  input, button, select { font:inherit; padding:5px 8px; border-radius:6px; border:0; }
+  #grade { display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end; }
+  .c { background:#3d7a44; border-radius:8px; padding:6px; text-align:center; min-width:96px; max-width:100%; box-sizing:border-box; }
+  canvas { max-width:100%; height:auto !important; }
+  canvas { image-rendering:pixelated; display:block; margin:0 auto; }
+  .n { font-size:11px; margin-top:4px; }
+</style>
+<div class="barra">
+  <b>ANDAR NO MAPA</b>
+  <input id="busca" placeholder="nome ou número">
+  <select id="dir"><option value="">girando</option><option>baixo</option><option>cima</option><option>esq</option><option>dir</option></select>
+  <select id="zoom"><option>2</option><option selected>3</option><option>4</option></select>
+  <span id="conta"></span>
+</div>
+<div id="grade"></div>
+<script type="module">
+const LINHAS = ["baixo", "esq", "cima", "dir"], ORDEM = { baixo: 0, cima: 1, esq: 2, dir: 3 };
+const indice = await (await fetch("../assets/sprites/pokemon/andar/andar.json")).json();
+// nome de cada número; as FORMAS (10091...) com o nome delas e o número da
+// Pokédex de sempre (procurar "145" acha o ZAPDOS e o ZAPDOS DE GALAR)
+let nomes = {}, base = {};
+try {
+  const { DB } = await import("../src/data/index.js");
+  for (const s of Object.values(DB.SPECIES)) {
+    if (s.fusao || s.hack) continue;
+    if (s.spriteDex && s.spriteDex > 1025) { nomes[s.spriteDex] ||= s.name; base[s.spriteDex] = s.dex; }
+    else if (s.dex && !nomes[s.dex]) nomes[s.dex] = s.name;
+  }
+} catch {}
+const grade = document.getElementById("grade"), cartas = [];
+// cada forma logo depois da espécie dela
+const ordem = (k) => (base[+k] ? base[+k] + 0.5 : +k);
+for (const chave of Object.keys(indice).sort((a, b) => ordem(a) - ordem(b) || a - b)) {
+  const [w, h, n, tempos] = indice[chave];
+  const img = new Image(); img.src = `../assets/sprites/pokemon/andar/${chave}.png`;
+  const div = document.createElement("div"); div.className = "c";
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  const nome = nomes[+chave] || "";
+  div.append(cv); div.insertAdjacentHTML("beforeend", `<div class="n">#${base[+chave] ? String(base[+chave]).padStart(3, "0") : chave} ${nome}</div>`);
+  grade.append(div);
+  let soma = 0; const fim = tempos.map((t) => (soma += t));
+  cartas.push({ div, cv, img, w, h, fim, total: soma, texto: `${chave} ${nome}`.toLowerCase(), chave, base: base[+chave] });
+}
+// ?q=giant,iron,1120 -> já abre filtrado (vírgula = qualquer um deles)
+const doLink = new URLSearchParams(location.search).get("q");
+if (doLink) document.getElementById("busca").value = doLink;
+const filtrar = () => {
+  const termos = document.getElementById("busca").value.toLowerCase().split(",").map((t) => t.trim()).filter(Boolean); let k = 0;
+  // número acha só o número igual (o 1029 não pode achar o 10296 da MEGA FLOETTE)
+  const bate = (c, q) => (/^\d+$/.test(q) ? String(+c.chave) === q || String(c.base) === q : c.texto.includes(q));
+  for (const c of cartas) { const ok = !termos.length || termos.some((q) => bate(c, q)); c.div.style.display = ok ? "" : "none"; k += ok; }
+  document.getElementById("conta").textContent = `${k} Pokémon`;
+};
+document.getElementById("busca").oninput = filtrar; filtrar();
+const tick = (t) => {
+  const z = +document.getElementById("zoom").value, fixo = document.getElementById("dir").value;
+  const lado = fixo || LINHAS[Math.floor(t / 1600) % 4];
+  for (const c of cartas) {
+    if (c.div.style.display === "none" || !c.img.complete) continue;
+    c.cv.style.width = c.w * z + "px"; c.cv.style.height = c.h * z + "px";
+    const tt = t % c.total; let i = 0; while (c.fim[i] <= tt) i++;
+    const x = c.cv.getContext("2d"); x.clearRect(0, 0, c.w, c.h);
+    x.drawImage(c.img, i * c.w, ORDEM[lado] * c.h, c.w, c.h, 0, 0, c.w, c.h);
+  }
+  requestAnimationFrame(tick);
+};
+requestAnimationFrame(tick);
+</script>

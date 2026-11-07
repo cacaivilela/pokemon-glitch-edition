@@ -100,8 +100,8 @@ const carregar = (src) => new Promise((resolve) => {
  *  imagem que entra na conta. Devolve a arte pronta, ou null se a dupla não é
  *  dupla de verdade. */
 export function montagemAutomatica(chave, seed = 7) {
-  const [cabeca, corpo] = String(chave).split("+");
-  const sp = montarEspecie(cabeca, corpo);
+  const [cabeca, corpo, pernas = ""] = String(chave).split("+");   // a tripla tem três
+  const sp = montarEspecie(cabeca, corpo, "", pernas);
   if (!sp) return null;
   // a montagem automática é a espécie SEM ficha: monta uma cópia limpa
   const limpo = { ...sp };

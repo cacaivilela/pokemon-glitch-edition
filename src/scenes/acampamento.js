@@ -204,11 +204,12 @@ export class AcampamentoScene {
     const C = DB.STORY.acampamento;
     const j = this.jogo;
     const acerto = j.notas.reduce((s, n) => s + n, 0) / j.notas.length;
-    const feito = cozinhar(this.escolhidos, acerto);
     const usados = [...this.escolhidos];
     this.jogo = null;
     this.menu = { tipo: "principal", i: 0 };
     this.escolhidos = [];
+
+    const feito = cozinhar(usados, acerto);
 
     const r = comer(this.st, feito, usados);
     Audio2[acerto > 0.6 ? "heal" : "cancel"]();
@@ -352,10 +353,15 @@ export class AcampamentoScene {
     const C = DB.STORY.acampamento;
     panel(ctx, 4, 8, 132, Math.min(96, this.lista.length * LINE_H + 12));
     drawText(ctx, C.tabua, 10, 12, PAL.ink2 || PAL.ink);
-    this.lista.forEach((item, i) => {
+    // a lista ROLA: com muito ingrediente ela passa do painel, e o que ficava
+    // embaixo era escolhido às cegas
+    const cabem = Math.floor((96 - 24) / LINE_H) + 1;
+    const topo = Math.max(0, Math.min(this.menu.i - cabem + 1, this.lista.length - cabem));
+    this.lista.forEach((item, idx) => {
+      const i = idx - topo;
+      if (i < 0 || i >= cabem) return;
       const y = 24 + i * LINE_H;
-      if (y > 96) return;
-      if (i === this.menu.i) cursor(ctx, 9, y + 2);
+      if (idx === this.menu.i) cursor(ctx, 9, y + 2);
       const postos = this.escolhidos.filter((x) => x === item).length;
       const tem = this.st.items[item] || 0;
       drawText(ctx, `${item.toUpperCase()} x${tem}${postos ? " •".repeat(postos) : ""}`, 17, y, PAL.ink);

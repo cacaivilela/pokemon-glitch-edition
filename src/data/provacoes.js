@@ -309,9 +309,6 @@ export const PROVACOES = LISTA.map((p) => ({
   item: cristalDoTipo(p.tipo)?.item || null,
 }));
 
-/** A provação daquele tipo, ou null. */
-export const provacaoDoTipo = (tipo) => PROVACOES.find((p) => p.tipo === tipo) || null;
-
 /** A GUARDIÃ DAS PROVAÇÕES. Ela fica na subida do porto da ILHA DOIS, onde
  *  as dezoito marcas ficavam — e elas ficavam perto demais: dava pra fazer as
  *  dezoito numa tarde, sem sair da ilha. Agora é ela quem ESPALHA as marcas por

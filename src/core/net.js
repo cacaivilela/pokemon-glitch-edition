@@ -169,6 +169,7 @@ export const Net = {
         if (j) Object.assign(j, {
           mapa: msg.mapa, x: msg.x, y: msg.y, dir: msg.dir,
           sprite: msg.sprite, andando: msg.andando,
+          escondido: !!msg.escondido,          // o ESCONDE-ESCONDE dos bonecos da IA
         });
         break;
       }

@@ -1,0 +1,239 @@
+<!doctype html>
+<!-- O EDITOR DE SONS DO JOGO (o CAIO pediu: "faz um site pra eu poder editar
+     esse som" — o SHINY do LEGENDS ARCEUS). Abre um som de assets/sons/,
+     deixa cortar, mudar volume, velocidade, eco, grave/agudo, tocar de trás
+     pra frente... e SALVAR NO JOGO: vira assets/sons/<nome>.wav (POST /__som),
+     que o jogo toca no lugar do .mp3 original. O original nunca é apagado:
+     VOLTAR AO ORIGINAL só tira o .wav.
+     Uso: http://localhost:5173/dev/editorsom.html?som=shiny-pla -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor de Som do Jogo</title>
+<style>
+  :root { --fundo: #1c1a24; --painel: #2a2836; --texto: #f0eef8; --fraco: #a8a2c0; --azul: #5ab4ff; --verde: #4cd06a; --rosa: #ff6aa8; --amarelo: #ffd166; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fundo); color: var(--texto); font: 18px/1.4 system-ui, sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 28px; margin: 8px 0 4px; }
+  p.sub { color: var(--fraco); margin: 0 0 16px; }
+  .painel { background: var(--painel); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  canvas { width: 100%; height: 160px; display: block; background: #12111a; border-radius: 10px; cursor: ew-resize; touch-action: none; }
+  .dica { color: var(--fraco); font-size: 14px; margin-top: 6px; }
+  .botoes { display: flex; flex-wrap: wrap; gap: 10px; }
+  button { font: inherit; font-weight: 700; border: 0; border-radius: 12px; padding: 12px 18px; cursor: pointer; color: #111; }
+  button.tocar { background: var(--verde); }
+  button.parar { background: #d0d0d8; }
+  button.orig { background: var(--azul); }
+  button.salvar { background: var(--amarelo); font-size: 20px; }
+  button.mandar { background: #b48aff; font-size: 20px; }
+  button.voltar { background: var(--rosa); }
+  button:disabled { opacity: .5; cursor: default; }
+  .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+  label { display: block; font-weight: 700; }
+  label span { float: right; color: var(--amarelo); font-weight: 400; }
+  input[type=range] { width: 100%; height: 30px; accent-color: var(--amarelo); }
+  .check { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+  .check input { width: 26px; height: 26px; accent-color: var(--amarelo); }
+  #aviso { min-height: 28px; font-weight: 700; color: var(--amarelo); margin-top: 10px; }
+  select { font: inherit; padding: 8px; border-radius: 10px; }
+</style>
+<main>
+  <h1>🎵 Editor de Som do Jogo</h1>
+  <p class="sub">Som: <select id="qual"></select> — mexe, escuta, e quando gostar aperta <b>SALVAR NO JOGO</b>.</p>
+
+  <div class="painel">
+    <canvas id="onda" width="1200" height="240"></canvas>
+    <div class="dica">Arrasta as barras <b style="color:var(--verde)">verde</b> (começo) e <b style="color:var(--rosa)">rosa</b> (fim) pra cortar o som.</div>
+  </div>
+
+  <div class="painel botoes">
+    <button class="tocar" id="tocar">▶ TOCAR</button>
+    <button class="parar" id="parar">■ PARAR</button>
+    <button class="orig" id="original">▶ OUVIR O ORIGINAL</button>
+    <button class="mandar" id="mandar">📨 MANDAR PRO CLAUDE</button>
+    <button class="salvar" id="salvar">💾 SALVAR NO JOGO</button>
+    <button class="voltar" id="voltar">↩ VOLTAR AO ORIGINAL</button>
+  </div>
+
+  <div class="painel grade">
+    <div><label>VOLUME <span id="v-volume"></span></label><input type="range" id="volume" min="0" max="300" value="100"></div>
+    <div><label>VELOCIDADE E TOM <span id="v-vel"></span></label><input type="range" id="vel" min="25" max="300" value="100"></div>
+    <div><label>ECO <span id="v-eco"></span></label><input type="range" id="eco" min="0" max="90" value="0"></div>
+    <div><label>DEMORA DO ECO <span id="v-ecoT"></span></label><input type="range" id="ecoT" min="5" max="80" value="20"></div>
+    <div><label>ABAFAR (TIRA O AGUDO) <span id="v-abafa"></span></label><input type="range" id="abafa" min="0" max="100" value="0"></div>
+    <div><label>FININHO (TIRA O GRAVE) <span id="v-fino"></span></label><input type="range" id="fino" min="0" max="100" value="0"></div>
+    <div><label>SUMIR NO FIM <span id="v-fade"></span></label><input type="range" id="fade" min="0" max="100" value="0"></div>
+    <div><label>REPETIR <span id="v-rep"></span></label><input type="range" id="rep" min="1" max="5" value="1"></div>
+    <div class="check"><input type="checkbox" id="tras"> DE TRÁS PRA FRENTE</div>
+    <div class="check"><input type="checkbox" id="robo"> VOZ DE ROBÔ</div>
+  </div>
+  <div id="aviso"></div>
+</main>
+<script>
+// os sons do jogo que dá pra editar (assets/sons/<nome>.mp3 é o original)
+const SONS = { "shiny-pla": "SHINY (LEGENDS ARCEUS)" };
+const $ = (id) => document.getElementById(id);
+const ctx = new AudioContext();
+let original = null, atual = null;          // AudioBuffer do original e do que está no jogo agora
+let ini = 0, fim = 1;                       // o corte, de 0 a 1
+let tocando = null;
+const aviso = (t) => { $("aviso").textContent = t; };
+
+const qs = new URLSearchParams(location.search);
+let nome = qs.get("som") || "shiny-pla";
+for (const [k, v] of Object.entries(SONS)) $("qual").add(new Option(v, k, false, k === nome));
+$("qual").onchange = () => { location.search = "?som=" + $("qual").value; };
+
+async function carregar(url) {
+  const r = await fetch(url + "?t=" + Date.now(), { cache: "no-store" });
+  if (!r.ok) return null;
+  return ctx.decodeAudioData(await r.arrayBuffer());
+}
+
+// os controles: [id, como mostrar o número]
+const CONTROLES = {
+  volume: (v) => v + "%", vel: (v) => (v / 100).toFixed(2) + "x", eco: (v) => v + "%", ecoT: (v) => (v / 100).toFixed(2) + "s",
+  abafa: (v) => v + "%", fino: (v) => v + "%", fade: (v) => v + "%", rep: (v) => v + "x",
+};
+for (const [id, f] of Object.entries(CONTROLES)) {
+  const atualiza = () => { $("v-" + id).textContent = f(+$(id).value); };
+  $(id).oninput = atualiza; atualiza();
+}
+
+/** monta o som editado (com todos os efeitos) num AudioBuffer novo */
+async function montar() {
+  const b = original;
+  const sr = b.sampleRate;
+  const a = Math.floor(ini * b.length), z = Math.max(a + 1, Math.floor(fim * b.length));
+  const vel = +$("vel").value / 100, rep = +$("rep").value;
+  const ecoV = +$("eco").value / 100, ecoT = +$("ecoT").value / 100;
+  const pedaco = z - a;
+  const durPedaco = pedaco / sr / vel;
+  const total = durPedaco * rep + (ecoV > 0 ? ecoT * 8 : 0) + 0.05;
+  const off = new OfflineAudioContext(1, Math.ceil(total * sr), sr);
+  // o pedaço cortado (e virado, se for de trás pra frente)
+  const corte = off.createBuffer(1, pedaco, sr);
+  const dst = corte.getChannelData(0);
+  for (let c = 0; c < b.numberOfChannels; c++) {
+    const src = b.getChannelData(c);
+    for (let i = 0; i < pedaco; i++) dst[i] += src[a + i] / b.numberOfChannels;
+  }
+  if ($("tras").checked) dst.reverse();
+  // a saída: volume, sumir no fim, abafar, fininho, robô, eco
+  const saida = off.createGain();
+  saida.gain.value = +$("volume").value / 100;
+  let ultimo = saida;
+  const abafa = +$("abafa").value / 100, fino = +$("fino").value / 100;
+  if (abafa > 0) { const f = off.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 12000 * Math.pow(1 - abafa, 2) + 250; ultimo.connect(f); ultimo = f; }
+  if (fino > 0) { const f = off.createBiquadFilter(); f.type = "highpass"; f.frequency.value = 40 + 3000 * fino * fino; ultimo.connect(f); ultimo = f; }
+  if ($("robo").checked) {
+    const anel = off.createGain(); anel.gain.value = 0;
+    const osc = off.createOscillator(); osc.frequency.value = 55; osc.connect(anel.gain); osc.start();
+    ultimo.connect(anel); ultimo = anel;
+  }
+  ultimo.connect(off.destination);
+  if (ecoV > 0) {
+    const atraso = off.createDelay(1); atraso.delayTime.value = ecoT;
+    const volta = off.createGain(); volta.gain.value = ecoV;
+    ultimo.connect(atraso); atraso.connect(volta); volta.connect(atraso); volta.connect(off.destination);
+  }
+  const fade = +$("fade").value / 100;
+  for (let r = 0; r < rep; r++) {
+    const s = off.createBufferSource(); s.buffer = corte; s.playbackRate.value = vel;
+    const g = off.createGain();
+    const t0 = r * durPedaco;
+    if (fade > 0) {
+      g.gain.setValueAtTime(1, t0 + durPedaco * (1 - fade));
+      g.gain.linearRampToValueAtTime(0.0001, t0 + durPedaco);
+    }
+    s.connect(g).connect(saida);
+    s.start(t0);
+  }
+  return off.startRendering();
+}
+
+function parar() { try { tocando?.stop(); } catch {} tocando = null; }
+function tocarBuffer(buf) {
+  parar();
+  ctx.resume();
+  const s = ctx.createBufferSource(); s.buffer = buf; s.connect(ctx.destination); s.start();
+  tocando = s;
+}
+$("tocar").onclick = async () => tocarBuffer(await montar());
+$("parar").onclick = parar;
+$("original").onclick = () => tocarBuffer(original);
+
+/** o som em WAV (16 bits, mono), pra mandar pro servidor */
+function wav(buf) {
+  const d = buf.getChannelData(0), n = d.length, sr = buf.sampleRate;
+  const out = new DataView(new ArrayBuffer(44 + n * 2));
+  const txt = (o, s) => [...s].forEach((c, i) => out.setUint8(o + i, c.charCodeAt(0)));
+  txt(0, "RIFF"); out.setUint32(4, 36 + n * 2, true); txt(8, "WAVE"); txt(12, "fmt ");
+  out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 1, true);
+  out.setUint32(24, sr, true); out.setUint32(28, sr * 2, true); out.setUint16(32, 2, true); out.setUint16(34, 16, true);
+  txt(36, "data"); out.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) out.setInt16(44 + i * 2, Math.max(-1, Math.min(1, d[i])) * 0x7fff, true);
+  return new Blob([out], { type: "audio/wav" });
+}
+
+// MANDAR PRO CLAUDE: o som editado vai pra dev/captures/som_<nome>.png (é o
+// /__capture, que o servidor já tem — o nome termina em .png, mas dentro é o
+// WAV) junto com os ajustes no .log. O Claude lê de lá e põe no jogo.
+$("mandar").onclick = async () => {
+  aviso("MANDANDO...");
+  const blob = wav(await montar());
+  const dataUrl = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(blob); });
+  const ajustes = { som: nome, corte: [ini, fim], tras: $("tras").checked, robo: $("robo").checked,
+                    ...Object.fromEntries(Object.keys(CONTROLES).map((k) => [k, +$(k).value])) };
+  const r = await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "som_" + nome, dataUrl, log: JSON.stringify(ajustes) }) }).catch(() => null);
+  aviso(r?.ok ? "📨 MANDADO! AGORA FALA PRO CLAUDE: \"MANDEI O SOM\"." : "❌ NÃO DEU PRA MANDAR. O SERVIDOR DO JOGO ESTÁ LIGADO?");
+};
+
+$("salvar").onclick = async () => {
+  aviso("SALVANDO...");
+  const r = await fetch("/__som?nome=" + nome, { method: "POST", body: wav(await montar()) }).catch(() => null);
+  aviso(r?.ok ? "✅ SALVO NO JOGO! RECARREGA O JOGO (F5) PRA OUVIR O SOM NOVO." : "❌ NÃO DEU PRA SALVAR. O SERVIDOR DO JOGO ESTÁ LIGADO?");
+};
+$("voltar").onclick = async () => {
+  if (!confirm("VOLTAR PRO SOM ORIGINAL? O QUE VOCÊ SALVOU VAI EMBORA.")) return;
+  const r = await fetch("/__som?nome=" + nome + "&apagar=1", { method: "POST" }).catch(() => null);
+  aviso(r?.ok ? "↩ O JOGO VOLTOU PRO SOM ORIGINAL. RECARREGA O JOGO (F5)." : "❌ NÃO DEU PRA VOLTAR.");
+};
+
+// ---- a onda, com as barras de corte
+const cv = $("onda"), g2 = cv.getContext("2d");
+function desenhar() {
+  const W = cv.width, H = cv.height;
+  g2.fillStyle = "#12111a"; g2.fillRect(0, 0, W, H);
+  if (!original) return;
+  const d = original.getChannelData(0), passo = Math.max(1, Math.floor(d.length / W));
+  for (let x = 0; x < W; x++) {
+    let mx = 0;
+    for (let i = x * passo; i < (x + 1) * passo && i < d.length; i++) mx = Math.max(mx, Math.abs(d[i]));
+    const dentro = x / W >= ini && x / W <= fim;
+    g2.fillStyle = dentro ? "#ffd166" : "#4a4660";
+    const h = Math.max(1, mx * H * 0.9);
+    g2.fillRect(x, H / 2 - h / 2, 1, h);
+  }
+  g2.fillStyle = "#4cd06a"; g2.fillRect(ini * W - 3, 0, 6, H);
+  g2.fillStyle = "#ff6aa8"; g2.fillRect(fim * W - 3, 0, 6, H);
+}
+let arrastando = null;
+const pos = (e) => { const r = cv.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); };
+cv.onpointerdown = (e) => { const p = pos(e); arrastando = Math.abs(p - ini) < Math.abs(p - fim) ? "ini" : "fim"; cv.setPointerCapture(e.pointerId); cv.onpointermove(e); };
+cv.onpointermove = (e) => {
+  if (!arrastando) return;
+  const p = pos(e);
+  if (arrastando === "ini") ini = Math.min(p, fim - 0.01); else fim = Math.max(p, ini + 0.01);
+  desenhar();
+};
+cv.onpointerup = () => { arrastando = null; };
+
+(async () => {
+  original = await carregar(`../assets/sons/${nome}.mp3`);
+  if (!original) return aviso("❌ NÃO ACHEI O SOM assets/sons/" + nome + ".mp3");
+  atual = await carregar(`../assets/sons/${nome}.wav`);
+  aviso(atual ? "O JOGO ESTÁ USANDO UM SOM QUE VOCÊ JÁ SALVOU. (VOLTAR AO ORIGINAL desfaz.)" : "O JOGO ESTÁ USANDO O SOM ORIGINAL.");
+  desenhar();
+})();
+</script>

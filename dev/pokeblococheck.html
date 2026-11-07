@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>checagem dos pokéblocos</title>
+<style>body{background:#111;color:#9fd;font:13px monospace;margin:0;padding:8px}iframe{width:740px;height:560px;border:0}#log{white-space:pre-wrap}</style></head>
+<body><div id="log">rodando...</div><iframe id="fr"></iframe>
+<script>
+// OS POKÉBLOCOS (src/data/pokeblocos.js) no jogo de verdade: o liquidificador e
+// o vendedor em Cinnabar, as três telas do liquidificador, dar o pokébloco pra
+// um selvagem na batalha (o garfo de quem é pego) e os arbustos da Mata das Frutas. Os quadros vão
+// numa tira pro /__capture.
+const fr = document.getElementById("fr"), log = document.getElementById("log");
+const linhas = [], errs = [], quadros = [];
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+async function abrir(url) {
+  fr.src = url;
+  let w;
+  for (let i = 0; i < 150 && !(w = fr.contentWindow)?.game?.scenes?.top?.update; i++) await espera(100);
+  w.addEventListener("error", (e) => errs.push("JOGO: " + e.message));
+  await espera(1200);
+  return w;
+}
+(async () => {
+ try {
+  const cv = document.createElement("canvas"); cv.width = 240; cv.height = 160;
+  const ctx = cv.getContext("2d");
+  let w = await abrir("/?perfil=pbcheck&offline&map=cinnabar_island&x=9&y=13&party=pikachu:20,eevee:20");
+  const cena = () => w.game.scenes.top;
+  const foto = (nome) => { ctx.clearRect(0, 0, 240, 160); cena().render(ctx); quadros.push(cv.toDataURL()); linhas.push(`  foto ${quadros.length - 1}: ${nome}`); };
+  const passa = () => { const s = cena(); for (let n = 0; n < 40 && s.dlg && (s.dlg.active || s.dlg.choice); n++) {
+    if (s.dlg.choice) { const ch = s.dlg.choice; linhas.push(`  pergunta: ${ch.text} ${JSON.stringify(ch.options)}`); s.dlg.choice = null; ch.cb(0); continue; }
+    linhas.push(`  fala: ${(s.dlg.lines || []).join(" ")}`); s.dlg.chars = 1e9; s.dlg.next(); } };
+  const sc = cena(), st = sc.st;
+  passa();
+  st.player.dir = "left";
+  for (let i = 0; i < 5; i++) sc.update(1 / 30);
+  foto("cinnabar: liquidificador e vendedor");
+  Object.assign(st.items, { "cheri berry": 3, "pecha berry": 2, "liechi berry": 1, "lansat berry": 1 });
+  const liq = sc.npcsHere().find((n) => n.liquidificador);
+  linhas.push(`liquidificador: ${liq ? `(${liq.x},${liq.y})` : "NÃO ACHEI"}`);
+  sc.talkTo(liq); passa();
+  for (let i = 0; i < 3; i++) sc.update(1 / 30);
+  const L = cena();
+  linhas.push(`cena: ${L.constructor.name} estojo=${st.items["estojo de pokéblocos"]} berries na lista=${L.lista?.length}`);
+  L.escolhidas = ["cheri berry", "pecha berry", "liechi berry"];
+  foto("escolher");
+  L.comecarBater();
+  for (let i = 0; i < 20; i++) L.update(1 / 30);
+  foto("batendo");
+  // aperta no verde em toda volta (sem esperar o tempo de verdade)
+  L.acertos = 7; L.volta = 7; L.angulo = 4.6; L.velocidade = 40;
+  for (let i = 0; i < 10 && L.fase === "bater"; i++) L.update(1 / 30);
+  foto("pronto");
+  linhas.push(`bloco: ${JSON.stringify(L.bloco)} | estojo agora: ${st.pokeblocos.length} | cheri sobrou ${st.items["cheri berry"]}`);
+  L.sair();
+  passa();
+  // NA BATALHA: jogar no selvagem (um mole, depois pesados até ele engordar)
+  w = await abrir("/?perfil=pbcheck3&offline&battle=snorlax&lvl=12&party=pikachu:20");
+  const b = cena(), st3 = w.game.state;
+  linhas.push(`batalha: ${b.constructor.name} contra ${b.foe.nickname}`);
+  st3.items["estojo de pokéblocos"] = 1;
+  st3.pokeblocos = [
+    { cor: "rosa", sabor: [0, 0, 20, 0, 0], resistencia: 0, peso: 2, nivel: 20 },
+    { cor: "dourado", sabor: [60, 20, 60, 20, 60], resistencia: 9, peso: 9, nivel: 60 },
+    { cor: "dourado", sabor: [60, 20, 60, 20, 60], resistencia: 9, peso: 9, nivel: 60 },
+    { cor: "dourado", sabor: [60, 20, 60, 20, 60], resistencia: 9, peso: 9, nivel: 60 },
+  ];
+  // deixa as falas da batalha passarem sozinhas
+  let rodando = true;
+  (async () => { while (rodando) { const d = b.dlg; if (d?.active) { d.chars = 1e9; d.next?.(); } if (d?.choice) { const ch = d.choice; d.choice = null; ch.cb(1); } for (let k = 0; k < 4; k++) b.update(1 / 30); await espera(10); } })();
+  while (b.busy || b.dlg?.active) await espera(50);
+  b.menu = { type: "bag", index: 0 };
+  linhas.push(`mochila: ${b.itensMochila().map((x) => x.label).join(", ")}`);
+  b.menu = { type: "pokeblocos", index: 0 }; rodando = false; await espera(60);
+  foto("menu dos pokéblocos"); rodando = true;
+  (async () => { while (rodando) { const d = b.dlg; if (d?.active) { d.chars = 1e9; d.next?.(); } for (let k = 0; k < 4; k++) b.update(1 / 30); await espera(10); } })();
+  const est = (q) => linhas.push(`  ${q}: isca ${JSON.stringify(b.foe._isca)} barriga ${b.foe._barriga} gordo ${!!b.foe._gordo} def+${b.fStages.def || 0} largura ${b.sp.f.largura}`);
+  await b.jogarPokebloco("rosa"); est("rosa (mole)");
+  await b.jogarPokebloco("dourado"); est("dourado (pesado)");
+  rodando = false; await espera(60); foto("snorlax largão"); rodando = true;
+  (async () => { while (rodando) { const d = b.dlg; if (d?.active) { d.chars = 1e9; d.next?.(); } for (let k = 0; k < 4; k++) b.update(1 / 30); await espera(10); } })();
+  await b.jogarPokebloco("dourado"); est("dourado 2");
+  await b.jogarPokebloco("dourado"); est("dourado 3");
+  linhas.push(`  sobrou no estojo: ${st3.pokeblocos.length}`);
+  const mon = b.foe, defAntes = mon.stats.def;
+  b.foe.hp = Math.max(1, b.foe.hp);
+  await b.guardarCapturado().catch((e) => linhas.push("  guardar: " + e.message));
+  rodando = false;
+  linhas.push(`  pego: "${mon.nickname}" garfo=${mon.garfo} pesoExtra=${mon.pesoExtra} def ${defAntes} -> ${mon.stats.def} | campos ${Object.keys(mon).filter((k) => k.startsWith("_")).join(",")}`);
+  // a mata das frutas
+  w = await abrir("/?perfil=pbcheck2&offline&map=three_island_berry_forest&x=22&y=8&party=pikachu:20");
+  const s2 = cena();
+  passa();
+  for (let i = 0; i < 5; i++) s2.update(1 / 30);
+  foto("mata das frutas");
+  const arb = s2.npcsHere().find((n) => n.arbusto);
+  linhas.push(`arbustos no mapa: ${s2.npcsHere().filter((n) => n.arbusto).length}`);
+  s2.talkTo(arb); passa();
+  linhas.push(`colheu: ${Object.keys(s2.st.items).filter((k) => k.endsWith("berry")).join(", ")}`);
+  s2.talkTo(arb); passa();
+  for (let i = 0; i < 3; i++) s2.update(1 / 30);
+  foto("mata depois de colher");
+  linhas.push(errs.length ? "ERROS:\n" + errs.join("\n") : "sem erros");
+ } catch (e) { linhas.push("FALHOU: " + e.stack); }
+ const tira = document.createElement("canvas"), n = Math.max(1, quadros.length);
+ tira.width = 240 * Math.min(3, n); tira.height = 160 * Math.ceil(n / 3);
+ const tc = tira.getContext("2d");
+ for (let i = 0; i < quadros.length; i++) { const im = new Image(); im.src = quadros[i]; await im.decode(); tc.drawImage(im, (i % 3) * 240, Math.floor(i / 3) * 160); }
+ log.textContent = linhas.join("\n");
+ await fetch("/__capture", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "pokeblococheck", dataUrl: tira.toDataURL(), log: linhas.join("\n") }) });
+})();
+</script></body></html>

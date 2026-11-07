@@ -52,14 +52,14 @@ export const FIELD_LEARNERS = {
 
 /** Destinos do VOAR: só aparecem depois que você pisou lá pelo menos uma vez. */
 export const FLY_SPOTS = {
-  pallet: "VILA PALETA",
-  viridian: "CIDADE VIRIDIAN",
-  pewter_city: "CIDADE PEWTER",
-  cerulean_city: "CIDADE CERULEAN",
-  vermilion_city: "CIDADE VERMILION",
-  lavender_town: "VILA LAVENDER",
-  celadon_city: "CIDADE CELADON",
-  fuchsia_city: "CIDADE FUCHSIA",
-  saffron_city: "CIDADE SAFFRON",
-  cinnabar_island: "ILHA CINNABAR",
+  pallet: "CIDADE DE PALLET",
+  viridian: "CIDADE DE VIRIDIAN",
+  pewter_city: "CIDADE DE PEWTER",
+  cerulean_city: "CIDADE DE CERULEAN",
+  vermilion_city: "CIDADE DE VERMILION",
+  lavender_town: "VILA DE LAVENDER",
+  celadon_city: "CIDADE DE CELADON",
+  fuchsia_city: "CIDADE DE FUCHSIA",
+  saffron_city: "CIDADE DE SAFFRON",
+  cinnabar_island: "ILHA DE CINNABAR",
 };

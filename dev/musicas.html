@@ -1,0 +1,50 @@
+<!doctype html>
+<!-- AS MÚSICAS DE BATALHA: as quatro de Kanto (as do Red/Blue, no imitador do
+     chip do Game Boy, src/core/gb.js), o baião de Braglitch e a de Lumiose —
+     pra ouvir sem precisar entrar numa batalha. -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Músicas de batalha — Pokémon Glitch Edition</title>
+<style>
+  :root { color-scheme: dark; }
+  body { background:#0b0d10; color:#d6dde6; font:15px/1.5 ui-monospace, Menlo, Consolas, monospace; padding:16px; margin:0; }
+  h1 { font-size:18px; margin:0 0 12px; } h1 span { color:#b455ff; }
+  .lista { display:flex; flex-direction:column; gap:8px; max-width:520px; }
+  button { background:#151a21; border:1px solid #2a323d; color:#d6dde6; padding:10px 14px; border-radius:8px; cursor:pointer; font:inherit; text-align:left; }
+  button:hover { border-color:#b455ff; }
+  button.on { background:#0e3a1c; border-color:#1d7a3a; color:#00ff41; }
+  small { color:#7a8594; display:block; }
+</style>
+</head>
+<body>
+<h1>MÚSICAS DE <span>BATALHA</span></h1>
+<div class="lista" id="lista"></div>
+<p><button id="parar">⏹ PARAR</button></p>
+<script type="module">
+import { Audio2 } from "/src/core/audio.js";
+import { DB } from "/src/data/index.js";
+const FAIXAS = [
+  ["kantoSelvagem", "KANTO — Pokémon selvagem", "a do Red/Blue, no chip do Game Boy"],
+  ["kantoTreinador", "KANTO — treinador", "a do Red/Blue, no chip do Game Boy"],
+  ["kantoLider", "KANTO — líder de ginásio", "a do Red/Blue, no chip do Game Boy"],
+  ["kantoFinal", "KANTO — batalha final (chefes e lendários)", "a do Red/Blue, no chip do Game Boy"],
+  ["batalhaBraglitch", "BRAGLITCH — batalha", "nova: um forró no chip do Game Boy (sanfona em terças, zabumba e triângulo)"],
+  ["batalhaLumiose", "LUMIOSE (KALOS) — batalha", "a do X/Y, com a banda do Legends Z-A (sax, piano elétrico, metais, baixo funk)"],
+];
+const lista = document.getElementById("lista");
+for (const [nome, titulo, sub] of FAIXAS) {
+  const b = document.createElement("button");
+  b.innerHTML = `▶ ${titulo}<small>${sub}</small>`;
+  b.onclick = () => {
+    for (const x of lista.children) x.classList.remove("on");
+    b.classList.add("on");
+    Audio2.playMusic(nome, DB.MUSIC[nome]);
+  };
+  lista.append(b);
+}
+document.getElementById("parar").onclick = () => { Audio2.stopLoop(); for (const x of lista.children) x.classList.remove("on"); };
+</script>
+</body>
+</html>

@@ -26,6 +26,89 @@ import { MISSOES_DECAMARK } from "./decamark.js";
 
 export const MISSOES = [
   {
+    // A CHUVA DE MINIORS (ideia do CAIO, com o SOM QUE ELE EDITOU: o shiny do
+    // LEGENDS ARCEUS cinco vezes, assets/sons/miniors-shiny.mp3). A ASTRÔNOMA da
+    // CHAPADA DOS VEADEIROS te chama pra ver o céu; ao aceitar, 5 MINIORS SHINY
+    // passam como meteoros (um em cada "plim") e caem espalhados pela chapada
+    // (ESTATICOS em src/data/extra.js, `aparece: miniorsCairam`). Pegar os 5.
+    id: "chuva-de-miniors",
+    nome: "A CHUVA DE MINIORS",
+    mapa: "chapada", x: 17, y: 36, sprite: "cientista",
+    aoAceitar: "chuvaDeMiniors",
+    // SÓ TRAZER, NÃO PEGAR (o CAIO): você leva cada um no colo, sem batalha
+    // (`levar` em ESTATICOS). Ela fica com os 5 e você ESCOLHE UM pelo núcleo
+    // pra ficar (`aoEntregar`) — esse vira seu Pokémon
+    objetivo: { tipo: "bandeiras", flags: ["miniorShiny1", "miniorShiny2", "miniorShiny3", "miniorShiny4", "miniorShiny5"] },
+    nucleos: ["VERMELHO", "LARANJA", "AMARELO", "VERDE", "AZUL"],
+    aoEntregar: "entregarMiniors",
+    resumo: "TRAZER OS 5 MINIORS SHINY QUE CAÍRAM NA CHAPADA PRA ASTRÔNOMA.",
+    oferta: [
+      "EU SOU ASTRÔNOMA. A CHAPADA TEM O CÉU MAIS LIMPO DE BRAGLITCH.",
+      "ESTA NOITE VAI TER CHUVA DE METEOROS. SÓ QUE OS METEOROS DAQUI... BRILHAM DIFERENTE.",
+      "FICA AQUI COMIGO E OLHA PRO CÉU. SE ALGUM CAIR, VOCÊ VAI ATRÁS?",
+    ],
+    lembrete: ["CINCO MINIORS CAÍRAM, UM EM CADA ANDAR DA CHAPADA. ELES BRILHAM: É SÓ PROCURAR O BRILHO! NÃO PRECISA LUTAR: ELES ESTÃO TONTOS. SÓ ME TRAZ OS CINCO."],
+    entrega: [
+      "OS CINCO?! VOCÊ TROUXE OS CINCO MINIORS SHINY, NO COLO!",
+      "NENHUM ASTRÔNOMO DO MUNDO VIU ISSO. VOU ESTUDAR CADA NÚCLEO DESSES...",
+      "MAS UM DELES É SEU. CADA UM TEM UM NÚCLEO DE UMA COR: ESCOLHE O SEU!",
+    ],
+    escolha: "QUAL MINIOR FICA COM VOCÊ?",
+    escolheu: "O MINIOR DE NÚCLEO {COR} FICA COM VOCÊ! OS OUTROS QUATRO FICAM AQUI NA CHAPADA, OLHANDO O CÉU.",
+    premio: { dinheiro: 5000, item: "pedra da lua", qtd: 5 },
+  },
+  {
+    // AS CORES TRAVADAS (ideia do CAIO): enquanto esta missão não for entregue,
+    // NENHUM bicho nasce shiny (DB.CONFIG.shinyMissao, src/systems/mon.js). O
+    // único que escapou da trava é um PIKACHU SHINY parado na ROTA 2 (ESTATICOS,
+    // src/data/extra.js) — e só aparece depois que ela te conta dele.
+    id: "cores-travadas",
+    nome: "AS CORES TRAVADAS",
+    mapa: "viridian", x: 30, y: 21, sprite: "garota",
+    requer: { flag: "starterChosen" },
+    travado: ["VOCÊ NEM TEM POKÉMON AINDA? ENTÃO NÃO DÁ PRA TE PEDIR ISSO. VOLTA DEPOIS!"],
+    objetivo: { tipo: "bandeira", flag: "pikachuShinyPego" },
+    resumo: "CAPTURAR O PIKACHU SHINY DO LADO OESTE DA ROTA 2 E MOSTRAR À CAÇADORA DE CORES.",
+    oferta: [
+      "EU SOU CAÇADORA DE CORES. EU CAÇO SHINY. ...CAÇAVA.",
+      "FAZ TEMPO QUE NENHUM POKÉMON NASCE COM A COR TROCADA. NEM UM. NEM NA GRAMA, NEM NO OVO.",
+      "ACHO QUE O CARTUCHO TRAVOU A PALETA DE CORES. AÍ TUDO SAI COM A COR DE SEMPRE.",
+      "MAS EU VI UM QUE ESCAPOU: UM PIKACHU SHINY, NO LADO OESTE DA ROTA 2!",
+      "SE VOCÊ PEGAR ELE, A TRAVA SOLTA. AÍ AS CORES VOLTAM PRA TODO MUNDO!",
+    ],
+    lembrete: ["O PIKACHU SHINY! LADO OESTE DA ROTA 2, LÁ NO FUNDO, PERTO DA SAÍDA PRA VIRIDIAN. SE DERRUBAR SEM QUERER, SAI E VOLTA QUE ELE APARECE DE NOVO."],
+    entrega: [
+      "VOCÊ PEGOU?! DEIXA EU VER... É ELE! A COR TÁ ERRADA DO JEITO CERTO!",
+      "OLHA... TÁ SENTINDO? A PALETA DESTRAVOU!",
+      "A PARTIR DE AGORA, QUALQUER POKÉMON PODE NASCER SHINY DE NOVO. NA GRAMA, NA FENDA, NO OVO, EM TUDO!",
+      "BOA CAÇADA, PARCEIRO. TOMA, PRA COMEÇAR.",
+    ],
+    premio: { dinheiro: 3000, item: "ultra ball", qtd: 10 },
+  },
+  {
+    // UM BLACEPHALON CONTRA ARCEUS (ideia do CAIO; ARCEUS é o deus do mundo Pokémon): um youtuber viu os garfos do
+    // Super Mario Odyssey fazendo o "six seven" com as mãos... e um BLACEPHALON
+    // ALFA na ROTA 25 que NUNCA PARA de fazer. Ele só faz o pedaço do six seven
+    // da animação (`soQuadros` no ESTATICOS, src/data/extra.js)
+    id: "blacephalon-contra-arceus",
+    nome: "UM BLACEPHALON CONTRA ARCEUS",
+    mapa: "celadon_city", x: 33, y: 25, sprite: "roqueiro",
+    objetivo: { tipo: "bandeira", flag: "blacephalonContraArceus" },
+    resumo: "VENCER O BLACEPHALON ALFA QUE NÃO PARA DE FAZER SIX SEVEN, NA ROTA 25.",
+    oferta: [
+      "E AÍ! EU SOU YOUTUBER. MEU ÚLTIMO VÍDEO: OS GARFOS DO SUPER MARIO ODYSSEY FAZEM SIX SEVEN ENQUANTO FALAM!",
+      "MAS AGORA APARECEU UMA COISA PIOR. NA ROTA 25 TEM UM BLACEPHALON ALFA...",
+      "...QUE NÃO PARA. NUNCA. FICA SÓ FAZENDO SIX SEVEN COM AS MÃOS. É CONTRA ARCEUS.",
+      "VAI LÁ E VENCE ELE! EU GRAVO TUDO PRO CANAL.",
+    ],
+    lembrete: ["ELE AINDA TÁ LÁ? FAZENDO SIX SEVEN? ROTA 25, PERTO DA CASA DO BILL. VAI!"],
+    entrega: [
+      "VOCÊ VENCEU O BLACEPHALON CONTRA ARCEUS?! ISSO VAI DAR UM MILHÃO DE VISUALIZAÇÕES!",
+      "TOMA, É A SUA PARTE DO CANAL.",
+    ],
+    premio: { dinheiro: 6700, item: "doce raro", qtd: 6 },
+  },
+  {
     id: "isca",
     nome: "PESCADOR SEM ISCA",
     mapa: "route11", x: 36, y: 10, sprite: "pescador",
@@ -78,37 +161,8 @@ export const MISSOES = [
     ],
     premio: { dinheiro: 3000, item: "doce raro", qtd: 5 },
   },
-  {
-    id: "distorcoes",
-    nome: "DISTORÇÕES BIZARRAS",
-    mapa: "viridian_forest", x: 26, y: 59, sprite: "cientista",
-    // Ela precisa da FENDA já aberta: o que sai da distorção é bicho de fora de
-    // Kanto, e antes da máquina do laboratório funcionar nada tinha de onde vir.
-    requer: { flag: "dimUnlocked" },
-    travado: [
-      "MEDINDO. NÃO ENCOSTE.",
-      "...NÃO, AINDA NÃO DÁ PRA EXPLICAR. VOLTA DEPOIS QUE VOCÊ TIVER VISTO A FENDA POR DENTRO.",
-    ],
-    objetivo: { tipo: "bandeira", flag: "distorcaoVista" },
-    resumo: "ENCOSTAR NUMA DISTORÇÃO. O JOGO AVISA ONDE A ATUAL ABRIU.",
-    oferta: [
-      "VOCÊ TAMBÉM ESTÁ VENDO? OLHA A ÁRVORE ALI ATRÁS. AGORA OLHA DE NOVO.",
-      "ELA MUDA DE LUGAR. NÃO ANDA — MUDA. E VOLTA.",
-      "TEM UMA COISA QUE NÃO É UM BURACO NO CHÃO. É UM BURACO NO QUANDO.",
-      "E ELA NÃO FICA PARADA: DE CINCO EM CINCO MINUTOS ELA FECHA E ABRE EM OUTRO CANTO DE KANTO.",
-      "EU MONTEI UM APITO QUE AVISA ONDE. TOMA — AGORA VOCÊ SABE SEMPRE. VAI LÁ E ME CONTA O QUE VOCÊ VÊ.",
-    ],
-    // O LEMBRETE DIZ ONDE A ATUAL ESTÁ. É o conserto do "não acho": o
-    // cientista sabe, então ele fala. `{ONDE}` vira o nome do mapa.
-    lembrete: ["A DE AGORA ABRIU EM {ONDE}. CORRE, QUE ELA TROCA DE LUGAR."],
-    entrega: [
-      "FÓSSEIS. ANDANDO.",
-      "NÃO SÃO REMONTADOS COMO OS DO MUSEU. SÃO OS BICHOS, DO JEITO QUE ELES ERAM.",
-      "ENTÃO NÃO É UM BURACO PRA OUTRO LUGAR. É UM BURACO PRA OUTRO TEMPO, E ELE ESTÁ VAZANDO PRA CÁ.",
-      "TOMA. EU IA USAR PRA CAVAR, MAS AGORA EU SEI QUE NÃO PRECISA CAVAR NADA.",
-    ],
-    premio: { dinheiro: 2500, item: "pedra do crepúsculo", qtd: 1 },
-  },
+  // (a missão DISTORÇÕES BIZARRAS saiu junto com as DISTORÇÕES ESPAÇO-TEMPO, a
+  // pedido do CAIO em 03/nov/2026; quem já tinha ela no save só não vê mais)
   {
     id: "primeira-fusao",
     nome: "A DUPLA IMPOSSÍVEL",
@@ -275,22 +329,27 @@ export const MISSOES = [
     nome: "O Z DO DNA",
     mapa: "cinnabar_island", x: 10, y: 10, sprite: "tecnica",
     requer: { insignias: 6 },
-    objetivo: { tipo: "capturou-especie", especie: "zygarde" },
+    // ele foge duas vezes e só luta COMPLETO (src/data/extra.js, ZYGARDE_CACADA)
+    objetivo: { tipo: "capturou-especie", especie: "zygardecompleto" },
     libera: "zygarde",
-    resumo: "SEGUIR AS CÉLULAS ATÉ O FUNDO DO TÚNEL ROCHA.",
+    resumo: "JUNTAR 200 CÉLULAS NO CUBO ZYGARDE E SEGUIR ELAS ATÉ O FUNDO DO TÚNEL ROCHA.",
     oferta: [
       "AQUI NO LABORATÓRIO A GENTE LÊ DNA O DIA INTEIRO. FITA DUPLA, DUAS VOLTAS, SEMPRE IGUAL.",
       "SEMANA PASSADA CHEGOU UMA AMOSTRA DO TÚNEL ROCHA QUE NÃO É FITA. É UM Z.",
       "E TEM MAIS: A AMOSTRA SE MEXE. UMA CÉLULA SOZINHA, SE MEXENDO, NUM POTE FECHADO.",
-      "ELAS ESTÃO INDO PRA ALGUM LUGAR LÁ EMBAIXO. EU QUERO SABER PARA ONDE.",
+      "LEVA ESTE CUBO. NA LUTA CONTRA UMA CÉLULA, USA ELE (FICA NO BOLSO DAS BOLAS) E ELA ENTRA.",
+      "JUNTA 200. COM 200 JUNTAS, ELAS VÃO QUERER VOLTAR PRA CASA. E A GENTE SEGUE.",
     ],
-    lembrete: ["TÚNEL ROCHA, O ANDAR DE BAIXO. SIGA OS PONTINHOS VERDES."],
+    // o CUBO vem na hora de aceitar (antes ele era o prêmio do fim)
+    daAoAceitar: { item: "cubo zygarde", qtd: 1 },
+    lembrete: ["AS CÉLULAS MORAM NA GRAMA DA ROTA 10 E NO TÚNEL ROCHA. USA O CUBO NELAS: SÃO 200.",
+               "COM 200 NO CUBO, VAI PRO ANDAR DE BAIXO DO TÚNEL ROCHA E SEGUE OS PONTINHOS VERDES."],
     entrega: [
       "MILHARES DELAS. E JUNTAS VIRAM UM BICHO SÓ, COM VONTADE PRÓPRIA.",
       "ENTÃO NÃO É UM POKÉMON FEITO DE CÉLULAS. É UM MONTE DE CÉLULAS QUE DECIDIU SER UM POKÉMON.",
       "VOU PRECISAR DE UM POTE MAIOR. E DE OUTRA PROFISSÃO, TALVEZ.",
     ],
-    premio: { dinheiro: 12000, item: "cubo zygarde", qtd: 1 },
+    premio: { dinheiro: 12000, item: "doce raro", qtd: 3 },
   },
 
   {

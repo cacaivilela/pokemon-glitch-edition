@@ -91,10 +91,7 @@ export function cozinhar(ingredientes, acerto) {
 /** Come: gasta os ingredientes, cura ou marca o efeito no save.
  *  O efeito é UM só — comer de novo troca o de antes, não empilha. */
 export function comer(st, sanduiche, ingredientes) {
-  for (const i of ingredientes) {
-    st.items[i] = Math.max(0, (st.items[i] || 0) - 1);
-    if (!st.items[i]) delete st.items[i];
-  }
+  gastar(st, ingredientes);
   const efeitos = sanduiche.efeitos || [{ efeito: sanduiche.efeito, forca: sanduiche.forca }];
 
   // a cura acontece na hora e não tem prazo: ela sai da lista e o resto vale
@@ -110,6 +107,14 @@ export function comer(st, sanduiche, ingredientes) {
     ate: Date.now() + sanduiche.minutos * 60000,
   };
   return { curou };
+}
+
+/** Tira da mochila um de cada ingrediente que foi pra tábua. */
+function gastar(st, ingredientes) {
+  for (const i of ingredientes) {
+    st.items[i] = Math.max(0, (st.items[i] || 0) - 1);
+    if (!st.items[i]) delete st.items[i];
+  }
 }
 
 /** O efeito que está valendo agora, ou null. Ele vence sozinho: quem pergunta

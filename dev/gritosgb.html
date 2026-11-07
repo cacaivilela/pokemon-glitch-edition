@@ -1,0 +1,74 @@
+<!doctype html>
+<!-- OS GRITOS ORIGINAIS: Kanto (Red/Blue) e Johto (Crystal) no chip do Game
+     Boy (src/core/gb.js, dados de src/data/gritos-gb.js), Hoenn em diante nos
+     arquivos de assets/gritos/ — do lado do ANTIGO (as sílabas de
+     src/data/gritos.js, que o jogo tocava antes), pra comparar de ouvido. -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gritos originais — Pokémon Glitch Edition</title>
+<style>
+  :root { color-scheme: dark; }
+  body { background:#0b0d10; color:#d6dde6; font:14px/1.4 ui-monospace, Menlo, Consolas, monospace; padding:14px; margin:0; }
+  h1 { font-size:18px; margin:0 0 10px; } h1 span { color:#b455ff; }
+  input { background:#151a21; color:#d6dde6; border:1px solid #2a323d; border-radius:6px; padding:7px 10px; font:inherit; width:260px; }
+  .lista { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:6px; margin-top:10px; }
+  .item { background:#151a21; border:1px solid #2a323d; border-radius:8px; padding:6px 8px; display:flex; align-items:center; gap:6px; }
+  .item b { flex:1; font-size:13px; }
+  button { background:#1b222b; border:1px solid #2a323d; color:#d6dde6; padding:5px 8px; border-radius:6px; cursor:pointer; font:inherit; font-size:12px; }
+  button.gb { background:#0e3a1c; border-color:#1d7a3a; color:#00ff41; }
+  button:hover { border-color:#b455ff; }
+</style>
+</head>
+<body>
+<h1>GRITOS <span>ORIGINAIS</span></h1>
+<input id="busca" placeholder="procurar (nome ou número)">
+<select id="regiao" style="background:#151a21;color:#d6dde6;border:1px solid #2a323d;border-radius:6px;padding:7px;font:inherit">
+  <option value="">todas as regiões</option>
+  <option value="1-151">Kanto (Red/Blue, Game Boy)</option><option value="152-251">Johto (Crystal, Game Boy)</option>
+  <option value="252-386">Hoenn</option><option value="387-493">Sinnoh</option><option value="494-649">Unova</option>
+  <option value="650-721">Kalos</option><option value="722-809">Alola</option><option value="810-905">Galar</option>
+  <option value="906-1025">Paldea</option>
+</select>
+<div class="lista" id="lista"></div>
+<script type="module">
+import { Audio2 } from "/src/core/audio.js";
+import { DB } from "/src/data/index.js";
+import { GRITOS } from "/src/data/gritos.js";
+import { gritoDe } from "/src/systems/gritos.js";
+// quem tem grito original: os de verdade e as formas oficiais (ver `original`
+// em src/systems/gritos.js)
+const lista = document.getElementById("lista");
+const todos = Object.entries(DB.SPECIES)
+  .map(([id, sp]) => ({ id, sp, g: gritoDe(id, false) }))
+  .filter((x) => x.g.gb || x.g.arquivo)
+  .sort((a, b) => (a.sp.dex || 0) - (b.sp.dex || 0) || a.id.localeCompare(b.id));
+for (const { id, sp, g } of todos) {
+  const d = document.createElement("div");
+  d.className = "item";
+  d.dataset.busca = `${sp.dex} ${sp.name}`.toLowerCase();
+  d.dataset.dex = sp.dex || 0;
+  d.innerHTML = `<b>${String(sp.dex || 0).padStart(4, "0")} ${sp.name}</b>`;
+  const ori = document.createElement("button");
+  ori.className = "gb"; ori.textContent = g.gb ? "ORIGINAL (GB)" : "ORIGINAL";
+  ori.onclick = () => Audio2.grito(g);
+  const velho = document.createElement("button");
+  velho.textContent = "ANTIGO";
+  velho.onclick = () => GRITOS[id] && Audio2.grito(GRITOS[id]);
+  d.append(ori, velho);
+  lista.append(d);
+}
+const filtra = () => {
+  const q = document.getElementById("busca").value.toLowerCase().trim();
+  const [a, z] = (document.getElementById("regiao").value || "0-99999").split("-").map(Number);
+  for (const d of lista.children) {
+    const n = +d.dataset.dex;
+    d.style.display = (!q || d.dataset.busca.includes(q)) && n >= a && n <= z ? "" : "none";
+  }
+};
+document.getElementById("busca").oninput = filtra;
+document.getElementById("regiao").onchange = filtra;
+</script>
+</body>
+</html>

@@ -34,6 +34,7 @@ export const INGREDIENTES = {
   "cogumelo": { sabor: "umami", preco: 280, texto: "GOSTO DE COISA SÉRIA." },
   "azeitona": { sabor: "umami", preco: 240, texto: "UMAMI. OU VOCÊ AMA OU TIRA." },
   "hortelã": { sabor: "fresco", preco: 160, texto: "REFRESCA ATÉ O CAMINHO." },
+  "tomate": { sabor: "umami", preco: 170, texto: "UMAMI E AZEDINHO. NO SUCO, FICA VERMELHO." },
 };
 
 import { BARRACA_LEILAO } from "./leilao.js";

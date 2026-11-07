@@ -1,3 +1,4 @@
+import { PESO_MAXIMO } from "../data/pesos.js";
 // A POKÉDEX — as regras, sem tela. A tela é src/scenes/pokedex.js; as falas e os
 // marcos estão em src/data/pokedex.js.
 //
@@ -11,7 +12,8 @@ import { DB } from "../data/index.js";
  *  existir (inicial E decodificador na mão) ganha ela sem voltar lá — pedir pra
  *  alguém atravessar Kanto até Pallet pra buscar uma tela seria castigo. */
 export const temPokedex = (st) =>
-  !!st?.flags?.pokedex || !!(st?.flags?.starterChosen && st?.flags?.decodificador);
+  !!st?.flags?.pokedex || !!(st?.flags?.starterChosen && st?.flags?.decodificador && !st?.flags?.precisaEncomenda);
+// (`precisaEncomenda`: o jogo novo, em que a POKÉDEX vem com a ENCOMENDA de VIRIDIAN — src/data/pokedex.js)
 
 /** OS TRÊS DEPOIS DO 1025. Não têm número de verdade (os dois glitches são o
  *  número 0, e o MEWTHREE divide o 150 com o MEWTWO), mas são espécies deste
@@ -90,6 +92,21 @@ export function listas() {
     if (r.id === "KANTO") continue;
     cache[r.id] = nacional.filter((id) => r.dentro(id, numeroNaDex(id), DB.SPECIES[id]));
   }
+  // BRAGLITCH (pedido do CAIO, nov/2026): os de lá E as FORMAS -BRAG (o
+  // PIDGEY-BRAG, o LAPRAS-BRAG...), que antes só apareciam na aba FORMAS — e na
+  // ORDEM DA JORNADA: os iniciais de lá primeiro, cada família junta, quem
+  // aparece mais cedo no mato antes, e quem nunca aparece (as lendas) no fim
+  const formasBrag = formas.filter((id) => DB.SPECIES[id]?.braglitch);
+  const listaBrag = [...cache.BRAGLITCH, ...formasBrag];
+  // famílias que a tabela de evolução não junta: a forma -BRAG que evolui da
+  // forma comum (o EXEGGUTOR-BRAG sai do EXEGGCUTE, mas aqui é filho do
+  // EXEGGCUTE-BRAG) e o BEBBIDAH, que vira BEBBIDÃO pelo jeito dele
+  const ligar = { bebbidao: "bebbidah" };
+  for (const id of formasBrag) {
+    const pai = DB.PRE_EVOLUCAO?.[id];
+    if (pai && !DB.SPECIES[pai]?.braglitch && listaBrag.includes(pai + "brag")) ligar[id] = pai + "brag";
+  }
+  cache.BRAGLITCH = ordemDaJornada(listaBrag, DB.BRAGLITCH?.iniciais || [], ligar);
   return cache;
 }
 
@@ -127,8 +144,20 @@ export const ABAS_DA_DEX = [
  *
  *  Cada família fica junta, na ordem da evolução (a pré-evolução antes). */
 function glitchDex(nacional) {
-  const naDex = new Set(nacional);
-  const pre = DB.PRE_EVOLUCAO || {};
+  return ordemDaJornada(nacional, ["bulbasaur", "charmander", "squirtle", ...(DB.BRAGLITCH?.iniciais || []),
+    ...(DB.REGIOES || []).flatMap((r) => r.mons || [])]);
+}
+
+/** A ORDEM DA JORNADA de uma lista qualquer (a GLITCH DEX, a de BRAGLITCH):
+ *  os `iniciais` com a linha inteira, depois as famílias pelo primeiro
+ *  encontro no mato, e quem nunca aparece no fim, pelo número. */
+function ordemDaJornada(lista, iniciais, ligar = {}) {
+  const nacional = lista;
+  const naDex = new Set(lista);
+  // `ligar` { filho: pai }: evoluções que a tabela não tem (ver `listas`)
+  const pre = { ...(DB.PRE_EVOLUCAO || {}), ...ligar };
+  const filhos = {};
+  for (const [f, p] of Object.entries(ligar)) (filhos[p] ||= []).push(f);
   const raiz = (id) => { let r = id, n = 0; while (pre[r] && naDex.has(pre[r]) && n++ < 6) r = pre[r]; return r; };
   // a família inteira, a partir da raiz, na ordem da evolução
   const familia = (r) => {
@@ -138,6 +167,7 @@ function glitchDex(nacional) {
       if (out.includes(id)) continue;
       if (naDex.has(id)) out.push(id);
       for (const regra of DB.EVOLUTIONS?.[id] || []) if (naDex.has(regra.to)) fila.push(regra.to);
+      for (const f of filhos[id] || []) if (naDex.has(f)) fila.push(f);
     }
     return out;
   };
@@ -153,8 +183,6 @@ function glitchDex(nacional) {
   const out = [], ja = new Set();
   const poe = (ids) => { for (const id of ids) if (!ja.has(id)) { ja.add(id); out.push(id); } };
   // 1. os iniciais
-  const iniciais = ["bulbasaur", "charmander", "squirtle", ...(DB.BRAGLITCH?.iniciais || []),
-    ...(DB.REGIOES || []).flatMap((r) => r.mons || [])];
   for (const id of iniciais) if (naDex.has(id)) poe(familia(raiz(id)));
   // 2 e 3. as famílias, pelo primeiro encontro no mato (sem encontro, no fim)
   const familias = new Map();
@@ -236,21 +264,42 @@ export function cadeia(id) {
 export function peso(id) {
   const sp = DB.SPECIES[id];
   if (!sp) return null;
-  return DB.PESOS?.[sp.spriteDex || sp.dex] ?? null;
+  const kg = DB.PESOS?.[sp.spriteDex || sp.dex];
+  return kg == null ? null : Math.min(PESO_MAXIMO, kg);
 }
 
 /** Os marcos que você já passou e o professor ainda não pagou. */
 export function marcosDevidos(st) {
-  const { pegos } = contagem(st, listas().KANTO);
   const pagos = st?.flags?.marcosDex || [];
-  return (DB.MARCOS_DEX || []).filter((m) => pegos >= m.n && !pagos.includes(m.n));
+  const kanto = contagem(st, listas().KANTO).pegos;
+  const nac = contagem(st, listas().NACIONAL).pegos;
+  return [
+    ...(DB.MARCOS_DEX || []).filter((m) => kanto >= m.n && !pagos.includes(m.n)),
+    // os da NACIONAL ficam guardados como "N200", "N300"... e o de TODOS como "NTODOS"
+    ...marcosNacional().filter((m) => nac >= m.n && !pagos.includes(m.chave)),
+  ];
+}
+
+/** os marcos da NACIONAL com o número de verdade (o de TODOS = tamanho da lista) */
+function marcosNacional() {
+  const total = listas().NACIONAL.length;
+  return (DB.MARCOS_NACIONAL || []).map((m) => m.todos ? { ...m, n: total, chave: "NTODOS" } : { ...m, chave: "N" + m.n });
+}
+
+/** O PRÓXIMO PRÊMIO da NACIONAL: { tem, falta: n do marco, item, qtd } ou null (todos pagos) */
+export function proximoMarcoNacional(st) {
+  const nac = contagem(st, listas().NACIONAL).pegos;
+  const m = marcosNacional().find((m) => nac < m.n);
+  return m ? { tem: nac, n: m.n, item: m.item, qtd: m.qtd } : null;
 }
 
 /** Paga um marco: o item vai pra mochila e o marco não volta mais. */
 export function pagarMarco(st, m) {
   const pagos = ((st.flags ||= {}).marcosDex ||= []);
-  if (pagos.includes(m.n)) return false;
-  pagos.push(m.n);
+  const chave = m.chave || m.n;
+  if (pagos.includes(chave)) return false;
+  pagos.push(chave);
+  if (m.libera) st.flags[m.libera] = true;     // o de TODOS: a MASTER BALL vai pras lojas
   st.items[m.item] = Math.min(999, (st.items[m.item] || 0) + m.qtd);
   return true;
 }

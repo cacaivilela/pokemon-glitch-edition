@@ -213,6 +213,12 @@ def recebe(msg):
         j.nome = str(msg.get("nome") or j.nome)[:12]
         espalha(sala, {"tipo": "renomeou", "id": de, "nome": j.nome}, menos=de)
         return True, None
+    if tipo == "chat":
+        # os BONECOS DA IA (online_robos.py) ouvem o chat: quem foi chamado responde
+        try:
+            online_robos.ouviu(sala, de, j.nome, msg.get("texto"))
+        except Exception as e:
+            print("[ia]", e, flush=True)
     if tipo == "pos":
         j.pos = {
             "mapa": str(msg.get("mapa") or "")[:40],
@@ -223,9 +229,24 @@ def recebe(msg):
             "andando": bool(msg.get("andando")),
         }
         msg = {"tipo": "pos", "de": de, **j.pos}
+        # a PRIMEIRA posição de quem acabou de entrar (ou voltou com F5): os
+        # bonecos da IA aparecem em volta dele (online_robos.py)
+        if not getattr(j, "avisou_robos", False) and not de.startswith("ia-"):
+            j.avisou_robos = True
+            try:
+                online_robos.chegou(sala, j.pos["mapa"], j.pos["x"], j.pos["y"])
+            except Exception as e:
+                print("[ia]", e, flush=True)
 
     msg.setdefault("de", de)
     para = slug(msg.get("para"))
+    # pra um BONECO DA IA: quem responde é o online_robos.py (o convite, a troca, a batalha)
+    if para.startswith("ia-"):
+        try:
+            online_robos.privado(sala, para, de, msg)
+        except Exception as e:
+            print("[ia]", e, flush=True)
+        return True, None
     if para:
         if not manda_pra(sala, para, msg):
             return False, "esse jogador não está mais na sala"
@@ -359,3 +380,10 @@ def publica(cartao, sala=None):
     if sala:
         espalha(sala, {"tipo": "cartao", "cartao": novo})
     return novo, None
+
+
+# OS BONECOS DA IA: cinco jogadores de mentira que andam e conversam na sala
+# padrão enquanto tem gente de verdade nela (online_robos.py)
+import sys as _sys
+import online_robos
+online_robos.ligar(_sys.modules[__name__])

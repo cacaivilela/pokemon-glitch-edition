@@ -1,0 +1,132 @@
+<!doctype html>
+<!-- AS INSÍGNIAS (pedido do CAIO, nov/2026: "crie um site pra eu desenhar as
+     insígnias"). Todas as insígnias do jogo, cada uma com o botão DESENHAR,
+     que abre o dev/pixelart.html daquela insígnia (32x32, as cores de metal).
+     O desenho salvo fica em dev/captures/insignia_<id>.png, e aparece aqui e
+     no ESTOJO lá embaixo. -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Insígnias — Pokémon Glitch Edition</title>
+<style>
+  :root { color-scheme: dark; --fundo:#0b0d10; --cartao:#151a21; --borda:#2a323d; --texto:#d6dde6; --ouro:#ffd860; --roxo:#b455ff; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--fundo); color:var(--texto); font:14px/1.4 ui-monospace, Menlo, Consolas, monospace; padding:16px; }
+  h1 { font-size:22px; margin-bottom:4px; } h1 span { color:var(--ouro); }
+  p.sub { color:#9fb0c4; margin-bottom:16px; }
+  h2 { font-size:15px; margin:18px 0 8px; color:var(--ouro); letter-spacing:1px; }
+  .grade { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; }
+  .ins { background:var(--cartao); border:1px solid var(--borda); border-radius:10px; padding:10px; text-align:center; }
+  .ins canvas { width:96px; height:96px; image-rendering:pixelated; background:#1e242d; border-radius:8px; }
+  .ins b { display:block; margin-top:6px; font-size:12px; }
+  .ins small { display:block; color:#7f8fa3; font-size:11px; margin-bottom:6px; }
+  .ins a { display:inline-block; background:var(--roxo); color:#fff; text-decoration:none; padding:5px 10px; border-radius:6px; font-size:12px; }
+  .ins a:hover { filter:brightness(1.2); }
+  .feita { color:#7dff7a; font-size:11px; }
+  .estojo { background:linear-gradient(#6a2a1a, #3a1408); border:4px solid #c89a3a; border-radius:14px; padding:14px; display:inline-flex; flex-wrap:wrap; gap:10px; max-width:100%; }
+  .estojo canvas { width:64px; height:64px; image-rendering:pixelated; background:#2a0e06; border-radius:50%; box-shadow:inset 0 2px 4px #0008; }
+  .brag { display:inline-grid; grid-template-columns:repeat(3, 72px); gap:4px; background:linear-gradient(#1a3a1a, #0a1e0a); border:4px solid #c89a3a; border-radius:14px; padding:12px; perspective:600px; }
+  .peca { width:72px; height:72px; position:relative; transform-style:preserve-3d; transition:transform .6s; }
+  .peca.virada { transform:rotateY(180deg); }
+  .peca canvas { position:absolute; inset:4px; width:64px; height:64px; image-rendering:pixelated; backface-visibility:hidden; border-radius:6px; }
+  .peca canvas.verso { transform:rotateY(180deg); border-radius:0; background:#2a1a08; }
+  .peca canvas.frente { background:#0e2a0e; border-radius:50%; }
+  .simbolo { background:var(--cartao); border:1px dashed var(--ouro); border-radius:10px; padding:10px; display:inline-block; text-align:center; margin-left:12px; vertical-align:top; }
+  .simbolo canvas { width:96px; height:96px; image-rendering:pixelated; background:#1e242d; }
+  button { font:inherit; background:#2a323d; color:var(--texto); border:1px solid var(--borda); border-radius:6px; padding:6px 12px; cursor:pointer; margin-left:8px; }
+</style>
+</head>
+<body>
+<h1>As <span>INSÍGNIAS</span> <button id="atualiza">↻ ATUALIZAR</button></h1>
+<p class="sub">Clique em DESENHAR, desenhe a insígnia (32×32) e aperte SALVAR lá. Depois volte aqui e aperte ATUALIZAR.</p>
+<div id="listas"></div>
+<h2>🧰 O ESTOJO</h2>
+<div class="estojo" id="estojo"></div>
+<h2>⚡ O ESTOJO DE KANTO <button id="virarK">🔄 VIRAR</button></h2>
+<p class="sub">As 8 de Kanto também formam uma imagem nas costas. VOCÊ desenha o símbolo (96×96, cortado em 9).</p>
+<div class="brag" id="kanto"></div>
+<div class="simbolo"><b>O SÍMBOLO DE KANTO</b><br><canvas id="simbK" width="96" height="96"></canvas><br>
+  <a href="/dev/pixelart.html?nome=simbolo_liga_kanto&lado=96&cores=insignia" target="_blank" style="display:inline-block;background:#b455ff;color:#fff;text-decoration:none;padding:5px 10px;border-radius:6px;font-size:12px;margin-top:6px">🎨 DESENHAR O SÍMBOLO</a></div>
+<h2>🌳 O ESTOJO DE BRAGLITCH <button id="virar">🔄 VIRAR</button></h2>
+<p class="sub">Cada insígnia de Braglitch é um PEDAÇO do símbolo da Liga, nas costas dela. Juntas (e com o meio), viram o símbolo inteiro.</p>
+<div class="brag" id="brag"></div>
+<div class="simbolo"><b>O SÍMBOLO DA LIGA</b><br><canvas id="simb" width="96" height="96"></canvas><br>
+  <a href="/dev/pixelart.html?nome=simbolo_liga_brag&lado=96&cores=insignia" target="_blank" style="display:inline-block;background:#b455ff;color:#fff;text-decoration:none;padding:5px 10px;border-radius:6px;font-size:12px;margin-top:6px">🎨 DESENHAR O SÍMBOLO</a>
+  <small style="display:block;color:#7f8fa3;margin-top:4px">96×96: o site corta em 9 pedaços</small></div>
+<script type="module">
+import { DB } from "/src/data/index.js";
+
+const GRUPOS = [
+  ["KANTO", (DB.STORY?.badges || []).map((b) => ({ id: b.id, nome: b.name, onde: b.city }))],
+  ["BRAGLITCH", (DB.INSIGNIAS_BRAG || []).map((b) => ({ id: b.id, nome: b.name, onde: b.city }))],
+  ["O VOID", [
+    DB.GINASIO_VOID?.insignia && { id: DB.GINASIO_VOID.insignia.id, nome: DB.GINASIO_VOID.insignia.nome, onde: "GINÁSIO DO VOID" },
+    { id: "campeaovoid", nome: "INSÍGNIA PRETA", onde: "CAMPEÃO DO VOID" },
+  ].filter(Boolean)],
+];
+
+const carregar = (id) => new Promise((ok) => {
+  const im = new Image();
+  im.onload = () => ok(im); im.onerror = () => ok(null);
+  im.src = `/dev/captures/insignia_${id}.png?t=${Date.now()}`;
+});
+const tela = (w) => { const c = document.createElement("canvas"); c.width = c.height = w; return c; };
+function pinta(c, im) {
+  const g = c.getContext("2d"); g.imageSmoothingEnabled = false; g.clearRect(0, 0, c.width, c.height);
+  if (!im) { g.fillStyle = "#3a424e"; g.font = "bold 14px monospace"; g.textAlign = "center"; g.fillText("?", c.width / 2, c.height / 2 + 5); return; }
+  g.drawImage(im, 0, 0, c.width, c.height);
+}
+
+async function montar() {
+  const listas = document.getElementById("listas"), estojo = document.getElementById("estojo");
+  listas.innerHTML = ""; estojo.innerHTML = "";
+  for (const [titulo, lista] of GRUPOS) {
+    const h = document.createElement("h2"); h.textContent = titulo; listas.appendChild(h);
+    const grade = document.createElement("div"); grade.className = "grade"; listas.appendChild(grade);
+    for (const b of lista) {
+      const im = await carregar(b.id);
+      const card = document.createElement("div"); card.className = "ins";
+      const c = tela(32); pinta(c, im); card.appendChild(c);
+      card.insertAdjacentHTML("beforeend", `<b>${b.nome}</b><small>${b.onde || ""}</small>`
+        + `<a href="/dev/pixelart.html?nome=insignia_${b.id}&lado=32&cores=insignia" target="_blank">${im ? "✏️ EDITAR" : "🎨 DESENHAR"}</a>`
+        + (im ? `<div class="feita">✔ FEITA</div>` : ""));
+      grade.appendChild(card);
+      const e = tela(32); pinta(e, im); e.title = b.nome; estojo.appendChild(e);
+    }
+  }
+}
+// O ESTOJO DE BRAGLITCH: 3x3; as 8 insígnias em volta (no sentido do relógio, a
+// partir do canto de cima à esquerda) e o MEIO, que é o coração do símbolo
+const LUGARES = [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2], [1, 2], [0, 2], [0, 1]];
+async function montarBrag(caixaId = "brag", simbNome = "simbolo_liga_brag", simbCanvas = "simb", lista0 = DB.INSIGNIAS_BRAG) {
+  const caixa = document.getElementById(caixaId); caixa.innerHTML = "";
+  const simb = await new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = `/dev/captures/${simbNome}.png?t=${Date.now()}`; });
+  pinta(document.getElementById(simbCanvas), simb);
+  const lista = (lista0 || []).slice(0, 8);
+  const celulas = Array.from({ length: 9 }, () => null);
+  lista.forEach((b, i) => { const [x, y] = LUGARES[i]; celulas[y * 3 + x] = { b, x, y }; });
+  celulas[4] = { meio: true, x: 1, y: 1 };
+  for (const c of celulas) {
+    const div = document.createElement("div"); div.className = "peca";
+    // a FRENTE: o desenho da insígnia (o meio não tem frente: é só o símbolo)
+    const f = tela(32); f.className = "frente";
+    if (c.b) { pinta(f, await carregar(c.b.id)); f.title = c.b.nome; }
+    else { const g = f.getContext("2d"); g.fillStyle = "#c89a3a"; g.fillRect(14, 14, 4, 4); f.title = "O MEIO DO SÍMBOLO"; }
+    // o VERSO: o pedaço do símbolo
+    const v = tela(32); v.className = "verso";
+    const g = v.getContext("2d"); g.imageSmoothingEnabled = false;
+    if (simb) g.drawImage(simb, c.x * 32, c.y * 32, 32, 32, 0, 0, 32, 32);
+    else { g.fillStyle = "#5a3a10"; g.font = "bold 12px monospace"; g.textAlign = "center"; g.fillText(String(c.meio ? "★" : LUGARES.findIndex(([x, y]) => x === c.x && y === c.y) + 1), 16, 20); }
+    div.append(f, v); caixa.appendChild(div);
+  }
+}
+document.getElementById("virar").onclick = () => document.querySelectorAll("#brag .peca").forEach((p) => p.classList.toggle("virada"));
+document.getElementById("virarK").onclick = () => document.querySelectorAll("#kanto .peca").forEach((p) => p.classList.toggle("virada"));
+const montarTudo = () => { montar(); montarBrag(); montarBrag("kanto", "simbolo_liga_kanto", "simbK", (DB.STORY?.badges || []).map((b) => ({ id: b.id, name: b.name }))); };
+document.getElementById("atualiza").onclick = montarTudo;
+addEventListener("focus", montarTudo);   // voltou da aba de desenhar: já atualiza
+montarTudo();
+</script>
+</body>
+</html>

@@ -1,6 +1,9 @@
 // Ponto unico de acesso aos dados do jogo.
 // O live update reimporta este modulo com ?t=... e reconstroi o DB em memoria,
 // entao TUDO que le dados deve ler via `DB.x` (nunca guardar a referencia solta).
+import { porForasteiros, porForasteirosNasRegioes } from "./forasteiros.js";
+import * as itensUso from "./itens-uso.js";
+import * as ligaKanto from "./liga-kanto.js";
 import { url as arquivo } from "../core/base.js";
 
 const V = new URL(import.meta.url).search;
@@ -68,6 +71,66 @@ const [config, story, types, moves, gen1, extra, frags, loot, evo, field, music,
   fetch(arquivo(`assets/maps/kanto.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : null)),
 ]);
 
+// MAIS GOLPES (src/data/golpes-mais.js): os duzentos golpes a mais, que todo
+// Pokémon aprende alguns pelos tipos (src/data/species.js, `maisGolpes`)
+const golpesMais = await import("./golpes-mais.js" + V);
+// OS 99 GOLPES OFICIAIS A MAIS (src/data/golpes-oficiais.js, gerado por tools/mt_oficiais/golpes99.py)
+const golpesOficiais = await import("./golpes-oficiais.js" + V);
+// AS MTs OFICIAIS (src/data/mt-oficiais.json, tools/mt_oficiais/gerar.py): quem aprende cada MT nos jogos de verdade
+const MT_OFICIAIS = await fetch(arquivo(`src/data/mt-oficiais.json${V || "?v=1"}`)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+// OS POKÉBLOCOS (src/data/pokeblocos.js): as berries, o liquidificador e as condições
+const pokeblocos = await import("./pokeblocos.js" + V);
+// OS EVENTOS (src/data/eventos.js): as raids de evento com data marcada
+const eventos = await import("./eventos.js" + V);
+// A BATALHA EM LUMIOSE (src/data/musica-lumiose.js): a do X/Y, copiada de um MIDI
+const musicaLumiose = await import("./musica-lumiose.js" + V);
+// A MEGA DESCONTROLADA: a batalha de Lumiose tocada por uma banda pesada (src/data/musica-mega-descontrolada.js)
+const musicaMegaDesc = await import("./musica-mega-descontrolada.js" + V);
+// AS MÚSICAS DE KANTO DO FIRERED (src/data/musicas-frlg.js) e onde cada uma toca
+const musicasFrlg = await import("./musicas-frlg.js" + V);
+// O PAINTBALL DE CELADON e o balcão de fichas do cassino (src/data/paintball.js)
+const paintball = await import("./paintball.js" + V);
+// OS DOCES DO ALCREMIE (src/data/doces.js)
+const doces = await import("./doces.js" + V);
+// OS ITENS DE SEGURAR (src/data/segurar.js)
+const segurar = await import("./segurar.js" + V);
+// O BEBBIDAH (src/data/bebbidah.js): os ingredientes de sanduíche viram coisa
+// de segurar — é segurando um e girando que ele evolui
+const bebbidah = await import("./bebbidah.js" + V);
+// AS MÚSICAS DOS LUGARES DE BRAGLITCH (src/data/musicas-braglitch.js)
+const musicasBrag = await import("./musicas-braglitch.js" + V);
+const cavernaSerra = await import("./caverna-serra.js" + V);
+const fonteCeladon = await import("./fonte-celadon.js" + V);   // a PASSAGEM SECRETA DA FONTE DE CELADON
+const ciber = await import("./ciberespaco.js" + V);   // o CIBERESPAÇO do PORYGON (cassino de Celadon)
+const sub = await import("./subterraneo.js" + V);   // O SUBTERRÂNEO DE KANTO
+for (const b of bebbidah.BEBIDAS) {
+  if (!segurar.SEGURAVEIS[b.item]) segurar.SEGURAVEIS[b.item] = { efeito: "bebida", desc: bebbidah.BEBBIDAH_TEXTO.desc };
+}
+// AS BASES SECRETAS (src/data/bases.js)
+const bases = await import("./bases.js" + V);
+const cabecas = await import("./cabecas-marcadas.js" + V);   // as cabeças marcadas à mão da fusão
+const musicasKanto = await import("./musicas-kanto.js" + V);
+const fundoDoMar = await import("./fundo-do-mar.js" + V);
+const posPos = await import("./pos-pos.js" + V);   // o PÓS-PÓS-GAME (KYOGRE x GROUDON)
+const portal = await import("./portal-paradoxo.js" + V);
+const secretos = await import("./portal-secretos.js" + V);   // o PORTAL PARADOXO (as runas e os mapas secretos)
+const windsWaves = await import("./winds-waves.js" + V);   // BROWT, POMBON e GECQUA (o PRESENTE MISTERIOSO)
+// LUMIOSE (CIDADE): a de andar por Lumiose fora da batalha (src/data/musica-lumiose-cidade.js)
+const musicaLumioseCidade = await import("./musica-lumiose-cidade.js" + V);
+// KALOS (src/data/kalos.js): a LUMIOSE do Legends Z-A e o avião
+const kalos = await import("./kalos.js" + V);
+// A ÁREA ZERO (src/data/area-zero.js): o helicóptero de Viridian, a GARAGEM ZERO e os PARADOXOS novos
+const areaZero = await import("./area-zero.js" + V);
+// A FÁBRICA DE POKÉBOLAS (src/data/fabrica.js)
+const fabrica = await import("./fabrica.js" + V);
+// O ESPAÇO SIDERAL (src/data/espaco.js): o foguete de Cinnabar, a Lua e os planetas
+const espaco = await import("./espaco.js" + V);
+// O CONECTADOR DE LENDAS (src/data/conectador.js): CALYREX/KYUREM/NECROZMA juntos com os parceiros
+const conectador = await import("./conectador.js" + V);
+// A ÁRVORE OCA DA ROTA 1 (src/data/arvore-oca.js): o corredor do GUZZLORD e a sala do tesouro
+const arvoreOca = await import("./arvore-oca.js" + V);
+// OS REGIS (src/data/regis.js): as placas das câmaras de Tanoby e o REGIGLITCH
+const regis = await import("./regis.js" + V);
 // AS MEGAS DESCONTROLADAS (src/data/descontroladas.js), à parte da lista acima
 const descontroladas = await import("./descontroladas.js" + V);
 // AS EVOLUÇÕES SECRETAS (src/data/secretas.js): as espécies e as marcas
@@ -75,12 +138,12 @@ const secretas = await import("./secretas.js" + V);
 // AS FORMAS ÚNICAS (src/data/formas-unicas.js): os desenhos do UNIQUEMON
 const unicas = await import("./formas-unicas.js" + V);
 const formasBatalha = await import("./formas-batalha.js" + V);   // WISHIWASHI CARDUME, PALAFIN HERÓI
+const carnaval = await import("./carnaval.js" + V);            // as ULTRA BEASTS DE CARNAVAL (evento)
 const vinculo = await import("./vinculo.js" + V);              // o FENÔMENO DE VÍNCULO do CAIO e da LARA
 const puros = await import("./fosseis-puros.js" + V);            // os FÓSSEIS PURIFICADOS: a FORMA PURA e o TURBOZOLT
 const guardaRoupa = await import("./guarda-roupa.js" + V);
 // FALAR COM O COMPANHEIRO (src/data/companheiro.js)
 const companheiro = await import("./companheiro.js" + V);
-// AS REGIÕES CRIADAS POR JOGADORES (o REGIOMAKER): os dados e o montador
 // O ASH, o campeão secreto (src/data/ash.js)
 const ash = await import("./ash.js" + V);
 // OS BICOS: entregas e procurados (src/data/bicos.js)
@@ -184,6 +247,8 @@ function mergeMaps(kanto, authored) {
       npcs: m.npcPatch ? npcs.map((n) => (m.npcPatch[n.id] ? { ...n, ...m.npcPatch[n.id] } : n)) : npcs,
     };
   }
+  // OS NOMES EM PORTUGUÊS DE GENTE: "CIDADE DE PEWTER", não "PEWTER CIDADE" (src/data/lugares.js)
+  for (const id of Object.keys(out)) out[id].name = lugares.traduzirNome(out[id].name);
   // AS PLACAS DA HISTÓRIA DO ??????????: o aviso em Cinnabar e os diários da
   // mansão (src/data/decamark.js). Entram por cima do nome de mapa que os tiles
   // de placa importados mostram por padrão.
@@ -264,7 +329,8 @@ function mergeMaps(kanto, authored) {
       // AS BOLAS entram GRUDADAS NA POKÉ BOLA, e não no fim da lista: bola se
       // compra ao lado de bola. Jogadas no fim, a GREAT BALL aparecia depois
       // das cinco pedras de evolução e dos ingredientes de sanduíche.
-      const novas = bolas.ESTOQUE_BOLAS.filter((x) => !tem.has(x.item));
+      // + a CURA, os X da batalha, os novos de segurar e a BICICLETA (src/data/itens-uso.js)
+      const novas = [...bolas.ESTOQUE_BOLAS, ...itensUso.ESTOQUE_USO].filter((x) => !tem.has(x.item));
       const i = npc.shop.findIndex((x) => x.item === "poké bola");
       const comBolas = i < 0 ? [...npc.shop, ...novas]
         : [...npc.shop.slice(0, i + 1), ...novas, ...npc.shop.slice(i + 1)];
@@ -292,7 +358,6 @@ function mergeMaps(kanto, authored) {
 }
 
 const DIM = { w: 44, h: 40, seed: 90210, entry: { x: 22, y: 30 } };
-export const DIM_ENTRY = { x: 22, y: 29, portal: { x: 22, y: 30 } };
 
 /** ruído simples e determinístico (sem Math.random: precisa ser igual sempre) */
 function hash2(x, y, seed) {
@@ -341,7 +406,6 @@ function dimensionMap(story) {
  *  (`python3 tools/fetch_maps.py --only BirthIsland_Exterior`). Se o arquivo não
  *  estiver lá, o jogo cai nesta ilha desenhada em código, pra nunca quebrar. */
 const ILHA = { w: 22, h: 20 };
-export const ILHA_ENTRADA = { x: 11, y: 16, dir: "up" };
 
 function islandMap() {
   const { w, h } = ILHA;
@@ -370,7 +434,6 @@ function islandMap() {
  *  existe caminho por terra e não tem porta: só se chega de barco (as side
  *  quests do marinheiro) e só se sai falando com ele de novo. */
 const TEMPESTADE = { w: 20, h: 16 };
-export const TEMPESTADE_PIER = { x: 10, y: 10, dir: "up" };
 
 function stormMap(story) {
   const { w, h } = TEMPESTADE;
@@ -468,14 +531,33 @@ function abrirCaminho(celulas, w, h, de, ate) {
 
 /** { era_fosseis: geo, era_paradoxo: geo, era_futuro: geo } */
 const MAPAS_ERAS = Object.fromEntries((eras.ERAS || []).map((e) => [e.mapa, eraMap(e)]));
+// OS MAPAS SECRETOS DO PORTAL PARADOXO (src/data/portal-paradoxo.js): o mesmo
+// gerador das eras, um por receita de runas
+const MAPAS_PORTAL = Object.fromEntries((portal.RECEITAS || []).map((r) =>
+  [`paradoxo_${r.id}`, eraMap({ geo: r.geo, nome: r.nomeMapa, music: r.music || "era_paradoxo", encontros: [] })]));
 
 /** BRAGLITCH (src/data/braglitch.js): os mapas abertos saem da planta de lá;
  *  os interiores são cópia dos de Kanto com as portas trocadas. Montado uma
  *  vez aqui porque precisa do kanto.json já carregado. */
 const MAPAS_BRAGLITCH = kanto ? brag.montarBraglitch(kanto) : {};
+/** A CAVERNA DO MONTE SERRA (src/data/caverna-serra.js): os dois andares, e
+ *  as bocas do paredão da serra ligadas neles */
+// a porta do PRÉDIO DA LIGA de Braglitch e a da SALA (src/data/braglitch-liga.js)
+brag.ligarSalaDaLiga?.(MAPAS_BRAGLITCH);
+const MAPAS_CAVERNA_SERRA = kanto ? cavernaSerra.montarCavernaSerra(kanto, MAPAS_BRAGLITCH) : {};
+/** A SALA SECRETA DA FONTE DE CELADON (src/data/fonte-celadon.js) e a escada da fonte */
+const MAPAS_FONTE = kanto ? fonteCeladon.montarFonte(kanto) : {};
+/** O CIBERESPAÇO (src/data/ciberespaco.js): o mapa de dentro do computador, com os portais */
+const MAPAS_CIBER = kanto ? ciber.montarCiber(kanto) : {};
+/** O SUBTERRÂNEO DE KANTO (src/data/subterraneo.js): o mapa de túneis embaixo de tudo */
+const MAPAS_SUB = kanto ? sub.montarSubterraneo(kanto) : {};
 /** O GINÁSIO DO VOID (src/data/void.js): a porta no preto da MATA DO SACI e a
  *  sala. Vem logo depois de Braglitch porque põe a porta na geometria de lá. */
 const MAPAS_VOID = kanto ? vazio.montarVoid(kanto, MAPAS_BRAGLITCH) : {};
+/** A LIGA DO VOID (src/data/liga-void.js): mais longe no preto, o prédio da Liga de Kanto */
+const ligaVoid = await import("./liga-void.js" + V);
+const MAPAS_LIGA_VOID = kanto ? ligaVoid.montarSalaVoid(kanto) : {};
+if (kanto) ligaVoid.ligarLigaVoid(kanto, MAPAS_BRAGLITCH, MAPAS_LIGA_VOID);
 /** o texto das placas e das portas trancadas, colado por cima do conteúdo */
 const BRAG_MUNDO = kanto ? brag.conteudoDoMundo(MAPAS_BRAGLITCH) : {};
 const BRAG_PLACAS = brag.placasEPortas(MAPAS_BRAGLITCH, BRAG_MUNDO);
@@ -488,14 +570,41 @@ const BRAG_CONTEUDO = Object.fromEntries(Object.entries({ ...brag.BRAGLITCH_MAPS
   lockedWarps: { ...(BRAG_PLACAS[id]?.lockedWarps || {}), ...(m.lockedWarps || {}) },
 }]));
 
+/** KALOS (src/data/kalos.js): a LUMIOSE, com o mesmo construtor de Braglitch */
+const MAPAS_KALOS = kanto ? kalos.montarKalos(kanto) : {};
+const MAPAS_AREA_ZERO = kanto ? areaZero.montarAreaZero(kanto) : {};
+const MAPAS_ARVORE = kanto ? arvoreOca.montarArvore(kanto) : {};
+const MAPAS_ESPACO = kanto ? espaco.montarEspaco(kanto) : {};
+const ESP_PLACAS = brag.placasEPortas(MAPAS_ESPACO, espaco.CONTEUDO_ESPACO, {}, {});
+const ESP_CONTEUDO = Object.fromEntries(Object.entries(espaco.CONTEUDO_ESPACO).map(([id, { placas, ...m }]) => [id, {
+  ...m, signs: { ...(ESP_PLACAS[id]?.signs || {}), ...(m.signs || {}) },
+}]));
+const AZ_PLACAS = brag.placasEPortas(MAPAS_AREA_ZERO, areaZero.CONTEUDO_AREA_ZERO, {}, {});
+const AZ_CONTEUDO = Object.fromEntries(Object.entries(areaZero.CONTEUDO_AREA_ZERO).map(([id, { placas, ...m }]) => [id, {
+  ...m, signs: { ...(AZ_PLACAS[id]?.signs || {}), ...(m.signs || {}) },
+}]));
+const KALOS_PLACAS = brag.placasEPortas(MAPAS_KALOS, kalos.KALOS_CONTEUDO, {}, kalos.PORTA_FECHADA_KALOS);
+const KALOS_CONTEUDO = Object.fromEntries(Object.entries(kalos.KALOS_CONTEUDO).map(([id, { placas, ...m }]) => [id, {
+  ...m,
+  signs: { ...(KALOS_PLACAS[id]?.signs || {}), ...(m.signs || {}) },
+  lockedWarps: { ...(KALOS_PLACAS[id]?.lockedWarps || {}), ...(m.lockedWarps || {}) },
+}]));
+
 /** As espécies de todas as tabelas, antes do `buildSpecies` (as regiões
  *  criadas precisam saber o que existe pra montar os times delas). */
 const ESPECIES_BASE = { ...gen1.GEN1, ...extra.EXTRA, ...reg.REGIONAIS, ...eras.ERAS_ESPECIES,
   ...iniciais.INICIAIS_ESPECIES, ...bones.BONES_ESPECIES, ...decamark.DECAMARK_ESPECIE, ...mais.MAIS,
   ...hack.HACKEANAS, ...brag.BRAGLITCH_ESPECIES, ...rotom.ROTOM_FORMAS, ...mega.MEGA_FORMS,
-  ...secretas.SECRETAS_ESPECIES, ...formasBatalha.FORMAS_BATALHA, ...puros.FOSSEIS_PUROS_ESPECIES };
+  ...secretas.SECRETAS_ESPECIES, ...formasBatalha.FORMAS_BATALHA, ...puros.FOSSEIS_PUROS_ESPECIES,
+  ...kalos.KALOS_ESPECIES, ...regis.REGIS_ESPECIES };
+// AS ULTRA BEASTS DE CARNAVAL também (src/data/carnaval.js)
+Object.assign(ESPECIES_BASE, carnaval.especiesCarnaval(ESPECIES_BASE));
 // AS FORMAS DE VÍNCULO saem das espécies de sempre (src/data/vinculo.js)
 Object.assign(ESPECIES_BASE, vinculo.especiesVinculo(ESPECIES_BASE));
+Object.assign(ESPECIES_BASE, secretos.SECRETOS);
+Object.assign(ESPECIES_BASE, areaZero.PARADOXOS_AREA_ZERO);
+Object.assign(ESPECIES_BASE, conectador.FORMAS_CONECTADAS);   // as formas JUNTAS (o CONECTADOR DE LENDAS)   // os PARADOXOS novos da ÁREA ZERO   // os POKÉMON SECRETOS do PORTAL PARADOXO
+Object.assign(ESPECIES_BASE, windsWaves.WINDS_WAVES);   // os iniciais de WINDS AND WAVES (src/data/winds-waves.js)
 /** true quando a ilha está sendo desenhada aqui, e não veio do decomp */
 export const ILHA_GERADA = !kanto?.birth_island;
 
@@ -507,7 +616,62 @@ const ilhaFallback = ILHA_GERADA ? { birth_island: islandMap() } : {};
  *  dispara o hot-swap) apagaria todas elas da memória. */
 export function buildDB() {
   const db = montarDB();
+  kalos.porAeroportos(db);          // o piloto em VERMILION e SÃO LUCARIO, o mato da LUMIOSE
+  areaZero.porHelicoptero(db);
+  espaco.porBaseEspacial(db);       // o FOGUETE em CINNABAR (depois da LIGA)
+  fabrica.porFabrica(db);
+  // OS FORASTEIROS (src/data/forasteiros.js): bicho de outra região em Kanto, um pouco mais raro
+  porForasteiros(db, Object.keys(kanto || {}).filter((id) => !String(id).startsWith("espaco")));
+  porForasteirosNasRegioes(db);       // e em BRAGLITCH, KALOS, ÁREA ZERO e no ESPAÇO
+  // o GOTHITEPASS (GOTHITELLE + NOSEPASS) mora no alto da TORRE POKÉMON: o
+  // CAIO achou na calculadora e o grito dele é "música de filme de terror antigo"
+  for (const id of ["pokemon_tower_6f", "pokemon_tower_7f"]) {
+    const m = db.MAPS[id];
+    if (m?.encounters?.length && !m.encounters.some((e) => e.id === "fus-gothitelle-nosepass"))
+      m.encounters.push({ id: "fus-gothitelle-nosepass", min: 20, max: 24, w: 2 });
+  }
+  // EXPLOSÃO (src/data/golpes-mais.js): os que explodem no jogo de verdade
+  for (const [id, nv] of [["geodude", 32], ["graveler", 36], ["golem", 36], ["voltorb", 40], ["electrode", 46], ["koffing", 45],
+                          ["weezing", 51], ["pineco", 39], ["forretress", 39], ["gastly", 50], ["haunter", 52], ["gengar", 52]]) {
+    const sp = db.SPECIES?.[id];
+    if (sp?.learnset && !sp.learnset.some(([, g]) => g === "explosao")) { sp.learnset.push([nv, "explosao"]); sp.learnset.sort((a, b) => a[0] - b[0]); }
+  }
+  // PODER ANCESTRAL (src/data/golpes-mais.js): os FÓSSEIS e os bichos antigos aprendem
+  // (e quem evolui sabendo ele no jogo de verdade — PILOSWINE, YANMA, TANGELA, LICKITUNG)
+  for (const [id, nv] of [["aerodactyl", 33], ["omanyte", 40], ["omastar", 40], ["kabuto", 36], ["kabutops", 36],
+                          ["lileep", 36], ["cradily", 36], ["anorith", 36], ["armaldo", 36], ["cranidos", 28], ["rampardos", 28],
+                          ["shieldon", 28], ["bastiodon", 28], ["tyrunt", 1], ["tyrantrum", 1], ["amaura", 1], ["aurorus", 1],
+                          ["piloswine", 33], ["mamoswine", 33], ["yanma", 33], ["yanmega", 33], ["tangela", 33], ["tangrowth", 33],
+                          ["lickitung", 33], ["lickilicky", 33], ["togepi", 33], ["togetic", 33], ["celebi", 10], ["mew", 30]]) {
+    const sp = db.SPECIES?.[id];
+    if (sp?.learnset && !sp.learnset.some(([, g]) => g === "poderancestral")) {
+      sp.learnset.push([nv, "poderancestral"]);
+      sp.learnset.sort((a, b) => a[0] - b[0]);
+    }
+  }           // a FÁBRICA DE POKÉBOLAS na USINA e o AZUL em VIRIDIAN (depois da LIGA)
+  // os 99 GOLPES OFICIAIS: quem aprende subindo de nível, no nível dos jogos (a forma sem lista usa a da espécie)
+  for (const [id, sp] of Object.entries(db.SPECIES || {})) {
+    if (!Array.isArray(sp.learnset) || sp.fusao) continue;
+    const lista = golpesOficiais.NIVEL_OFICIAL[id] || golpesOficiais.NIVEL_OFICIAL[sp.formaDe] || golpesOficiais.NIVEL_OFICIAL[sp.megaDe];
+    if (!lista) continue;
+    const tem = new Set(sp.learnset.map(([, g]) => g));
+    const novos = lista.filter(([, g]) => !tem.has(g) && db.MOVES[g]);
+    if (novos.length) sp.learnset = [...sp.learnset, ...novos].sort((a, b) => a[0] - b[0]);
+  }
+  // as CÉLULAS DE ZYGARDE (a missão O Z DO DNA pede 200 no CUBO): na grama da ROTA 10
+  // e no TÚNEL ROCHA, de onde veio a amostra (1 em cada 4 encontros, mais ou menos)
+  for (const m of ["route10", "rock_tunnel_1f", "rock_tunnel_b1f"]) {
+    const t = db.MAPS?.[m]?.encounters;
+    if (t && db.SPECIES?.celulazygarde && !t.some((e) => e.id === "celulazygarde")) t.push({ id: "celulazygarde", min: 14, max: 20, w: 33 });
+  }
+  arvoreOca.porArvore(db);          // a ÁRVORE OCA da ROTA 1 (o GUZZLORD)
+  // o DITTO só aprende a TRANSFORMAÇÃO, como no jogo original (src/data/golpes-mais.js)
+  if (db.SPECIES?.ditto && db.MOVES?.transformacao) db.SPECIES.ditto.learnset = [[1, "transformacao"]];
+  // o ETERNATUS no nível 1 só sabe o RAIO ETERNO (pedido do CAIO); o resto vem depois, nos níveis de sempre
+  if (db.SPECIES?.eternatus && db.MOVES?.raioeterno) db.SPECIES.eternatus.learnset = [[1, "raioeterno"], ...db.SPECIES.eternatus.learnset.filter(([l, m]) => l > 1 && m !== "raioeterno")];      // o HELICÓPTERO da ÁREA ZERO em VIRIDIAN (depois da LIGA)
   aplicarUnicas(db, unicas.FORMAS_UNICAS);
+  musicasKanto.musicasDoFirered(db);   // Kanto com as músicas do FireRed
+  fundoDoMar.gerarFundos(db);          // o FUNDO DO MAR de cada mapa com mar (src/data/fundo-do-mar.js)
   return db;
 }
 
@@ -520,15 +684,16 @@ function montarDB() {
     effectiveness: types.effectiveness,
     // os GOLPES Z de tipo entram junto: eles não se aprendem, mas o motor de
     // batalha procura todo golpe por id nesta mesma tabela
-    MOVES: { ...moves.MOVES, ...zc.Z_GOLPES, ...hab.GOLPES_DE_CLIMA },
+    MOVES: { ...moves.MOVES, ...golpesMais.MAIS_GOLPES, ...golpesOficiais.GOLPES_OFICIAIS, ...zc.Z_GOLPES, ...hab.GOLPES_DE_CLIMA, ...kalos.KALOS_GOLPES },
     HABILIDADES: hab.HABILIDADES,
     HABILIDADE_DE: hab.HABILIDADE_DE,
     HABILIDADE_POR_TIPO: hab.HABILIDADE_POR_TIPO,
+    HABILIDADE_ASSINATURA: hab.HABILIDADE_ASSINATURA,
     CLIMA_TEXTO: hab.CLIMA_TEXTO,
     PESOS: pesos.PESOS,
     GEN1: gen1.GEN1,
     DEX_ORDER: gen1.DEX_ORDER,
-    SPECIES: species.buildSpecies(ESPECIES_BASE, types.TYPE_COLOR, textos.DEX_TEXTOS),
+    SPECIES: species.buildSpecies(ESPECIES_BASE, types.TYPE_COLOR, textos.DEX_TEXTOS, golpesMais.MAIS_GOLPES),
     EXTRA: extra.EXTRA,
     // as formas regionais entram na fenda junto com o resto que vaza pra lá
     // ...e AS QUE FALTAVAM (src/data/mais.js) também, com o mesmo peso TOTAL da
@@ -550,9 +715,14 @@ function montarDB() {
     FUSAO_SELVAGEM: extra.FUSAO_SELVAGEM,
     DEOXYS_FORMS: extra.DEOXYS_FORMS,
     CUBO_ZYGARDE: extra.CUBO_ZYGARDE,
+    ZYGARDE_CACADA: extra.ZYGARDE_CACADA,
     TEMPESTADE: extra.TEMPESTADE,
-    ESTATICOS: [...extra.ESTATICOS, ...bones.BONES_ESTATICOS, decamark.DECAMARK_ESTATICO],
+    ESTATICOS: [...extra.ESTATICOS, ...bones.BONES_ESTATICOS, decamark.DECAMARK_ESTATICO, fonteCeladon.ESTATICO_FONTE, ciber.ESTATICO_CIBER, ligaKanto.ESTATICO_VITORIA],
+    FONTE_CELADON: fonteCeladon.FONTE, FONTE_TEXTO: fonteCeladon.FONTE_TEXTO,
+    CIBER: ciber.CIBER, CIBER_TEXTO: ciber.CIBER_TEXTO,
     DECAMARK: { registro: decamark.REGISTRO, naFenda: decamark.REGISTRO_NA_FENDA },
+    REGIS: regis.REGIS,
+    REGIS_TEXTO: regis.REGIS_TEXTO,
     CRISTAL: bones.CRISTAL,
     ZCRISTAIS: zc.ZCRISTAIS,
     ITENS_RENOMEADOS: zc.RENOMEADOS,
@@ -572,6 +742,7 @@ function montarDB() {
     // A POKÉDEX: as falas do professor, os marcos e o AMULETO (src/data/pokedex.js)
     POKEDEX_TEXTO: dex.POKEDEX_TEXTO,
     MARCOS_DEX: dex.MARCOS,
+    MARCOS_NACIONAL: dex.MARCOS_NACIONAL,
     AMULETO: dex.AMULETO,
     NOME_STAT: prov.NOME_STAT,
     DESCIDA: desc.DESCIDA,
@@ -601,9 +772,12 @@ function montarDB() {
     FIELD_MOVES: field.FIELD_MOVES,
     FIELD_LEARNERS: field.FIELD_LEARNERS,
     FLY_SPOTS: { ...field.FLY_SPOTS, ...brag.VOO_BRAGLITCH },
-    MUSIC: { ...music.MUSIC, ...brag.BRAGLITCH_MUSIC },
+    MUSIC: { ...music.MUSIC, ...brag.BRAGLITCH_MUSIC, ...musicaLumiose.LUMIOSE_MUSIC, ...musicaMegaDesc.MEGA_DESC_MUSIC, ...musicasFrlg.FRLG_MUSIC,
+             ...musicaLumioseCidade.LUMIOSE_CIDADE_MUSIC, ...musicasBrag.MUSICAS_BRAGLITCH },
+    POKEBLOCOS: pokeblocos,
+    EVENTOS: eventos.EVENTOS,
     MUSIC_ALIAS: music.MUSIC_ALIAS,
-    ITEM_LORE: { ...loot.ITEM_LORE, ...mega.PEDRA_LORE, ...bolas.BOLA_LORE, ...ovos.OVO_LORE, ...decamark.DECAMARK_LORE,
+    ITEM_LORE: { ...loot.ITEM_LORE, ...mega.PEDRA_LORE, ...kalos.KALOS_LORE, ...bolas.BOLA_LORE, ...ovos.OVO_LORE, ...decamark.DECAMARK_LORE,
                  [dex.AMULETO.item]: dex.AMULETO.lore },
     STARTERS: species.STARTERS,
     BOX: box.BOX,
@@ -621,9 +795,20 @@ function montarDB() {
     DISTORCOES: distorcoes.DISTORCOES,
     GLITCH_ZONES: zonas.GLITCH_ZONES,
     OVOS: ovos.OVOS,
-    MINERACAO: mina,
+    MINERACAO: { ...mina, ACHADOS: [...mina.ACHADOS, ...achadosDasEstatuas()],
+                 MINA_LORE: { ...mina.MINA_LORE, ...loreDasEstatuas() } },
+    SUBTERRANEO: { MAPA: sub.SUB_MAPA, SALAS: sub.SALAS, DESCE_EM: sub.DESCE_EM, FATOR_ESTATUA: sub.FATOR_ESTATUA,
+                   BRILHOS_POR_DIA: sub.BRILHOS_POR_DIA, TEXTO: sub.SUB_TEXTO },
     PURIFICADOR: puros.PURIFICADOR,
     PURIFICAVEIS: puros.PURIFICAVEIS,
+    PAINTBALL: paintball.PAINTBALL, PREMIOS_FICHAS: paintball.PREMIOS_FICHAS,
+    DOCES: doces.DOCES, DOCES_TEXTO: doces.DOCES_TEXTO, DOCES_MAX: doces.MAX_CORES,
+    KIT_BASE: bases.KIT_BASE, QUARTO: bases.QUARTO, CORES_BASE: bases.CORES_BASE, DESENHO_PC: bases.DESENHO_PC,
+    MOVEIS: { ...bases.MOVEIS, ...moveisDasEstatuas() },
+    CABECAS_MARCADAS: cabecas.CABECAS_MARCADAS, MOVEIS_FICHAS: bases.MOVEIS_FICHAS, BASES_TEXTO: bases.BASES_TEXTO,
+    BEBIDAS: bebbidah.BEBIDAS, BEBIDA_TONS: bebbidah.TONS, BEBIDA_TOM_POR_NIVEL: bebbidah.TOM_POR_NIVEL,
+    BEBIDA_TOM_FORA: bebbidah.TOM_FORA, BEBBIDAH_GIRO: bebbidah.GIRO, BEBBIDAH_TEXTO: bebbidah.BEBBIDAH_TEXTO,
+    SEGURAVEIS: segurar.SEGURAVEIS, SEGURAR_CONFIG: segurar.SEGURAR_CONFIG, SEGURAR_TEXTO: segurar.SEGURAR_TEXTO,
     GO_PARK: gopark.GO_PARK, CPM: gopark.CPM, MINIJOGOS_GO: gopark.MINIJOGOS_GO, MINIJOGO_POR_TIPO: gopark.MINIJOGO_POR_TIPO,
     PREMIO_GO: gopark.PREMIO_GO, GO_TEXTO: gopark.GO_TEXTO, GO_PARQUE_NOME: gopark.GO_PARQUE_NOME,
     SPINDA_MANCHAS: spinda.SPINDA_MANCHAS, SPINDA_CORPO: spinda.SPINDA_CORPO, SPINDA_MANCHA: spinda.SPINDA_MANCHA,
@@ -637,6 +822,11 @@ function montarDB() {
     REGIOES: iniciais.REGIOES,
     LINHAS: iniciais.LINHAS,
     ARISCOS: bravos.ARISCOS,
+    SO_FOGEM: bravos.SO_FOGEM,
+    ITENS_CURA: itensUso.ITENS_CURA,
+    ITENS_BATALHA: itensUso.ITENS_BATALHA,
+    BICICLETA: itensUso.BICICLETA,
+    BOLSOS: itensUso.BOLSOS,
     RIVAL: rival.RIVAL,
     VERSAO: versao.VERSAO,
     VOLUME: versao.VOLUME,
@@ -647,17 +837,31 @@ function montarDB() {
     ONLINE: online.ONLINE,
     FRASES: online.FRASES,
     EMOTES: online.EMOTES,
+    BONECOS_IA: online.BONECOS_IA,
     ONLINE_TEXTO: online.ONLINE_TEXTO,
     GIFT_CODES: gifts.GIFT_CODES,
     GIFT_TEXTO: gifts.GIFT_TEXTO,
-    MAPS: mergeMaps({ ...kanto, ...ilhaFallback, glitchdim: dimensionMap(story.STORY),
-                     tempestade: stormMap(story.STORY), ...MAPAS_ERAS, ...MAPAS_BRAGLITCH, ...MAPAS_VOID },
-                    { ...maps.MAPS, ...BRAG_CONTEUDO, ...vazio.CONTEUDO_VOID }),
+    MAPS: musicasBrag.aplicarMusicasBrag(mergeMaps({ ...kanto, ...ilhaFallback, glitchdim: dimensionMap(story.STORY),
+                     tempestade: stormMap(story.STORY), ...MAPAS_ERAS, ...MAPAS_PORTAL, ...MAPAS_BRAGLITCH, ...MAPAS_CAVERNA_SERRA, ...MAPAS_FONTE, ...MAPAS_CIBER, ...MAPAS_SUB, ...MAPAS_VOID, ...MAPAS_KALOS, ...MAPAS_AREA_ZERO, ...MAPAS_ARVORE, ...MAPAS_ESPACO, ...MAPAS_LIGA_VOID },
+                    { ...maps.MAPS, ...BRAG_CONTEUDO, ...vazio.CONTEUDO_VOID, ...cavernaSerra.CONTEUDO_CAVERNA_SERRA, ...fonteCeladon.CONTEUDO_FONTE, ...ciber.CONTEUDO_CIBER, ...conteudoSub(), ...KALOS_CONTEUDO, ...AZ_CONTEUDO, ...arvoreOca.CONTEUDO_ARVORE, ...ESP_CONTEUDO, ...ligaVoid.CONTEUDO_LIGA_VOID }),
+                    Object.keys(MAPAS_BRAGLITCH).filter((id) => MAPAS_BRAGLITCH[id]?.regiao === "braglitch")),
     STORY: story.STORY,
+    FUNDO_TEXTO: fundoDoMar.FUNDO_TEXTO,
+    PORTAL: portal.PORTAL, RUNAS: portal.RUNAS, RECEITAS_PORTAL: portal.RECEITAS,
+    POS_POS: posPos.POS_POS,   // o FUNDO DO MAR (src/data/fundo-do-mar.js)
     TRUNFO_TEXTO: story.TRUNFO_TEXTO,
     KANTO: { ...(kanto || {}), ...ilhaFallback, glitchdim: dimensionMap(story.STORY),
-             tempestade: stormMap(story.STORY), ...MAPAS_ERAS, ...MAPAS_BRAGLITCH, ...MAPAS_VOID },
+             tempestade: stormMap(story.STORY), ...MAPAS_ERAS, ...MAPAS_PORTAL, ...MAPAS_BRAGLITCH, ...MAPAS_CAVERNA_SERRA, ...MAPAS_FONTE, ...MAPAS_CIBER, ...MAPAS_SUB, ...MAPAS_VOID, ...MAPAS_KALOS, ...MAPAS_AREA_ZERO, ...MAPAS_ARVORE, ...MAPAS_ESPACO, ...MAPAS_LIGA_VOID },
+    // KALOS: o avião (src/data/kalos.js); o piloto entra no `buildDB`
+    AVIAO: kalos.AVIAO,
+    AREA_ZERO: areaZero.AREA_ZERO,
+    MT_OFICIAIS,
+    FABRICA: fabrica.FABRICA, BOLAS_NOVAS: fabrica.BOLAS_NOVAS,
+    ESPACO: espaco.ESPACO, PLANETAS: espaco.PLANETAS, SOL: espaco.SOL, GALAXIAS: espaco.GALAXIAS,
+    CONECTADOR: conectador.CONECTADOR,
+    ARVORE: arvoreOca.ARVORE,
     GINASIO_VOID: vazio.GINASIO_VOID,
+    LIGA_VOID: ligaVoid.LIGA_VOID,
     LENDAS_VOID: vazio.LENDAS_VOID,
     GUIA_VOID: vazio.GUIA_VOID,
     // BRAGLITCH: a região, a história e o barco (src/data/braglitch.js)
@@ -700,6 +904,32 @@ function montarDB() {
     LEDGE_DIR: maps.LEDGE_DIR,
     START_MAP: maps.START_MAP,
   };
+}
+
+// O SUBTERRÂNEO DE KANTO (src/data/subterraneo.js): o conteúdo do mapa e as
+// ESTÁTUAS — que são achado da parede (só lá embaixo), móvel de base e item com lore
+function conteudoSub() {
+  const placas = {};
+  for (const s of Object.values(sub.SALAS)) placas[`${s.x - 4},${s.y - 2}`] = `${s.nome}.\nA ESCADA DO CANTO SOBE PRA ONDE VOCÊ DESCEU.`;
+  const p = sub.SALAS.saffron_city;
+  return {
+    [sub.SUB_MAPA]: {
+      name: "SUBTERRÂNEO DE KANTO", music: "bragCaverna", interior: false, caverna: true,
+      encounters: sub.SELVAGENS_SUB, signs: placas, lockedWarps: {}, npcs: [],
+      spawn: { x: p.x, y: p.y, dir: "down" },
+    },
+  };
+}
+const nomeEstatua = (id) => `estátua de ${id}`;
+function achadosDasEstatuas() {
+  return sub.ESTATUAS.map((id) => ({ item: nomeEstatua(id), w: 1, cor: "#b8b8c0", desenho: "estatua", mon: id,
+                                     onde: "subterraneo", forma: [[0, 0], [1, 0], [0, 1], [1, 1]] }));
+}
+function moveisDasEstatuas() {
+  return Object.fromEntries(sub.ESTATUAS.map((id) => [nomeEstatua(id), { tipo: "estatua", mon: id, estatua: id }]));
+}
+function loreDasEstatuas() {
+  return Object.fromEntries(sub.ESTATUAS.map((id) => [nomeEstatua(id), sub.SUB_TEXTO.estatuaLore.replaceAll("{MON}", id.toUpperCase())]));
 }
 
 /** Objeto vivo: o hot-swap faz Object.assign neste mesmo objeto. */

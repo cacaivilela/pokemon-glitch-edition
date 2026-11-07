@@ -207,15 +207,6 @@ for (const [id, learnset] of Object.entries(LEARNSETS)) {
   if (REGIONAIS[id]) REGIONAIS[id].learnset = learnset;
 }
 
-/** Os ids de forma da PokeAPI que precisam ser baixados
- *  (`python3 tools/fetch_sprites.py --regionais`). */
-export const SPRITES_FORMA = Object.values(REGIONAIS)
-  .map((sp) => sp.spriteDex).filter(Boolean);
-
-/** E os números de Pokédex das bases novas, que vêm pelo caminho normal. */
-export const SPRITES_BASE = Object.values(REGIONAIS)
-  .filter((sp) => !sp.spriteDex).map((sp) => sp.dex);
-
 // ---------------------------------------------------------------- AS EVOLUÇÕES
 //
 // Duas coisas acontecem aqui.

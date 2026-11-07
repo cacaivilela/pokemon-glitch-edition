@@ -59,16 +59,25 @@ const G = {
   "[": ["  ###", "  #  ", "  #  ", "  #  ", "  #  ", "  #  ", "  ###"],
   "]": ["###  ", "  #  ", "  #  ", "  #  ", "  #  ", "  #  ", "###  "],
   "*": ["     ", "# # #", " ### ", "#####", " ### ", "# # #", "     "],
+  // a marca do LUMINOSO na etiqueta da batalha (o shiny e o "*")
+  "☼": ["  #  ", "#   #", " ### ", "#####", " ### ", "#   #", "  #  "],
   "=": ["     ", "     ", "#####", "     ", "#####", "     ", "     "],
   "%": ["#   #", "   # ", "  #  ", "  #  ", " #   ", "#   #", "     "],
   "<": ["   # ", "  #  ", " #   ", "#    ", " #   ", "  #  ", "   # "],
   ">": [" #   ", "  #  ", "   # ", "    #", "   # ", "  #  ", " #   "],
+  // o GARFO: a marca de quem foi pego depois de comer pokébloco pesado
+  // (src/data/pokeblocos.js, BATALHA.marca)
+  "ψ": ["# # #", "# # #", "# # #", "#####", "  #  ", "  #  ", "  #  "],
   "♥": ["     ", " # # ", "#####", "#####", " ### ", "  #  ", "     "],
   "→": ["     ", "  #  ", "   # ", "#####", "   # ", "  #  ", "     "],
+  "←": ["     ", "  #  ", " #   ", "#####", " #   ", "  #  ", "     "],
   // as duas setas de "tem mais coisa nesta lista" (a mochila da batalha)
   "▲": ["     ", "  #  ", "  #  ", " ### ", " ### ", "#####", "     "],
   "▼": ["     ", "#####", " ### ", " ### ", "  #  ", "  #  ", "     "],
   "█": ["#####", "#####", "#####", "#####", "#####", "#####", "#####"],
+  // as MISSÕES DA POKÉDEX: feita e completa
+  "✓": ["     ", "    #", "   # ", "#  # ", " ##  ", "  #  ", "     "],
+  "★": ["  #  ", "  #  ", "#####", " ### ", " # # ", "#   #", "     "],
 };
 
 const MARKS = { acute: "   # ", grave: " #   ", circ: "  #  ", tilde: " # # " };
@@ -136,8 +145,6 @@ function blit(ctx, s, x, y, color, n) {
     ctx.drawImage(a.cv, idx * CHAR_W, 0, CHAR_W, CHAR_H, x + i * CHAR_W, y, CHAR_W, CHAR_H);
   }
 }
-
-export const textWidth = (s) => String(s).length * CHAR_W;
 
 /** Quebra texto em linhas de no maximo `cols` colunas. */
 export function wrapText(text, cols) {

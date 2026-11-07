@@ -1,4 +1,8 @@
 // Bootstrap: canvas, loop, estado global e integracao com o live update.
+import { pintarPlaneta } from "./core/espacoarte.js";
+import { makeCanvas as fazerCanvas } from "./core/assets.js";
+import { nomesDasMaquinas, golpeDeAlfa } from "./systems/maquinas.js";
+import { garantirCardume, idCardume } from "./systems/cardume.js";
 import { DB, ILHA_GERADA } from "./data/index.js";
 import { Assets } from "./core/assets.js";
 import { initInput, Input } from "./core/input.js";
@@ -11,9 +15,15 @@ import { setTextVars } from "./systems/dialogue.js";
 import { SceneStack } from "./core/scene.js";
 import { initHot } from "./core/hot.js";
 import { Glitch } from "./systems/glitchfx.js";
+import { suavizar, nivelSuave } from "./core/suave.js";
+// na GLITCH DIMENSION a tela suave junta cores PARECIDAS (o jogador se emenda no chão); ?tolsuave=N pra testar
+const TOL_GLITCH = +(new URLSearchParams(location.search).get("tolsuave") ?? 90);
+// atalho: ?suave=2.5 liga a TELA SUAVE nesse nível
+{ const q = new URLSearchParams(location.search).get("suave");
+  if (q !== null) Opcoes.set("suave", nivelSuave(parseFloat(q.replace(",", ".")))); }
 import { abrirPortal } from "./systems/raid.js";
 import { ZONA, abrirZona, garantirZona, zonaDoCodigo, entrarNaZona } from "./systems/glitchzones.js";
-import { createMon, recalc, tirarLuminosos } from "./systems/mon.js";
+import { createMon, recalc, darClaraoNoSave, darClarao } from "./systems/mon.js";
 import { lugarDoEncontro } from "./systems/amigos.js";
 import { EvolutionScene } from "./scenes/evolution.js";
 import { MegaScene } from "./scenes/mega.js";
@@ -36,18 +46,21 @@ import { TitleScene } from "./scenes/title.js";
 import { AberturaScene } from "./scenes/abertura.js";
 import { OverworldScene } from "./scenes/overworld.js";
 import { BattleScene } from "./scenes/battle.js";
-import { drawText, painelEmBloco } from "./core/gfx.js";
+import { drawText, painelEmBloco, ESCALA_TELA } from "./core/gfx.js";
 import { isoLigado } from "./core/isometrico.js";
 import { url as arquivo } from "./core/base.js";
 import { loadExternalSprites, adiantarDoMapa, adiantarOResto, mapArt, SpriteStore } from "./core/sprites.js";
 
 const W = 240, H = 160;
 
+// a tela de verdade é 3x (ESCALA_TELA, src/core/gfx.js); o desenho é nos 240x160
 const display = document.getElementById("screen");
+display.width = W * ESCALA_TELA; display.height = H * ESCALA_TELA;
 const dctx = display.getContext("2d");
 const buffer = document.createElement("canvas");
-buffer.width = W; buffer.height = H;
+buffer.width = W * ESCALA_TELA; buffer.height = H * ESCALA_TELA;
 const ctx = buffer.getContext("2d");
+ctx.setTransform(ESCALA_TELA, 0, 0, ESCALA_TELA, 0, 0);
 ctx.imageSmoothingEnabled = false;
 dctx.imageSmoothingEnabled = false;
 
@@ -89,6 +102,43 @@ function renomearBichos(st) {
 function mapaInicial(regiao) {
   const m = regiao === "braglitch" ? DB.BRAGLITCH?.inicio : null;
   return m && DB.MAPS[m] && DB.KANTO[m] ? m : DB.START_MAP;
+}
+
+/** UM SAVE NUNCA VAI PRO LIXO POR CAUSA DE UM MAPA OU DE UMA ESPÉCIE. Se o
+ *  mapa onde ele parou não existe agora (um DLC desligado — a KANTO
+ *  DISTORCIDA —, um mapa que saiu do jogo), a partida volta pro último lugar
+ *  seguro; e o Pokémon de uma espécie que não existe agora fica guardado à
+ *  parte (`st.semEspecie`), e volta pro PC quando a espécie voltar. Antes, os
+ *  dois casos viravam "incompatível" e um JOGO NOVO gravado por cima. */
+function consertarSave(st) {
+  if (!st?.player) return;
+  if (!DB.MAPS[st.player.map] || !DB.KANTO[st.player.map]) {
+    const r = st.respawn && DB.MAPS[st.respawn.map] && DB.KANTO[st.respawn.map]
+      ? st.respawn : { map: DB.START_MAP, ...DB.MAPS[DB.START_MAP].spawn };
+    console.warn(`[save] o mapa "${st.player.map}" não existe agora — voltando pra ${r.map}`);
+    Object.assign(st.player, { map: r.map, x: r.x, y: r.y, dir: r.dir || "down" });
+    if (st.mission) st.mission = null;
+  }
+  const existe = (m) => m && DB.SPECIES[m.species];
+  const fora = (st.party || []).filter((m) => !existe(m));
+  if (fora.length) {
+    st.party = st.party.filter(existe);
+    st.semEspecie = [...(st.semEspecie || []), ...fora];
+    console.warn(`[save] ${fora.length} Pokémon de espécie que não existe agora — guardados à parte`);
+  }
+  // quem estava guardado à parte e já tem espécie de novo volta pro PC
+  if (st.semEspecie?.length) {
+    const voltam = st.semEspecie.filter(existe);
+    st.semEspecie = st.semEspecie.filter((m) => !existe(m));
+    for (const m of voltam) (st.box ||= []).push(m);
+  }
+  // a equipe não pode ficar vazia: o primeiro do PC sobe
+  if (!st.party?.length) {
+    const b = (st.boxes || []).find((x) => (x.mons || []).some(existe));
+    const i = b ? b.mons.findIndex(existe) : -1;
+    if (i >= 0) { st.party = [b.mons[i]]; b.mons[i] = null; }
+    else if (st.box?.length) st.party = [st.box.shift()];
+  }
 }
 
 // MENINO OU MENINA: escolhido no JOGO NOVO, depois da região. Muda o desenho
@@ -138,7 +188,7 @@ const game = {
    *  tela de título). */
   newGame(regiao, genero, dificuldade) {
     this.state = newState(regiao, genero, dificuldade);
-    setTextVars({ NOME: this.state.player.name });
+    setTextVars({ NOME: this.state.player.name, RIVAL: this.state.rivalNome || DB.RIVAL?.nome || "AZUL" });
     Glitch.level = this.state.corruption;
     return this.state;
   },
@@ -201,6 +251,7 @@ const game = {
     // a espécie de uma fusão não está em src/data/: ela é remontada do id que
     // está no save, e precisa existir ANTES de qualquer validação
     registrarDoEstado(data);
+    if (data && (!this.isValid(data) || data.semEspecie?.length)) consertarSave(data);
     if (data && !this.isValid(data)) {
       console.warn("[save] incompatível com os dados atuais — começando um jogo novo");
       return this.newGame();
@@ -211,11 +262,12 @@ const game = {
       renomearItens(this.state);
       renomearBichos(this.state);
       reverterTudo(this.state);
-      tirarLuminosos(this.state);
       Glitch.forced = !!this.state.flags?.glitchWorld;
       this.state.party.forEach(recalc);
       this.state.box?.forEach(recalc);
+      darClaraoNoSave(this.state);   // todo LUMINOSO sabe o CLARÃO ILUMINADO
     } else this.newGame();
+    setTextVars({ NOME: this.state.player?.name || "VERMELHO", RIVAL: this.state.rivalNome || DB.RIVAL?.nome || "AZUL" });
     return this.state;
   },
 
@@ -274,7 +326,7 @@ game.aplicarIdioma();
 const PAPEIS_FIXOS = [
   "hero", "heroina", "prof", "mae", "garoto", "garota", "velho", "velha", "menino", "menina",
   "enfermeira", "balconista", "rival", "gentleman", "cientista", "cacador", "policial", "pescador",
-  "motoqueiro", "marinheiro", "montanhista", "rocket", "rocketf", "lutador", "superm", "superf",
+  "motoqueiro", "marinheiro", "montanhista", "rocket", "rocketf", "gordo", "lutador", "superm", "superf",
   "tecnico", "tecnica", "canalizadora", "maniaco", "roqueiro", "ipe",
   "hero_brag", "heroina_brag", "ash", "vitor", "andre",
 ];
@@ -359,9 +411,12 @@ if (stash?.state && !game.isValid(stash.state)) {
 /** "spearow:10,cranidos:19" -> coloca esses Pokémon na equipe (sobra vai pro box) */
 function addMons(state, spec) {
   for (const item of String(spec).split(",")) {
-    const [id, lvl] = item.trim().split(":");
+    const [id, lvl, extra] = item.trim().split(":");   // pidgey:8:alfa -> ALFA
     if (!DB.SPECIES[id]) { console.warn("[give] espécie desconhecida:", id); continue; }
-    const mon = createMon(id, Math.max(1, Math.min(100, +lvl || 5)));
+    const mon = createMon(id, Math.max(1, Math.min(100, +lvl || 5)), { alfa: extra === "alfa" });
+    // blastoise:70:surfar+hidrobomba -> já com esses golpes
+    const golpes = extra && extra !== "alfa" ? extra.split("+").filter((g) => DB.MOVES[g]).slice(0, 4) : [];
+    if (golpes.length) mon.moves = golpes.map((g) => ({ id: g, pp: DB.MOVES[g].pp, ppMax: DB.MOVES[g].pp }));
     (state.party.length < 6 ? state.party : state.box).push(mon);
     state.seen[id] = true;
     state.caught[id] = true;
@@ -376,6 +431,58 @@ const q = new URLSearchParams(location.search);
 // ?lendasbrag=1 -> A VERSÃO DE TESTE do MISSINGNO em Braglitch: jogo novo na
 // BR-101 com as seis lendas pegas (sem ?map, começa em rota_br101)
 if (q.has("lendasbrag") && !q.has("map")) q.set("map", "rota_br101");
+// ?doces=1 -> OS DOCES DO ALCREMIE: na sala de prêmios do cassino, de frente
+// pro balcão, com MILCERY e ALCREMIE, 2 de cada doce e 1000 fichas
+if (q.has("doces") && !q.has("map")) {
+  for (const [k, v] of [["map", "celadon_city_game_corner_prize_room"], ["x", "6"], ["y", "4"], ["dir", "up"],
+                        ["starter", "milcery:20"], ["party", "alcremie:40"], ["fichas", "1000"]]) if (!q.has(k)) q.set(k, v);
+}
+// ?verbase=braglitch (ou kanto, kalos) -> abre DIRETO a base secreta dessa
+// região, já com uns móveis postos (pra ver a caverna e a parede)
+if (q.has("verbase") && !q.has("map")) {
+  const reg = q.get("verbase") || "kanto";
+  q.set("map", reg === "braglitch" ? "sao_lucario" : reg === "kalos" ? "lumiose" : "viridian");
+  if (reg === "braglitch") q.set("regiao", "braglitch");
+}
+// ?bases=1 -> AS BASES SECRETAS: em VIRIDIAN, de frente pra ESCOTEIRA (o kit) e
+// do lado da LOJA DE DECORAÇÃO, com 20000 de dinheiro e 2 de cada móvel
+if (q.has("bases") && !q.has("map")) {
+  for (const [k, v] of [["map", "viridian"], ["x", "24"], ["y", "33"], ["dir", "up"], ["starter", "pikachu:20"], ["party", "eevee:20,bulbasaur:20"]]) if (!q.has(k)) q.set(k, v);
+}
+// ?miniors=1 -> A CHUVA DE MINIORS: na CHAPADA DOS VEADEIROS (Braglitch), de
+// frente pra ASTRÔNOMA, com BLASTOISE e LUCARIO N45 (água e aço: o MINIOR é
+// PEDRA/VOADOR — o CHARIZARD de antes levava 4x) e 20 ULTRA BALLS
+if (q.has("miniors") && !q.has("map")) {
+  for (const [k, v] of [["map", "chapada"], ["x", "17"], ["y", "37"], ["dir", "up"], ["regiao", "braglitch"], ["starter", "blastoise:45"], ["party", "lucario:45"]]) if (!q.has(k)) q.set(k, v);
+}
+// ?bebbidah=1 -> O BEBBIDAH: na BR-101 (Braglitch) com 3 BEBBIDAH, o
+// primeiro já segurando HORTELÃ, e 3 de cada ingrediente na mochila. Ande em
+// círculo (2 voltas) pra ele girar e evoluir
+if (q.has("bebbidah") && !q.has("map")) {
+  for (const [k, v] of [["map", "rota_br101"], ["regiao", "braglitch"], ["starter", "bebbidah:20"],
+                        ["party", "bebbidah:20,bebbidah:20"]]) if (!q.has(k)) q.set(k, v);
+}
+// ?subterraneo=1 -> O SUBTERRÂNEO DE KANTO: em CELADON, com a PICARETA (use na
+// mochila pra descer), 3 estátuas e o KIT de base na mochila
+if (q.has("subterraneo") && !q.has("map")) {
+  for (const [k, v] of [["map", "celadon_city"], ["x", "20"], ["y", "15"], ["dir", "down"], ["starter", "quaquaval:50"]]) if (!q.has(k)) q.set(k, v);
+}
+// ?segurar=1 -> OS ITENS DE SEGURAR: na ROTA 1, com CHARMANDER e PIKACHU e um
+// de cada item de segurar na mochila (dê pela mochila, tire pelo menu EQUIPE)
+if (q.has("segurar") && !q.has("map")) {
+  for (const [k, v] of [["map", "route1"], ["starter", "charmander:20"], ["party", "pikachu:20"]]) if (!q.has(k)) q.set(k, v);
+}
+// ?paintball=1 -> em CELADON, de frente pra porta da loja de departamento (a
+// ARENA DE PAINTBALL), com PIKACHU e SQUIRTLE. &fichas=9999 -> com fichas do
+// cassino pra testar o balcão de prêmios
+if (q.has("paintball") && !q.has("map")) {
+  for (const [k, v] of [["map", "celadon_city"], ["x", "11"], ["y", "15"], ["dir", "up"], ["starter", "pikachu:20"], ["party", "squirtle:20"]]) if (!q.has(k)) q.set(k, v);
+}
+// ?cores=1 -> AS CORES TRAVADAS: em Viridian, de frente pra CAÇADORA DE CORES,
+// com um CHARMANDER N15 e Poké Bolas (o PIKACHU SHINY fica na ROTA 2, oeste)
+if (q.has("cores") && !q.has("map")) {
+  for (const [k, v] of [["map", "viridian"], ["x", "30"], ["y", "22"], ["dir", "up"], ["starter", "charmander:15"]]) if (!q.has(k)) q.set(k, v);
+}
 // ?ilhas=1&perfil=teste -> BRAGLITCH com a missão das ilhas dada: no píer de SÃO
 // LUCARIO, do lado da lancha da IPÊ (TRONKY no 12). ?ilhas=N (2..8) já chega
 // com as ilhas de antes entregues, e na ilha N
@@ -407,6 +514,19 @@ if (AMIGOS_TESTE && !q.has("map")) {
   q.set("map", l.mapa); q.set("x", l.x + 2); q.set("y", l.y + 2); q.set("dir", "up");
   const lvl = [8, 12, 20, 25, 30, 35, 42, 47, 52, 60, 60][AMIGOS_TESTE.etapa] || 30;
   if (!q.has("starter")) q.set("starter", `tronky:${lvl}`);
+}
+// ?extrema=convite|festa|glitnexy&dlc=extrema&perfil=teste (&regiao=braglitch)
+// -> a GLITCH DIMENSION EXTREMA (dlc/extrema.js), UM ANO DEPOIS: Kanto e
+// Braglitch acabados e você no começo daquela parte — do lado da carteira, na
+// porta da festa, ou na frente do GLITNEXY com espetinho na mochila
+const EXTREMA_TESTE = q.has("extrema") ? (q.get("extrema") || "convite") : null;
+if (EXTREMA_TESTE && !q.has("map")) {
+  const brag = q.get("regiao") === "braglitch";
+  const [mapa, x, y] = EXTREMA_TESTE === "convite" ? (brag ? ["sao_lucario", 6, 13] : ["pallet", 8, 9])
+    : [brag ? "bra_lab" : "lab", 3, EXTREMA_TESTE === "festa" ? 7 : 6];
+  q.set("map", mapa); q.set("x", x); q.set("y", y); q.set("dir", "up");
+  if (!q.has("starter")) q.set("starter", brag ? "paubrasilisco:75" : "charizard:75");
+  if (!q.has("party")) q.set("party", "dragonite:72,gengar:72,lapras:72,snorlax:72");
 }
 // ?liga=0&genero=menino&perfil=teste -> a ESPLANADA DA LIGA de Braglitch
 // (src/data/braglitch-liga.js) com as 8 insígnias e o MISSINGNO vencido: 0 na
@@ -447,9 +567,12 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
   // &regiao=braglitch -> a jornada de BRAGLITCH (CAIO/LARA), mesmo num mapa de Kanto
   game.newGame(GEMEO_TESTE || AMIGOS_TESTE || LIGA_TESTE != null || q.get("regiao") === "braglitch" ? "braglitch" : undefined, q.get("genero") || undefined, q.get("dificuldade") || undefined);
   {
-    const [sid, slvl] = (q.get("starter") || "charmander").split(":");
+    // &starter=pikachu:50:alfa -> o terceiro pedaço "alfa" faz ele ALFA
+    const [sid, slvl, sextra] = (q.get("starter") || "charmander").split(":");
     const mon = game.giveStarter(sid);
-    if (slvl) { mon.level = +slvl; recalc(mon); mon.hp = mon.maxHp; }
+    if (sextra === "alfa") mon.alfa = true;
+    // no nível pedido, e com os golpes desse nível (não os do 5)
+    if (slvl) { mon.level = +slvl; mon.moves = createMon(sid, +slvl).moves; recalc(mon); mon.hp = mon.maxHp; }
     // atalho de dev: a POKÉDEX já vem na mão (o resto do laboratório não)
     game.state.flags.pokedex = true;
   }
@@ -472,6 +595,18 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
     const fase = minutosDaFase() * 60000, ciclo = 2 * fase;
     game.state.relogio = (ciclo - (Date.now() % ciclo)) % ciclo + fase + 1000;
     game.state.items["poção"] = 20;
+    // as de LUMIOSE só aparecem com a ROYALE andando: a MEGA FLOETTE do fim
+    // espera o rank A e as quatro dos bairros vencidas (src/data/kalos.js)
+    if (DESC_TESTE.mapa?.startsWith("lumiose")) {
+      const ns = game.state.npcState;
+      game.state.flags.zaInscrito = true;
+      for (const L of "ABCDEFGHIJKLMNOPQRSTUVWXYZ") (ns[`lumiose.za_${L}`] ||= {}).defeated = true;
+      if (DESC_TESTE.to === "megafloette") {
+        for (const d of DB.DESCONTROLADAS.lista) {
+          if (d.mapa?.startsWith("lumiose") && d !== DESC_TESTE) (ns[`${d.mapa}.descontrolada_${d.to}`] ||= {}).defeated = true;
+        }
+      }
+    }
   }
   if (LIGA_TESTE != null) {
     Object.assign(game.state.flags, { starterChosen: true, bragMissao: true, bragMissingnoVencido: true });
@@ -492,6 +627,28 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
     ];
     game.state.items["poção"] = 20;
   }
+  if (EXTREMA_TESTE) {
+    const st = game.state, r = st.regiao === "braglitch" ? "b" : "k";
+    Object.assign(st.flags, { starterChosen: true, caughtMissingno: true, dimUnlocked: true,
+                              bragMissao: true, bragIlhas: true, bragIlhasFim: true, bragMissingnoVencido: true, bragCampeao: true });
+    st.badges = DB.STORY.badges.map((b) => b.id);
+    st.bragBadges = [...(DB.INSIGNIAS_BRAG || []).map((b) => b.id), ...(DB.ILHAS_BRAG || []).map((i) => `ilha_${i.id}`)];
+    for (const pd of DB.PANDEIROS || []) { st.flags[`pandeiro_${pd.id}`] = true; st.items[pd.item] = 1; }
+    st.missoes ||= {};
+    if (EXTREMA_TESTE !== "convite") {
+      st.flags.gdeUmAno = true;
+      st.flags[`gde_${r}_convidou`] = true;
+      st.missoes[`gde_${r}_convite`] = { estado: "feita" };
+      st.missoes[`gde_${r}_festa`] = { estado: "ativa" };
+    }
+    if (EXTREMA_TESTE === "glitnexy") {
+      st.flags[`gde_${r}_passado`] = true;
+      st.missoes[`gde_${r}_festa`] = { estado: "feita" };
+      Object.assign(st.items, { "oran berry": 10, "chesto berry": 10, "liechi berry": 3 });
+    }
+    st.items["poção"] = 20;
+    st.items["ultra ball"] = 30;
+  }
   if (GEMEO_TESTE) {
     game.state.flags.starterChosen = true;
     game.state.flags.bragMissao = true;
@@ -508,6 +665,34 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
     }
     game.state.items["poké bola"] = 99;
   }
+  // ?berries=1&map=cinnabar_island&x=9&y=13 -> 3 de cada berry na mochila, do
+  // lado do LIQUIDIFICADOR (os POKÉBLOCOS, src/data/pokeblocos.js)
+  if (q.has("berries")) {
+    for (const b of Object.keys(DB.POKEBLOCOS?.BERRIES_SABOR || {})) game.state.items[b] = 3;
+    game.state.flags.starterChosen = true;
+  }
+  // ?pokeblocos=1 -> o ESTOJO com uns pokéblocos prontos (dois pesados), pra
+  // jogar nos selvagens (&battle=snorlax)
+  if (q.has("pokeblocos")) {
+    game.state.items[DB.POKEBLOCOS.ESTOJO] = 1;
+    game.state.pokeblocos = [
+      { cor: "rosa", sabor: [0, 0, 26, 0, 0], resistencia: 1, peso: 2, nivel: 26 },
+      { cor: "vermelho", sabor: [30, 0, 0, 0, 0], resistencia: 4, peso: 3, nivel: 30 },
+      { cor: "dourado", sabor: [56, 8, 56, 8, 56], resistencia: 8, peso: 9, nivel: 56 },
+      { cor: "dourado", sabor: [56, 8, 56, 8, 56], resistencia: 8, peso: 9, nivel: 56 },
+    ];
+  }
+  // ?zygarde=1&map=rock_tunnel_b1f&x=24&y=22 -> a CAÇADA DO ZYGARDE com a missão
+  // O Z DO DNA dada (as células ficam dois tiles acima)
+  if (q.has("zygarde")) {
+    (game.state.missoes ||= {})["z-do-dna"] = { estado: "ativa", desde: 0 };
+    game.state.flags.zygEtapa = 0;
+    game.state.flags.starterChosen = true;
+    // (a caçada só começa com 200 CÉLULAS no CUBO: o teste já vem com elas)
+    game.state.items["cubo zygarde"] = 1;
+    game.state.celulasZygarde = Math.max(game.state.celulasZygarde || 0, +q.get("celulas") || 200);
+    game.state.items["ultra ball"] = 30;
+  }
   if (q.get("glitchworld")) {   // ?glitchworld=1 -> testa a caçada final
     game.state.flags.glitchWorld = true;
     game.state.corruption = 60;
@@ -518,8 +703,117 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
                           from: { map: "pewter_city", x: 17, y: 6, dir: "down" } };
     game.state.flags.oakPending = false;
   } else if (q.get("escort")) game.state.flags.escortPending = true;
+  if (q.has("dinheiro")) game.state.money = +q.get("dinheiro") || 0;   // ?dinheiro=9000 -> pra testar compra
+  if (q.has("pegos")) {   // ?pegos=regirock,regice -> gigantes já pegos (destrava o REGIGIGAS e o REGIGLITCH)
+    game.state.flags ||= {};
+    game.state.flags.gigantes = Object.fromEntries(q.get("pegos").split(",").filter(Boolean).map((id) => [id, true]));
+  }
   if (q.has("party")) {   // ?party=pidgey:8,pikachu:6 -> equipe extra pra teste
     addMons(game.state, q.get("party"));
+  }
+  // ?montaria=charizard,lugia&map=route1 -> eles na frente da equipe, sabendo
+  // VOAR: é só abrir o menu e escolher VOAR LIVRE (as MONTARIAS VOADORAS)
+  if (q.has("montaria")) {
+    const ids = q.get("montaria").split(",").filter((id) => DB.SPECIES[id]);
+    const novos = ids.map((id) => {
+      const m = createMon(id, 50);
+      // o LAPRAS (e o GYARADOS) também nadam: esses ganham SURFAR (o LAPRAS só ele)
+      const golpes = id === "lapras" ? ["surfar"] : id === "gyarados" ? ["voar", "surfar"] : ["voar"];
+      for (const g of golpes) if (!m.moves.some((v) => v.id === g)) m.moves[m.moves.length < 4 ? m.moves.length : 0] = { id: g, pp: 15, ppMax: 15 };
+      game.state.seen[id] = game.state.caught[id] = true;
+      return m;
+    });
+    game.state.party = [...novos, ...game.state.party].slice(0, 6);
+  }
+  // ?ligaetapa=2 -> a SALA DA LIGA já na etapa 2 (AGATHA); &ligatroca=1 -> a
+  // sala se transforma pra próxima logo que o jogo abre (a cena da troca)
+  // &surto=1 -> um SURTO EM MASSA começa logo, perto de você (src/systems/surtos.js)
+  if (q.has("surto")) game.state.surtoDepois = 0;
+  // ?ligabrag=2 -> a SALA DA LIGA DE BRAGLITCH na forma 2 (a RAINHA LUA);
+  // &ligabragtroca=1 -> os braços robóticos trocam pra próxima assim que abre
+  if (q.has("ligabrag")) {
+    game.state.flags.ligaBragEtapa = +(q.get("ligabrag") || 0);
+    if (q.has("ligabragtroca")) game.state.flags.ligaBragPendente = game.state.flags.ligaBragEtapa + 1;
+    // &ligabraghall=1 -> o HALL DA FAMA DE BRAGLITCH (as garras) assim que abre
+    if (q.has("ligabraghall")) { game.state.flags.bragCampeao = true; game.state.flags.hallBragPendente = true; }
+  }
+  if (q.has("ligaetapa") || q.has("ligatroca") || q.has("ligaentrada")) {
+    game.state.flags.ligaEtapa = +(q.get("ligaetapa") || 0);
+    if (q.has("ligatroca")) game.state.flags.ligaPendente = game.state.flags.ligaEtapa + 1;
+    if (q.has("ligaentrada")) game.state.flags.ligaEntrada = true;   // &ligaentrada=1: a sala se monta
+  }
+  // ?hall=1 -> acabou de vencer o AZUL: no HALL DA FAMA, com o registro pra fazer
+  if (q.has("hall")) { game.state.flags.kantoCampeao = true; game.state.flags.hallPendente = true; }
+  // ?voando=charizard -> já começa VOANDO nele (a animação de voo das montarias)
+  if (q.has("voando") && DB.SPECIES[q.get("voando")]) {
+    game.state.voando = true;
+    game.state.montaria = q.get("voando");
+  }
+  // ?cardume=magikarp -> a primeira coisa é a batalha contra o CARDUME (o
+  // bicho gigante feito de mini cópias: src/systems/cardume.js). &lvl=30
+  // ?pospos=1 -> o PÓS-PÓS-GAME começa na hora (a ligação do PROF. CARVALHO no
+  // primeiro passo ao ar livre): conta como se o MISSINGNO já tivesse sido pego
+  // (e o GIRATINA libertado, pra quem tem o DLC). &map=route20&x=85&y=16 já põe
+  // você do lado da ILHA DA RUÍNA
+  if (q.has("pospos")) {
+    game.state.flags.caughtMissingno = true;
+    game.state.flags.gdeLivre = true;
+    // ?pospos=fim&map=route20&x=85&y=12 -> a briga já vencida: começa a ONDA e o BARCO
+    if (q.get("pospos") === "fim") {
+      game.state.flags.ppComecou = true;
+      delete game.state.flags.ppAcabou;
+      (game.state.npcState["route20.pp_briga"] ||= {}).defeated = true;
+    }
+  }
+  // ?portal=1&map=sao_lucario&x=25&y=21 -> o PORTAL PARADOXO aberto (o pós-pós-game
+  // vencido) e a mochila com os itens de todas as receitas
+  if (q.has("portal")) {
+    game.state.flags.ppComecou = game.state.flags.ppAcabou = true;
+    for (const [it, n] of [["pedra do fogo", 2], ["pedra da água", 2], ["poké bola", 5], ["great ball", 2],
+                           ["ultra ball", 2], ["master ball", 1], ["cheri berry", 4], ["oran berry", 4],
+                           ["fóssil domo", 2], ["pepita", 2], ["doce raro", 3]]) {
+      game.state.items[it] = Math.max(game.state.items[it] || 0, n);
+    }
+  }
+  // ?missao=blacephalon-contra-deus -> essa side quest já aceita (pra testar o que ela destrava)
+  if (q.has("fichas")) game.state.fichas = +q.get("fichas") || 0;
+  if (q.has("segurar")) for (const it of Object.keys(DB.SEGURAVEIS || {})) game.state.items[it] = Math.max(game.state.items[it] || 0, 1);
+  if (q.has("doces")) for (const d of DB.DOCES || []) game.state.items[d.item] = Math.max(game.state.items[d.item] || 0, 2);
+  if (q.has("subterraneo")) {
+    game.state.items.picareta = 1;
+    for (const it of ["estátua de pikachu", "estátua de eevee", "estátua de dratini", DB.KIT_BASE]) game.state.items[it] = Math.max(game.state.items[it] || 0, 1);
+  }
+  if (q.has("bebbidah")) {
+    for (const b of DB.BEBIDAS || []) game.state.items[b.item] = Math.max(game.state.items[b.item] || 0, 3);
+    if (game.state.party[0]?.species === "bebbidah") game.state.party[0].item = "hortelã";
+  }
+  if (q.has("verbase")) {
+    const reg = q.get("verbase") || "kanto";
+    const st = game.state;
+    st.bases ||= {};
+    st.bases[reg] ||= { mapa: st.player.map, x: 1, y: 1, mons: [{ species: "pikachu", seed: 1 }, { species: "eevee", seed: 2 }],
+      moveis: [{ item: "tapete vermelho", x: 6, y: 4 }, { item: "mesa", x: 6, y: 4 }, { item: "planta", x: 3, y: 2 },
+               { item: "cama", x: 12, y: 2 }, { item: "pôster de pikachu", x: 5, y: 1 }, { item: "boneco de snorlax", x: 9, y: 6 }, { item: "boneco de jigglypuff", x: 4, y: 6 }, { item: "robô froakie", x: 2, y: 7, caminho: [[2, 7], [5, 8], [10, 8], [12, 6], [8, 3], [1, 3]] }] };
+    for (const it of Object.keys(DB.MOVEIS || {})) st.items[it] = Math.max(st.items[it] || 0, 2);
+    import("./scenes/base.js").then(({ BaseScene }) => setTimeout(() => game.scenes.push(new BaseScene(), { base: st.bases[reg], regiao: reg, dono: st.player.name || "VOCÊ" }), 400));
+  }
+  if (q.has("bases")) {
+    game.state.money = Math.max(game.state.money || 0, 20000);
+    for (const it of Object.keys(DB.MOVEIS || {})) game.state.items[it] = Math.max(game.state.items[it] || 0, 2);
+  }
+  if (q.has("miniors")) game.state.items["ultra ball"] = Math.max(game.state.items["ultra ball"] || 0, 20);
+  if (q.has("cores")) game.state.items["poké bola"] = Math.max(game.state.items["poké bola"] || 0, 15);
+  if (q.has("missao")) {
+    for (const id of q.get("missao").split(",")) (game.state.missoes ||= {})[id] = { estado: "ativa", desde: 0 };
+  }
+  if (q.has("cardume")) {
+    const id = DB.SPECIES[q.get("cardume")] ? q.get("cardume") : "magikarp";
+    const sp = garantirCardume(id);
+    if (sp) {
+      const foe = createMon(idCardume(id), +q.get("lvl") || 30);
+      foe.shiny = false;
+      setTimeout(() => game.scenes.push(new BattleScene(), { foe, cardume: true }), 300);
+    }
   }
   if (q.has("horda")) {  // ?horda=rattata&map=route1 -> a primeira coisa é uma HORDA dessa espécie (&qtd=3..5)
     const id = DB.SPECIES[q.get("horda")] ? q.get("horda") : "rattata";
@@ -559,6 +853,10 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
   if (q.has("flags")) {    // ?flags=bragCampeao,caughtMissingno -> marcas da história ligadas
     for (const f of q.get("flags").split(",")) if (f.trim()) game.state.flags[f.trim()] = true;
   }
+  if (q.has("billcaso")) {  // ?billcaso=1 -> o BILL já virado no caso N (src/data/bill-casos.js; 0 = RALTS, 1 = WAILORD no cano)
+    const n = +q.get("billcaso") || 0, f = game.state.flags;
+    Object.assign(f, { billPediu: true, billSeparado: true, billPresente: true, billCasos: n, billCasoAtivo: true, billProximo: false, [`billCaso${n}`]: true });
+  }
   if (q.has("mochila")) {  // ?mochila=guarda-roupa único:1,poção:5 -> itens na mochila pra teste
     for (const par of q.get("mochila").split(",")) {
       const [item, n] = par.split(":");
@@ -585,6 +883,50 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
   if (q.get("missionready")) game.state.flags.missionReady = true;
   if (q.get("dimunlocked")) game.state.flags.dimUnlocked = true;
   if (q.get("pokedex")) game.state.flags.pokedexMsg = true;
+  // ?insignias=5 -> as 5 primeiras insígnias de Braglitch (o símbolo no peito montado até ali);
+  // &void=1 -> e as duas do VOID na perna
+  if (q.has("insignias")) {
+    game.state.bragBadges = (DB.INSIGNIAS_BRAG || []).slice(0, Math.max(0, Math.min(8, +q.get("insignias") || 0))).map((b) => b.id);
+    // e a história já andou: o inicial escolhido, a missão da IPÊ e o MISSINGNO vencido
+    Object.assign(game.state.flags, { starterChosen: true, pokedex: true, bragMissao: true, bragGlitch: true, bragMissingnoVencido: true,
+                                      bragIlhas: true, bragIlhasFim: true });
+    game.state.bragBadges.push(...(DB.ILHAS_BRAG || []).map((i) => `ilha_${i.id}`));      // as 8 ilhas entregues
+    if (q.has("void")) { game.state.flags.insignia_void = true; game.state.flags.campeaoVoid = true; }
+    // &encaixe=1 -> a cena do ENCAIXE da última dessas (src/scenes/encaixe.js)
+    if (q.has("encaixe") && game.state.bragBadges.length) game.state.flags.encaixePendente = game.state.bragBadges[game.state.bragBadges.length - 1];
+  }
+  // ?ligavoid=N -> a LIGA DO VOID aberta, na vez do N (0-4); ?ligavoidtroca=1 já derrete
+  if (q.has("ligavoid")) {
+    game.state.flags.insignia_void = true;
+    game.state.flags.ligaVoidEtapa = Math.max(0, Math.min(4, +q.get("ligavoid") || 0));
+    if (q.has("ligavoidtroca")) game.state.flags.ligaVoidPendente = game.state.flags.ligaVoidEtapa + 1;
+  }
+  // ?fabrica=1 -> a FÁBRICA DE POKÉBOLAS com os Rockets (campeão de Kanto); ?fabrica=2 -> já depois (Rocket desfeita, dinheiro pra fabricar)
+  if (q.has("fabrica")) {
+    game.state.flags.kantoCampeao = true;
+    // só um BLASTOISE nível 100 (e não o CHARMANDER nível 5 do teste)
+    const p = game.state.party || (game.state.party = []);
+    if (!p.some((m) => (m.level || 0) >= 50)) {
+      game.state.party = [createMon("blastoise", 100)];
+      game.state.starterChosen = game.state.starterChosen || "squirtle";
+    }
+    if (q.get("fabrica") === "2") { game.state.flags.rocketDesfeita = true; game.state.money = Math.max(game.state.money || 0, 500000); }
+  }
+  // ?mts=1 -> todas as MTs e MOs na mochila (e a MT RAIO ETERNO), pra testar
+  if (q.get("mts")) {
+    for (const it of nomesDasMaquinas()) game.state.items[it] = Math.max(1, game.state.items[it] || 0);
+  }
+  // ?pesquisa=1 -> as MISSÕES DA POKÉDEX: PIKACHU completo, CHARMANDER pela metade
+  if (q.get("pesquisa")) {
+    const st = game.state;
+    st.flags.pokedex = true;
+    for (const id of ["pikachu", "charmander", "bulbasaur", "squirtle"]) st.seen[id] = st.caught[id] = true;
+    import("./systems/pesquisa.js").then(({ tarefas }) => {
+      st.pesquisa ||= {};
+      st.pesquisa.pikachu = Object.fromEntries(tarefas("pikachu").map((t) => [t.k, t.alvo]));
+      st.pesquisa.charmander = Object.fromEntries(tarefas("charmander").map((t, i) => [t.k, i % 2 ? 0 : Math.ceil(t.alvo / 2)]));
+    });
+  }
   if (q.get("visor")) game.state.items[DB.STORY.detector.item] = 1;
   if (q.get("rasgo")) {   // ?rasgo=1 -> um rasgo já aberto do seu lado, pra testar a raid
     game.state.flags.dimUnlocked = true;
@@ -605,6 +947,21 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
     const z = entrada && abrirZona(game.state, entrada);
     if (z) Object.assign(game.state.player, { map: ZONA, x: z.x, y: z.y, dir: "down" });
     else console.warn("[zona] não deu pra abrir uma zona (sem entradas ou sem mapas de fonte)");
+  }
+  // ?fundidos=pikachu+charizard,gyarados+machamp -> essas fusões já na equipe (com os dois dentro, pra separar)
+  if (q.get("fundidos")) {
+    import("./systems/fusao.js").then(({ fundir }) => {
+      for (const par of q.get("fundidos").split(",")) {
+        const [a, b] = par.split(/[+ ]/);
+        if (!DB.SPECIES[a] || !DB.SPECIES[b]) continue;
+        const f = fundir(createMon(a, 30), createMon(b, 30));
+        if (f) { (game.state.party.length < 6 ? game.state.party : game.state.box).push(f); game.state.seen[f.species] = game.state.caught[f.species] = true; }
+      }
+    });
+  }
+  if (q.get("modofusao")) game.state.flags.modoFusao = q.get("modofusao") !== "0";   // ?modofusao=1 -> MODO FUSÃO ligado
+  if (q.get("tempo")) {   // ?tempo=chuva|temporal|tornado|sol|nublado|neblina|limpo -> esse tempo por 30 min
+    import("./systems/tempo.js").then((m) => m.porTempo(game.state, q.get("tempo")));
   }
   if (q.get("mega")) {   // ?mega=1 -> anel + todas as megapedras na mochila
     game.state.items[DB.MEGA_ANEL] = 1;
@@ -660,15 +1017,40 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
       cena.snapCamera?.();
     }
   }
+  // &meu=blastoise&meunv=99 SEM batalha: o primeiro do time vira esse (antes só valia junto com ?battle=)
+  if (!q.has("battle") && q.has("meu") && DB.SPECIES[q.get("meu")] && game.state.party) {
+    const nv = Math.max(1, Math.min(100, +(q.get("meunv") || 50)));
+    if (game.state.party.length) game.state.party[0] = createMon(q.get("meu"), nv); else game.state.party.push(createMon(q.get("meu"), nv));
+    // e o ?golpes= vale pra ele também (antes o novo nascia com os golpes de sempre)
+    const ids = (q.get("meugolpes") || q.get("golpes") || "").split(",").map((g) => g.trim()).filter((g) => DB.MOVES[g]).slice(0, 4);
+    if (ids.length) game.state.party[0].moves = ids.map((id) => ({ id, pp: DB.MOVES[id].pp, ppMax: DB.MOVES[id].pp }));
+  }
   if (q.has("battle")) {
     // &shiny=1 -> o selvagem vem SHINY (o brilho de quando ele aparece)
     // &spinda=branco|vermelho -> o SPINDA raro (DB.CONFIG.spindaRaros)
     const raro = DB.CONFIG?.spindaRaros?.[q.get("spinda")];
-    const foe = createMon(q.get("battle"), +(q.get("lvl") || 5), { shiny: q.has("shiny"), ...(raro ? { seed: raro.seed } : {}) });
+    const foe = createMon(q.get("battle"), +(q.get("lvl") || 5), { shiny: q.has("shiny"), luminoso: q.has("luminoso"), alfa: q.has("alfa"), ...(raro ? { seed: raro.seed } : {}) });   // &alfa=1: alfa (olho vermelho)
+    if (foe.alfa) { const g = golpeDeAlfa(foe); if (g) foe.moves[Math.min(3, foe.moves.length)] = { id: g, pp: DB.MOVES[g].pp, ppMax: DB.MOVES[g].pp }; }   // o GOLPE FORTE do alfa
     if (q.has("foegolpes")) {   // &foegolpes=ondadechoque -> o selvagem só com esses golpes
       const ids = q.get("foegolpes").split(",").map((g) => g.trim()).filter((g) => DB.MOVES[g]).slice(0, 4);
       if (ids.length) foe.moves = ids.map((id) => ({ id, pp: DB.MOVES[id].pp, ppMax: DB.MOVES[id].pp }));
     }
+    // &meu=lucario&meunv=50 -> o primeiro da SUA equipe vira esse (no nível pedido; sem nível, o do selvagem)
+    if (q.has("meu") && DB.SPECIES[q.get("meu")] && game.state.party) {
+      const nv = +(q.get("meunv") || q.get("lvl") || 5);
+      game.state.party[0] = createMon(q.get("meu"), Math.max(1, Math.min(100, nv)));
+      // &meugolpes=explosao,investida -> ele já com esses golpes
+      const ids = (q.get("meugolpes") || "").split(",").filter((g) => DB.MOVES[g]).slice(0, 4);
+      if (ids.length) game.state.party[0].moves = ids.map((id) => ({ id, pp: DB.MOVES[id].pp, ppMax: DB.MOVES[id].pp }));
+    } else if (q.has("meunv") && game.state.party?.[0]) {
+      const m = game.state.party[0], nv = Math.max(1, Math.min(100, +q.get("meunv")));
+      game.state.party[0] = createMon(m.species, nv, { shiny: m.shiny, luminoso: m.luminoso, nickname: m.nickname });
+    }
+    // &meuluminoso=1 -> o primeiro da SUA equipe vira LUMINOSO (e aprende o CLARÃO ILUMINADO)
+    const meu = game.state.party?.[0];
+    if (q.has("meuluminoso") && meu) { meu.luminoso = true; meu.shiny = false; darClarao(meu); }
+    // &meualfa=1 -> o primeiro da SUA equipe vira ALFA (olho vermelho, grito mais grosso)
+    if (q.has("meualfa") && meu) meu.alfa = true;
     const bs = game.scenes.push(new BattleScene(), { foe, glitch: q.get("battle").startsWith("missingno") });
     bs.fadeA = 0; bs.fadeDir = 0;
   }
@@ -689,10 +1071,18 @@ if (q.has("evolucao")) {
   // UM BICHO NOVO da espécie pedida, e não o primeiro da equipe: recarregando
   // a página, o jogo restaura a partida do perfil, e o primeiro da equipe já é
   // a forma evoluída — a cena mostrava "PARASECTROM EVOLUIU PARA PARASECTROM"
-  const mon = createMon(sid, 30);
+  // Mas se ele ainda está na equipe, é ELE quem evolui: senão a forma nova
+  // nunca entra no time (e o GHOTOLT do VOLTURG chegava sozinho)
+  const mon = game.state.party.find((m) => m.species === sid) || createMon(sid, 30);
   // as formas do ZYGARDE trocam pelo CUBO: a cena é a de mudar de forma
   const cubo = DB.CUBO_ZYGARDE;
   const forma = cubo?.aceita.includes(sid) && cubo.aceita.includes(to) ? cubo.cena : null;
+  // &quadros=0-76 -> ele só faz esse pedaço da animação (o SIX SEVEN do
+  // BLACEPHALON: ?evolucao=blacephalon:blacephalon&quadros=0-76)
+  if (q.has("quadros")) {
+    const [ini, fim] = q.get("quadros").split("-").map(Number);
+    if (fim >= ini) mon.soQuadros = [ini, fim];
+  }
   if (to) game.scenes.push(new EvolutionScene(), { mon, to, estranho: q.has("estranho"), forma });
 }
 
@@ -823,7 +1213,7 @@ if (q.has("presente")) {
       for (const m of cartao.mons || []) {
         if (!DB.SPECIES[m.id]) continue;
         const mon = createMon(m.id, Math.max(1, Math.min(100, m.nv | 0 || 5)),
-          { shiny: !!(m.shiny || m.luminoso), nickname: m.apelido || undefined });   // luminoso de cartão antigo vira shiny
+          { shiny: !!m.shiny, luminoso: !!m.luminoso, nickname: m.apelido || undefined });
         if (st.party.length < 6) st.party.push(mon);
         else if (!boxCheio(st)) guardarNoBox(st, mon);
         else continue;
@@ -914,8 +1304,8 @@ if (q.has("itens")) {
   if (game.scenes.top instanceof OverworldScene) encher(game.state);
 }
 
-// ?area=<código> -> entra numa GLITCH ZONE que alguém montou na oficina
-// (glitchzone/). O código carrega a zona inteira (src/systems/glitchzones.js,
+// ?area=<código> -> entra numa GLITCH ZONE que alguém montou e mandou o link.
+// O código carrega a zona inteira (src/systems/glitchzones.js,
 // zonaDoCodigo), então quem abre o link cai NO MESMO LUGAR, tile por tile.
 // Funciona com CONTINUAR (a partida gravada vai pra lá e o vão devolve pra onde
 // ela estava) e com um jogo novo (o vão devolve pro começo).
@@ -948,13 +1338,22 @@ SpriteStore.maps.glitchdim = Assets.glitchRoom(DB.KANTO.glitchdim);
 SpriteStore.maps.tempestade = Assets.stormArt(DB.KANTO.tempestade);
 // AS TRÊS ERAS: mesma função pras três, cada uma com a paleta dela (o `seed` é
 // o do mapa, então a pintura sai igual toda vez que o jogo abre).
+// O PORTAL PARADOXO: cada mapa secreto com a paleta da receita dele
+for (const r of DB.RECEITAS_PORTAL || []) {
+  const id = `paradoxo_${r.id}`;
+  if (DB.KANTO[id]) SpriteStore.maps[id] = Assets.eraArt(DB.KANTO[id], r.paleta, r.geo.seed);
+}
 for (const e of DB.ERAS || []) {
   if (DB.KANTO[e.mapa]) SpriteStore.maps[e.mapa] = Assets.eraArt(DB.KANTO[e.mapa], e.paleta, e.geo.seed);
 }
 // BRAGLITCH: os mapas abertos saem da planta (src/data/braglitch.js); os
 // interiores usam o desenho de um interior de Kanto (`arte`, ver mapArt)
 for (const [id, geo] of Object.entries(DB.KANTO)) {
-  if (geo.planta) SpriteStore.maps[id] = Assets.braglitchArt(geo);
+  if (!geo.planta) continue;
+  // (as árvores de Braglitch são 3D e o overworld desenha uma por uma — src/core/arvore3d.js;
+  // o desenho com elas pintadas, `comArvores`, é o do modo isométrico)
+  // O ESPAÇO (src/data/espaco.js): cada planeta com as cores dele (src/core/espacoarte.js)
+  SpriteStore.maps[id] = geo.tema === "espaco" ? pintarPlaneta(geo, fazerCanvas, id) : Assets.braglitchArt(geo);
 }
 // só desenha a ilha em código quando o mapa do decomp não foi importado
 if (ILHA_GERADA) SpriteStore.maps.birth_island = Assets.islandArt(DB.KANTO.birth_island);
@@ -962,7 +1361,7 @@ mapArt(game.state.player.map); // começa a carregar a arte do mapa atual
 adiantarDoMapa(game.state);    // a equipe e os bichos daqui vêm primeiro
 adiantarOResto();              // e o resto entra sozinho, de pouquinho em pouquinho
 
-setTextVars({ NOME: game.state.player?.name || "VERMELHO" });
+setTextVars({ NOME: game.state.player?.name || "VERMELHO", RIVAL: game.state.rivalNome || DB.RIVAL?.nome || "AZUL" });
 // o desenho do jogador sai do save de agora, em qualquer cena: menino ou
 // menina, e a roupa de BRAGLITCH enquanto o mapa for de lá
 Assets.jogador = () => folhaDoJogador(game.state);
@@ -1046,7 +1445,10 @@ function frame(now) {
     game.state.playtime += STEP;
     // a fenda continua fechando mesmo durante uma batalha
     const ms = game.state.mission;
-    if (ms?.left > 0 && game.state.player.map === "glitchdim") ms.left = Math.max(0, ms.left - STEP);
+    // (fenda é a 011GLITCHDIMENSION110 e qualquer mapa marcado `fenda: true` — a
+    // KANTO DISTORCIDA do dlc/extrema.js)
+    const naFenda = game.state.player.map === "glitchdim" || !!DB.MAPS[game.state.player.map]?.fenda;
+    if (ms?.left > 0 && naFenda) ms.left = Math.max(0, ms.left - STEP);
     Glitch.update(STEP);
     Online.update(STEP);            // presença/convites andam mesmo dentro do menu
     game.scenes.update(STEP);
@@ -1054,6 +1456,9 @@ function frame(now) {
     acc -= STEP;
   }
 
+  // a escala da tela volta a cada quadro: cena que esqueceu um restore não estraga o resto
+  ctx.setTransform(ESCALA_TELA, 0, 0, ESCALA_TELA, 0, 0);
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, W, H);
   // NO ISOMÉTRICO toda a interface vira bloco: cada painel (fala, menu,
@@ -1071,6 +1476,9 @@ function frame(now) {
     const fc = game.state.fragChance ?? DB.SPOT_CHANCE ?? 0.5;
     drawText(ctx, `FRAG ${Math.round(fc * 100)}%`, 92, H - 10, "#ffd166");
   }
+  // OPÇÕES → SUAVE: os pixels se emendam (src/core/suave.js)
+  // na GLITCH DIMENSION, cores parecidas se juntam: o jogador derrete no chão
+  if (Opcoes.get("suave")) suavizar(buffer, Opcoes.get("suave"), game.state?.player?.map === "glitchdim" ? TOL_GLITCH : 0);
   Glitch.render(dctx, buffer);
   requestAnimationFrame(frame);
 }

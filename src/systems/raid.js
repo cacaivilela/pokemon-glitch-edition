@@ -8,11 +8,7 @@ import { DB } from "../data/index.js";
 import { createMon } from "./mon.js";
 import { randRange, chance } from "../core/rng.js";
 import { RAID, PORTAL, PONTOS } from "../data/glitch.js";
-
-/** Rola a chance de o encontro da fenda virar raid. Não é mais usada pelos
- *  encontros — quem chama a raid agora é o rasgo, aqui embaixo —, mas fica: é
- *  a mesma pergunta, e quem quiser a raid de volta lá dentro só precisa dela. */
-export const temRaid = () => chance(RAID.chance);
+import { estrelasDoNivel, ULTRA_BEASTS } from "../data/eventos.js";
 
 /** Monta o chefe a partir de uma tabela de encontro da fenda.
  *  Devolve `{ mon, escudo, escudoMax }`, ou null se não deu pra montar. */
@@ -21,8 +17,38 @@ export function montarChefe(tabela) {
   if (!lista.length) return null;
   const escolhido = lista[Math.floor(Math.random() * lista.length)];
   const nivel = randRange(RAID.nivel[0], RAID.nivel[1]);
-  const mon = createMon(escolhido.id, nivel, { corrupt: true });
+  return inflar(createMon(escolhido.id, nivel, { corrupt: true }));
+}
 
+/** O chefe de uma RAID DE EVENTO (src/data/eventos.js): bicho, nível e shiny
+ *  já escolhidos. `evento` é a chave que marca que ele foi pego este ano. */
+export function montarChefeFixo(r, evento, ultra = false) {
+  const id = especieDaRaid(r);
+  if (!id) return null;
+  // a ULTRA RAID não vem da fenda: o bicho é ele mesmo, sem estar corrompido
+  const chefe = inflar(createMon(id, r.nivel, { corrupt: !ultra, shiny: !!r.shiny }));
+  chefe.evento = evento;
+  chefe.ultra = ultra;
+  return chefe;
+}
+
+/** A espécie da raid fixa (null se ela não existe no jogo). */
+export function especieDaRaid(r) {
+  return DB.SPECIES[r.id] ? r.id : null;
+}
+
+/** O chefe da ULTRA RAID: uma ultra beast qualquer, do nível das raids. */
+export function montarChefeUltra() {
+  const lista = ULTRA_BEASTS.filter((id) => DB.SPECIES[id]);
+  if (!lista.length) return null;
+  const id = lista[Math.floor(Math.random() * lista.length)];
+  const chefe = inflar(createMon(id, randRange(RAID.nivel[0], RAID.nivel[1])));
+  chefe.ultra = true;
+  return chefe;
+}
+
+/** Infla um bicho comum até ele virar chefe de raid. */
+function inflar(mon) {
   // o chefe é o mesmo bicho, inflado: HP vezes `vidas` e o resto vezes `forca`.
   // Mexer nos `stats` (e não nos base) é de propósito: assim a conta de dano do
   // jogo não muda em lugar nenhum — ele só é grande.
@@ -43,7 +69,8 @@ export function montarChefe(tabela) {
   // um chefe de um selvagem gordo.
   mon.bug = { dano: 0, virou: false };
   const escudoMax = Math.round(mon.maxHp * RAID.escudo);
-  return { mon, escudo: escudoMax, escudoMax };
+  // AS ESTRELAS: nível 1-10 é 1 estrela, 11-20 são 2... 91-100 são 10
+  return { mon, escudo: escudoMax, escudoMax, estrelas: estrelasDoNivel(mon.level) };
 }
 
 /** O dano bate primeiro no escudo. Devolve quanto sobrou pro bicho e se a
@@ -159,6 +186,72 @@ export function corrupcaoDoPortal(st, mapa) {
   const normal = st?.corruption || 0;
   const cheio = Math.min(100, Math.max(normal, PORTAL.piso) * PORTAL.corrupcao);
   return normal + (cheio - normal) * pertoDoPortal(st, mapa);
+}
+
+// ---------------------------------------------------- AS RAIDS DE EVENTO
+
+/** Que dia é hoje pros eventos. Pra testar, `?data=2026-12-24` na URL finge
+ *  outro dia — só nessa aba, o relógio do computador não muda. */
+export function hojeDoEvento() {
+  const d = new URLSearchParams(globalThis.location?.search || "").get("data");
+  const fingido = d ? new Date(`${d}T12:00`) : null;
+  return fingido && !isNaN(fingido) ? fingido : new Date();
+}
+
+/** O dia de hoje está entre `de` e `ate` (os dois incluídos)? Se `ate` vier
+ *  antes de `de` no ano (ex.: 28/12 a 03/01), o evento vira o ano. */
+export function eventoAberto(ev, quando = hojeDoEvento()) {
+  return !!janelaAberta(ev, quando);
+}
+
+/** A época do evento que está aberta agora ({ de, ate }), ou null. Evento
+ *  com uma época só tem `de`/`ate`; com várias, `janelas`. Época com `ano`
+ *  só vale naquele ano (a ESTREIA de um evento não repete todo ano). */
+export function janelaAberta(ev, quando = hojeDoEvento()) {
+  const n = (d) => d.mes * 100 + d.dia;
+  const hoje = (quando.getMonth() + 1) * 100 + quando.getDate();
+  return (ev.janelas || [{ de: ev.de, ate: ev.ate }]).find(({ de, ate, ano }) => {
+    if (ano && quando.getFullYear() !== ano) return false;
+    const a = n(de), b = n(ate);
+    return a <= b ? hoje >= a && hoje <= b : hoje >= a || hoje <= b;
+  }) || null;
+}
+
+/** Algum evento de ALFA aberto hoje (o TERROR ALFA: `alfaTodos`)? */
+export function alfaDoEvento(quando = hojeDoEvento()) {
+  return (DB.EVENTOS || []).find((ev) => ev.alfaTodos && eventoAberto(ev, quando)) || null;
+}
+
+/** Algum evento de SHINY aberto hoje (a SEMANA DO SHINY: `shinyOdds`)? */
+export function shinyDoEvento(quando = hojeDoEvento()) {
+  return (DB.EVENTOS || []).find((ev) => ev.shinyOdds && eventoAberto(ev, quando)) || null;
+}
+
+/** Algum evento de ULTRA RAIDS aberto hoje? Aí os rasgos viram ultra buracos. */
+export function ultraAberto(quando = hojeDoEvento()) {
+  return (DB.EVENTOS || []).find((ev) => ev.ultra && eventoAberto(ev, quando)) || null;
+}
+
+/** A chave que guarda o ano em que essa raid foi pega. */
+export const chaveDaRaid = (ev, r) => `${ev.id}_${r.id}`;
+
+/** As raids de evento abertas agora neste mapa, que ainda não foram pegas
+ *  este ano. Cada uma vem como `{ ev, r }`. */
+export function raidsDeEvento(st, mapa, quando = hojeDoEvento()) {
+  const ano = quando.getFullYear(), pegas = st?.flags?.eventos || {};
+  const out = [];
+  for (const ev of DB.EVENTOS || []) {
+    if (!eventoAberto(ev, quando)) continue;
+    for (const r of ev.raids || []) {
+      if (r.mapa === mapa && pegas[chaveDaRaid(ev, r)] !== ano) out.push({ ev, r });
+    }
+  }
+  return out;
+}
+
+/** Pegou: essa raid fecha até o ano que vem. */
+export function marcarRaidDeEvento(st, chave, quando = hojeDoEvento()) {
+  ((st.flags ||= {}).eventos ||= {})[chave] = quando.getFullYear();
 }
 
 export { RAID, PORTAL };

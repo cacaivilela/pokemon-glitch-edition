@@ -17,6 +17,8 @@ const released = new Set();
 // editor de sprite (256x256, paleta, zoom, pincel) nao cabe. Elas ficam aqui,
 // cruas, e so quem quiser le — o resto do jogo nunca olha.
 const cruas = new Set();
+// as teclas cruas SEGURADAS (o voo da BATALHA EXPLOSIVA: segurar ESPAÇO)
+const seguradas = new Set();
 
 // ------------------------------------------------------------------ texto
 // O chat e o nome da sala precisam de teclado de verdade, e o resto do jogo
@@ -68,9 +70,10 @@ function ligaMouse(tela) {
   const converte = (e) => {
     const r = tela.getBoundingClientRect();
     if (!r.width || !r.height) return;
-    Mouse.x = Math.floor((e.clientX - r.left) * (tela.width / r.width));
-    Mouse.y = Math.floor((e.clientY - r.top) * (tela.height / r.height));
-    Mouse.dentro = Mouse.x >= 0 && Mouse.y >= 0 && Mouse.x < tela.width && Mouse.y < tela.height;
+    // nos 240x160 do jogo (a tela de verdade é 3x maior: ESCALA_TELA)
+    Mouse.x = Math.floor((e.clientX - r.left) * (240 / r.width));
+    Mouse.y = Math.floor((e.clientY - r.top) * (160 / r.height));
+    Mouse.dentro = Mouse.x >= 0 && Mouse.y >= 0 && Mouse.x < 240 && Mouse.y < 160;
   };
   tela.addEventListener("mousemove", converte);
   tela.addEventListener("mousedown", (e) => {
@@ -125,6 +128,8 @@ export const Input = {
   consume: (b) => { const had = pressed.has(b); pressed.delete(b); return had; },
   /** Tecla crua deste quadro, pelo `code` do DOM ("KeyQ", "Digit3", "Tab"). */
   tecla: (code) => cruas.has(code),
+  /** tecla crua SEGURADA agora ("Space") */
+  segurando: (code) => seguradas.has(code),
   consomeTecla: (code) => { const had = cruas.has(code); cruas.delete(code); return had; },
   dir() {
     if (down.has("up")) return "up";
@@ -142,6 +147,7 @@ export const Input = {
 export function initInput(target = window) {
   ligaMouse(document.getElementById("screen"));
   target.addEventListener("keydown", (e) => {
+    if (!digitando) seguradas.add(e.code);
     if (digitando) {                 // digitando: o teclado é texto, não botão
       if (e.ctrlKey || e.altKey || e.metaKey) return;
       e.preventDefault();
@@ -161,6 +167,7 @@ export function initInput(target = window) {
     down.add(b);
   });
   target.addEventListener("keyup", (e) => {
+    seguradas.delete(e.code);
     if (digitando) return;
     const b = MAP[e.code];
     if (!b) return;
@@ -168,5 +175,5 @@ export function initInput(target = window) {
     down.delete(b);
     released.add(b);
   });
-  target.addEventListener("blur", () => { down.clear(); pressed.clear(); });
+  target.addEventListener("blur", () => { down.clear(); pressed.clear(); seguradas.clear(); });
 }

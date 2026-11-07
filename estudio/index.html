@@ -1,0 +1,1168 @@
+<!doctype html>
+<!-- O ESTÚDIO DE GRITOS: editar o grito de qualquer Pokémon, guardar numa
+     galeria e ATIVAR no jogo — só neste aparelho (src/core/gritosmeus.js).
+     O som é o MESMO sintetizador do jogo (src/core/audio.js, `grito`), e a
+     prévia de batalha usa a mesma letra e a mesma caixa (src/core/gfx.js). -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Estúdio de Gritos — Pokémon Glitch Edition</title>
+<style>
+  :root { color-scheme: dark; --fundo:#0b0d10; --cartao:#151a21; --cartao2:#1b222b; --borda:#232a34; --texto:#d6dde6;
+          --apagado:#7a8594; --roxo:#8f6bd8; --roxo2:#b455ff; --verde:#00ff41; --vermelho:#ff5566; --amarelo:#ffd166; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--fundo); color:var(--texto); font:14px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace; padding:20px 16px 60px; }
+  a { color:var(--roxo); }
+  button, input, select, textarea { font:inherit; color:inherit; }
+  button { background:var(--cartao2); border:1px solid var(--borda); padding:7px 12px; border-radius:6px; cursor:pointer; }
+  button:hover { border-color:var(--roxo); }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline:2px solid var(--roxo2); outline-offset:1px; }
+  button.forte { background:#2a1a46; border-color:var(--roxo); color:#fff; }
+  button.ativo, button.liga { background:#0e3a1c; border-color:#1d7a3a; color:var(--verde); }
+  button.on { border-color:var(--roxo2); background:#2a1a46; color:#fff; }
+  button:disabled { opacity:.4; cursor:default; }
+  input[type=text], input[type=search], select, textarea {
+    background:var(--cartao); border:1px solid var(--borda); padding:7px 10px; border-radius:6px; min-width:0; }
+  input[type=range] { accent-color:var(--roxo2); }
+  .tudo { max-width:1240px; margin:0 auto; }
+  header h1 { font-size:22px; letter-spacing:1px; }
+  header h1 span { color:var(--roxo2); }
+  header p { color:var(--apagado); margin-top:6px; font-size:13px; max-width:820px; }
+  .passos { display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:8px; margin-top:12px; }
+  .passos div { background:var(--cartao); border:1px solid var(--borda); border-radius:8px; padding:9px 11px; font-size:12px; color:var(--apagado); }
+  .passos b { color:#fff; font-weight:normal; display:block; }
+  .aviso { margin-top:8px; background:#10251a; border:1px solid #1d5a32; color:#9fe8b4; border-radius:8px; padding:8px 12px; font-size:12px; }
+  .grade { display:grid; grid-template-columns:270px 1fr; gap:14px; margin-top:16px; align-items:start; }
+  @media (max-width:900px) { .grade { grid-template-columns:1fr; } }
+  section { background:var(--cartao); border:1px solid var(--borda); border-radius:10px; padding:12px; min-width:0; }
+  section + section { margin-top:14px; }
+  h2 { font-size:13px; letter-spacing:1px; color:#fff; margin-bottom:8px; font-weight:normal; }
+  h2 small { color:var(--apagado); font-size:11px; letter-spacing:0; }
+  .exp { color:var(--apagado); font-size:12px; margin:-2px 0 10px; }
+
+  /* a lista de Pokémon */
+  #lista { margin-top:8px; max-height:620px; overflow:auto; display:flex; flex-direction:column; gap:2px; }
+  @media (max-width:900px) { #lista { max-height:240px; } }
+  .mon { display:flex; align-items:center; gap:8px; padding:3px 6px; border-radius:6px; border:1px solid transparent; background:none; text-align:left; width:100%; }
+  .mon:hover { border-color:var(--borda); }
+  .mon.sel { border-color:var(--roxo); background:#1f1730; }
+  .mon canvas { width:32px; height:32px; image-rendering:pixelated; flex:none; }
+  .mon .n { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+  .mon .num { color:var(--apagado); font-size:11px; }
+  .mon .dot { width:8px; height:8px; border-radius:50%; background:var(--verde); flex:none; }
+  .mais { color:var(--apagado); font-size:11px; padding:6px; }
+
+  /* topo do editor: prévia de batalha + informações */
+  .palco { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-start; }
+  #previa { width:360px; max-width:100%; aspect-ratio:3/2; image-rendering:pixelated; border-radius:6px; border:1px solid var(--borda); background:#000; }
+  .info { flex:1 1 260px; min-width:0; }
+  .info b { font-size:18px; color:#fff; font-weight:normal; }
+  .info .l { color:var(--apagado); font-size:12px; }
+  .info .usa { color:var(--verde); font-size:12px; }
+  .info .alerta { color:var(--amarelo); font-size:12px; }
+  .tocar { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+
+  /* deslizantes */
+  .desl { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; }
+  .desl label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--apagado); }
+  .desl label span { color:var(--texto); }
+  .desl input { width:100%; }
+
+  /* efeitos */
+  [hidden] { display:none !important; }
+  .efeitos { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:6px; }
+  .efeitos button { text-align:left; display:flex; flex-direction:column; gap:1px; padding:7px 9px; }
+  .efeitos button b { font-weight:normal; color:#fff; font-size:13px; }
+  .efeitos button small { color:var(--apagado); font-size:11px; line-height:1.3; }
+  .efeitos .grupo { grid-column:1 / -1; color:var(--roxo); font-size:11px; letter-spacing:1px; margin-top:6px; }
+  .linha { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
+  .linha label { color:var(--apagado); font-size:12px; display:flex; gap:6px; align-items:center; }
+  .linha input[type=text] { flex:1 1 180px; }
+
+  /* o rolo e o inspetor */
+  #rolo { width:100%; height:230px; display:block; border-radius:8px; background:#090b0e; border:1px solid var(--borda); touch-action:none; cursor:crosshair; }
+  .legenda { display:flex; flex-wrap:wrap; gap:10px; font-size:11px; color:var(--apagado); margin-top:6px; }
+  .legenda i { display:inline-block; width:14px; height:3px; vertical-align:middle; margin-right:4px; }
+  .insp { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px; margin-top:10px; background:var(--cartao2); border-radius:8px; padding:10px; }
+  .insp label { display:flex; flex-direction:column; gap:3px; font-size:11px; color:var(--apagado); }
+  .insp label span { color:var(--texto); }
+  .insp input[type=range] { width:100%; }
+  .ondas { display:flex; flex-wrap:wrap; gap:4px; }
+  .ondas button { padding:4px 7px; font-size:11px; }
+  .bts { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .bts button { font-size:12px; }
+
+  /* o teclado */
+  .teclado { position:relative; height:120px; margin-top:10px; user-select:none; touch-action:none; }
+  .tecla { position:absolute; top:0; border:1px solid #000; border-radius:0 0 5px 5px; cursor:pointer; display:flex; align-items:flex-end; justify-content:center; font-size:10px; padding-bottom:4px; }
+  .tecla.b { background:#e8eaef; color:#556; height:120px; z-index:1; }
+  .tecla.p { background:#1a1d24; color:#99a; height:74px; z-index:2; }
+  .tecla.apertada.b { background:#c6b0ff; }
+  .tecla.apertada.p { background:#6f4fc0; }
+
+  /* galeria */
+  .abas { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; align-items:center; }
+  #galeria { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:10px; }
+  .item { background:var(--cartao2); border:1px solid var(--borda); border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:6px; min-width:0; }
+  .item.ligado { border-color:#1d7a3a; box-shadow:0 0 0 1px #1d7a3a inset; }
+  .item .cab { display:flex; gap:8px; align-items:center; }
+  .item canvas.f { width:40px; height:40px; image-rendering:pixelated; flex:none; }
+  .item .t { min-width:0; }
+  .item .t b { display:block; color:#fff; font-weight:normal; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .item .t small { color:var(--apagado); font-size:11px; }
+  .item .desc { color:var(--apagado); font-size:11px; }
+  .item .som { color:var(--roxo2); font-size:12px; min-height:1.2em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .item .onda { width:100%; height:34px; display:block; background:#090b0e; border-radius:4px; }
+  .item .acoes { display:flex; flex-wrap:wrap; gap:4px; }
+  .item .acoes button { font-size:11px; padding:5px 8px; }
+  .item .estado { font-size:11px; color:var(--verde); }
+  .vazio { color:var(--apagado); font-size:12px; padding:8px 0; }
+  .colar { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  .colar textarea { flex:1 1 260px; height:44px; resize:vertical; font-size:11px; }
+  #toast { position:fixed; left:50%; bottom:18px; transform:translateX(-50%); background:#222a36; border:1px solid var(--roxo); color:#fff;
+           padding:8px 14px; border-radius:8px; font-size:12px; opacity:0; transition:opacity .2s; pointer-events:none; max-width:90vw; z-index:9; }
+  #toast.v { opacity:1; }
+  kbd { background:var(--cartao2); border:1px solid var(--borda); border-radius:4px; padding:0 4px; font-size:11px; }
+</style>
+</head>
+<body>
+<div class="tudo">
+<header>
+  <h1>ESTÚDIO DE GRITOS <span>— Pokémon Glitch Edition</span></h1>
+  <p>Aqui você muda o som que um Pokémon faz no jogo. Ele abre o <b>grito de verdade</b> do Pokémon (o mesmo do jogo, do Switch), e você põe efeitos por cima. Também dá pra inventar um grito do zero com sílabas. <a href="../">← voltar pro jogo</a></p>
+  <div class="passos">
+    <div><b>1. Escolha o Pokémon</b>na lista da esquerda. O grito dele aparece no editor.</div>
+    <div><b>2. Mude o grito</b>com os efeitos prontos, os deslizantes, o teclado ou mexendo em cada sílaba no gráfico.</div>
+    <div><b>3. Salve e ative</b>o grito ativado passa a tocar no jogo sempre que esse Pokémon gritar.</div>
+  </div>
+  <div class="aviso">● O grito ativado só muda <b>neste navegador</b>. O seu save, o site e os outros jogadores continuam com o som original. Pra mandar um grito pra alguém, use <b>copiar código</b> na galeria.</div>
+</header>
+
+<div class="grade">
+  <section aria-label="Pokémon">
+    <h2>POKÉMON <small id="conta"></small></h2>
+    <input id="busca" type="search" placeholder="buscar por nome ou número" autocomplete="off" style="width:100%">
+    <div id="lista" role="listbox" aria-label="escolher Pokémon"></div>
+  </section>
+
+  <div>
+    <section aria-label="Prévia">
+      <div class="palco">
+        <canvas id="previa" width="240" height="160" aria-label="prévia de batalha"></canvas>
+        <div class="info">
+          <b id="nomeMon">—</b>
+          <div class="l" id="medida"></div>
+          <div class="alerta" id="alerta"></div>
+          <div class="l" id="origem"></div>
+          <div class="usa" id="usaNoJogo"></div>
+          <div class="tocar">
+            <button class="forte" id="tocar" title="tecla espaço">▶ Tocar</button>
+            <button id="original" title="o grito sem nenhuma mudança">♪ Original</button>
+            <button id="repete" aria-pressed="false" title="toca sem parar enquanto você mexe">⟳ Repetir</button>
+          </div>
+          <div class="tocar">
+            <button id="desfaz" title="Ctrl+Z">↶ Desfazer</button>
+            <button id="refaz" title="Ctrl+Y">↷ Refazer</button>
+            <button id="recomeca" title="volta pro grito original desse Pokémon">Recomeçar</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section aria-label="Grito de verdade" id="gravacao">
+      <h2>🎙️ O GRITO DE VERDADE <small>o mesmo que toca no jogo</small></h2>
+      <p class="exp">Este é o grito original do Pokémon. Mude o tom e ligue os efeitos que quiser (dá pra ligar vários). Cada clique toca de novo.</p>
+      <div class="desl">
+        <label>TOM <span id="gTomV">0 semitons (igual)</span>
+          <input id="gTom" type="range" min="-12" max="12" value="0" aria-label="tom do grito de verdade">
+          <small>esquerda = mais grosso e lento · direita = mais fino e rápido</small></label>
+      </div>
+      <div class="efeitos" id="gEfeitos" style="margin-top:12px"></div>
+      <div class="bts"><button id="gLimpa">tirar todos os efeitos</button><button id="paraSilabas">✏️ inventar com sílabas (sintetizador)</button></div>
+    </section>
+
+    <section aria-label="Grito inteiro" class="silabas">
+      <div class="bts" id="voltaGravacao" style="margin:0 0 10px"><button class="forte" id="paraGravacao">🎙️ voltar pro grito de verdade</button></div>
+      <h2>O GRITO INTEIRO</h2>
+      <p class="exp">Estes controles mudam todas as sílabas de uma vez. Os deslizantes aplicam quando você solta.</p>
+      <div class="desl">
+        <label>VELOCIDADE <span id="vVel">1,00× (igual)</span>
+          <input id="vel" type="range" min="-30" max="30" value="0" aria-label="velocidade">
+          <small>esquerda = mais lento e comprido · direita = mais rápido e curto</small></label>
+        <label>TOM <span id="vTom">0 semitons (igual)</span>
+          <input id="tom" type="range" min="-24" max="24" value="0" aria-label="tom">
+          <small>esquerda = mais grosso · direita = mais fino · 12 semitons = uma oitava</small></label>
+      </div>
+      <div class="efeitos" id="efeitos" style="margin-top:12px"></div>
+      <div class="linha">
+        <label for="misturaCom">MISTURAR COM</label>
+        <select id="misturaCom"><option value="">o grito de outro Pokémon…</option></select>
+        <small style="color:var(--apagado);font-size:11px">intercala uma sílaba de cada, como no grito do REGIGLITCH</small>
+      </div>
+    </section>
+
+    <section aria-label="Sílabas" class="silabas">
+      <h2>AS SÍLABAS <small>cada pedaço do grito</small></h2>
+      <p class="exp">No gráfico, da esquerda pra direita é o tempo e de baixo pra cima é o tom (mais alto = mais fino). Clique numa sílaba pra escolher. Arraste as <b>bolinhas</b> pra mudar o tom do começo e do fim; arraste o <b>quadradinho</b> de baixo pra mudar a duração. A linha vermelha marca 2,5 s: o jogo corta o que passar dela.</p>
+      <canvas id="rolo" aria-label="gráfico das sílabas"></canvas>
+      <div class="legenda" id="legenda"></div>
+      <div class="insp" id="insp">
+        <label>TOM NO COMEÇO <span id="vf0"></span><input id="f0" type="range" min="0" max="1000"></label>
+        <label>TOM NO FIM <span id="vf1"></span><input id="f1" type="range" min="0" max="1000"></label>
+        <label>DURAÇÃO <span id="vms"></span><input id="ms" type="range" min="4" max="1200"></label>
+        <label>TREMIDO (vibrato) <span id="vvib"></span><input id="vib" type="range" min="0" max="80"></label>
+        <label>CHIADO POR CIMA <span id="vrui"></span><input id="rui" type="range" min="0" max="100"></label>
+        <label style="grid-column:1 / -1">TIMBRE <small id="descTimbre" style="color:var(--apagado)"></small><div class="ondas" id="ondas"></div></label>
+      </div>
+      <div class="bts">
+        <button id="add">+ nova sílaba</button><button id="dup">duplicar</button><button id="del">apagar</button>
+        <button id="esq">← mover</button><button id="dir">mover →</button><button id="toca1">▶ só esta</button>
+      </div>
+    </section>
+
+    <section aria-label="Teclado" class="silabas">
+      <h2>TECLADO <small>monte um grito nota por nota</small></h2>
+      <p class="exp">Clique nas teclas pra ouvir. Com <b>GRAVAR</b> ligado, cada nota vira uma sílaba nova depois da que está escolhida. Dá pra usar o teclado do computador: <kbd>Z</kbd>…<kbd>M</kbd> (oitava de baixo) e <kbd>Q</kbd>…<kbd>I</kbd> (oitava de cima).</p>
+      <div class="linha" style="margin-top:0">
+        <button id="grava" aria-pressed="false">● GRAVAR</button>
+        <label>TIMBRE <select id="tTimbre"></select></label>
+        <label>DURAÇÃO <select id="tDur"><option value="70">curta</option><option value="140" selected>média</option><option value="280">longa</option></select></label>
+        <label><input type="checkbox" id="tDesliza"> deslizar até a próxima nota</label>
+        <button id="pausa">+ pausa</button>
+        <button id="zera">começar do zero</button>
+      </div>
+      <div class="teclado" id="teclado"></div>
+    </section>
+
+    <section aria-label="Salvar">
+      <h2>SALVAR</h2>
+      <div class="linha" style="margin-top:0">
+        <label for="nome">NOME</label><input id="nome" type="text" maxlength="32" placeholder="nome do grito">
+      </div>
+      <div class="linha">
+        <label for="som">O QUE ELE FALA</label><input id="som" type="text" maxlength="40" placeholder="aparece no balão quando você fala com o companheiro, ex: PIKA!">
+      </div>
+      <div class="linha">
+        <label for="alvo">QUEM USA ESSE GRITO</label><select id="alvo"></select>
+        <small style="color:var(--apagado);font-size:11px">dá pra pôr o grito de um Pokémon em outro</small>
+      </div>
+      <div class="bts">
+        <button class="forte" id="salvar">Salvar na galeria</button>
+        <button id="salvarNovo">Salvar como novo</button>
+        <button class="liga" id="salvarAtivar">● Salvar e ativar no jogo</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<section style="margin-top:14px" aria-label="Galeria">
+  <h2>GALERIA</h2>
+  <div class="abas">
+    <button id="abaMeus" class="on">Meus gritos <span id="contaMeus"></span></button>
+    <button id="abaEx">Exemplos prontos</button>
+    <input id="buscaGal" type="search" placeholder="filtrar…" autocomplete="off" style="flex:1 1 160px">
+    <button id="baixar" title="guarda a galeria inteira num arquivo">⭳ baixar galeria</button>
+    <label class="mais" style="cursor:pointer"><input type="file" id="arquivo" accept=".json,application/json" hidden><span style="border:1px solid var(--borda);padding:6px 10px;border-radius:6px;color:var(--texto)">⭱ carregar arquivo</span></label>
+  </div>
+  <div id="galeria"></div>
+  <div class="colar">
+    <textarea id="codigo" placeholder="cole aqui um código PGE-GRITO:… que alguém te mandou"></textarea>
+    <button id="importar">+ Colar na galeria</button>
+  </div>
+</section>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script type="module">
+import { DB } from "../src/data/index.js";
+import { Assets } from "../src/core/assets.js";
+import { Audio2 } from "../src/core/audio.js";
+import { panel, bar, drawText, wrapText, PAL } from "../src/core/gfx.js";
+import { gritoDe } from "../src/systems/gritos.js";
+import { lerGritos, gravarGritos, gritoLimpo, silabaLimpa, codigoDoGrito, gritoDoCodigo, ONDAS, editaLimpa, EFEITOS_TIPO } from "../src/core/gritosmeus.js";
+import { TIMBRES as MAIS_TIMBRES } from "../src/core/timbres.js";
+
+const $ = (id) => document.getElementById(id);
+const TIMBRES = {
+  q: ["quadrada", "o som clássico de videogame"],
+  p: ["pulso", "videogame mais fino e nasal"],
+  f: ["fina", "bem fina, quase um apito"],
+  t: ["triângulo", "suave, parecido com flauta"],
+  s: ["serra", "áspero, rasgado"],
+  o: ["seno", "liso, como um assobio"],
+  n: ["chiado", "barulho: vento, explosão, rugido"],
+  _: ["silêncio", "uma pausa"],
+  ...Object.fromEntries(Object.entries(MAIS_TIMBRES).map(([k, r]) => [k, [r.nome, r.desc]])),
+};
+const BASICOS = ["q", "p", "f", "t", "s", "o", "n", "_"];
+const COR = { q: "#b455ff", p: "#8f6bd8", f: "#6bb4ff", t: "#59d99b", s: "#ffd166", o: "#7fe0ff", n: "#e0e0e0", _: "#3a4250",
+              ...Object.fromEntries(Object.entries(MAIS_TIMBRES).map(([k, r]) => [k, r.cor])) };
+const LIMITE = 2500;
+const dur = (x) => Math.max(4, Math.min(1200, x[2]));
+const total = (s) => s.reduce((a, x) => a + dur(x), 0);
+const clone = (s) => s.map((x) => [...x]);
+const limpa = (s) => s.map(silabaLimpa).filter(Boolean).slice(0, 200);
+const novoId = () => `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+function toast(t) {
+  const el = $("toast");
+  el.textContent = t; el.classList.add("v");
+  clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove("v"), 2400);
+}
+
+// ------------------------------------------------------------ sprites
+const pendentes = new Set();
+function foto(cv, id, lado) {
+  const img = id && Assets.mon(id, 1), ctx = cv.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  if (!img) return;
+  const k = Math.min(lado / img.width, lado / img.height);
+  ctx.drawImage(img, (cv.width - img.width * k) / 2, (cv.height - img.height * k) / 2, img.width * k, img.height * k);
+}
+function fotoViva(cv, id, lado) { cv._id = id; cv._lado = lado; cv._t = performance.now(); foto(cv, id, lado); pendentes.add(cv); }
+setInterval(() => {
+  const agora = performance.now();
+  for (const cv of pendentes) { foto(cv, cv._id, cv._lado); if (agora - cv._t > 6000 || !cv.isConnected) pendentes.delete(cv); }
+  if (agora > gritando) desenhaPrevia();          // o sprite da prévia pode ter chegado agora
+}, 400);
+// a lista só pede o sprite de quem aparece na tela (são centenas)
+const olho = new IntersectionObserver((vistos) => {
+  for (const v of vistos) if (v.isIntersecting) { olho.unobserve(v.target); fotoViva(v.target, v.target._id, 32); }
+}, { rootMargin: "200px" });
+
+// ------------------------------------------------------------ espécies e busca
+// O número 0 é um número (o MISSINGNO.): só quem não tem número nenhum vai pro fim
+const numero = (id) => (Number.isFinite(DB.SPECIES[id]?.dex) ? DB.SPECIES[id].dex : 99999);
+const ids = Object.keys(DB.SPECIES).filter((id) => !DB.SPECIES[id].fusao && !DB.SPECIES[id].unicaDe)
+  .sort((a, b) => numero(a) - numero(b) || a.localeCompare(b));
+// a FORMA vai junto do nome: as quatro do MISSINGNO. se chamam todas "MISSINGNO."
+const nomeDe = (id) => {
+  const sp = DB.SPECIES[id];
+  if (!sp) return String(id).toUpperCase();
+  return sp.forma && !String(sp.name).includes(sp.forma) ? `${sp.name} ${sp.forma}` : sp.name;
+};
+// sem acento, sem pontuação, minúsculo: "MISSINGNO." e "missingno" são iguais
+const simples = (t) => String(t).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+/** Quão bem `q` bate com o texto: 3 contém, 2 começa parecido, 1 letras na
+ *  ordem (perdoa letra faltando, "missigno"), 0 não bate. */
+function nota(q, txt) {
+  if (!q) return 3;
+  if (txt.includes(q)) return 3;
+  // uma letra trocada ou faltando no começo do nome
+  if (q.length >= 4 && distancia(q, txt.slice(0, q.length + 1)) <= 1 + (q.length > 7)) return 2;
+  if (q.length >= 4) { let i = 0; for (const ch of txt) if (ch === q[i]) i++; if (i === q.length) return 1; }
+  return 0;
+}
+function distancia(a, b) {
+  const m = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) m[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+    m[i][j] = Math.min(m[i - 1][j] + 1, m[i][j - 1] + 1, m[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return Math.min(...m[a.length]);
+}
+const chaveBusca = Object.fromEntries(ids.map((id) => [id, [simples(nomeDe(id)), simples(id), String(numero(id))]]));
+function busca(q, lista = ids) {
+  const s = simples(q);
+  if (!s) return lista;
+  const r = [];
+  for (const id of lista) {
+    const [n, i, num] = chaveBusca[id] || [simples(nomeDe(id)), simples(id), ""];
+    const v = Math.max(nota(s, n), nota(s, i), num === s ? 3 : 0);
+    if (v) r.push([v, id]);
+  }
+  return r.sort((a, b) => b[0] - a[0]).map((x) => x[1]);
+}
+
+// ------------------------------------------------------------ o grito em edição
+// `ed`: { id (da galeria, ou null), alvo, nome, som, s }
+let ed = null, sel = 0;
+const desfazer = [], refazer = [];
+const lembra = () => { if (!ed) return; desfazer.push(JSON.stringify(ed)); if (desfazer.length > 100) desfazer.shift(); refazer.length = 0; };
+function volta(de, para) {
+  const v = de.pop();
+  if (!v) return toast("nada pra " + (de === desfazer ? "desfazer" : "refazer"));
+  para.push(JSON.stringify(ed));
+  ed = JSON.parse(v);
+  sel = Math.max(0, Math.min(sel, ed.s.length - 1));
+  mostra();
+}
+
+function abrir(alvo, g = null, s = null) {
+  const orig = gritoDe(alvo, false);
+  ed = g ? { id: g.id, alvo, nome: g.nome, som: g.som, s: temGrav(g) ? limpa(clone(orig.s || [])) : clone(g.s) }
+         : { id: null, alvo, nome: `${nomeDe(alvo)} EDITADO`, som: orig.som || "", s: s ? clone(s) : limpa(clone(orig.s || [])) };
+  if (!ed.s.length) ed.s = [[440, 440, 120, "q", 0, 0]];
+  // O GRITO DE VERDADE: quem tem o arquivo do grito original abre nele (os
+  // efeitos por cima, `edita`); os exemplos de sílabas abrem nas sílabas
+  const base = temGrav(g) ? g : orig;
+  ed.arquivo = base.arquivo || null;
+  ed.partes = base.partes?.length ? JSON.parse(JSON.stringify(base.partes)) : null;
+  ed.edita = editaLimpa(base.edita);
+  ed.modo = temGrav(ed) && !(g && !temGrav(g)) && !s ? "grav" : "silabas";
+  sel = 0; desfazer.length = 0; refazer.length = 0;
+  pintaLista();
+  mostra();
+}
+
+// ------------------------------------------------------------ a lista
+const lista = $("lista"), CABE = 250;
+function pintaLista() {
+  const d = lerGritos();
+  const achados = busca($("busca").value);
+  const mostrados = achados.slice(0, CABE);
+  lista.replaceChildren(...mostrados.map((id) => {
+    const b = document.createElement("button");
+    b.className = "mon" + (ed?.alvo === id ? " sel" : ""); b.dataset.id = id; b.setAttribute("role", "option");
+    const cv = document.createElement("canvas"); cv.width = cv.height = 32;
+    const n = document.createElement("span"); n.className = "n"; n.textContent = nomeDe(id);
+    const num = document.createElement("span"); num.className = "num"; num.textContent = numero(id) < 99999 ? `#${numero(id)}` : "";
+    b.append(cv, n, num);
+    if (d.ativos[id]) { const p = document.createElement("span"); p.className = "dot"; p.title = "tem grito ativo neste navegador"; b.append(p); }
+    cv._id = id;
+    olho.observe(cv);
+    return b;
+  }));
+  if (achados.length > CABE) lista.append(Object.assign(document.createElement("div"), { className: "mais", textContent: `+${achados.length - CABE}: busque pelo nome ou número pra achar` }));
+  if (!achados.length) lista.append(Object.assign(document.createElement("div"), { className: "mais", textContent: "nenhum Pokémon com esse nome" }));
+  $("conta").textContent = `${achados.length}`;
+}
+$("busca").addEventListener("input", pintaLista);
+lista.addEventListener("click", (e) => { const b = e.target.closest(".mon"); if (b) abrir(b.dataset.id); });
+
+for (const id of ids) { $("misturaCom").add(new Option(nomeDe(id), id)); $("alvo").add(new Option(nomeDe(id), id)); }
+
+// ------------------------------------------------------------ a prévia de batalha
+// a mesma tela de batalha do jogo, em miniatura: o Pokémon treme enquanto grita
+// e o balão mostra o que ele fala
+const previa = $("previa"), pc = previa.getContext("2d");
+let gritando = 0;
+function desenhaPrevia() {
+  if (!ed) return;
+  const agora = performance.now(), grita = agora < gritando;
+  pc.imageSmoothingEnabled = false;
+  const g = pc.createLinearGradient(0, 0, 0, 112);
+  g.addColorStop(0, "#90c8f0"); g.addColorStop(1, "#e8f4ff");
+  pc.fillStyle = g; pc.fillRect(0, 0, 240, 112);
+  pc.fillStyle = "#8ccf6a"; pc.beginPath(); pc.ellipse(178, 70, 46, 9, 0, 0, Math.PI * 2); pc.fill();
+  pc.fillStyle = "#6fb055"; pc.beginPath(); pc.ellipse(178, 72, 46, 7, 0, 0, Math.PI); pc.fill();
+  const img = Assets.mon(ed.alvo, 1);
+  if (img) {
+    const k = Math.min(64 / img.width, 64 / img.height), w = img.width * k, h = img.height * k;
+    const dx = grita ? Math.round(Math.sin(agora / 18) * 2) : 0, dy = grita ? Math.round(Math.abs(Math.sin(agora / 40)) * -3) : 0;
+    pc.drawImage(img, Math.round(146 + (64 - w) / 2 + dx), Math.round(4 + 64 - h + dy), w, h);
+  }
+  panel(pc, 4, 6, 104, 30);
+  drawText(pc, nomeDe(ed.alvo).slice(0, 11), 9, 11, PAL.ink);
+  drawText(pc, "N50", 84, 11, PAL.ink);
+  bar(pc, 30, 24, 72, 4, 1, PAL.hpGreen);
+  drawText(pc, "HP", 10, 22, PAL.ink);
+  panel(pc, 0, 112, 240, 48);
+  const linhas = wrapText(`UM ${nomeDe(ed.alvo)} SELVAGEM APARECEU!`, 36);
+  linhas.slice(0, 2).forEach((l, i) => drawText(pc, l, 10, 122 + i * 13, PAL.ink));
+  if (grita && ed.som) {
+    const t = ed.som.slice(0, 18), w = t.length * 6 + 10;
+    const x = Math.max(2, Math.min(238 - w, 150 - w)), y = 44;
+    panel(pc, x, y, w, 16);
+    drawText(pc, t, x + 5, y + 4, PAL.ink);
+  }
+  if (grita) requestAnimationFrame(desenhaPrevia);
+}
+
+// ------------------------------------------------------------ tocar
+let laco = null;
+function tocaS(s, comPrevia = true) {
+  if (!s.length) return 0;
+  Audio2.unlock();
+  const d = Audio2.grito({ s });
+  if (comPrevia) { gritando = performance.now() + d * 1000 + 60; desenhaPrevia(); }
+  return d;
+}
+// tem GRAVAÇÃO: o arquivo do grito de verdade, ou as partes emendadas
+const temGrav = (x) => !!(x?.arquivo || x?.partes?.length);
+function tocaGravacao(x, comPrevia = true) {
+  Audio2.unlock();
+  const d = Audio2.grito({ arquivo: x.arquivo || null, partes: x.partes || null, edita: x.edita, s: [] });
+  if (comPrevia) { gritando = performance.now() + d * 1000 + 60; desenhaPrevia(); }
+  return d;
+}
+function tocaTudo() {
+  if (!ed) return;
+  if (ed.modo === "grav") return tocaGravacao(ed);
+  const d = tocaS(ed.s);
+  agulha = { de: performance.now() + 20, ate: performance.now() + 20 + d * 1000 };
+  requestAnimationFrame(desenhaRolo);
+  return d;
+}
+function tocaSilaba() { const x = ed?.s[sel]; if (x && x[3] !== "_") tocaS([x], false); }
+$("tocar").addEventListener("click", tocaTudo);
+$("original").addEventListener("click", () => {
+  if (!ed) return;
+  const o = gritoDe(ed.alvo, false);
+  if (temGrav(o)) return tocaGravacao(o);
+  tocaS(limpa(o.s || []));
+});
+$("toca1").addEventListener("click", tocaSilaba);
+$("repete").addEventListener("click", () => {
+  const b = $("repete"), on = b.getAttribute("aria-pressed") !== "true";
+  b.setAttribute("aria-pressed", String(on)); b.classList.toggle("on", on);
+  clearTimeout(laco);
+  const roda = () => { if ($("repete").getAttribute("aria-pressed") !== "true") return; const d = tocaTudo() || 0.3; laco = setTimeout(roda, d * 1000 + 450); };
+  if (on) roda();
+});
+
+// ------------------------------------------------------------ o grito inteiro: deslizantes
+// Arrastar mostra o valor; SOLTAR aplica em todas as sílabas e o deslizante
+// volta pro meio (o grito já ficou com a mudança, e desfazer desfaz).
+const fatorVel = (v) => Math.pow(2, v / 10);
+const mostraDesl = () => {
+  const v = +$("vel").value, t = +$("tom").value;
+  $("vVel").textContent = v ? `${fatorVel(v).toFixed(2).replace(".", ",")}× ${v > 0 ? "(mais rápido)" : "(mais lento)"}` : "1,00× (igual)";
+  $("vTom").textContent = t ? `${t > 0 ? "+" : ""}${t} semitons ${t > 0 ? "(mais fino)" : "(mais grosso)"}` : "0 semitons (igual)";
+};
+for (const id of ["vel", "tom"]) {
+  $(id).addEventListener("input", mostraDesl);
+  $(id).addEventListener("change", () => {
+    if (!ed) return;
+    const v = +$("vel").value, t = +$("tom").value;
+    if (!v && !t) return;
+    lembra();
+    const kv = fatorVel(v), kt = Math.pow(2, t / 12);
+    ed.s = limpa(ed.s.map((x) => [x[0] * kt, x[1] * kt, x[2] / kv, x[3], x[4], x[5]]));
+    $("vel").value = 0; $("tom").value = 0; mostraDesl();
+    mostra(); tocaTudo();
+    toast(v ? `velocidade ${fatorVel(v).toFixed(2).replace(".", ",")}× aplicada` : `tom ${t > 0 ? "+" : ""}${t} aplicado`);
+  });
+}
+mostraDesl();
+
+// ------------------------------------------------------------ o grito inteiro: efeitos
+const sobe = (s, k) => s.map((x) => [x[0] * k, x[1] * k, x[2], x[3], x[4], x[5]]);
+const estica = (s, k) => s.map((x) => [x[0], x[1], x[2] * k, x[3], x[4], x[5]]);
+const timbre = (s, o) => s.map((x) => (x[3] === "_" || x[3] === "n" ? x : [x[0], x[1], x[2], o, x[4], x[5]]));
+const pausa = (ms) => [0, 0, ms, "_", 0, 0];
+const picota = (s, n) => s.flatMap((x) => x[3] === "_" ? [x] : Array.from({ length: n }, (_, i) => {
+  const a = x[0] + (x[1] - x[0]) * (i / n), b = x[0] + (x[1] - x[0]) * ((i + 1) / n);
+  return [[a, b, x[2] / n * 0.7, x[3], x[4], x[5]], pausa(x[2] / n * 0.3)];
+}).flat());
+// a nota musical mais perto (afinação de piano, lá = 440 Hz)
+const afina = (f) => 440 * Math.pow(2, Math.round(12 * Math.log2(Math.max(20, f) / 440)) / 12);
+const fora = (x) => x[3] === "_";
+const comChiado = (s, n) => s.map((x) => [x[0], x[1], x[2], x[3], x[4], Math.max(x[5], n)]);
+// [id, nome, o que faz, grupo, função]
+const EFEITOS = [
+  ["rapido", "⏩ 2× rápido", "metade do tempo", "tempo", (s) => estica(s, 0.5)],
+  ["lento", "⏪ 2× lento", "o dobro do tempo", "tempo", (s) => estica(s, 2)],
+  ["dez", "⚡ 10× rápido", "como o REGIGLITCH", "tempo", (s) => estica(s, 0.1)],
+  ["agudo", "↑ oitava acima", "tudo mais fino", "tempo", (s) => sobe(s, 2)],
+  ["grave", "↓ oitava abaixo", "tudo mais grosso", "tempo", (s) => sobe(s, 0.5)],
+  ["inverte", "⇄ ao contrário", "toca de trás pra frente", "tempo", (s) => s.slice().reverse().map((x) => [x[1], x[0], x[2], x[3], x[4], x[5]])],
+  ["eco", "◌ eco", "repete duas vezes, mais abafado", "efeito", (s) => [...s, pausa(70), ...timbre(sobe(estica(s, 0.8), 0.94), "t"), pausa(70), ...timbre(sobe(estica(s, 0.6), 0.88), "o")]],
+  ["robo", "▣ robô", "quadrado e picotado, sem tremido", "voz", (s) => picota(timbre(s, "q").map((x) => [x[0], x[1], x[2], x[3], 0, 0]), 3)],
+  ["gigante", "▲ gigante", "grave, lento e áspero", "voz", (s) => timbre(sobe(estica(s, 1.5), 0.5), "s")],
+  ["esquilo", "▼ esquilo", "fino e acelerado", "voz", (s) => sobe(estica(s, 0.6), 2)],
+  ["fantasma", "☾ fantasma", "liso, tremido e lento", "voz", (s) => sobe(estica(timbre(s, "o"), 1.4), 1.33).map((x) => [x[0], x[1], x[2], x[3], 6, x[5]])],
+  ["sirene", "◉ sirene", "sobe e desce sem parar", "efeito", (s) => s.map((x) => (x[3] === "_" ? x : [x[0], x[1], x[2], "t", 7, 0]))],
+  ["radio", "▒ rádio quebrado", "chiado e cortes", "efeito", (s) => picota(s.map((x) => [x[0], x[1], x[2], x[3], x[4], 0.6]), 2)],
+  ["gagueja", "✂ gaguejar", "cada sílaba repetida aos pedaços", "efeito", (s) => picota(s, 3)],
+  ["repete", "⟳ repetir 2×", "o grito duas vezes seguidas", "tempo", (s) => [...s, pausa(60), ...s]],
+  ["glitch", "░ glitchar", "estraga de um jeito diferente a cada clique", "criar", (s) => s.flatMap((x) => {
+    const r = Math.random();
+    if (x[3] === "_") return [x];
+    if (r < 0.25) return [[x[0] * (0.5 + Math.random() * 1.5), x[1] * (0.5 + Math.random() * 1.5), x[2], x[3], x[4], x[5]]];
+    if (r < 0.45) return [[x[0], x[1], x[2] / 4, x[3], 0, 0], [x[0] * 1.5, x[1] * 1.5, x[2] / 4, ONDAS[Math.floor(Math.random() * 6)], 0, 0], [x[0], x[1], x[2] / 4, x[3], 0, 0]];
+    if (r < 0.6) return [[x[1], x[0], x[2], "n", 0, 0]];
+    if (r < 0.7) return [[x[0], x[1], x[2], x[3], 40 + Math.random() * 40, 0.5]];
+    return [x];
+  })],
+  // ---- os 20 de depois
+  ["alien", "☄ alienígena", "pula entre agudo e grave, tremendo rápido", "voz",
+    (s) => s.map((x, i) => fora(x) ? x : [x[0] * (i % 2 ? 0.5 : 2.2), x[1] * (i % 2 ? 2.2 : 0.5), x[2], "f", 30, x[5]])],
+  ["dragao", "♜ dragão", "rugido grave e áspero, com um bafo no fim", "voz",
+    (s) => [...comChiado(timbre(sobe(estica(s, 1.25), 0.6), "s"), 0.45), [300, 60, 450, "n", 0, 0]]],
+  ["passaro", "❦ passarinho", "piados rápidos e bem finos", "voz",
+    (s) => s.flatMap((x) => fora(x) ? [x] : [0, 1, 2].flatMap((k) => [[x[0] * 3 * (1 + k * 0.08), x[0] * 4.2 * (1 + k * 0.08), Math.max(25, x[2] / 4), "o", 0, 0], pausa(18)]))],
+  ["bebe", "◡ bebê", "mais fino, curtinho e balançando", "voz",
+    (s) => sobe(estica(s, 0.75), 1.5).map((x) => fora(x) ? x : [x[0], x[1], x[2], "t", 5, 0])],
+  ["abismo", "▽ abismo", "muito grave e lento, vindo do fundo", "voz",
+    (s) => comChiado(timbre(sobe(estica(s, 1.8), 0.35), "o").map((x) => fora(x) ? x : [x[0], x[1], x[2], x[3], 2, x[5]]), 0.3)],
+  ["baleia", "◠ baleia", "longo, grave e escorregando pra baixo", "voz",
+    (s) => timbre(estica(s, 2.4), "o").map((x) => fora(x) ? x : [x[0] * 0.7, x[1] * 0.5, x[2], x[3], 2, 0])],
+  ["sussurro", "… sussurro", "só o sopro, sem voz", "voz",
+    (s) => s.map((x) => fora(x) ? x : [x[0] * 1.5, x[1] * 1.5, x[2], "n", 0, 0])],
+  ["megafone", "◁ megafone", "nasal e chiado, como alto-falante", "voz",
+    (s) => comChiado(timbre(sobe(s, 1.12), "p"), 0.25)],
+  ["elastico", "∿ elástico", "cada sílaba estica pra cima e volta", "efeito",
+    (s) => s.flatMap((x) => fora(x) ? [x] : [[x[0], x[0] * 2, x[2] / 2, x[3], x[4], x[5]], [x[0] * 2, x[1], x[2] / 2, x[3], x[4], x[5]]])],
+  ["tremido", "≈ tremido", "tremendo do começo ao fim", "efeito",
+    (s) => s.map((x) => fora(x) ? x : [x[0], x[1], x[2], x[3], 14, x[5]])],
+  ["laser", "⌁ laser", "cada sílaba vira um tiro descendo", "efeito",
+    (s) => s.map((x) => fora(x) ? x : [Math.max(x[0], x[1]) * 4, Math.min(x[0], x[1]) * 0.6, Math.min(x[2], 160), "f", 0, 0])],
+  ["trovao", "☈ trovão", "o grito e um trovão rolando depois", "efeito",
+    (s) => [...comChiado(s, 0.3), [180, 40, 500, "n", 0, 0], [90, 30, 600, "n", 0, 0]]],
+  ["explosao", "✹ explosão", "o grito termina num estouro", "efeito",
+    (s) => [...s, [1200, 60, 700, "n", 0, 0]]],
+  ["moeda", "◎ moeda", "o grito e um plim de moeda no fim", "efeito",
+    (s) => [...s, pausa(40), [988, 988, 70, "q", 0, 0], [1319, 1319, 260, "q", 0, 0]]],
+  ["afinado", "♪ afinado", "cada tom vai pra nota musical mais perto", "musica",
+    (s) => s.map((x) => fora(x) ? x : [afina(x[0]), afina(x[1]), x[2], x[3], x[4], x[5]])],
+  ["desafinado", "♭ desafinado", "cada sílaba sai um pouco fora do tom", "musica",
+    (s) => s.map((x) => { const k = Math.pow(2, (Math.random() * 4 - 2) / 12); return fora(x) ? x : [x[0] * k, x[1] * k, x[2], x[3], x[4], x[5]]; })],
+  ["arpejo", "♫ arpejo 8 bits", "cada sílaba vira três notas de acorde", "musica",
+    (s) => s.flatMap((x) => fora(x) ? [x] : [0, 4, 7].map((n) => { const f = afina(x[0]) * Math.pow(2, n / 12); return [f, f, Math.max(20, x[2] / 3), "q", 0, 0]; }))],
+  ["lenta", "◷ câmera lenta", "como fita tocando devagar: lento e grave", "tempo",
+    (s) => sobe(estica(s, 3), 0.6)],
+  ["acelerada", "◶ fita acelerada", "como fita rápida demais: curto e fino", "tempo",
+    (s) => sobe(estica(s, 1 / 3), 1.8)],
+  ["espelho", "⧖ espelho", "o grito e depois ele mesmo ao contrário", "tempo",
+    (s) => [...s, ...s.slice().reverse().map((x) => [x[1], x[0], x[2], x[3], x[4], x[5]])]],
+  ["sorteio", "🎲 grito novo", "inventa um grito do zero", "criar", () => {
+    const tocaveis = ONDAS.filter((w) => w !== "_" && w !== "n"), n = 2 + Math.floor(Math.random() * 4), base = 150 + Math.random() * 1400;
+    const o = tocaveis[Math.floor(Math.random() * tocaveis.length)], s = [];
+    for (let i = 0; i < n; i++) {
+      const a = base * (0.6 + Math.random() * 0.9);
+      s.push([a, a * (0.5 + Math.random()), 60 + Math.random() * 260, Math.random() < 0.15 ? "n" : o, Math.random() < 0.3 ? 10 + Math.random() * 40 : 0, Math.random() < 0.2 ? 0.4 : 0]);
+      if (Math.random() < 0.3) s.push(pausa(30 + Math.random() * 60));
+    }
+    return s;
+  }],
+];
+const FX = Object.fromEntries(EFEITOS.map(([id, , , , fn]) => [id, fn]));
+const GRUPOS = { tempo: "TEMPO E TOM", voz: "VOZES", efeito: "EFEITOS", musica: "MÚSICA", criar: "INVENTAR" };
+for (const [grupo, titulo] of Object.entries(GRUPOS)) {
+  const h = document.createElement("div");
+  h.className = "grupo"; h.textContent = titulo;
+  $("efeitos").append(h);
+  for (const [id, nome, desc] of EFEITOS.filter((e) => e[3] === grupo)) {
+  const b = document.createElement("button");
+  b.dataset.ef = id;
+  b.innerHTML = `<b></b><small></small>`;
+  b.querySelector("b").textContent = nome; b.querySelector("small").textContent = desc;
+  b.addEventListener("click", () => {
+    if (!ed) return;
+    lembra();
+    ed.s = limpa(FX[id](clone(ed.s)));
+    if (!ed.s.length) ed.s = [[440, 440, 120, "q", 0, 0]];
+    sel = Math.min(sel, ed.s.length - 1);
+    mostra(); tocaTudo();
+  });
+  $("efeitos").append(b);
+  }
+}
+$("misturaCom").addEventListener("change", () => {
+  const outro = $("misturaCom").value;
+  $("misturaCom").value = "";
+  if (!ed || !outro) return;
+  lembra();
+  const a = ed.s, b = limpa(gritoDe(outro, false).s || []), s = [];
+  for (let i = 0; i < Math.max(a.length, b.length); i++) { if (a[i]) s.push([...a[i]]); if (b[i]) s.push([...b[i]]); }
+  ed.s = limpa(s);
+  if (!ed.nome.includes("+")) ed.nome = `${ed.nome.replace(/ EDITADO$/, "")} + ${nomeDe(outro)}`.slice(0, 32);
+  mostra(); tocaTudo();
+  toast(`misturado com ${nomeDe(outro)}`);
+});
+
+// ------------------------------------------------------------ o gráfico das sílabas
+const rolo = $("rolo");
+const FMIN = 30, FMAX = 9000;
+let geo = null, arrasto = null, agulha = { de: 0, ate: 0 };
+function medidas() {
+  const r = rolo.getBoundingClientRect(), dpr = devicePixelRatio || 1;
+  if (rolo.width !== Math.round(r.width * dpr)) { rolo.width = Math.round(r.width * dpr); rolo.height = Math.round(r.height * dpr); }
+  const W = rolo.width, H = rolo.height, pad = 10 * dpr, T = total(ed.s);
+  const tMax = Math.max(400, T * 1.08, Math.min(LIMITE * 1.05, T + 100));
+  const xT = (ms) => pad + (ms / tMax) * (W - 2 * pad);
+  const yF = (f) => H - pad - (Math.log(f / FMIN) / Math.log(FMAX / FMIN)) * (H - 2 * pad);
+  const fY = (y) => FMIN * Math.pow(FMAX / FMIN, (H - pad - y) / (H - 2 * pad));
+  const msX = (dx) => (dx / (W - 2 * pad)) * tMax;
+  let t = 0;
+  const caixas = ed.s.map((x) => { const a = t; t += dur(x); return { a, b: t }; });
+  return { W, H, pad, dpr, xT, yF, fY, msX, caixas };
+}
+function desenhaRolo() {
+  if (!ed) return;
+  geo = medidas();
+  const { W, H, pad, dpr, xT, yF, caixas } = geo, c = rolo.getContext("2d");
+  c.clearRect(0, 0, W, H);
+  c.font = `${10 * dpr}px ui-monospace, monospace`;
+  for (let f = 62.5; f < FMAX; f *= 2) {
+    c.strokeStyle = "#151b22"; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(pad, yF(f)); c.lineTo(W - pad, yF(f)); c.stroke();
+    c.fillStyle = "#3a4250"; c.fillText(f >= 1000 ? `${f / 1000}k Hz` : `${f} Hz`, pad + 2, yF(f) - 2);
+  }
+  if (xT(LIMITE) < W - pad) {
+    c.strokeStyle = "#ff556699"; c.setLineDash([6 * dpr, 4 * dpr]);
+    c.beginPath(); c.moveTo(xT(LIMITE), pad); c.lineTo(xT(LIMITE), H - pad); c.stroke(); c.setLineDash([]);
+  }
+  ed.s.forEach((x, i) => {
+    const { a, b } = caixas[i], x0 = xT(a), x1 = xT(b);
+    if (i === sel) { c.fillStyle = "#1f173099"; c.fillRect(x0, pad, x1 - x0, H - 2 * pad); }
+    c.strokeStyle = "#202833"; c.lineWidth = 1; c.beginPath(); c.moveTo(x1, pad); c.lineTo(x1, H - pad); c.stroke();
+    if (x[3] === "_") { c.fillStyle = "#2a323d"; c.fillRect(x0 + 1, H - pad - 6 * dpr, Math.max(1, x1 - x0 - 2), 4 * dpr); }
+    else {
+      const y0 = yF(x[0]), y1 = yF(x[1]);
+      if (x[3] === "n" || x[5] > 0) {
+        c.fillStyle = x[3] === "n" ? "#e0e0e055" : "#e0e0e030";
+        for (let k = 0; k < (x1 - x0) / (3 * dpr); k++) {
+          const xx = x0 + k * 3 * dpr, yy = y0 + (y1 - y0) * ((xx - x0) / Math.max(1, x1 - x0));
+          c.fillRect(xx, yy + ((k * 37) % 13 - 6) * dpr * (x[3] === "n" ? 1.4 : 0.8), dpr * 1.5, dpr * 1.5);
+        }
+      }
+      if (x[3] !== "n") {
+        c.strokeStyle = COR[x[3]]; c.lineWidth = (i === sel ? 4 : 3) * dpr; c.lineCap = "round";
+        c.beginPath();
+        const n = Math.max(2, Math.round((x1 - x0) / (2 * dpr)));
+        for (let k = 0; k <= n; k++) {
+          const u = k / n, xx = x0 + (x1 - x0) * u;
+          let yy = y0 + (y1 - y0) * u;
+          if (x[4] > 0) yy += Math.sin(u * dur(x) / 1000 * x[4] * Math.PI * 2) * 4 * dpr;
+          k ? c.lineTo(xx, yy) : c.moveTo(xx, yy);
+        }
+        c.stroke();
+      }
+    }
+    if (i === sel) {
+      c.fillStyle = "#fff";
+      if (x[3] !== "_") for (const [xx, yy] of [[x0, yF(x[0])], [x1, yF(x[1])]]) { c.beginPath(); c.arc(xx, yy, 6 * dpr, 0, Math.PI * 2); c.fill(); }
+      c.fillStyle = "#b455ff"; c.fillRect(x1 - 6 * dpr, H - pad - 12 * dpr, 12 * dpr, 12 * dpr);
+    }
+  });
+  const agora = performance.now();
+  if (agora < agulha.ate) {
+    const xx = xT(agora - agulha.de);
+    c.strokeStyle = "#00ff41"; c.lineWidth = 2 * dpr;
+    c.beginPath(); c.moveTo(xx, pad); c.lineTo(xx, H - pad); c.stroke();
+    requestAnimationFrame(desenhaRolo);
+  }
+}
+$("legenda").replaceChildren(...ONDAS.map((o) => {
+  const s = document.createElement("span");
+  s.innerHTML = `<i></i>`; s.querySelector("i").style.background = COR[o];
+  s.append(`${TIMBRES[o][0]}`); s.title = TIMBRES[o][1];
+  return s;
+}));
+const pontoDe = (e) => { const r = rolo.getBoundingClientRect(); return { x: (e.clientX - r.left) * geo.dpr, y: (e.clientY - r.top) * geo.dpr }; };
+rolo.addEventListener("pointerdown", (e) => {
+  if (!ed?.s.length) return;
+  geo = medidas();
+  const p = pontoDe(e), { xT, yF, caixas, H, pad, dpr } = geo, perto = 10 * dpr;
+  const x = ed.s[sel], cx = caixas[sel];
+  if (x && cx) {
+    const x0 = xT(cx.a), x1 = xT(cx.b);
+    const alca = x[3] !== "_" && Math.hypot(p.x - x0, p.y - yF(x[0])) < perto ? "f0"
+      : x[3] !== "_" && Math.hypot(p.x - x1, p.y - yF(x[1])) < perto ? "f1"
+      : Math.abs(p.x - x1) < perto && p.y > H - pad - 16 * dpr ? "ms" : null;
+    if (alca) { lembra(); arrasto = { alca, x0: p.x, ms0: x[2] }; rolo.setPointerCapture(e.pointerId); return; }
+  }
+  const i = caixas.findIndex((k) => p.x >= xT(k.a) && p.x <= xT(k.b));
+  if (i >= 0) { sel = i; mostra(); }
+});
+rolo.addEventListener("pointermove", (e) => {
+  if (!arrasto) return;
+  const p = pontoDe(e), x = ed.s[sel];
+  if (arrasto.alca === "ms") x[2] = Math.round(Math.max(4, Math.min(1200, arrasto.ms0 + geo.msX(p.x - arrasto.x0))));
+  else x[arrasto.alca === "f0" ? 0 : 1] = Math.round(Math.max(20, Math.min(12000, geo.fY(p.y))));
+  mostraInsp(); desenhaRolo(); mostraMedida();
+});
+rolo.addEventListener("pointerup", () => { if (!arrasto) return; arrasto = null; tocaSilaba(); mostra(); });
+addEventListener("resize", () => desenhaRolo());
+
+// ------------------------------------------------------------ o inspetor
+const tomDe = (v) => Math.round(20 * Math.pow(12000 / 20, v / 1000));
+const vDeTom = (f) => Math.round((Math.log(f / 20) / Math.log(12000 / 20)) * 1000);
+const NOTAS = ["dó", "dó#", "ré", "ré#", "mi", "fá", "fá#", "sol", "sol#", "lá", "lá#", "si"];
+const notaDe = (f) => { const n = Math.round(12 * Math.log2(f / 440)) + 57; return `${NOTAS[((n % 12) + 12) % 12]}${Math.floor(n / 12)}`; };
+for (const o of ONDAS) {
+  if (o === ONDAS[BASICOS.length]) {
+    const q = document.createElement("span");
+    q.style.cssText = "flex-basis:100%;font-size:10px;color:var(--roxo);letter-spacing:1px;margin-top:4px";
+    q.textContent = "INSTRUMENTOS E VOZES";
+    $("ondas").append(q);
+  }
+  const b = document.createElement("button");
+  b.type = "button"; b.dataset.o = o; b.textContent = TIMBRES[o][0]; b.title = TIMBRES[o][1]; b.style.borderLeft = `3px solid ${COR[o]}`;
+  b.addEventListener("click", () => { if (!ed?.s[sel]) return; lembra(); ed.s[sel][3] = o; mostra(); tocaSilaba(); });
+  $("ondas").append(b);
+  $("tTimbre").add(new Option(`${TIMBRES[o][0]} — ${TIMBRES[o][1]}`, o));
+}
+$("tTimbre").value = "q";
+function mostraInsp() {
+  const x = ed?.s[sel];
+  for (const el of $("insp").querySelectorAll("input")) el.disabled = !x;
+  if (!x) return;
+  $("f0").value = vDeTom(x[0]); $("vf0").textContent = `${x[0]} Hz (${notaDe(x[0])})`;
+  $("f1").value = vDeTom(x[1]); $("vf1").textContent = `${x[1]} Hz (${notaDe(x[1])})`;
+  $("ms").value = x[2]; $("vms").textContent = `${x[2]} ms`;
+  $("vib").value = x[4]; $("vvib").textContent = x[4] ? `${x[4]} vezes por segundo` : "nenhum";
+  $("rui").value = Math.round(x[5] * 100); $("vrui").textContent = x[5] ? `${Math.round(x[5] * 100)}%` : "nenhum";
+  for (const b of $("ondas").querySelectorAll("button")) b.classList.toggle("on", b.dataset.o === x[3]);
+  $("descTimbre").textContent = `— ${TIMBRES[x[3]]?.[0] || x[3]}: ${TIMBRES[x[3]]?.[1] || ""}`;
+}
+const liga = (id, fn) => {
+  const el = $(id);
+  el.addEventListener("pointerdown", lembra);
+  el.addEventListener("keydown", lembra);
+  el.addEventListener("input", () => { const x = ed?.s[sel]; if (!x) return; fn(x, +el.value); mostraInsp(); desenhaRolo(); mostraMedida(); });
+  el.addEventListener("change", tocaSilaba);
+};
+liga("f0", (x, v) => { x[0] = tomDe(v); });
+liga("f1", (x, v) => { x[1] = tomDe(v); });
+liga("ms", (x, v) => { x[2] = v; });
+liga("vib", (x, v) => { x[4] = v; });
+liga("rui", (x, v) => { x[5] = v / 100; });
+
+const mexe = (fn) => () => { if (!ed) return; lembra(); fn(); mostra(); };
+$("add").addEventListener("click", mexe(() => { const b = ed.s[sel] || [440, 440, 100, "q", 0, 0]; ed.s.splice(sel + 1, 0, [b[1] || 440, b[1] || 440, 100, b[3] === "_" ? "q" : b[3], 0, 0]); sel = Math.min(sel + 1, ed.s.length - 1); }));
+$("dup").addEventListener("click", mexe(() => { if (ed.s[sel]) { ed.s.splice(sel + 1, 0, [...ed.s[sel]]); sel++; } }));
+$("del").addEventListener("click", mexe(() => { if (ed.s.length > 1) { ed.s.splice(sel, 1); sel = Math.max(0, sel - 1); } else toast("o grito precisa de pelo menos uma sílaba"); }));
+$("esq").addEventListener("click", mexe(() => { if (sel > 0) { [ed.s[sel - 1], ed.s[sel]] = [ed.s[sel], ed.s[sel - 1]]; sel--; } }));
+$("dir").addEventListener("click", mexe(() => { if (sel < ed.s.length - 1) { [ed.s[sel + 1], ed.s[sel]] = [ed.s[sel], ed.s[sel + 1]]; sel++; } }));
+
+// ------------------------------------------------------------ o teclado
+// duas oitavas, de dó3 (130 Hz) a dó5; no teclado do computador, a fileira de
+// baixo é a primeira oitava e a de cima, a segunda (como nos programas de música)
+const TECLAS_PC = ["z", "s", "x", "d", "c", "v", "g", "b", "h", "n", "j", "m", "q", "2", "w", "3", "e", "r", "5", "t", "6", "y", "7", "u", "i"];
+const freqNota = (i) => 130.81 * Math.pow(2, i / 12);
+const preta = (i) => [1, 3, 6, 8, 10].includes(i % 12);
+const teclado = $("teclado");
+const brancas = Array.from({ length: 25 }, (_, i) => i).filter((i) => !preta(i));
+const larg = 100 / brancas.length;
+const elTecla = [];
+for (let i = 0; i < 25; i++) {
+  const d = document.createElement("div");
+  d.className = "tecla " + (preta(i) ? "p" : "b");
+  const k = brancas.filter((b) => b < i).length;
+  d.style.left = preta(i) ? `calc(${k * larg}% - ${larg * 0.3}%)` : `${k * larg}%`;
+  d.style.width = preta(i) ? `${larg * 0.6}%` : `${larg}%`;
+  d.textContent = TECLAS_PC[i].toUpperCase();
+  d.title = notaDe(freqNota(i));
+  d.addEventListener("pointerdown", (e) => { e.preventDefault(); nota_(i); });
+  teclado.append(d);
+  elTecla.push(d);
+}
+let ultimaGravada = null;
+function nota_(i) {
+  const f = Math.round(freqNota(i)), o = $("tTimbre").value, ms = +$("tDur").value;
+  elTecla[i].classList.add("apertada");
+  setTimeout(() => elTecla[i].classList.remove("apertada"), 160);
+  const x = [f, f, ms, o, 0, 0];
+  if ($("grava").getAttribute("aria-pressed") === "true" && ed) {
+    lembra();
+    // DESLIZAR: a nota anterior escorrega até esta
+    if ($("tDesliza").checked && ultimaGravada && ed.s[sel] === ultimaGravada && ultimaGravada[3] !== "_") ultimaGravada[1] = f;
+    ed.s.splice(sel + 1, 0, x);
+    sel = Math.min(sel + 1, ed.s.length - 1);
+    ultimaGravada = x;
+    mostra();
+  }
+  tocaS([x], false);
+}
+$("grava").addEventListener("click", () => {
+  const b = $("grava"), on = b.getAttribute("aria-pressed") !== "true";
+  b.setAttribute("aria-pressed", String(on)); b.classList.toggle("on", on);
+  b.textContent = on ? "● GRAVANDO" : "● GRAVAR";
+  toast(on ? "gravando: cada nota vira uma sílaba nova" : "gravação desligada: as teclas só tocam");
+});
+$("pausa").addEventListener("click", mexe(() => { ed.s.splice(sel + 1, 0, pausa(+$("tDur").value)); sel++; ultimaGravada = null; }));
+$("zera").addEventListener("click", () => {
+  if (!ed) return;
+  lembra();
+  ed.s = [pausa(40)]; sel = 0; ultimaGravada = null;
+  if ($("grava").getAttribute("aria-pressed") !== "true") $("grava").click();
+  mostra();
+});
+
+// ------------------------------------------------------------ teclas do computador
+addEventListener("keydown", (e) => {
+  const el = document.activeElement, tag = el?.tagName;
+  const digitando = (tag === "INPUT" && el.type !== "range" && el.type !== "checkbox") || tag === "TEXTAREA" || tag === "SELECT";
+  if (digitando || e.altKey) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); return volta(desfazer, refazer); }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") { e.preventDefault(); return volta(refazer, desfazer); }
+  if (e.ctrlKey || e.metaKey) return;
+  if (e.key === " ") { e.preventDefault(); return tocaTudo(); }
+  if (e.repeat) return;
+  const i = TECLAS_PC.indexOf(e.key.toLowerCase());
+  if (i >= 0) { e.preventDefault(); nota_(i); }
+});
+$("desfaz").addEventListener("click", () => volta(desfazer, refazer));
+$("refaz").addEventListener("click", () => volta(refazer, desfazer));
+$("recomeca").addEventListener("click", () => {
+  if (!ed) return;
+  lembra();
+  ed.s = limpa(clone(gritoDe(ed.alvo, false).s || []));
+  if (temGrav(ed)) ed.edita = editaLimpa(gritoDe(ed.alvo, false).edita);
+  sel = 0; mostra(); toast("voltou pro grito original (desfazer traz o seu de volta)");
+});
+$("nome").addEventListener("input", (e) => { if (ed) ed.nome = e.target.value.toUpperCase(); });
+$("som").addEventListener("input", (e) => { if (ed) ed.som = e.target.value.toUpperCase(); });
+$("alvo").addEventListener("change", (e) => { if (!ed) return; ed.alvo = e.target.value; pintaLista(); mostra(); });
+
+// ------------------------------------------------------------ o GRITO DE VERDADE
+// (nov/2026, "no editor de sons dá os gritos velhos"): o arquivo do grito
+// original com os efeitos do jogo por cima (editarGrito, src/core/audio.js)
+const DESC_TIPO = { NORMAL: "um ecozinho", FOGO: "estalando, queimando", "ÁGUA": "borbulhando", PLANTA: "balançando, com eco",
+  "ELÉTRICO": "picotado de choque", GELO: "brilho fino e eco gelado", LUTADOR: "forte e curto", VENENO: "tremendo, abafado",
+  TERRA: "grosso e abafado", VOADOR: "fino, batendo asa", "PSÍQUICO": "ondulando", INSETO: "zumbindo", PEDRA: "voz de pedra",
+  FANTASMA: "de trás pra frente com eco", "DRAGÃO": "grosso e rasgado", SOMBRIO: "grosso, com sombra no fim", "AÇO": "voz de metal",
+  FADA: "fino com eco" };
+const MAIS = [["robo", "ROBÔ", "voz de máquina"], ["choque", "CHOQUE", "levando um choque"], ["invertido", "AO CONTRÁRIO", "de trás pra frente"],
+  ["hack", "GLITCH", "engasgado, chip estragado"], ["raio", "RAIO", "um trovão depois"], ["ecoRaio", "TROVÃO COM ECO", "o trovão ecoa (com RAIO)"]];
+const chips = [];
+function chip(nome, desc, liga, ligado) {
+  const b = document.createElement("button");
+  b.innerHTML = `<b></b><small></small>`;
+  b.querySelector("b").textContent = nome; b.querySelector("small").textContent = desc;
+  b.addEventListener("click", () => { if (!ed) return; lembra(); liga(); mostra(); tocaTudo(); });
+  chips.push(() => b.classList.toggle("on", ligado()));
+  $("gEfeitos").append(b);
+}
+{
+  const h = (t) => $("gEfeitos").append(Object.assign(document.createElement("div"), { className: "grupo", textContent: t }));
+  h("EFEITOS");
+  for (const [k, nome, desc] of MAIS) chip(nome, desc, () => { if (ed.edita[k]) delete ed.edita[k]; else ed.edita[k] = true; }, () => !!ed?.edita[k]);
+  h("DO JEITO DE UM TIPO");
+  for (const t of EFEITOS_TIPO) chip(t, DESC_TIPO[t] || "", () => {
+    const l = ed.edita.tipos, i = l.indexOf(t);
+    if (i >= 0) l.splice(i, 1); else l.push(t);
+  }, () => !!ed?.edita.tipos.includes(t));
+}
+const semitons = () => Math.round(12 * Math.log2(ed?.edita.tom || 1));
+function mostraGravacao() {
+  chips.forEach((f) => f());
+  const st = semitons();
+  $("gTom").value = st;
+  $("gTomV").textContent = st ? `${st > 0 ? "+" : ""}${st} semitons` : "0 semitons (igual)";
+}
+$("gTom").addEventListener("input", () => { if (!ed) return; const v = +$("gTom").value; $("gTomV").textContent = v ? `${v > 0 ? "+" : ""}${v} semitons` : "0 semitons (igual)"; });
+$("gTom").addEventListener("change", () => {
+  if (!ed) return;
+  lembra();
+  const v = +$("gTom").value;
+  if (v) ed.edita.tom = Math.pow(2, v / 12); else delete ed.edita.tom;
+  mostra(); tocaTudo();
+});
+$("gLimpa").addEventListener("click", () => { if (!ed) return; lembra(); ed.edita = editaLimpa({}); mostra(); tocaTudo(); });
+$("paraSilabas").addEventListener("click", () => { if (!ed) return; lembra(); ed.modo = "silabas"; mostra(); });
+$("paraGravacao").addEventListener("click", () => { if (!temGrav(ed)) return; lembra(); ed.modo = "grav"; mostra(); tocaTudo(); });
+
+// o desenho da onda de um arquivo (a gravação original, sem os efeitos)
+const ondas = new Map();
+function ondaDoArquivo(cv, arq) {
+  if (!ondas.has(arq)) ondas.set(arq, fetch("../" + arq).then((r) => r.arrayBuffer())
+    .then((b) => new OfflineAudioContext(1, 1, 44100).decodeAudioData(b)).catch(() => null));
+  ondas.get(arq).then((buf) => {
+    if (!buf) return;
+    const c = cv.getContext("2d"), W = cv.width = cv.clientWidth * (devicePixelRatio || 1), H = cv.height = 34 * (devicePixelRatio || 1);
+    const d = buf.getChannelData(0), passo = Math.max(1, Math.floor(d.length / W));
+    let pico = 0.001; for (let i = 0; i < d.length; i += 16) pico = Math.max(pico, Math.abs(d[i]));
+    c.fillStyle = COR.q;
+    for (let x = 0; x < W; x++) {
+      let m = 0; for (let i = x * passo; i < (x + 1) * passo && i < d.length; i += 4) m = Math.max(m, Math.abs(d[i]));
+      const h = Math.max(1, (m / pico) * (H - 4));
+      c.fillRect(x, (H - h) / 2, 1, h);
+    }
+  });
+}
+
+// ------------------------------------------------------------ mostrar
+function mostraMedida() {
+  if (!ed) return;
+  if (ed.modo === "grav") { $("medida").textContent = "🎙️ grito de verdade"; $("alerta").textContent = ""; return; }
+  const T = total(ed.s);
+  $("medida").textContent = `${(T / 1000).toFixed(2).replace(".", ",")} s · ${ed.s.length} sílaba${ed.s.length === 1 ? "" : "s"}`;
+  $("alerta").textContent = T > LIMITE ? "⚠ passa de 2,5 s: no jogo o fim é cortado" : "";
+}
+function mostra() {
+  if (!ed) return;
+  const d = lerGritos(), ativo = d.galeria.find((g) => g.id === d.ativos[ed.alvo]);
+  $("nomeMon").textContent = nomeDe(ed.alvo);
+  $("origem").textContent = ed.id ? `editando "${d.galeria.find((g) => g.id === ed.id)?.nome || ed.nome}" da galeria` : "ainda não foi salvo";
+  $("usaNoJogo").textContent = ativo ? `● no jogo, neste navegador, ${nomeDe(ed.alvo)} usa: "${ativo.nome}"` : `no jogo, ${nomeDe(ed.alvo)} usa o grito original`;
+  $("nome").value = ed.nome; $("som").value = ed.som; $("alvo").value = ed.alvo;
+  $("salvar").textContent = ed.id ? "Salvar (atualizar)" : "Salvar na galeria";
+  $("salvarNovo").hidden = !ed.id;
+  const grav = ed.modo === "grav";
+  $("gravacao").hidden = !grav;
+  document.querySelectorAll(".silabas").forEach((el) => { el.hidden = grav; });
+  $("voltaGravacao").hidden = !temGrav(ed);
+  if (grav) mostraGravacao();
+  mostraMedida(); mostraInsp(); desenhaRolo(); desenhaPrevia();
+}
+
+// ------------------------------------------------------------ salvar
+function salvar(novo, ativar) {
+  if (!ed) return;
+  const d = lerGritos();
+  const g = gritoLimpo(ed.modo === "grav" ? { ...ed, s: [], id: !novo && ed.id ? ed.id : novoId() }
+                                          : { ...ed, arquivo: null, partes: null, id: !novo && ed.id ? ed.id : novoId() });
+  if (!g || (!temGrav(g) && !g.s.some((x) => x[3] !== "_"))) return toast("o grito está vazio: grave pelo menos uma nota");
+  const i = d.galeria.findIndex((x) => x.id === g.id);
+  if (i >= 0) d.galeria[i] = g; else d.galeria.unshift(g);
+  if (ativar) d.ativos[g.alvo] = g.id;
+  gravarGritos(d);
+  ed.id = g.id;
+  aba = "meus"; pintaGaleria(); pintaLista(); mostra();
+  toast(ativar ? `ativado: ${nomeDe(g.alvo)} agora grita "${g.nome}" neste navegador` : "salvo na galeria");
+}
+$("salvar").addEventListener("click", () => salvar(false, false));
+$("salvarNovo").addEventListener("click", () => salvar(true, false));
+$("salvarAtivar").addEventListener("click", () => salvar(false, true));
+
+// ------------------------------------------------------------ a galeria
+// EXEMPLOS: gritos prontos, feitos na hora a partir dos originais do jogo
+const EXEMPLOS = [
+  { nome: "REGIGLITCH", alvo: "regiglitch", desc: "os seis Regis misturados, 10× mais rápido (o original dele)", s: () => gritoDe("regiglitch", false).s },
+  { nome: "PIKACHU ESQUILO", alvo: "pikachu", desc: "o grito de verdade bem mais fino", grav: { tom: 2 } },
+  { nome: "SNORLAX GIGANTE", alvo: "snorlax", desc: "o grito de verdade bem mais grosso", grav: { tom: 0.5, tipos: ["TERRA"] } },
+  { nome: "GENGAR FANTASMA", alvo: "gengar", desc: "o grito de verdade, de fantasma", grav: { tipos: ["FANTASMA"] } },
+  { nome: "PORYGON ROBÔ", alvo: "porygon", desc: "o grito de verdade, de robô", grav: { robo: true } },
+  { nome: "MEWTWO AO CONTRÁRIO", alvo: "mewtwo", desc: "o grito de verdade de trás pra frente", grav: { invertido: true } },
+  { nome: "RAICHU TROVÃO", alvo: "raichu", desc: "o grito de verdade com um trovão no fim", grav: { raio: true, ecoRaio: true } },
+  { nome: "MISSINGNO. RÁDIO QUEBRADO", alvo: "missingno", desc: "efeito rádio quebrado", fx: ["radio"] },
+  { nome: "CHARIZARD + GYARADOS", alvo: "charizard", desc: "os dois gritos intercalados", mix: "gyarados" },
+  { nome: "GYARADOS COM ECO", alvo: "gyarados", desc: "efeito eco", fx: ["eco"] },
+  { nome: "JIGGLYPUFF SIRENE", alvo: "jigglypuff", desc: "efeito sirene", fx: ["sirene"] },
+].filter((x) => DB.SPECIES[x.alvo]).map((x) => {
+  const o = gritoDe(x.alvo, false);
+  if (x.grav && temGrav(o)) return { ...x, id: null, som: o.som || "", s: [], arquivo: o.arquivo || "", partes: o.partes, edita: editaLimpa(x.grav) };
+  if (x.grav) return null;
+  let s = x.s ? x.s() : limpa(gritoDe(x.alvo, false).s || []);
+  for (const f of x.fx || []) s = FX[f](clone(s));
+  if (x.mix) { const b = gritoDe(x.mix, false).s || [], m = []; for (let i = 0; i < Math.max(s.length, b.length); i++) { if (s[i]) m.push(s[i]); if (b[i]) m.push(b[i]); } s = m; }
+  return { ...x, id: null, som: gritoDe(x.alvo, false).som || "", s: limpa(s) };
+}).filter(Boolean);
+
+let aba = "meus";
+$("abaMeus").addEventListener("click", () => { aba = "meus"; pintaGaleria(); });
+$("abaEx").addEventListener("click", () => { aba = "ex"; pintaGaleria(); });
+$("buscaGal").addEventListener("input", pintaGaleria);
+
+function miniOnda(cv, s) {
+  const c = cv.getContext("2d"), W = cv.width = cv.clientWidth * (devicePixelRatio || 1), H = cv.height = 34 * (devicePixelRatio || 1);
+  const T = Math.max(1, total(s));
+  let t = 0;
+  for (const x of s) {
+    const x0 = (t / T) * W, x1 = ((t += dur(x)) / T) * W;
+    if (x[3] === "_") continue;
+    const y = (f) => H - 3 - (Math.log(f / FMIN) / Math.log(FMAX / FMIN)) * (H - 6);
+    c.strokeStyle = COR[x[3]]; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(x0, y(x[0])); c.lineTo(Math.max(x0 + 1, x1), y(x[1])); c.stroke();
+  }
+}
+function cartao(g, ex) {
+  const d = lerGritos(), ligado = !ex && d.ativos[g.alvo] === g.id;
+  const el = document.createElement("article");
+  el.className = "item" + (ligado ? " ligado" : "");
+  const cv = document.createElement("canvas"); cv.className = "f"; cv.width = cv.height = 40;
+  const t = document.createElement("div"); t.className = "t";
+  t.append(Object.assign(document.createElement("b"), { textContent: g.nome }),
+           Object.assign(document.createElement("small"), { textContent: temGrav(g) ? `${nomeDe(g.alvo)} · 🎙️ grito de verdade` : `${nomeDe(g.alvo)} · ${(total(g.s) / 1000).toFixed(2).replace(".", ",")} s` }));
+  const cab = document.createElement("div"); cab.className = "cab"; cab.append(cv, t);
+  const onda = document.createElement("canvas"); onda.className = "onda";
+  const acoes = document.createElement("div"); acoes.className = "acoes";
+  const bt = (txt, fn, cls = "") => { const b = document.createElement("button"); b.textContent = txt; if (cls) b.className = cls; b.addEventListener("click", fn); acoes.append(b); };
+  bt("▶ ouvir", () => (temGrav(g) ? tocaGravacao(g, false) : tocaS(g.s, false)));
+  if (ex) {
+    bt("editar a partir deste", () => { if (temGrav(g)) abrir(g.alvo, g); else abrir(g.alvo, null, g.s); ed.nome = g.nome; ed.som = g.som; mostra(); scrollTo({ top: 0, behavior: "smooth" }); });
+    bt("● guardar e ativar", () => {
+      const dd = lerGritos(), novo = gritoLimpo({ ...g, id: novoId() });
+      dd.galeria.unshift(novo); dd.ativos[novo.alvo] = novo.id; gravarGritos(dd);
+      pintaGaleria(); pintaLista(); if (ed) mostra();
+      toast(`${nomeDe(g.alvo)} agora grita "${g.nome}" neste navegador`);
+    }, "liga");
+  } else {
+    bt(ligado ? "● ativo — desativar" : "○ ativar no jogo", () => {
+      const dd = lerGritos();
+      if (dd.ativos[g.alvo] === g.id) delete dd.ativos[g.alvo]; else dd.ativos[g.alvo] = g.id;
+      gravarGritos(dd); pintaGaleria(); pintaLista(); if (ed) mostra();
+      toast(dd.ativos[g.alvo] === g.id ? `${nomeDe(g.alvo)} agora grita "${g.nome}" neste navegador` : `${nomeDe(g.alvo)} voltou pro grito original`);
+    }, ligado ? "ativo" : "");
+    bt("editar", () => { abrir(g.alvo, g); scrollTo({ top: 0, behavior: "smooth" }); });
+    bt("copiar código", async () => {
+      const cod = codigoDoGrito(g);
+      try { await navigator.clipboard.writeText(cod); toast("código copiado: mande pra quem quiser"); }
+      catch { $("codigo").value = cod; toast("o código está no campo de baixo: copie de lá"); }
+    });
+    bt("apagar", () => {
+      if (!confirm(`Apagar "${g.nome}" da galeria?`)) return;
+      const dd = lerGritos();
+      dd.galeria = dd.galeria.filter((x) => x.id !== g.id);
+      for (const [k, v] of Object.entries(dd.ativos)) if (v === g.id) delete dd.ativos[k];
+      gravarGritos(dd);
+      if (ed?.id === g.id) ed.id = null;
+      pintaGaleria(); pintaLista(); if (ed) mostra();
+    });
+  }
+  el.append(cab);
+  if (g.desc) el.append(Object.assign(document.createElement("div"), { className: "desc", textContent: g.desc }));
+  el.append(Object.assign(document.createElement("div"), { className: "som", textContent: g.som || " " }), onda, acoes);
+  if (ligado) el.append(Object.assign(document.createElement("div"), { className: "estado", textContent: `● ${nomeDe(g.alvo)} grita assim no jogo, neste navegador` }));
+  requestAnimationFrame(() => (temGrav(g) ? ondaDoArquivo(onda, g.arquivo || g.partes[0].arquivo) : miniOnda(onda, g.s)));
+  fotoViva(cv, g.alvo, 40);
+  return el;
+}
+function pintaGaleria() {
+  const d = lerGritos();
+  $("abaMeus").classList.toggle("on", aba === "meus");
+  $("abaEx").classList.toggle("on", aba === "ex");
+  $("contaMeus").textContent = `(${d.galeria.length})`;
+  const q = simples($("buscaGal").value);
+  const filtra = (g) => !q || simples(g.nome).includes(q) || simples(nomeDe(g.alvo)).includes(q);
+  const itens = (aba === "ex" ? EXEMPLOS : d.galeria).filter(filtra);
+  if (!itens.length) {
+    $("galeria").replaceChildren(Object.assign(document.createElement("div"), { className: "vazio",
+      textContent: aba === "ex" ? "nenhum exemplo com esse nome" : d.galeria.length ? "nenhum grito seu com esse nome" : "você ainda não salvou nenhum grito. Edite um e clique em Salvar, ou veja os Exemplos prontos." }));
+    return;
+  }
+  $("galeria").replaceChildren(...itens.map((g) => cartao(g, aba === "ex")));
+}
+$("importar").addEventListener("click", () => {
+  const g = gritoDoCodigo($("codigo").value);
+  if (!g) return toast("esse texto não é um código de grito (começa com PGE-GRITO:)");
+  if (!DB.SPECIES[g.alvo]) g.alvo = ed?.alvo || ids[0];
+  g.id = novoId();
+  const d = lerGritos();
+  d.galeria.unshift(g);
+  gravarGritos(d);
+  $("codigo").value = "";
+  aba = "meus"; pintaGaleria();
+  toast(`"${g.nome}" entrou na galeria (desativado: ative se quiser)`);
+});
+// BAIXAR/CARREGAR a galeria inteira: o localStorage some se o navegador for
+// limpo, o arquivo não
+$("baixar").addEventListener("click", () => {
+  const d = lerGritos();
+  if (!d.galeria.length) return toast("a galeria está vazia");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify({ gritos: d.galeria, ativos: d.ativos }, null, 1)], { type: "application/json" }));
+  a.download = "gritos-pge.json";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+});
+$("arquivo").addEventListener("change", async (e) => {
+  const f = e.target.files?.[0];
+  e.target.value = "";
+  if (!f) return;
+  try {
+    const cru = JSON.parse(await f.text());
+    const vindos = (cru.gritos || []).map(gritoLimpo).filter((g) => g && g.id);
+    const d = lerGritos(), tem = new Set(d.galeria.map((g) => g.id));
+    let n = 0;
+    for (const g of vindos) if (!tem.has(g.id)) { d.galeria.push(g); n++; }
+    for (const [esp, id] of Object.entries(cru.ativos || {})) if (d.galeria.some((g) => g.id === id) && !d.ativos[esp]) d.ativos[esp] = id;
+    gravarGritos(d);
+    aba = "meus"; pintaGaleria(); pintaLista(); if (ed) mostra();
+    toast(n ? `${n} grito${n === 1 ? "" : "s"} carregado${n === 1 ? "" : "s"}` : "esses gritos já estavam na galeria");
+  } catch { toast("esse arquivo não é uma galeria de gritos"); }
+});
+addEventListener("storage", (e) => { if (e.key === "pge.gritos") { pintaGaleria(); pintaLista(); if (ed) mostra(); } });
+
+// ------------------------------------------------------------ começo
+pintaGaleria();
+const daUrl = new URLSearchParams(location.search).get("mon");
+abrir(DB.SPECIES[daUrl] ? daUrl : "missingno");
+</script>
+</body>
+</html>

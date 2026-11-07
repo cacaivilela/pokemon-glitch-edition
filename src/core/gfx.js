@@ -20,6 +20,12 @@ export const PAL = {
  *  torto em 240x160 deixa de ser lido. Quem liga e desliga é o laço de
  *  desenho de src/main.js, em volta da cena. */
 let emBloco = 0;
+/** A TELA É DESENHADA 3x MAIOR (pedido do CAIO: o jogador para em 1/3 de
+ *  pixel, src/scenes/overworld.js `andarLivre`). Todo mundo continua
+ *  desenhando nos 240x160 de sempre: a tela grava com a escala ligada, então
+ *  coordenada quebrada (x + 1/3) cai num pixel de verdade em vez de arredondar. */
+export const ESCALA_TELA = 3;
+
 export function painelEmBloco(prof) { emBloco = prof || 0; }
 
 export function panel(ctx, x, y, w, h, opts = {}) {

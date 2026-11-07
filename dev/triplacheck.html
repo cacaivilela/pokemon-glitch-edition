@@ -1,0 +1,28 @@
+<!doctype html>
+<!-- Teste da FUSÃO TRIPLA: monta alguns trios com src/systems/montagem.js e manda a folha pro
+     /__capture (dev/captures/triplacheck.png). Não abre o jogo nem mexe em save. -->
+<meta charset="utf-8"><title>triplacheck</title>
+<body style="background:#222">
+<canvas id="c"></canvas>
+<script type="module">
+import { montarTripla } from "../src/systems/montagem.js";
+const TRIOS = [["025", "004", "007"], ["001", "006", "150"], ["094", "068", "130"], ["143", "025", "133"],
+               ["039", "149", "059"], ["092", "065", "078"]];
+const img = (u) => new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = u; });
+const mon = (n) => img(`../assets/sprites/pokemon/${n}.png`);
+const E = 3, L = 64 * E;
+const cv = document.getElementById("c");
+cv.width = L * 4 + 40; cv.height = TRIOS.length * (L + 10);
+const ctx = cv.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+ctx.fillStyle = "#e8e8ec"; ctx.fillRect(0, 0, cv.width, cv.height);
+let y = 0;
+for (const t of TRIOS) {
+  const ims = await Promise.all(t.map(mon));
+  ims.forEach((im, i) => im && ctx.drawImage(im, i * L, y, L, L));
+  ctx.drawImage(montarTripla(...ims, 64), 3 * L + 40, y, L, L);
+  y += L + 10;
+}
+fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "triplacheck", dataUrl: cv.toDataURL() }) });
+document.title = "pronto";
+</script>

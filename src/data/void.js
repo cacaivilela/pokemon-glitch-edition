@@ -28,7 +28,7 @@ const time = (lista) => lista.map(([id, lvl]) => ({ id, lvl }));
 
 /** O prédio em volta de uma porta, no mapa `geo`: os tiles de parede ligados a
  *  ela (até `meia` pra cada lado), relativos à porta. É o que aparece no preto. */
-function predioDaPorta(geo, porta, meia = 10) {
+export function predioDaPorta(geo, porta, meia = 10) {
   const { w, h, tags } = geo;
   const parede = (x, y) => x >= 0 && y >= 0 && x < w && y < h && tags[y * w + x] === "1";
   const visto = new Set([`${porta.x},${porta.y}`]);
@@ -124,7 +124,7 @@ export const CONTEUDO_VOID = {
 // não esperam insígnia nenhuma: quem acha o preto já provou o que tinha que
 // provar. Como as outras, aparecem UMA vez: pegou ou derrubou, acabou.
 export const LENDAS_VOID = [
-  { id: "giratina", mapa: "mata_do_saci", x: 36, y: 8, lvl: 65, noPreto: true,
+  { id: "giratina", mapa: "mata_do_saci", x: 62, y: 8, lvl: 65, noPreto: true,   // a mata tem 56 de largura
     fala: ["O PRETO À DIREITA DA MATA SE DOBRA, COMO PAPEL MOLHADO.",
            "DO OUTRO LADO DA DOBRA, UMA SOMBRA COM ASAS OLHA PRA VOCÊ DE CABEÇA PRA BAIXO."] },
   { id: "darkrai", mapa: "sao_lucario", x: -7, y: 20, lvl: 60, noPreto: true,

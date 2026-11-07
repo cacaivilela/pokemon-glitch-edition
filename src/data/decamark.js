@@ -96,7 +96,7 @@ export const BLAINE_CONTA = {
  *  bandeira quando é lido. */
 export const DECAMARK_PLACAS = {
   cinnabar_island: {
-    "12,3": "ILHA CINNABAR. AVISO DO LABORATÓRIO: SE VIR ??????????, NÃO SALVE. SE JÁ SALVOU, NÃO ABRA.",
+    "12,3": "ILHA DE CINNABAR. AVISO DO LABORATÓRIO: SE VIR ??????????, NÃO SALVE. SE JÁ SALVOU, NÃO ABRA.",
   },
   pokemon_mansion_1f: {
     "5,5": "DIÁRIO — 5 DE JULHO. GUIANA, AMÉRICA DO SUL. ACHAMOS UM POKÉMON NOVO NA MATA. CHAMAMOS DE MEW.",

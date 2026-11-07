@@ -1,0 +1,92 @@
+<!doctype html>
+<!-- TEMPORÁRIO: o CAIO cria um Pokémon de BRAGLITCH aqui (o desenho no editor
+     de pixel art + a ficha). O botão MANDAR grava dev/captures/brag_novo.png
+     (o desenho) e dev/captures/brag_novo_ficha.log (a ficha em JSON).
+     Apagar depois de usar. -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Criar Pokémon de Braglitch</title>
+<style>
+  :root { color-scheme: dark; --fundo:#0b0d10; --cartao:#151a21; --borda:#2a323d; --texto:#d6dde6; --verde:#00ff41; --amarelo:#ffd84a; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--fundo); color:var(--texto); font:14px/1.4 ui-monospace, Menlo, Consolas, monospace; padding:12px; }
+  h1 { font-size:20px; margin-bottom:4px; } h1 span { color:var(--verde); }
+  .sub { color:#7a8796; font-size:12px; margin-bottom:12px; }
+  .tudo { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-start; }
+  iframe { border:1px solid var(--borda); border-radius:8px; width:min(860px, 100%); height:720px; background:#000; }
+  .ficha { flex:1 1 320px; max-width:440px; background:var(--cartao); border:1px solid var(--borda); border-radius:8px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+  label { display:block; font-size:12px; color:#9fb0c4; letter-spacing:1px; margin-bottom:3px; }
+  input, select, textarea { width:100%; background:#0f1318; color:var(--texto); border:1px solid var(--borda); border-radius:6px; padding:7px 9px; font:inherit; }
+  textarea { min-height:60px; resize:vertical; }
+  .dois { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .stat { display:grid; grid-template-columns:70px 1fr 38px; gap:8px; align-items:center; font-size:12px; }
+  .stat input { padding:0; }
+  .total { text-align:right; color:var(--amarelo); font-size:12px; }
+  button { background:#0e3a1c; border:1px solid #1d7a3a; color:var(--verde); font:inherit; font-weight:bold; padding:12px; border-radius:8px; cursor:pointer; font-size:15px; }
+  #ok { color:var(--verde); font-size:13px; min-height:1.2em; }
+  .passo { color:var(--amarelo); }
+</style>
+</head>
+<body>
+<h1>CRIAR POKÉMON <span>DE BRAGLITCH</span></h1>
+<p class="sub"><span class="passo">1.</span> Desenhe ele na tela e aperte <b>SALVAR</b> lá dentro. <span class="passo">2.</span> Preencha a ficha. <span class="passo">3.</span> Aperte <b>MANDAR PRO CLAUDE</b>.</p>
+<div class="tudo">
+  <iframe src="pixelart.html?nome=brag_novo" title="desenho"></iframe>
+  <form class="ficha" id="ficha">
+    <div><label>NOME</label><input name="nome" required maxlength="12" placeholder="ex.: CAPIVOLT"></div>
+    <div class="dois">
+      <div><label>TIPO 1</label><select name="tipo1" required></select></div>
+      <div><label>TIPO 2 (se tiver)</label><select name="tipo2"></select></div>
+    </div>
+    <div><label>DE QUE BICHO/COISA DO BRASIL ELE É?</label><input name="inspiracao" placeholder="ex.: capivara, saci, açaí..."></div>
+    <div><label>TEXTO DA POKÉDEX</label><textarea name="pokedex" placeholder="o que a Pokédex fala dele"></textarea></div>
+    <div><label>GRITO (COMO ELE FAZ)</label><input name="grito" placeholder="ex.: CAPI-CAPI!"></div>
+    <div class="dois">
+      <div><label>ONDE APARECE</label><input name="onde" placeholder="ex.: ilha 3, mato"></div>
+      <div><label>NÍVEL</label><input name="nivel" type="number" min="1" max="100" value="10"></div>
+    </div>
+    <div class="dois">
+      <div><label>EVOLUI DE</label><input name="evoluiDe" placeholder="(nada)"></div>
+      <div><label>EVOLUI PRA (E NO NÍVEL)</label><input name="evoluiPra" placeholder="ex.: CAPIBOSS nv 30"></div>
+    </div>
+    <div><label>GOLPES QUE ELE APRENDE</label><textarea name="golpes" placeholder="um por linha"></textarea></div>
+    <div><label>HABILIDADE</label><input name="habilidade" placeholder="ex.: dorme em qualquer lugar"></div>
+    <div id="stats"><label>FORÇA (0 A 200)</label></div>
+    <div class="total" id="total"></div>
+    <div><label>MAIS ALGUMA COISA?</label><textarea name="mais" placeholder="lendário? shiny de que cor? qualquer ideia"></textarea></div>
+    <button type="submit">MANDAR PRO CLAUDE</button>
+    <div id="ok"></div>
+  </form>
+</div>
+<script type="module">
+import { TYPES } from "../src/data/types.js";
+const f = document.getElementById("ficha");
+for (const [sel, vazio] of [[f.tipo1, false], [f.tipo2, true]]) {
+  sel.innerHTML = (vazio ? `<option value="">—</option>` : "") + TYPES.map((t) => `<option>${t}</option>`).join("");
+}
+const STATS = [["hp", "HP"], ["atk", "ATAQUE"], ["def", "DEFESA"], ["spa", "ATQ. ESP."], ["spd", "DEF. ESP."], ["spe", "VELOCIDADE"]];
+const box = document.getElementById("stats"), total = document.getElementById("total");
+for (const [k, nome] of STATS) {
+  box.insertAdjacentHTML("beforeend",
+    `<div class="stat"><span>${nome}</span><input type="range" name="${k}" min="1" max="200" value="60"><b id="v_${k}">60</b></div>`);
+}
+const soma = () => {
+  let t = 0;
+  for (const [k] of STATS) { t += +f[k].value; document.getElementById("v_" + k).textContent = f[k].value; }
+  total.textContent = `TOTAL: ${t}`;
+};
+f.addEventListener("input", soma); soma();
+f.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const dados = Object.fromEntries(new FormData(f));
+  const r = await fetch("/__capture", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "brag_novo_ficha", dataUrl: "", log: JSON.stringify(dados) }) });
+  document.getElementById("ok").textContent = r.ok
+    ? "MANDADO! Lembre de apertar SALVAR no desenho também. Agora fala pro Claude: \"mandei\"."
+    : "Deu erro ao mandar. Tenta de novo.";
+});
+</script>
+</body>
+</html>

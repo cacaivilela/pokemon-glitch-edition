@@ -60,6 +60,7 @@ const TEM = {
   lendas: "ARTICUNO, ZAPDOS, MOLTRES, MEWTWO e MEW raros nos lugares deles · o velho do museu de Pewter · 9 PRESENTES MISTERIOSOS (códigos LENDAS001 a LENDAS009): as aves, os dois clones, DRAGONITE, LAPRAS shiny, TAUROS e as MEWTWONITAS",
   silph: "Saffron ganha tabela de encontro (PORYGON, MAGNEMITE, VOLTORB, ROTOM) · ROTOM e PORYGON na Usina · funcionário com o CRACHÁ · 9 PRESENTES (SILPH001 a SILPH009): PORYGON, UP-GRADE, DUBIOUS DISC, MAGNETON, ROTOM, 20 ULTRA BALL, 10 DOCES, PIKACHU shiny, GENGARITA",
   festival: "shiny em Kanto vira a chance clássica de 1 em 4096 · a SHINY ZONE no Safári: nasce TODO Pokémon do jogo na raridade dele, e a cada batalha a cor comum fica 1–10 pontos mais rara (zera ao sair) · medidor na tela com a chance, quantos spawns faltam e quantos nasceram · feirante na entrada · 9 PRESENTES (FESTIVAL001 a FESTIVAL009): oito shinies e uma caixa de bolas",
+  extrema: "UM ANO DEPOIS (com Kanto ou Braglitch acabado) · a carteira e o convite da festa · o AZUL em Pallet ou o VÍTOR e o ANDRÉ no píer · você de um ano atrás · o GLITNEXY, Pokémon novo · berries em toda loja e ESPETINHO no acampamento · a GLITCH DIMENSION EXTREMA: tudo +100 níveis, pego volta 100 · o GIRATINA 170 com o MISSINGNO dentro",
   vizinhas: "iniciais e formas regionais no mato de Kanto (Alola no Monte Moon, Galar na floresta, Hisui na Rota 10, Paldea na beira d'água) · viajante em Celadon · 9 PRESENTES (VIZINHAS001 a VIZINHAS009): um inicial de cada região e um MEOWTH-GALAR shiny",
 };
 
@@ -97,7 +98,7 @@ async function renderPresentes() {
     for (const [codigo, c] of cartoes) {
       const link = `${location.origin}${url("")}?dlc=${d.id}&presente=${codigo}`;
       const row = document.createElement("div"); row.className = "linha"; row.style.marginTop = "6px";
-      const conteudo = [...(c.mons || []).map((m) => `${m.id.toUpperCase()} nv${m.nv}${m.shiny || m.luminoso ? " shiny" : ""}`),
+      const conteudo = [...(c.mons || []).map((m) => `${m.id.toUpperCase()} nv${m.nv}${m.shiny ? " shiny" : ""}${m.luminoso ? " luminoso" : ""}`),
                         ...(c.itens || []).map((i) => `${i.qtd}x ${i.item}`)].join(", ");
       row.innerHTML = `<div style="flex:1;min-width:200px"><b>${codigo}</b> · ${c.titulo}<div class="tem">${conteudo}</div></div>
         <a href="${link}" target="_blank" style="font-size:11px">abrir</a><button data-l="${link}" style="padding:4px 8px;font-size:11px">copiar link</button>`;

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>B para a evolução</title></head>
+<body style="background:#111;color:#9fd;font:13px monospace">
+<div id="log">rodando...</div>
+<iframe id="fr" style="width:740px;height:560px;border:0"></iframe>
+<img id="hold" alt="" width="1" height="1">
+<script>
+// O VOLTORB que chega no nível 30 (o GIVEGLITCH entrega no nível que você
+// pedir) começa a evoluir na hora. Apertar B no meio tem que segurar ele como
+// VOLTORB — e ele não pode tentar de novo ao voltar pro mapa, só subindo de nível.
+const fr = document.getElementById("fr"), log = document.getElementById("log");
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+(async () => {
+  const L = [];
+  try {
+    fr.src = "/?perfil=evoparar&map=route1&party=voltorb:30";
+    let w;
+    for (let i = 0; i < 100 && !(w = fr.contentWindow)?.game?.scenes?.top?.update; i++) await espera(100);
+    await espera(1200);
+    const g = w.game, topo = () => g.scenes.top;
+    const volt = () => g.state.party.find((m) => m.species === "voltorb" || m.species === "electrode");
+    const aperta = (code) => {
+      w.dispatchEvent(new w.KeyboardEvent("keydown", { code, key: code === "KeyX" ? "x" : "z", bubbles: true }));
+      setTimeout(() => w.dispatchEvent(new w.KeyboardEvent("keyup", { code, bubbles: true })), 30);
+    };
+    const passaFala = (sc) => { for (let n = 0; n < 20 && sc.dlg?.active; n++) { sc.dlg.chars = 1e9; sc.dlg.next(); } };
+    // o mapa confere a equipe (é o que acontece ao voltar de qualquer cena)
+    let sc = topo(); passaFala(sc);
+    sc.rodarEvolucao();
+    L.push(`1) começou a evoluir? ${topo().constructor.name} | ${volt().species} nv${volt().level}`);
+    const evo = topo();
+    passaFala(evo);                                   // "O QUÊ? VOLTORB ESTÁ EVOLUINDO!"
+    for (let i = 0; i < 30; i++) evo.update(1 / 30);
+    L.push(`2) no meio da animação: fase=${evo.fase} podeParar=${evo.podeParar?.()}`);
+    aperta("KeyX"); await espera(80);
+    evo.update(1 / 30);
+    L.push(`3) depois do B: fase=${evo.fase} fala="${(evo.dlg.lines || []).join(" ")}"`);
+    passaFala(evo);
+    for (let i = 0; i < 40 && topo() === evo; i++) evo.update(1 / 30);
+    L.push(`4) saiu da cena: topo=${topo().constructor.name} | ${volt().species} nv${volt().level} naoEvoluiAte=${volt().naoEvoluiAte}`);
+    // de volta no mapa: não pode começar de novo
+    const tentou = topo().rodarEvolucao();
+    L.push(`5) ao voltar pro mapa tentou de novo? ${tentou} (${topo().constructor.name})`);
+    // subiu de nível: aí tenta de novo
+    volt().level = 31;
+    const tentou2 = topo().rodarEvolucao();
+    L.push(`6) no nível 31 tenta de novo? ${tentou2} (${topo().constructor.name})`);
+  } catch (e) { L.push("QUEBROU: " + (e && e.stack || e)); }
+  log.textContent = L.join("\n");
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "evoparar", log: L.join("\n") }) });
+})();
+document.getElementById("hold").src = "/__delay?ms=15000";
+</script>
+</body></html>

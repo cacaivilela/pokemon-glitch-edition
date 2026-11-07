@@ -123,20 +123,64 @@ const NOVAS = `
 1098 | STEGARMOREX    | PEDRA/AÇO        |  95 110 145  50  75  45
 1099 | GALLINY        | NORMAL           |  45  60  40  45  40 105
 1100 | GALLIMIRAGE    | NORMAL/PSÍQUICO  |  70 100  60  75  60 145
+1101 | VOLTURG        | ELÉTRICO/PLANTA  | 103 101 123  60  86  18
+1102 | VOLTABUM       | ELÉTRICO/FOGO    | 103 187  51 175  60  18
+1103 | GHOTOLT        | PEDRA/FANTASMA   |  50  90 200  95  70  35
+1104 | MONSTELA       | ELÉTRICO/FANTASMA|  54  78  96  79  88  45
+1110 | BEBBIDAH       | ÁGUA             |  50  40  50  55  60  45
+1111 | BEBBIDÃO       | ÁGUA             |  85  65  85 100 105  70
+1115 | AMEBO          | VENENO           |  40  45  40  50  45  50
+1116 | MACAMEBA       | VENENO/LUTADOR   |  60  75  60  60  55  70
+1117 | MACACAVERN     | PEDRA/LUTADOR    |  95 115  90  45  70  75
 `;
 
 /** Golpes escritos à mão (quem não está aqui ganha os do tipo, src/data/species.js). */
 const GOLPES_NOVAS = {
+  // A FAMÍLIA DO AMEBO (criada pelo CAIO, nov/2026): a gosma que vira macaco e,
+  // no fim, o MACACO HOMEM DAS CAVERNAS (de porrete: a MARRETADA é a porretada)
+  amebo: { learnset: [[1, "investida"], [1, "picadadeveneno"], [5, "encarar"], [8, "poderdeacido"],
+                      [12, "sprayacido"], [16, "lodo"]] },
+  macameba: { learnset: [[1, "investida"], [1, "picadadeveneno"], [8, "poderdeacido"], [12, "sprayacido"],
+                         [16, "lodo"], [18, "golpecarate"], [22, "chuteduplo"], [26, "jatovenenoso"],
+                         [30, "submissao"], [34, "bombadelodo"]] },
+  macacavern: { learnset: [[1, "investida"], [1, "golpecarate"], [1, "jogarpedra"], [18, "chuteduplo"],
+                           [30, "submissao"], [36, "tumbadepedra"], [40, "marretada"], [44, "deslizamento"],
+                           [48, "laminadepedra"], [54, "cabecadadepedra"], [60, "corpoacorpo"]] },
+  // o BEBBIDAH (criado pelo CAIO): a caneca. Evolui GIRANDO com um ingrediente
+  // de sanduíche na mão (src/data/bebbidah.js, src/systems/bebbidah.js)
+  bebbidah: { learnset: [[1, "investida"], [1, "pistoladagua"], [6, "bolhas"], [12, "recolher"],
+                         [18, "pulsodagua"], [26, "raiodebolhas"], [34, "escaldar"]] },
+  bebbidao: { learnset: [[1, "pulsodagua"], [1, "raiodebolhas"], [1, "recolher"], [1, "escaldar"],
+                         [36, "surfar"], [48, "hidrobomba"]] },
   gigantiny: { learnset: [[1, "investida"], [1, "encarar"], [7, "mordida"], [16, "cabecada"], [30, "garrademetal"]] },
   giganteeth: { learnset: [[1, "mordida"], [1, "garrademetal"], [1, "encarar"], [16, "cabecada"]] },
   blindino: { learnset: [[1, "investida"], [1, "endurecer"], [7, "jogarpedra"], [16, "cabecada"], [30, "garrademetal"]] },
   stegarmorex: { learnset: [[1, "jogarpedra"], [1, "garrademetal"], [1, "endurecer"], [16, "cabecada"]] },
   galliny: { learnset: [[1, "ataquerapido"], [1, "areianosolhos"], [7, "bicada"], [16, "confusao"], [30, "cabecada"]] },
   gallimirage: { learnset: [[1, "ataquerapido"], [1, "confusao"], [1, "bicada"], [16, "cabecada"], [39, "psiquico"]] },
+  // o VOLTURG (criado pelo CAIO): forte no físico, lento, e a BATERIA VIVA
+  // solta o dano guardado nos golpes ELÉTRICOS — então eles são o centro
+  volturg: { learnset: [[1, "investida"], [1, "endurecer"], [1, "chicotedevinha"], [1, "faisca"],
+                        [34, "bombadesementes"], [40, "socodotrovao"], [48, "laminadefolha"], [56, "investidadovolt"]] },
+  // o VOLTABUM: o casco virou BOMBA. Bate forte dos dois jeitos (ATQ 187, ATQ ESP 175)
+  voltabum: { learnset: [[1, "faisca"], [1, "socodefogo"], [1, "socodotrovao"], [1, "rodadefogo"],
+                         [70, "ondadecalor"], [74, "trovoada"], [80, "investidadovolt"], [86, "superaquecimento"]] },
+  // o GHOTOLT: a casca velha do VOLTURG, virada túmulo. Joga espíritos (ATQ ESP)
+  ghotolt: { learnset: [[1, "assustar"], [1, "tumbadepedra"], [1, "raionoturno"], [1, "poderantigo"],
+                        [70, "ventosinistro"], [74, "joiadepoder"], [80, "feitico"], [86, "muralhadepedra"]] },
+  // a MONSTELA (criada pelo CAIO): a TV assombrada que entra em aparelho, como o
+  // ROTOM. Choque, lambida de fantasma, e a CONFUSÃO de quem fica olhando a tela
+  monstela: { learnset: [[1, "investida"], [1, "choquedotrovao"], [5, "lambida"], [9, "encarar"],
+                         [14, "ondadechoque"], [20, "confusao"], [28, "bolasombria"], [38, "trovoada"]] },
 };
 
 const LORE_NOVAS = {
+  amebo: "UMA GOTA DE GOSMA ROXA QUE ESCORRE PELO CHÃO DA MATA. QUANDO PEGA UMA BANANA, ESTICA DOIS BRACINHOS E FAZ CARA DE MACACO.",
+  macameba: "METADE MACACO, METADE GOSMA. PULA DE GALHO EM GALHO E, SE ERRA O PULO, ESPARRAMA NO CHÃO E SE MONTA DE NOVO.",
+  macacavern: "O MACACO HOMEM DAS CAVERNAS. A GOSMA ENDURECEU E VIROU PEDRA. VESTE PELE DE BICHO, CARREGA UM PORRETE DE OSSO E PINTA NA PAREDE DA CAVERNA AS LUTAS QUE GANHOU.",
   diggle: "FILHOTE DE FARO BOM. CAVA ATRÁS DE OSSO E ACHA BRASA: A TERRA DE BRAGLITCH É QUENTE POR BAIXO.",
+  bebbidah: "UMA CANECA ESQUECIDA NA BEIRA DA ESTRADA QUE ENCHEU DE CHUVA E CRIOU VIDA. SE VOCÊ DER UM INGREDIENTE PRA ELE SEGURAR E GIRAR, A ÁGUA VIRA BEBIDA.",
+  bebbidao: "A BEBIDA DENTRO DA JARRA É O CORPO DELE. O SABOR VEM DO QUE ELE SEGURAVA, A COR DO LUGAR ONDE GIROU, E SE FOI DE DIA ELE FICA GELADO; DE NOITE, QUENTE.",
   tilapish: "VIVE EM QUALQUER AÇUDE, EM QUALQUER ÁGUA, EM QUALQUER CONDIÇÃO. NINGUÉM SABE DE ONDE VEIO — SÓ QUE CHEGOU E FICOU.",
   tronky: "MUDA DE PAU-BRASIL. POR BAIXO DA CASCA ESCURA O CERNE É VERMELHO, E FOI ESSA TINTA QUE DEU NOME À TERRA.",
   saci: "UMA PERNA SÓ, GORRO VERMELHO E UM REDEMOINHO NO LUGAR DO CHÃO. QUEM PEGA O GORRO DELE, MANDA NELE.",
@@ -194,8 +238,13 @@ const LORE_NOVAS = {
   blindino: "SAIU DO FÓSSIL BLINDADO JÁ DE CAPACETE. QUANDO SE ASSUSTA, ABAIXA A CABEÇA E ESPERA O PERIGO DESISTIR.",
   stegarmorex: "AS PLACAS DAS COSTAS VIRARAM LÂMINAS, E O RABO TEM QUATRO ESPINHOS DE AÇO. DIZEM QUE NEM O GIGANTEETH MORDIA ELE.",
   galliny: "SAIU DO FÓSSIL PENUGEM MIRAGEM E SAIU CORRENDO — LITERALMENTE. A PERNA CRESCE ANTES DO RESTO DO CORPO.",
+  ghotolt: "ESSE É A CASCA ANTIGA DO VOLTURG, AGORA DE PEDRA. VAGA SEM RUMO PELA ESCURIDÃO DA NOITE E JOGA ESPÍRITOS DE PESSOAS MORTAS QUE AJUDARAM OS VOLTURG A EVOLUÍREM NO PASSADO. ELE MORRE TOTALMENTE SE O CASCO QUEBRAR AO MEIO.",
+  voltabum: "A CARGA DO CASCO FICOU GRANDE DEMAIS E AS VINHAS QUEIMARAM: O CASCO VIROU UMA BOMBA COM O PAVIO ACESO. QUANDO A RACHADURA EM RAIO BRILHA, É MELHOR SAIR DE PERTO.",
+  monstela: "ESSE POKÉMON, COMO O ROTOM, ENTRA EM DISPOSITIVOS ELETRÔNICOS. O ROSTO DELE APARECE NA TELA EM PONTINHOS, E OS BOTÕES DO LADO MUDAM DE COR QUANDO ELE ESTÁ BRAVO.",
+  volturg: "AS PLANTAS NELE EVOLUÍRAM COM A RESERVA DE VOLTS DESSE POKÉMON, FORMANDO PARA-RAIOS DE FLOR. NA RACHADURA EM FORMA DE RAIO DO CASCO ELE SOLTA EXPLOSÕES DE ELETRICIDADE QUE PODEM SER OUVIDAS DE LONGE.",
   gallimirage: "O BICHO MAIS RÁPIDO DE BRAGLITCH. CORRE TÃO DEPRESSA QUE A IMAGEM DELE FICA PRA TRÁS, E O INIMIGO ATACA A MIRAGEM ERRADA.",
-  encontrium: "DUAS ÁGUAS CORREM NO SEU CORPO SEM SE MISTURAR. ONDE ELE NADA, A MATA E A MÁQUINA SÃO OBRIGADAS A FAZER TRÉGUA.",
+  // (reescrito a pedido do CAIO, nov/2026, quando ele virou o mais pesado do jogo: 9.999,9 KG)
+  encontrium: "O CORPO DELE NÃO É DE CARNE: SÃO DOIS RIOS INTEIROS TORCIDOS UM NO OUTRO, O RIO DE BARRO E O RIO ESCURO, QUE CORREM LADO A LADO SEM NUNCA SE MISTURAR. POR ISSO NENHUM POKÉMON PESA MAIS DO QUE ELE: QUEM LEVANTA O ENCONTRIUM LEVANTA DOIS RIOS. QUANDO ELE DORME, OS RIOS DA AMAZÔNIA PARAM DE CORRER UM POUQUINHO. ONDE ELE NADA, A MATA E A MÁQUINA SÃO OBRIGADAS A FAZER TRÉGUA.",
   submarinum: "UM SUBMARINO QUE NASCEU NO FUNDO DO MAR E NUNCA QUIS VOLTAR. LEVA UMA PESSOA NA CABINE, E SÓ UMA.",
   catorbis: "VOOU PELA PRIMEIRA VEZ HÁ MAIS DE CEM ANOS, NUM CAMPO CHEIO DE GENTE DUVIDANDO. DESDE ENTÃO NÃO PAROU.",
   tratorao: "O TRATOR QUE SE CANSOU DE ARAR E FOI ARRASTAR PEDRA. NÃO TEM BLOCO QUE ELE NÃO EMPURRE.",
@@ -314,6 +363,9 @@ for (const [id, nome] of Object.entries(NOMES_NOVOS_BRAG)) {
 // mesmo), e o SACI é lendário mas se deixa pegar — ele é o fim da história
 for (const id of BRAGLITCH.iniciais) BRAGLITCH_ESPECIES[id].catchRate = 45;
 BRAGLITCH_ESPECIES.saci.catchRate = 45;
+// o VOLTURG, ao evoluir, deixa a casca velha na equipe se tiver vaga: o GHOTOLT
+// (como o NINCADA e o SHEDINJA; src/scenes/evolution.js, `deixaCasca`)
+BRAGLITCH_ESPECIES.volturg.deixaCasca = "ghotolt";
 // o SACI aprende PEGA ALMA no nível 24: derruba qualquer FANTASMA num golpe só,
 // e custa 14 de HP de quem usa (src/data/moves.js)
 BRAGLITCH_ESPECIES.saci.learnsetExtra = [[24, "pegaalma"]];
@@ -422,6 +474,8 @@ export const EVO_BRAGLITCH = {
   caranguejinho: [{ lvl: 28, to: "manguebit" }],
   botinho: [{ lvl: 34, to: "encantado" }],
   macacoeira: [{ lvl: 28, to: "gingao" }],
+  amebo: [{ lvl: 18, to: "macameba" }],
+  macameba: [{ lvl: 36, to: "macacavern" }],
   fogueirinha: [{ lvl: 30, to: "fogueirao" }],
   penadinha: [{ lvl: 35, to: "assombracao" }],
   beijaflorzinha: [{ lvl: 32, to: "plumario" }],
@@ -430,6 +484,7 @@ export const EVO_BRAGLITCH = {
   gigantiny: [{ lvl: 39, to: "giganteeth" }],
   blindino: [{ lvl: 39, to: "stegarmorex" }],
   galliny: [{ lvl: 39, to: "gallimirage" }],
+  volturg: [{ lvl: 70, to: "voltabum" }],
   // O WEEPINBELL com PEDRA DA FOLHA em Braglitch vira a cuia (sai quente).
   // Em Kanto continua virando o VICTREEBEL de sempre (a regra com lugar vem
   // na frente, como as das formas regionais).
@@ -534,24 +589,57 @@ const PLANTAS = {
     "#######,,,,,..PP...,,,,#######",
     "##############PP##############",
   ],
+  // A MATA DO SACI é o CAMPING MUNICIPAL de São Lourenço do Sul (a SÃO
+  // LUCARIO de verdade), do jeito do mapa: o ARROIO ao norte com o
+  // ATRACADOURO DAS ESCUNAS na boca, a LAGOA DOS PATOS a leste com a praia e o
+  // FAROL DA CURVA, e no gramado o campo, a piscina, a lanchonete, os
+  // banheiros e o GALPÃO CRIOULO. A mata fechada fica a oeste, com a clareira
+  // do SACI escondida (o desenho saiu de /tmp/mata/gera3.py).
   mata_do_saci: [
-    "##############PP##############",
-    "######,,,,,,##PP##,,,,,,######",
-    "####,,,,,,,,,#PP#,,,,,,,,,####",
-    "###,,,,##..........##,,,,,,###",
-    "###,,,##............##,,,,,###",
-    "##,,,,#..............#,,,,,,##",
-    "##,,,,................,,,,,,##",
-    "##,,,,................,,,,,,##",
-    "##,,,,#..............#,,,,,,##",
-    "###,,,##............##,,,,,###",
-    "###,,,,##....PP....##,,,,,,###",
-    "####,,,,,##..PP..##,,,,,,,####",
-    "####,,,,,,,..PP..,,,,,,,,,####",
-    "#####,,,,,,..PP..,,,,,,,,#####",
-    "######,,,,...PP...,,,,,,######",
-    "########.....PP.....##########",
-    "##############PP##############",
+    "###########################PP##############~~~~~~~~~~~~~",
+    "###########################PP###########aaa~~~~~~~~~~~~~",
+    "###########################PP##hhhh#####aaa~~~~~~~~~~~~~",
+    "###########################PP##hhhh#####aaa~~~~~~~~~~~~~",
+    "####################~~~~~~~=P###########aaa~~~~~~~~~~~~~",
+    "################~~~~~~~~~~~==~~~#########aaa~~~~~~~~~~~~",
+    "#############~~~~~~~#######P=~~~~~~~#####aaB~~~~~~~~~~~~",
+    "######~~~~~~~~~~###########PP###~~~~~~~~B~~~~~~~~~~~~~~~",
+    "######~~~~~~~##############PP#######~~~~~~~~~~~~~~~~~~~~",
+    "###########################PP##.###.#========~B~~~~~~~~~",
+    "##########################.PPPPPPPPP5P...aaa~~~~~~~~~~~~",
+    "#######,,,################.PPhhhh.......aaa~~~~~~~~~~~~~",
+    "####,#,,,,,,,#########.....PPhhhh..#....aaa~~~~~~~~~~~~~",
+    "###,,,,,,,,,,,#######...F..PP...........aaa~~~~~~~~~~~~~",
+    "##,,,,,,,,,,,,,######......PP.#.........aaa~~~~~~~~~~~~~",
+    "##,,,,,,,,,,,,,#####.......PP...........aaa~~~~~~~~~~~~~",
+    "###,,,,,,,,,,,#####........PP..........aaa~~~~~~~~~~~~~~",
+    "####,,,,,,,,,,#####......#..PP.........aaa~~~~~~~~~~~~~~",
+    "####,,,,,,,,,######..KK......PP........aaa~~~~~~~~~~~~~~",
+    "###.......########..4KK......#PP.2.....aaa~~~~~~~~~~~~~~",
+    "##..,,,,,..######..............PP......aaa~~~~~~~~~~~~~~",
+    "PPPPPPPPPPPPPPPP#...............PP...Faaa~~~~~~~~~~~~~~~",
+    "##..,,,,,..####PPPPPPPPPPPP.....PPPPPPPPP==~~~~~~~~~~~~~",
+    "##....,...######P.......#.PPPPPPPP....aaa~~~~~~~~~~~~~~~",
+    "#####..########P................PP....aaa~~~~~~~~~~~~~~~",
+    "########.#####P#................PP..~~~aa~~~~~~~~~~~~~~~",
+    "#######......7P.#......hh.......PP.3~~~aa~~~~~~~~~~~~~~~",
+    "######.......P..#......hh...#...PP..~~~aaa~~~~~~~~~~~~~~",
+    "#####....FFFFP.................PP......#aa~~~~~~~~~~~~~~",
+    "#####...FFFFPFF........#.......PP.F....aaa~~~~~~~~~~~~~~",
+    "#####...FF...FF...............PP......hhaa~~~~~~~~~~~~~~",
+    "#####...FFFFFFF..............PP#......hhaa~~~~~~~~~~~~~~",
+    "#####....FFFFF...#..........PP......#...aaa~~~~~~~~~~~~~",
+    "######...........##.......#.PPFF........aaa~~~~~~~~~~~~~",
+    "#######.........##.........PP...........aaa~~~~~~~~~~~~~",
+    "##########.#########.......PP....#......#aa~~~~~~~~~~~~~",
+    "#################,##.....F.PP#..........aaa~~~~~~~~~~~~~",
+    "############,,,,,,,,,......PP............aoa~~~~~~~~~~~~",
+    "###########,,,,,,,,,,,#....PP............6ao~~~~~~~~~~~~",
+    "###########,,,,,,,,,,,###..PP..........##aaa~~~~~~~~~~~~",
+    "###########,,,,,,,,,,,####.PP......##.###aaa~~~~~~~~~~~~",
+    "###########,,,,,,,,,,,#####PP..#..#######aaa~~~~~~~~~~~~",
+    "##############,###########1PP############aaa~~~~~~~~~~~~",
+    "###########################PP##############~~~~~~~~~~~~~",
   ],
 };
 
@@ -587,6 +675,18 @@ export const TAG_DE = {
   // a serra: paredão de pedra, barranco que só se pula pra baixo (v) ou pra
   // cima (^, a serra de cabeça pra baixo) e escadaria
   R: 1, v: 4, "^": 7, e: 0,
+  // U: a boca de caverna no paredão (a CAVERNA DO MONTE SERRA, src/data/caverna-serra.js)
+  U: 0,
+  // dentro da caverna: Q o buraco com escada pra descer, q a escada pra subir,
+  // k o cristal de quartzo (src/data/caverna-serra.js)
+  Q: 0, q: 0, k: 1,
+  // g: GELO (o lago congelado de CURITIMBURR): passa por cima e escorrega
+  g: 8,
+  // KALOS (src/data/kalos.js): a TORRE PRISMA, a cerca das zonas selvagens e o poste
+  T: 1, c: 1, l: 1,
+  // A ÁREA ZERO (src/data/area-zero.js): cachoeira, árvore, o CRISTAL GIGANTE,
+  // o prédio e o heliponto da GARAGEM ZERO, a cerca da beira e a cratera vista de cima
+  W: 1, t: 1, X: 0, Z: 1, E: 1, V: 1,
 };
 
 /** Monta a geometria de Braglitch no formato de assets/maps/kanto.json.
@@ -611,6 +711,9 @@ export function montarGeos(kanto, { plantas, interiores, ligacoes = {}, temas = 
       for (let x = 0; x < w; x++) {
         const c = planta[y][x];
         tags += /[1-9]/.test(c) ? "1" : String(TAG_DE[c] ?? 0);
+        // a boca de caverna: a porta é o próprio buraco (quem diz pra onde vai é
+        // quem monta a caverna, src/data/caverna-serra.js)
+        if ("UQq".includes(c)) { warps.push({ x, y, to: null, toWarp: 0, predio: c }); continue; }
         if (c !== "D") continue;
         const predio = planta[y - 1]?.[x];
         // o interior é o daquele prédio NAQUELA cidade (todas têm Centro e loja)
@@ -699,7 +802,7 @@ export { ILHAS as ILHAS_BRAG, ILHAS_TEXTO, PEDRAS as PEDRAS_BRAG } from "./bragl
 export const MAPA_REGIAO = { layout: mundo.LAYOUT, contorno: mundo.CONTORNO_BRASIL, tipos: mundo.TIPO_DO_LUGAR };
 export const LENDAS = mundo.LENDAS_LUGAR;
 export const LUGAR_DO_GEMEO = mundo.LUGAR_DO_GEMEO;
-export { LIGA as LIGA_BRAG } from "./braglitch-liga.js";
+export { LIGA as LIGA_BRAG, ligarSalaDaLiga } from "./braglitch-liga.js";
 /** As cidades onde dá pra pousar voando (o VOAR mostra só as da região em que
  *  você está). */
 export const VOO_BRAGLITCH = {
@@ -710,6 +813,16 @@ export const VOO_BRAGLITCH = {
 };
 
 const PLACAS = {
+  // o CAMPING MUNICIPAL (a MATA DO SACI)
+  mata_do_saci: {
+    1: "CAMPING MUNICIPAL DE SÃO LUCARIO DO SUL\nE A MATA DO SACI. BEM-VINDO!",
+    2: "CAMPO DO CAMPING.\nPELADA TODO DOMINGO DE MANHÃ.",
+    3: "PISCINA DO CAMPING.\nPROIBIDO SURFAR COM POKÉMON.",
+    4: "LANCHONETE DO CAMPING.\nTEM PASTEL, PICOLÉ E ÁGUA QUENTE PRO CHIMARRÃO.",
+    5: "ATRACADOURO DAS ESCUNAS.\nOS BARCOS SAEM DAQUI PRA LAGOA DOS PATOS.",
+    6: "FAROL DA CURVA.\nDAQUI SE VÊ A LAGOA DOS PATOS ATÉ SUMIR.",
+    7: "NÃO ENTRE NA MATA FECHADA.\n(ASSINADO: O SACI)",
+  },
   sao_lucario: {
     1: "SÃO LUCARIO DO SUL — ONDE O MAR COMEÇA E O MAPA TERMINA.",
     2: "CASA DA FAMÍLIA. (É A SUA.)",
@@ -766,6 +879,8 @@ export const BRAGLITCH_MAPS = {
       { id: "biquinho", min: 2, max: 5, w: 18 },
       { id: "tatubola", min: 3, max: 6, w: 14 },
       { id: "sauvinha", min: 3, max: 6, w: 12 },
+      { id: "monstela", min: 3, max: 6, w: 16 },    // criada pelo CAIO
+      { id: "bebbidah", min: 3, max: 6, w: 12 },    // criado pelo CAIO
     ],
     npcs: [
       {
@@ -791,10 +906,10 @@ export const BRAGLITCH_MAPS = {
   },
 
   mata_do_saci: {
-    name: "MATA DO SACI", music: "br101",
+    name: "MATA DO SACI", music: "mataDoSaci",   // src/data/music.js
     // AS DUAS ARVOREZINHAS da saída norte: o caminho pras cidades só abre com
     // CORTE (ou o PANDEIRO DO MATO, que a IPÊ manda depois do SACI)
-    arvores: ["14,2", "15,2"],
+    arvores: ["27,2", "28,2"],
     encounters: [
       { id: "sauvinha", min: 7, max: 11, w: 16 },
       { id: "bantevy", min: 7, max: 11, w: 10 },
@@ -805,11 +920,22 @@ export const BRAGLITCH_MAPS = {
     ],
     npcs: [
       {
-        id: "benzedeira", x: 9, y: 12, dir: "right", sprite: "velha",
+        id: "benzedeira", x: 18, y: 23, dir: "left", sprite: "velha",
         lines: ["VEIO ATRÁS DO SACI, FOI? ELE MORA NO MEIO DA CLAREIRA, DENTRO DO REDEMOINHO MAIOR.",
                 "O SEGREDO É O GORRO: QUEM PEGA O GORRO VERMELHO, MANDA NELE.",
-                "NUMA POKÉ BOLA DÁ NO MESMO. SÓ NÃO DEIXA ELE FUGIR ASSOBIANDO."],
+                "NUMA POKÉ BOLA DÁ NO MESMO. SÓ NÃO DEIXA ELE FUGIR ASSOBIANDO.",
+                "A CLAREIRA? É SÓ SEGUIR A TRILHINHA AQUI DO LADO, PRA DENTRO DA MATA."],
       },
+      // os campistas do CAMPING MUNICIPAL
+      { id: "campista_chimarrao", x: 30, y: 26, dir: "down", sprite: "velho",
+        lines: ["BAH, CHEGOU NA HORA DO CHIMARRÃO! SENTA AÍ.",
+                "EU ACAMPO AQUI TODO VERÃO DESDE GURI. A LAGOA DOS PATOS É A MAIOR LAGOA DA AMÉRICA DO SUL, SABIA?"] },
+      { id: "campista_barraca", x: 35, y: 33, dir: "left", sprite: "garota",
+        lines: ["MONTEI A BARRACA DEBAIXO DOS EUCALIPTOS. DE NOITE ESFRIA, MAS A SOMBRA DE DIA COMPENSA.",
+                "DIZEM QUE O SACI DESMANCHA AS BARRACAS DE QUEM ACAMPA PERTO DA MATA. SERÁ?"] },
+      { id: "campista_pesca", x: 39, y: 21, dir: "right", sprite: "pescador",
+        lines: ["A ÁGUA DA LAGOA É RASINHA E DOCE. DÁ PRA ENTRAR ANDANDO UM MONTÃO.",
+                "AS ESCUNAS SAEM LÁ DO ATRACADOURO, NA BOCA DO ARROIO."] },
     ],
   },
 
@@ -917,7 +1043,7 @@ export const BRAGLITCH_MAPS = {
 // --------------------------------------------------------- A HISTÓRIA
 // As ilhas (src/data/braglitch-ilhas.js). O SACI ficou de fora do caminho: mora
 // na clareira da MATA DO SACI, pra quem quiser, desde que a IPÊ deu a missão.
-export const SACI_NA_MATA = { mapa: "mata_do_saci", x: 15, y: 6, lvl: 15 };
+export const SACI_NA_MATA = { mapa: "mata_do_saci", x: 11, y: 30, lvl: 15 };   // no meio da clareira escondida
 
 export const BRAGLITCH_TEXTO = {
   pokedex: [
@@ -1119,8 +1245,6 @@ export const PANDEIROS = [
            "OS CINCO PANDEIROS DA TERRA ESTÃO COM VOCÊ. BRAGLITCH INTEIRA ESTÁ ABERTA."] },
 ];
 export const PANDEIRO_GANHOU = "VOCÊ RECEBEU O {ITEM}!";
-/** Quem é montaria (pra Pokédex e pro check). */
-export const EH_MONTARIA = new Set(Object.values(MONTARIAS).map((m) => m.especie));
 
 // -------------------------------------------------------- O BARCO
 // Uma linha só, com três pontas: KANTO (o cais de VERMILION), BRAGLITCH (o píer
@@ -1144,62 +1268,65 @@ export const BARCO = {
 // src/data/music.js). SÃO LUCARIO é uma bossa: o baixo não cai no tempo, a
 // melodia desce devagar. A BR-101 é um baião: zabumba no "tum-ta-tum", o
 // triângulo nos contratempos e a sanfona (pulso cheio) fazendo a frase.
-const melodia = (vol = 0.5) => ({ wave: "pulso", duty: 0.25, vol, detune: 6, eco: true,
-                                  vibrato: { hz: 6.2, cents: 13 } });
 const sanfona = (vol = 0.42) => ({ wave: "pulso", duty: 0.5, vol, detune: 9, eco: true,
                                    vibrato: { hz: 5.4, cents: 18 } });
 const violao = (vol = 0.2) => ({ wave: "pulso", duty: 0.125, vol, legato: 0.5 });
 const baixo = (vol = 0.55) => ({ wave: "triangle", vol, legato: 0.9 });
 
+// A BATALHA DE BRAGLITCH: um baião acelerado. A sanfona canta em ré
+// mixolídio (o dó natural, a sétima abaixada que faz soar nordestino), o violão
+// bate os contratempos, o baixo faz o "tum... ta-tum" do baião (3 + 3 + 2) e a
+// zabumba acompanha, com o triângulo chiando em cima. 16 compassos, e os
+// canais têm o mesmo tamanho: a volta é sempre no mesmo lugar.
+const COMPASSOS_BATALHA = [   // [as duas notas do violão, a tônica, a quinta] de cada compasso
+  ["F#4", "A4", "D3", "A2"], ["F#4", "A4", "D3", "A2"], ["E4", "G4", "C3", "G2"], ["F#4", "A4", "D3", "A2"],
+  ["F#4", "A4", "D3", "A2"], ["F#4", "A4", "D3", "A2"], ["E4", "G4", "C3", "G2"], ["C#4", "E4", "A2", "E2"],
+  ["D4", "G4", "G2", "D3"], ["D4", "G4", "G2", "D3"], ["F#4", "A4", "D3", "A2"], ["F#4", "A4", "D3", "A2"],
+  ["E4", "G4", "E3", "B2"], ["C#4", "E4", "A2", "E2"], ["F#4", "A4", "D3", "A2"], ["C#4", "E4", "A2", "E2"],
+];
+const batalhaBraglitch = {
+  bpm: 172,
+  tracks: [
+    { ...sanfona(0.44), notes: [
+      ["A4", 0.5], ["A4", 0.5], ["F#4", 0.5], ["A4", 1], ["D5", 0.5], ["C5", 0.5], ["A4", 0.5],
+      ["B4", 0.75], ["A4", 0.25], ["F#4", 1], ["E4", 0.5], ["F#4", 0.5], ["D4", 1],
+      ["E4", 0.5], ["G4", 0.5], ["C5", 1], ["B4", 0.5], ["C5", 0.5], ["E5", 1],
+      ["D5", 1.5], ["C5", 0.5], ["A4", 1], ["F#4", 1],
+      ["A4", 0.5], ["D5", 0.5], ["F#5", 0.5], ["E5", 0.5], ["D5", 0.5], ["C5", 0.5], ["A4", 1],
+      ["B4", 0.5], ["C5", 0.5], ["D5", 1], ["A4", 0.5], ["F#4", 0.5], ["A4", 1],
+      ["G4", 0.5], ["C5", 0.5], ["E5", 1], ["D5", 0.5], ["C5", 0.5], ["G4", 1],
+      ["A4", 2], ["C#5", 1], ["E5", 1],
+      ["D5", 0.75], ["B4", 0.25], ["G4", 1], ["B4", 0.5], ["D5", 0.5], ["G5", 1],
+      ["F#5", 0.5], ["E5", 0.5], ["D5", 1], ["B4", 1], ["G4", 1],
+      ["A4", 0.5], ["A4", 0.5], ["D5", 0.5], ["F#5", 1], ["E5", 0.5], ["D5", 1],
+      ["C5", 1], ["A4", 1], ["F#4", 1], ["A4", 1],
+      ["G4", 0.5], ["B4", 0.5], ["E5", 1], ["D5", 0.5], ["B4", 0.5], ["G4", 1],
+      ["A4", 0.5], ["C#5", 0.5], ["E5", 0.5], ["G5", 0.5], ["A5", 2],
+      ["F#5", 0.75], ["E5", 0.25], ["D5", 0.5], ["C5", 0.5], ["A4", 1], ["D5", 1],
+      ["E5", 1], ["C#5", 1], ["A4", 1], ["-", 1],
+    ] },
+    // o violão: pausa-acorde, pausa-acorde... (os contratempos)
+    { ...violao(0.2), notes: COMPASSOS_BATALHA.flatMap(([a, b]) =>
+      [["-", 0.5], [a, 0.5], ["-", 0.5], [b, 0.5], ["-", 0.5], [a, 0.5], ["-", 0.5], [b, 0.5]]) },
+    // o baixo do baião: tônica (3), quinta (3), tônica (2), duas vezes por compasso
+    { ...baixo(0.6), legato: 0.7, notes: COMPASSOS_BATALHA.flatMap(([, , r, q]) =>
+      [[r, 0.75], [q, 0.75], [r, 0.5], [r, 0.75], [q, 0.75], [r, 0.5]]) },
+    // a zabumba no mesmo "tum... ta-tum"
+    { wave: "ruido", vol: 0.42, notes: Array.from({ length: 16 }, () =>
+      [["x", 0.75], ["x", 0.75], ["x", 0.5], ["x", 0.75], ["x", 0.75], ["x", 0.5]]).flat() },
+    // o triângulo: chiadinho fraco em todas as colcheias
+    { wave: "ruido", vol: 0.12, notes: Array.from({ length: 128 }, () => ["x", 0.5]) },
+  ],
+};
+
 export const BRAGLITCH_MUSIC = {
-  saolucario: {
-    bpm: 92,
-    tracks: [
-      { ...melodia(0.46), notes: [
-        ["E5", 1.5], ["D5", 0.5], ["B4", 1], ["A4", 1],
-        ["B4", 0.5], ["C5", 1], ["B4", 0.5], ["G4", 2],
-        ["A4", 1.5], ["G4", 0.5], ["E4", 1], ["G4", 1],
-        ["F#4", 0.5], ["G4", 1], ["A4", 0.5], ["B4", 2],
-        ["E5", 1.5], ["D5", 0.5], ["C5", 1], ["B4", 1],
-        ["A4", 0.5], ["B4", 1], ["G4", 0.5], ["E4", 2],
-        ["F#4", 1], ["A4", 1], ["G4", 1], ["F#4", 1],
-        ["E4", 3], ["-", 1],
-      ] },
-      // a batida da bossa no violão: acorde picado fora do tempo
-      { ...violao(0.2), notes: [
-        ["E4", 0.5], ["-", 0.25], ["G4", 0.5], ["B4", 0.25], ["-", 0.5], ["G4", 0.5], ["-", 0.25], ["B4", 0.75], ["G4", 0.5],
-        ["D4", 0.5], ["-", 0.25], ["F#4", 0.5], ["A4", 0.25], ["-", 0.5], ["F#4", 0.5], ["-", 0.25], ["A4", 0.75], ["F#4", 0.5],
-      ] },
-      { ...baixo(0.52), notes: [
-        ["E2", 1.5], ["B2", 0.5], ["E2", 1], ["B2", 1],
-        ["D2", 1.5], ["A2", 0.5], ["D2", 1], ["A2", 1],
-        ["C2", 1.5], ["G2", 0.5], ["C2", 1], ["G2", 1],
-        ["B1", 1.5], ["F#2", 0.5], ["B1", 1], ["F#2", 1],
-      ] },
-      { wave: "ruido", vol: 0.18, notes: [["x", 0.5], ["-", 0.25], ["x", 0.25], ["-", 0.5], ["x", 0.5], ["-", 0.25], ["x", 0.5], ["-", 0.25], ["x", 0.5], ["-", 0.5]] },
-    ],
-  },
-  br101: {
-    bpm: 128,
-    tracks: [
-      { ...sanfona(0.42), notes: [
-        ["A4", 0.5], ["C5", 0.5], ["D5", 1], ["C5", 0.5], ["A4", 0.5], ["G4", 1],
-        ["A4", 0.5], ["C5", 0.5], ["E5", 1], ["D5", 1], ["-", 1],
-        ["E5", 0.5], ["G5", 0.5], ["E5", 0.5], ["D5", 0.5], ["C5", 1], ["A4", 1],
-        ["G4", 0.5], ["A4", 0.5], ["C5", 0.5], ["G4", 0.5], ["A4", 2],
-      ] },
-      // o triângulo: tique no contratempo, abafado no tempo
-      { wave: "pulso", duty: 0.125, vol: 0.1, legato: 0.2, notes: [
-        ["A6", 0.5], ["E7", 0.5], ["A6", 0.5], ["E7", 0.5],
-      ] },
-      // zabumba: TUM - - ta TUM - ta -
-      { ...baixo(0.58), notes: [
-        ["A2", 0.75], ["-", 0.25], ["A2", 0.5], ["E2", 0.5], ["A2", 0.75], ["-", 0.25], ["G2", 1],
-        ["D2", 0.75], ["-", 0.25], ["D2", 0.5], ["A2", 0.5], ["E2", 0.75], ["-", 0.25], ["E2", 1],
-      ] },
-      { wave: "ruido", vol: 0.3, notes: [["x", 0.75], ["-", 0.25], ["x", 0.5], ["x", 0.5], ["x", 0.75], ["-", 0.25], ["x", 1]] },
-    ],
-  },
+  // a batalha toca no chip do Game Boy, como as de Kanto: escrita no formato do
+  // Red/Blue em tools/batalha_braglitch.py (src/data/musicas-gb.js). O baião de
+  // antes, com instrumentos do jogo, fica guardado como `batalhaBraglitchBaiao`
+  batalhaBraglitch: { gb: "braglitchBatalha" },
+  batalhaBraglitchBaiao: batalhaBraglitch,
+  // as antigas `saolucario` (a bossa) e `br101` (o forró) saíram (nov/2026):
+  // viraram apelidos das músicas novas de cada lugar (src/data/musicas-braglitch.js)
 };
 
 // ------------------------------------------------------------ O BONDINHO

@@ -19,6 +19,7 @@
 // O resto é da batalha de sempre (src/scenes/battle.js): a entrada, a captura,
 // a EXP, o desmaio, a troca, o prêmio. Ela chama `iniciar` quando chegaria no
 // menu de turno, e as falas pausam o tempo.
+import { pesoDoMon } from "./pokeblocos.js";
 import { DB } from "../data/index.js";
 import { Assets } from "../core/assets.js";
 import { Input } from "../core/input.js";
@@ -28,13 +29,25 @@ import { calcDamage, accuracyCheck, applyMoveEffects, statusTickDamage, effectiv
 import { isFainted, hpPct } from "./mon.js";
 import { fatorDano } from "./dificuldade.js";
 import { fator } from "./acampamento.js";
-import { pesoDe } from "./habilidades.js";
+import { pesoDe, habilidadeDoMon } from "./habilidades.js";
 
 export const W = 240, ALT = 124;                  // a arena; embaixo, o painel
 export const T = 4, COLS = W / T, LINS = ALT / T; // o terreno é uma grade de 4x4 px
 export const G = 520;                              // gravidade (px/s²)
 export const LARG = 12, ALTURA = 16;               // a caixa de colisão do bicho
 export const QUEDA = 0.3;                          // cair pra fora custa 30% do HP máximo
+
+/** QUEM VOA (pedido do CAIO): os de tipo VOADOR, os com LEVITAR e uns que voam
+ *  sem ser voadores — o ENCONTRIUM primeiro. Segurando ESPAÇO eles sobem. */
+const VOAM_TAMBEM = new Set(["encontrium", "rayquaza", "latias", "latios", "deoxys", "mewtwo", "mew", "celebi", "jirachi",
+  "zapdos", "articuno", "moltres", "lugia", "hooh", "dragonite", "gyarados", "magnemite", "magneton", "porygon", "porygon2", "porygonz",
+  "beedrill", "butterfree", "venomoth", "yanma", "yanmega", "ninjask", "vibrava", "flygon", "salamence", "hydreigon", "eternatus"]);
+export function voa(mon) {
+  if (!mon) return false;
+  const sp = DB.SPECIES[mon.species];
+  if (VOAM_TAMBEM.has(mon.species) || (mon.types || sp?.types || []).includes("VOADOR")) return true;
+  return habilidadeDoMon(mon)?.id === "levitar";
+}
 
 /** essa batalha pode ser explosiva? (raid, totem e descontrolada têm regra própria) */
 export function podeSerExplosiva(b) {
@@ -147,7 +160,14 @@ export function atualizar(b, dt) {
     }
     if (Input.consume("select")) eu.sel = (eu.sel + 1) % Math.max(1, b.mine.moves.length);
     for (let i = 0; i < 4; i++) if (Input.consomeTecla(`Digit${i + 1}`)) usar(b, "p", i);
-    if (Input.consume("a")) usar(b, "p", eu.sel);
+    // VOAR: quem voa sobe enquanto segura ESPAÇO (e o ESPAÇO deixa de bater: bate com Z)
+    const voando = voa(b.mine) && Input.segurando("Space");
+    if (voando) {
+      eu.vy = Math.max(-170, eu.vy - (G + 520) * dt);
+      eu.pulos = 0;
+      if (Math.floor(A.t * 8) !== eu._somVoo) { eu._somVoo = Math.floor(A.t * 8); Audio2.tone(300 + Math.random() * 80, 0.04, "triangle", 0.12); }
+    }
+    if (Input.consume("a") && !(voa(b.mine) && (Input.tecla("Space") || Input.segurando("Space")))) usar(b, "p", eu.sel);
   }
   pensarInimigo(b, dt);
   for (const q of [eu, ele]) { q.vyAntes = q.vy; q.tPisao = Math.max(0, (q.tPisao || 0) - dt); andar(b, q, dt); }
@@ -156,7 +176,11 @@ export function atualizar(b, dt) {
   andarTiros(b, dt);
   for (const c of A.cacos) { c.vy += G * dt; c.x += c.vx * dt; c.y += c.vy * dt; c.vida -= dt; }
   A.cacos = A.cacos.filter((c) => c.vida > 0);
-  for (const f of A.fumaca) { f.r += dt * 30; f.vida -= dt; }
+  for (const f of A.fumaca) { f.r += dt * (f.cresce || 30); f.vida -= dt; }
+  if (A.semChao > 0) {
+    A.semChao -= dt;
+    if (A.semChao <= 0) { A.terreno = montarTerreno(Math.floor(Math.random() * 40)); texto(A, W / 2, 50, "O CHÃO VOLTOU!", "#a0ff90", 1.4); Audio2.heal(); }
+  }
   A.fumaca = A.fumaca.filter((f) => f.vida > 0);
   for (const t of A.textos) { t.vida -= dt; t.y -= dt * 14; }
   A.textos = A.textos.filter((t) => t.vida > 0);
@@ -210,11 +234,11 @@ function andar(b, q, dt) {
   // CAIU PRA FORA: perde um pedaço do HP e volta do alto
   if (q.y > ALT + 40) {
     const mon = q.mon;
-    const d = Math.max(1, Math.round(mon.maxHp * QUEDA));
+    const d = A.semChao > 0 ? 0 : Math.max(1, Math.round(mon.maxHp * QUEDA));   // sem chão (o ENCONTRIUM quebrou tudo): cair não dói
     mon.hp = Math.max(0, mon.hp - d);
     Audio2.tone(200, 0.2, "sawtooth", 0.4);
     b.shake = 0.2;
-    texto(A, W / 2, 30, `${mon.nickname} CAIU! -${d}`, "#ff6060", 1.4);
+    texto(A, W / 2, 30, d ? `${mon.nickname} CAIU! -${d}` : `${mon.nickname} CAIU NO VAZIO!`, "#ff6060", 1.4);
     q.x = W / 2 + (q === A.eu ? -30 : 30); q.y = -10; q.vx = 0; q.vy = 0; q.invul = 1.5; q.atordoado = 0;
   }
 }
@@ -229,13 +253,33 @@ function pisao(b, pisa, alvo, who) {
   if (pisa.mon.hp <= 0 || alvo.mon.hp <= 0) return;
   const topo = alvo.y - ALTURA;
   if (Math.abs(pisa.x - alvo.x) > 11 || pisa.y < topo - 6 || pisa.y > topo + 9) return;
-  const kg = pesoDe(pisa.mon.species);
+  const kg = pesoDoMon(pisa.mon);   // com o peso a mais do garfo (pokéblocos)
   const dano = Math.max(1, Math.round((2 + Math.sqrt(kg) * 3) * (0.5 + pisa.mon.level / 50) * fatorDano(who === "p")));
   alvo.mon.hp = Math.max(0, alvo.mon.hp - dano);
   alvo.atordoado = 0.4; alvo.flash = 0.35; alvo.vy = 80; alvo.ataque = null;
   pisa.vy = -210; pisa.pulos = 1; pisa.tPisao = 0.35;
-  if (kg >= 100) cratera(A, alvo.x, alvo.y + 2, 6 + Math.min(14, kg / 40));
-  b.shake = Math.max(b.shake, Math.min(0.3, 0.08 + kg / 2000));
+  // A EXPLOSÃO DO PISÃO (pedido do CAIO: "quanto mais pesado maior a explosão"):
+  // o tamanho vem do peso — um PIDGEY (2 kg) estoura um tiquinho, um SNORLAX
+  // (460 kg) faz uma bola de fogo que engole a tela, um GROUDON (950 kg) mais ainda
+  const tam = Math.min(80, 5 + Math.sqrt(kg) * 2);
+  const vida = 0.3 + tam / 140;
+  for (const [cor, k, atraso] of [["#ffffff", 0.5, 0], ["#fff080", 0.8, 0.02], ["#ffb030", 1, 0.04], ["#e04020", 1.15, 0.06], ["#6a6070", 1.3, 0.1]]) {
+    A.fumaca.push({ x: alvo.x, y: alvo.y - 4, r: 2 + atraso * 40, vida: vida + atraso, cor, cresce: (tam * k) / vida });
+  }
+  for (let k = 0; k < Math.round(4 + tam / 4); k++) {
+    const a = Math.random() * Math.PI, v = 60 + Math.random() * (80 + tam * 4);
+    A.cacos.push({ x: alvo.x, y: alvo.y - 4, vx: Math.cos(a) * v * (Math.random() < 0.5 ? -1 : 1), vy: -Math.sin(a) * v, vida: 0.5 + tam / 160, cor: k % 2 ? "#ffd040" : "#ff7030" });
+  }
+  if (pisa.mon.species === "encontrium") {
+    // O ENCONTRIUM QUEBRA TUDO (pedido do CAIO): o chão inteiro some; ele e quem
+    // voa ficam no ar, o resto cai — e daqui a pouco o chão volta
+    cratera(A, W / 2, ALT / 2, 9999);
+    A.semChao = 3.5;
+    b.shake = 0.9; b.flash = Math.max(b.flash || 0, 0.8);
+    texto(A, W / 2, 50, "O ENCONTRIUM QUEBROU TUDO!", "#80d0ff", 2);
+    Audio2.tone(40, 0.9, "sawtooth", 0.8); Audio2.noise?.(0.8, 0.8);
+  } else if (kg >= 20) cratera(A, alvo.x, alvo.y + 2, 4 + tam * 0.35);
+  b.shake = Math.max(b.shake, Math.min(0.7, 0.08 + tam / 120));
   Audio2.tone(Math.max(50, 160 - kg / 4), 0.12, "square", 0.5);
   texto(A, alvo.x, alvo.y - 24, `PISÃO! -${dano}`, "#ffd040", 1.1);
   texto(A, alvo.x, alvo.y - 36, `${kg} KG`, "#c0c0d0", 1.1);
@@ -348,6 +392,9 @@ function acertar(b, who, golpeId, dirX, dirY, perto = 1) {
 
 /** o inimigo: chega na distância do golpe dele, pula parede e buraco, pisca e bate */
 function pensarInimigo(b, dt) {
+  // o inimigo que VOA sobe quando está sem chão ou abaixo de você
+  { const A0 = b.explosiva, e = A0?.ele, v = A0?.eu;
+    if (e && v && voa(b.foe) && e.atordoado <= 0 && (A0.semChao > 0 || e.y > v.y + 20 || e.y > ALT - 20)) e.vy = Math.max(-150, e.vy - (G + 420) * dt); }
   const A = b.explosiva, ele = A.ele, eu = A.eu;
   if (ele.atordoado > 0 || ele.ataque) return;
   const dx = eu.x - ele.x, dist = Math.abs(dx);

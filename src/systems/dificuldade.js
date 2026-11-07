@@ -53,7 +53,9 @@ export const naBatalha = () => atual;
 /** O nível do INIMIGO nesta dificuldade. Mexe no Pokémon uma vez só (marca
  *  `_dif`): um selvagem que fugiu e volta não cresce de novo. */
 export function ajustarInimigo(mon) {
-  if (!mon || mon._dif || atual.nivel === 1) return mon;
+  // acima de 100 é bicho da GLITCH DIMENSION EXTREMA (dlc/extrema.js): o nível
+  // ali já é a regra, e a conta daqui jogava todos de volta pro 100
+  if (!mon || mon._dif || atual.nivel === 1 || mon.level > 100) return mon;
   mon._dif = true;
   const lvl = Math.max(1, Math.min(100, Math.round(mon.level * atual.nivel)));
   if (lvl === mon.level) return mon;

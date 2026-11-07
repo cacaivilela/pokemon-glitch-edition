@@ -1,0 +1,80 @@
+<!doctype html>
+<!-- KALOS (src/data/kalos.js): o caminho inteiro de avião. Um save de teste
+     com as 8 insígnias em VERMILION, do lado do piloto; voa pra LUMIOSE,
+     entra no Centro, sai, entra no AEROPORTO e volta pra Kanto. Cada passo vira
+     dev/captures/lumiose_*.png com o log. Perfil próprio e `&offline`.
+     Uso: /dev/lumiosecheck.html -->
+<meta charset="utf-8"><title>lumiosecheck</title>
+<body style="background:#222">
+<script type="module">
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const f = document.createElement("iframe");
+f.style.cssText = "position:absolute;left:-2000px;width:240px;height:160px";
+f.src = "../index.html?perfil=lumiosecheck&offline";
+document.body.appendChild(f);
+const W = () => f.contentWindow, js = (c) => W().eval(c);
+const tecla = (code, key) => { for (const t of ["keydown", "keyup"]) W().dispatchEvent(new (W().KeyboardEvent)(t, { code, key })); };
+const z = async (n, gap = 400) => { for (let i = 0; i < n; i++) { tecla("KeyZ", "z"); await espera(gap); } };
+const log = [];
+async function foto(nome) {
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: `lumiose_${nome}`, dataUrl: f.contentDocument.getElementById("screen").toDataURL(), log: log.splice(0).join("\n") }) });
+}
+const onde = () => js(`JSON.stringify((({ map, x, y }) => ({ map, x, y }))(window.game.state.player))`);
+const fala = (id) => js(`(() => { const s = window.game.scenes.top; s.dlg.active = false;
+  const n = s.npcsHere().find((n) => n.id === "${id}"); if (!n) return "NÃO ACHEI ${id}"; s.talkTo(n); return "falou com ${id}"; })()`);
+const vai = (map, x, y, dir) => js(`(() => { const s = window.game.scenes.top, p = window.game.state.player;
+  Object.assign(p, { map: "${map}", x: ${x}, y: ${y}, dir: "${dir}" }); s.afterTravel(); s.snapCamera(); })()`);
+const escolhe = (txt) => js(`(() => { const c = window.game.scenes.top.dlg.choice; if (!c) return "sem escolha na tela";
+  c.index = Math.max(0, c.options.findIndex((o) => String(o).includes("${txt}"))); return "opções: " + JSON.stringify(c.options) + " escolhi " + c.index; })()`);
+try {
+  for (let i = 0; i < 60 && !f.contentDocument?.getElementById("screen"); i++) await espera(100);
+  await espera(2500);
+  // um jogo novo e já pronto: 8 insígnias, um RAICHU, em VERMILION
+  for (let i = 0; i < 8; i++) { await espera(300); tecla("Enter", "Enter"); }
+  await espera(2500);
+  js(`(() => { const g = window.game; if (!g.state?.party?.length) g.newGame?.(); const st = g.state;
+    st.badges = ["pedra","cascata","trovao","arcoiris","alma","pantano","vulcao","terra"];
+    st.flags.starterChosen = true; st.flags.pokedex = true;
+    if (!st.party.length) st.party.push(window.__mon ? window.__mon : null);
+  })()`);
+  await js(`import("/src/systems/mon.js").then((M) => { const st = window.game.state; if (!st.party.filter(Boolean).length) st.party = [M.createMon("raichu", 60)]; st.party = st.party.filter(Boolean); })`);
+  js(`(() => { const scenes = window.game.scenes; while (scenes.stack?.length > 1 && !scenes.top.npcsHere) scenes.pop?.(); })()`);
+  log.push("cena: " + js("window.game.scenes.top.constructor.name"));
+  vai("vermilion_city", 18, 9, "up");
+  await espera(1500);
+  log.push("onde: " + onde() + " npcs: " + js("window.game.scenes.top.npcsHere().map((n) => n.id).join(',')"));
+  await z(10);                               // as mensagens da história que o save de teste dispara
+  js("window.game.scenes.top.dlg.active = false");
+  await foto("1_piloto");
+  log.push(fala("piloto_aviao"));
+  await z(3);
+  log.push(escolhe("LUMIOSE"));
+  await foto("2_pergunta");
+  await z(6, 600);
+  await espera(2500);
+  log.push("onde: " + onde());
+  await foto("3_lumiose");
+  await z(3);
+  vai("lumiose", 15, 28, "up");
+  await espera(800);
+  js(`window.game.scenes.top.tryMove?.("up")`);
+  tecla("ArrowUp", "ArrowUp"); await espera(1500);
+  log.push("depois da porta do Centro: " + onde());
+  await foto("4_centro");
+  vai("lumiose", 23, 34, "up");
+  await espera(800);
+  tecla("ArrowUp", "ArrowUp"); await espera(1500);
+  log.push("depois da porta do aeroporto: " + onde());
+  vai("lumiose_aeroporto", 2, 4, "up");
+  await espera(800);
+  log.push(fala("balcao_aviao"));
+  await z(2);
+  log.push(escolhe("VERMILION"));
+  await foto("5_balcao");
+  await z(6, 600);
+  await espera(2500);
+  log.push("voltou: " + onde());
+  await foto("6_volta");
+} catch (e) { log.push("ERRO: " + e + " " + e.stack); await foto("erro"); }
+document.title = "lumiosecheck pronto";
+</script>

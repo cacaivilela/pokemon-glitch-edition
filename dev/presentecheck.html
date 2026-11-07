@@ -1,0 +1,36 @@
+<!doctype html>
+<!-- O LINK DO PRESENTE (?presente=): abre o jogo num perfil de teste com o
+     link, aperta CONTINUAR e conta o que chegou. Uso: /dev/presentecheck.html?codigo=X&perfil=Y -->
+<meta charset="utf-8"><title>presentecheck</title>
+<script type="module">
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const q = new URLSearchParams(location.search);
+const f = document.createElement("iframe");
+f.style.cssText = "position:absolute;left:-2000px;width:480px;height:320px";
+f.src = `../index.html?presente=${q.get("codigo")}&perfil=${q.get("perfil")}&offline`;
+document.body.appendChild(f);
+const log = [];
+const W = () => f.contentWindow;
+const tecla = (code) => { W().dispatchEvent(new (W().KeyboardEvent)("keydown", { code, key: code })); W().dispatchEvent(new (W().KeyboardEvent)("keyup", { code, key: code })); };
+W().addEventListener?.("error", (e) => log.push("ERRO: " + e.message));
+try {
+  for (let i = 0; i < 80 && !W()?.game; i++) await espera(100);
+  const orig = W().console.warn; W().console.warn = (...a) => { log.push("warn: " + a.join(" ")); orig(...a); };
+  const origL = W().console.log; W().console.log = (...a) => { if (String(a[0]).includes("presente")) log.push("log: " + a.join(" ")); origL(...a); };
+  const { DB } = await W().eval('import("/src/data/index.js")');
+  log.push("cartão no jogo: " + JSON.stringify(DB.GIFT_CODES?.WINDSWAVES?.mons) + " | browt: " + !!DB.SPECIES.browt);
+  await espera(2500);
+  log.push("cena: " + W().game.scenes.top?.constructor?.name);
+  log.push("url: " + W().location.search);
+  log.push("loadGame embrulhado: " + /entregar/.test(W().game.loadGame.toString()) + " | " + W().game.loadGame.toString().slice(0, 120));
+  for (let i = 0; i < 6; i++) { tecla("Enter"); await espera(500); }
+  await espera(1500);
+  const st = W().game.state;
+  log.push("cena depois: " + W().game.scenes.top?.constructor?.name);
+  log.push("presentes: " + JSON.stringify(st?.flags?.presentes));
+  log.push("equipe: " + (st?.party || []).map((m) => m.species).join(","));
+  log.push("box: " + JSON.stringify((st?.box || []).flat?.().filter((m) => m && ["browt", "pombon", "gecqua"].includes(m.species)).map((m) => m.species)));
+} catch (e) { log.push("EXPLODIU: " + e); }
+await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "presentecheck", log: log.join("\n") }) });
+document.title = "pronto";
+</script>

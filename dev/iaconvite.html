@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- TESTE: o jogo (perfil próprio, SALA SEPARADA "testeia") convida o E-IA pra
+     batalhar e conta o que aconteceu (dev/captures/iaconvite.log + .png). -->
+<meta charset="utf-8"><title>iaconvite</title>
+<script type="module">
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const log = [];
+const f = document.createElement("iframe");
+f.style.cssText = "width:480px;height:320px";
+f.src = "../index.html?sala=testeia&perfil=teste_ia&party=blastoise:40,pikachu:38&map=pallet";
+document.body.appendChild(f);
+for (let i = 0; i < 80 && !f.contentDocument?.getElementById("screen"); i++) await espera(100);
+await espera(2500);
+for (let i = 0; i < 8; i++) { await espera(400); for (const t of ["keydown", "keyup"]) f.contentWindow.dispatchEvent(new f.contentWindow.KeyboardEvent(t, { code: "Enter", key: "Enter" })); }
+await espera(4000);
+const W = f.contentWindow;
+W.addEventListener("error", (e) => log.push("ERRO: " + e.message));
+const ev = (c) => { try { return W.eval(c); } catch (e) { return "EXC " + e; } };
+log.push("cena: " + ev("window.game.scenes.top.constructor.name"));
+log.push("peers: " + ev("import('/src/systems/online.js').then(m=>[...m.Online.peers.keys()].join(','))"));
+await espera(500);
+const r = await W.eval(`import('/src/systems/online.js').then(m => { const ok = m.Online.convidar('ia-dudu','batalha','simples'); return ok + ' livre=' + m.Online.livre() + ' peers=' + [...m.Online.peers.keys()].join(','); })`);
+log.push("convidou: " + r);
+for (let k = 0; k < 10; k++) {
+  await espera(1000);
+  log.push(k + "s cena: " + ev("window.game.scenes.top.constructor.name") + " fase=" + ev("window.game.scenes.top.fase"));
+}
+const dataUrl = f.contentDocument.getElementById("screen").toDataURL();
+await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "iaconvite", dataUrl, log: log.join("\n") }) });
+document.title = "pronto";
+</script>

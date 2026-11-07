@@ -1,0 +1,35 @@
+<!doctype html>
+<!-- AS TIRINHAS num retrato só: desenha cada quadro das tirinhas a partir da
+     ?de=N (número do caderno, 1 = a primeira; padrão 21, as do DLC GLITCH
+     DIMENSION EXTREMA) e manda pro /__capture (dev/captures/tirinhas_N.png),
+     um retrato por tirinha. Não abre o jogo nem mexe em save.
+     Uso: /dev/tirinhascheck.html?dlc=extrema&de=21 -->
+<meta charset="utf-8">
+<title>tirinhascheck</title>
+<body style="background:#222">
+<script type="module">
+import { DB } from "../src/data/index.js";
+import { Assets } from "../src/core/assets.js";
+import { desenharQuadro, pedirArtes, QUADRO } from "../src/scenes/tirinha.js";
+import { carregarDLC, aplicarDLC, ligarDoLink } from "../src/systems/dlc.js";
+
+ligarDoLink();
+await carregarDLC();
+aplicarDLC();
+Assets.init();
+const de = +(new URLSearchParams(location.search).get("de") || 21);
+const lista = DB.TIRINHAS.lista.slice(de - 1);
+lista.forEach(pedirArtes);
+await new Promise((r) => setTimeout(r, 4000));      // os sprites chegando
+for (const [i, tira] of lista.entries()) {
+  const n = tira.quadros.length;
+  const cv = document.createElement("canvas");
+  cv.width = (QUADRO.w + 4) * 2; cv.height = (QUADRO.h + 4) * Math.ceil(n / 2);
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = "#1c1a20"; ctx.fillRect(0, 0, cv.width, cv.height);
+  tira.quadros.forEach((q, k) => desenharQuadro(ctx, q, 2 + (k % 2) * (QUADRO.w + 4), 2 + Math.floor(k / 2) * (QUADRO.h + 4), { t: 0.3 }));
+  document.body.appendChild(cv);
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: `tirinhas_${de + i}`, dataUrl: cv.toDataURL(), log: tira.titulo }) });
+}
+document.title = "tirinhascheck pronto";
+</script>

@@ -35,7 +35,7 @@ export const GIFT_CODES = {
 
   PALETA1996: {
     titulo: "MUDA DA VILA",
-    texto: "UMA MUDA TIRADA DO CANTEIRO DE VILA PALETA. ELA JÁ NASCEU DIFERENTE.",
+    texto: "UMA MUDA TIRADA DO CANTEIRO DE CIDADE DE PALLET. ELA JÁ NASCEU DIFERENTE.",
     de: "PROF. CARVALHO",
     mons: [{ id: "bulbasaur", nv: 5, shiny: true }],
   },
@@ -64,6 +64,15 @@ export const GIFT_CODES = {
     de: "PALDEA",
     limite: 12000,
     mons: [{ id: "koraidon", nv: 50, shiny: true }],
+  },
+
+  // OS INICIAIS DE WINDS AND WAVES (src/data/winds-waves.js), pedido do CAIO:
+  // chegam os três de uma vez, antes do jogo deles sair
+  WINDSWAVES: {
+    titulo: "VENTOS E ONDAS",
+    texto: "TRÊS POKÉMON DE UMA REGIÃO QUE AINDA NEM ABRIU. O CARTÃO VEIO DO FUTURO, COM DATA DE 2027.",
+    de: "PROF. DE WINDS AND WAVES",
+    mons: [{ id: "browt", nv: 5 }, { id: "pombon", nv: 5 }, { id: "gecqua", nv: 5 }],
   },
 
   "011SEMDONO110": {
@@ -96,5 +105,3 @@ export const GIFT_TEXTO = {
   semItemPraMandar: "VOCÊ NÃO TEM NADA PRA MANDAR.",
 };
 
-/** normaliza o que o jogador digitou */
-export const limpaCodigo = (s) => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");

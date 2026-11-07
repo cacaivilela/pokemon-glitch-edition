@@ -12,6 +12,7 @@
 //
 // O bicho já foi criado antes de a cena abrir; aqui é só o filme. As frases
 // (`frase`, uma ou várias) fecham no A.
+import { contar as contarPesquisa } from "../systems/pesquisa.js";
 import { Assets } from "../core/assets.js";
 import { Audio2 } from "../core/audio.js";
 import { DB } from "../data/index.js";
@@ -85,6 +86,7 @@ export class NascerScene {
   /** args: { mon, frase?, aoFim? } — `frase` pode ser uma lista */
   enter(args = {}) {
     this.mon = args.mon;
+    if (this.mon && !args.pesquisaContada) contarPesquisa(globalThis.game?.state, this.mon.species, "chocar");   // as MISSÕES DA POKÉDEX
     this.frase = args.frase || "";
     this.aoFim = args.aoFim || null;
     Assets.mon(this.mon.species, this.mon.seed);
@@ -109,7 +111,7 @@ export class NascerScene {
   get fase() { return FASES[this.i]?.[0] || "fim"; }
   get k() { return prende(this.tf / (FASES[this.i]?.[1] || 1)); }
 
-  /** o bicho já colorido (shiny incluso), ou null se ainda carrega */
+  /** o bicho já colorido (shiny e luminoso inclusos), ou null se ainda carrega */
   arte() {
     const vivo = Assets.vivo(this.mon);   // animado, quando tem
     if (vivo) return vivo;
@@ -179,8 +181,8 @@ export class NascerScene {
       if (f === "pronto") {
         this.flash = 0.5;
         // forma rara (como era antes da cena): a tela treme na medida do que nasceu
-        const brilho = this.mon.shiny || this.mon.alfa;
-        if (brilho) { Glitch.hit(1.6); Audio2.glitch(); }
+        const brilho = this.mon.shiny || this.mon.luminoso || this.mon.alfa;
+        if (brilho) { Glitch.hit(this.mon.luminoso ? 2.4 : 1.6); Audio2.glitch(); }
         for (let j = 0; j < (brilho ? 40 : 18); j++) {
           const a = Math.random() * Math.PI * 2, v = 30 + Math.random() * 60;
           this.estrelas.push({ x: CX, y: CHAO - L / 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 20, vida: 1 });

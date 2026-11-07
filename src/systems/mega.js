@@ -13,16 +13,12 @@ import { recalc } from "./mon.js";
 import { todosGuardados } from "./box.js";
 
 export const temAnel = (state) => (state?.items?.[DB.MEGA_ANEL] || 0) > 0;
-export const estaMegado = (mon) => !!mon?.megaDe;
 
 /** As formas que este Pokémon pode assumir AGORA: precisa do anel e da pedra. */
 export function opcoesMega(state, mon) {
   if (!mon || mon.megaDe || !temAnel(state)) return [];
   return (DB.MEGAS?.[mon.species] || []).filter((r) => (state.items?.[r.pedra] || 0) > 0);
 }
-
-/** Todas as formas da espécie, tendo pedra ou não (pra Pokédex e textos). */
-export const formasDe = (id) => DB.MEGAS?.[id] || [];
 
 export function megaEvoluir(mon, to) {
   const forma = DB.SPECIES?.[to];
@@ -56,7 +52,7 @@ export function reverterTudo(state) {
  *  você tem na equipe ou no PC. CHARMANDER vale as duas do CHARIZARD. */
 export function pedrasIniciaisDevidas(state) {
   const donos = new Set([...(state.party || []), ...todosGuardados(state)].map((m) => m.megaDe || m.species));
-  const jaDadas = new Set(state.flags?.pedrasIniciais || []);
+  const jaDadas = new Set([].concat(state.flags?.pedrasIniciais || []).filter((p) => typeof p === "string"));
   const devidas = [];
   for (const [linha, especies] of Object.entries(LINHAS_INICIAIS)) {
     if (!especies.some((id) => donos.has(id))) continue;

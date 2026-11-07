@@ -80,3 +80,34 @@ export function nomeDoLugar(id) {
   if (!k) return null;
   return LUGAR[k] + parte(id.slice(k.length).replace(/^_/, ""));
 }
+
+/** O NOME DO LUGAR EM PORTUGUÊS DE GENTE (pedido do CAIO, nov/2026: "pewter
+ *  city tá PEWTER CIDADE, era pra ser CIDADE DE PEWTER"). Os nomes dos mapas
+ *  vieram traduzidos palavra por palavra (tools/fetch_maps.py), na ordem do
+ *  inglês; aqui a ordem vira a nossa e o que ficou em inglês vira português:
+ *    PEWTER CIDADE                 -> CIDADE DE PEWTER
+ *    PEWTER CIDADE  CENTRO POKÉMON -> CENTRO POKÉMON DE PEWTER
+ *    ROCK TUNNEL  B1 F             -> TÚNEL DE PEDRA SUBSOLO 1 */
+const PALAVRAS = [
+  [/\bMT MOON\b/g, "MONTE LUA"], [/\bROCK TUNNEL\b/g, "TÚNEL DE PEDRA"], [/\bVICTORY ROAD\b/g, "ESTRADA DA VITÓRIA"],
+  [/\bDIGLETTS CAVE\b/g, "CAVERNA DO DIGLETT"], [/\bPOWER PLANT\b/g, "USINA DE ENERGIA"],
+  [/\bBIRTH ISLAND\b/g, "ILHA DO NASCIMENTO"], [/\bNORTH ENTRANCE\b/g, "ENTRADA NORTE"],
+  [/\bSOUTH ENTRANCE\b/g, "ENTRADA SUL"], [/ - NORTH\b/g, " NORTE"], [/ - SOUTH\b/g, " SUL"],
+  [/\bGAME CORNER\b/g, "CASSINO"], [/\bPRIZE ROOM\b/g, "SALA DE PRÊMIOS"], [/\bGYM\b/g, "GINÁSIO"],
+  [/\bB(\d+) F\b/g, "SUBSOLO $1"], [/\b(\d+) F\b/g, "$1º ANDAR"],
+];
+export function traduzirNome(nome) {
+  if (!nome) return nome;
+  let n = String(nome);
+  for (const [de, pra] of PALAVRAS) n = n.replace(de, pra);
+  // "X CIDADE" (e VILA, ILHA), com ou sem o prédio depois de dois espaços
+  const m = n.match(/^([A-ZÁÉÍÓÚÂÊÔÃÕÇ.'-]+) (CIDADE|VILA|ILHA)(?:  (.+?))?( — .+)?$/);
+  if (m) {
+    const [, lugar, tipo, resto, cauda = ""] = m;
+    // "CASSINO  SALA DE PRÊMIOS": a sala é DO cassino
+    const predio = resto ? resto.split(/\s{2,}/).reverse().join(" DO ") : null;
+    n = (predio ? `${predio} DE ${lugar}` : `${tipo} DE ${lugar}`) + cauda;
+  }
+  n = n.replace(/^CIDADE (?!DE )([A-ZÁÉÍÓÚÂÊÔÃÕÇ]+)$/, "CIDADE DE $1");
+  return n.replace(/\s{2,}/g, " ").trim();
+}

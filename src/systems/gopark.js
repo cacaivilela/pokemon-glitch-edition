@@ -42,7 +42,6 @@ export function complexo(st) {
 export const parque = (st, i = 0) => complexo(st)[i] || { nome: nomeParque(i), mons: [] };
 export const moradores = (st) => complexo(st).flatMap((p) => p.mons);
 export const totalNoParque = (st) => moradores(st).length;
-export const vagasNoParque = (st) => complexo(st).reduce((n, p) => n + (G().porParque - p.mons.length), 0);
 /** O primeiro parque com vaga, ou null se o complexo inteiro está lotado. */
 export const parqueComVaga = (st) => complexo(st).find((p) => p.mons.length < G().porParque) || null;
 export const parqueDe = (st, mon) => complexo(st).find((p) => p.mons.includes(mon)) || null;
@@ -104,7 +103,7 @@ const COR_TIPO = (t) => DB.TYPE_COLOR?.[t] || "#888";
 // O que vai dentro do QR. Texto puro, separado por barra, pra dar pra ler a
 // olho nu e depurar sem ferramenta:
 //   PGE1|especie|APELIDO|nivel|hp.atk.def.spa.spd.spe|marcas|semente|TREINADOR|crc
-// As marcas são letras: s=shiny, a=alfa (um "l" antigo, do luminoso, vira shiny), c=corrompido, g=veio do GO.
+// As marcas são letras: s=shiny, l=luminoso, a=alfa, c=corrompido, g=veio do GO.
 // Os GOLPES NÃO VÃO no código — o destino remonta pelo learnset do nível, que é
 // o que o LET'S GO também faz com quem chega do GO: o bicho vem, os golpes são
 // os de lá. Isso mantém o QR pequeno o bastante pra caber no canto do cartão.
@@ -121,7 +120,7 @@ const limpar = (s, n) => String(s ?? "").replace(/[|\n\r]/g, " ").trim().slice(0
 
 /** O Pokémon vira o texto que entra no QR. */
 export function codificar(mon, treinador = "") {
-  const marcas = [mon.shiny && "s", mon.alfa && "a", mon.corrupt && "c", mon.doGO && "g"].filter(Boolean).join("") || "-";
+  const marcas = [mon.shiny && "s", mon.luminoso && "l", mon.alfa && "a", mon.corrupt && "c", mon.doGO && "g"].filter(Boolean).join("") || "-";
   const corpo = [
     "PGE1", mon.species, limpar(mon.nickname, 12), nivelGO(mon),
     ORDEM_IV.map((k) => mon.ivs?.[k] ?? 15).join("."),
@@ -147,7 +146,7 @@ export function decodificar(texto) {
     ivs: Object.fromEntries(ORDEM_IV.map((k, i) => [k, nums[i]])),
     nickname: apelido || DB.SPECIES[species].name,
     seed: Number(semente) || 0,
-    shiny: marcas.includes("s") || marcas.includes("l"),
+    shiny: marcas.includes("s"), luminoso: marcas.includes("l"),
     alfa: marcas.includes("a"), corrupt: marcas.includes("c"),
   });
   if (marcas.includes("g")) mon.doGO = true;

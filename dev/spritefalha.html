@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>sprite que falha e volta</title></head>
+<body style="background:#111;color:#9fd;font:13px monospace">
+<div id="log">rodando...</div>
+<iframe id="fr" style="width:740px;height:560px;border:0"></iframe>
+<img id="hold" alt="" width="1" height="1">
+<script>
+// Um sprite que FALHA na primeira vez (conexão caída) tem que ser pedido de
+// novo (src/core/sprites.js, `deNovo`) — antes ele ficava com a arte
+// provisória até recarregar a página. Aqui as duas primeiras tentativas do
+// sprite do REGICE (378.png) são derrubadas de propósito.
+const fr = document.getElementById("fr"), log = document.getElementById("log");
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+(async () => {
+  const linhas = [];
+  try {
+    fr.src = "/?perfil=spritefalha&map=route1";
+    let w;
+    for (let i = 0; i < 100 && !(w = fr.contentWindow)?.game?.scenes?.top?.update; i++) await espera(100);
+    // derruba as duas primeiras cargas do 378.png
+    let derrubadas = 0;
+    const desc = Object.getOwnPropertyDescriptor(w.HTMLImageElement.prototype, "src");
+    Object.defineProperty(w.HTMLImageElement.prototype, "src", {
+      set(v) {
+        if (/pokemon\/378\.png/.test(v) && derrubadas < 2) { derrubadas++; return desc.set.call(this, "/nao-existe-" + derrubadas + ".png"); }
+        return desc.set.call(this, v);
+      },
+      get() { return desc.get.call(this); },
+    });
+    const { Assets } = await w.eval("import('/src/core/assets.js')");
+    const { SpriteStore } = await w.eval("import('/src/core/sprites.js')");
+    Assets.mon("regice", 1);
+    for (const ms of [500, 2000, 4500]) {
+      await espera(ms);
+      linhas.push(`+${ms}ms: derrubadas=${derrubadas} carregou=${!!SpriteStore.pokemon.regice} faltando=${SpriteStore.missing.has("regice")}`);
+    }
+  } catch (e) { linhas.push("QUEBROU: " + (e && e.stack || e)); }
+  log.textContent = linhas.join("\n");
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "spritefalha", log: linhas.join("\n") }) });
+})();
+document.getElementById("hold").src = "/__delay?ms=16000";
+</script>
+</body></html>

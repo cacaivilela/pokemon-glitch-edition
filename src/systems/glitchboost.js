@@ -72,9 +72,6 @@ export function bonusDe(mon) {
   return mon.bug.dano % BOOSTER.byte;
 }
 
-/** Quanto falta pra virar o byte (pra tela avisar antes de ser tarde). */
-export const atéVirar = (mon) => (bugado(mon) ? BOOSTER.byte - bonusDe(mon) : 0);
-
 /** O bônus daquele atributo. HP nunca sobe: o dano tem que continuar doendo. */
 export function bonusDoAtributo(mon, key) {
   if (!bugado(mon) || !BOOSTER.sobem.includes(key)) return 0;

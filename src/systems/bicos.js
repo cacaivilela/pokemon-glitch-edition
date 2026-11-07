@@ -7,9 +7,9 @@ const B = () => DB.BICOS;
 const insignias = (st) => (st.badges || []).length + (st.bragBadges || []).length;
 const mesmaRegiao = (a, b) => emBraglitch(a) === emBraglitch(b);
 
-/** "PEWTER CIDADE  CENTRO POKÉMON" e "CENTRO POKÉMON — SÃO LUCARIO" -> o nome do lugar */
+/** "CENTRO POKÉMON DE PEWTER" e "CENTRO POKÉMON — SÃO LUCARIO" -> o nome do lugar */
 export function nomeDoCentro(mapa) {
-  const n = String(DB.MAPS[mapa]?.name || mapa).replace(/CENTRO POKÉMON/, "").replace(/—/g, "").trim();
+  const n = String(DB.MAPS[mapa]?.name || mapa).replace(/CENTRO POKÉMON( DE )?/, "").replace(/—/g, "").trim();
   return n.replace(/\s+/g, " ") || mapa.toUpperCase();
 }
 

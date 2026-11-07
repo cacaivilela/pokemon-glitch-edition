@@ -29,6 +29,8 @@
   .musica { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:12px; background:#1a1226; border:1px solid #3a2458; border-radius:8px; padding:10px 12px; }
   .musica b { color:#e6b8ff; font-weight:normal; }
   .musica small { color:var(--apagado); flex:1 1 220px; }
+  #contrario { background:var(--cartao); border:1px solid var(--borda); color:var(--texto); padding:8px 12px; border-radius:6px; cursor:pointer; font:inherit; }
+  #contrario.tocando { border-color:#ff5a64; color:#ff9aa0; }
   .musica button { background:var(--cartao); border:1px solid var(--roxo); color:#fff; padding:7px 14px; border-radius:6px; cursor:pointer; font:inherit; }
   .musica button.tocando { background:#3a1d5c; border-color:var(--roxo2); }
   @media (max-width:520px) { #grade { grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); } }
@@ -41,10 +43,11 @@
   <div class="musica">
     <button id="musica" aria-pressed="false">▶ tocar</button>
     <b>MÚSICA: MEGA DESCONTROLADA</b>
-    <small>a luta contra os megas descontrolados, de noite — metal a 200 bpm, a mesma do jogo</small>
+    <small>a luta contra os megas descontrolados — o "Rogue Mega Evolution Theme" do Legends Z-A, a mesma do jogo</small>
   </div>
   <div class="barra">
     <input id="busca" type="search" placeholder="buscar (nome ou som)" autocomplete="off">
+    <button id="contrario" aria-pressed="false" title="toca o grito de trás pra frente">◀ AO CONTRÁRIO: DESLIGADO</button>
     <span id="conta"></span>
   </div>
 </header>
@@ -90,9 +93,27 @@ const cartoes = ids.map((id) => {
   return d;
 });
 
+// AO CONTRÁRIO (pedido do CAIO, nov/2026): o grito de trás pra frente. O de
+// arquivo (e o do Game Boy) vira ao contrário inteiro (Audio2: editarGrito
+// `invertido`); o de sílabas toca as sílabas da última pra primeira, cada uma
+// deslizando ao contrário.
+let aoContrario = false;
+const bContrario = document.getElementById("contrario");
+bContrario.addEventListener("click", () => {
+  aoContrario = !aoContrario;
+  bContrario.textContent = `◀ AO CONTRÁRIO: ${aoContrario ? "LIGADO" : "DESLIGADO"}`;
+  bContrario.classList.toggle("tocando", aoContrario);
+  bContrario.setAttribute("aria-pressed", String(aoContrario));
+});
+function invertido(g) {
+  if (!g) return g;
+  if (g.gb || g.arquivo) return { ...g, edita: { tipos: [], puro: true, ...(g.edita || {}), espelho: true } };
+  return { ...g, s: (g.s || []).slice().reverse().map((sil) => [sil[1], sil[0], ...sil.slice(2)]) };
+}
 const toca = (d) => {
   Audio2.unlock();
-  const dur = Audio2.grito(gritoDe(d.dataset.id));
+  const g = gritoDe(d.dataset.id);
+  const dur = Audio2.grito(aoContrario ? invertido(g) : g);
   d.classList.add("tocando");
   setTimeout(() => d.classList.remove("tocando"), Math.max(200, dur * 1000));
 };

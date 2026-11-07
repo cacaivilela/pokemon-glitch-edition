@@ -39,7 +39,7 @@ export default {
   },
 
   placas: {
-    pallet: { "4,7": "VILA PALETA. HÁ UM VÃO NO CANTO NOROESTE. NÃO É UMA PORTA. ATRAVESSE." },
+    pallet: { "4,7": "CIDADE DE PALLET. HÁ UM VÃO NO CANTO NOROESTE. NÃO É UMA PORTA. ATRAVESSE." },
   },
 
   aplicar(DB) {

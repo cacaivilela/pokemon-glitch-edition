@@ -1,0 +1,24 @@
+<!doctype html>
+<!-- AS CINCO FORMAS DA SALA DA LIGA DE BRAGLITCH (src/systems/ligabrag.js), lado a
+     lado. Uso: http://localhost:5173/dev/ligabragcheck.html -->
+<meta charset="utf-8"><title>Sala da Liga de Braglitch</title>
+<style>
+  body { background:#1a1a22; color:#eee; font:13px ui-monospace, monospace; margin:0; padding:12px 16px; }
+  #salas { display:flex; flex-wrap:wrap; gap:12px; }
+  canvas { image-rendering:pixelated; width:480px; max-width:100%; display:block; }
+  .c { background:#2a2a34; padding:6px; border-radius:8px; }
+</style>
+<b>AS CINCO FORMAS DA SALA DA LIGA DE BRAGLITCH</b>
+<div id="salas"></div>
+<script type="module">
+import { DB } from "../src/data/index.js";
+import { salaDe } from "../src/systems/ligabrag.js";
+const geo = DB.KANTO.liga_brag_sala, L = DB.LIGA_BRAG;
+const temas = [...L.lideres.map((l) => [l.tema, l.nome]), [L.temaCampeoes, "CAMPEÕES"]];
+for (const [tema, nome] of temas) {
+  const d = document.createElement("div"); d.className = "c";
+  const cv = salaDe(tema, geo);
+  d.append(cv); d.insertAdjacentHTML("beforeend", `<div>${tema.toUpperCase()} — ${nome}</div>`);
+  document.getElementById("salas").append(d);
+}
+</script>

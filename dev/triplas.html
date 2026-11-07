@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Fusões Triplas</title>
+<!-- prova das FUSÕES TRIPLAS (pedido do CAIO: "melhore as fusões triplas"):
+     várias de uma vez, do jeito que o jogo monta. ?l=pikachu.charmander.machamp,... -->
+<style>
+ body{margin:0;background:#1b2030;color:#eef2ff;font:14px system-ui,sans-serif}
+ h1{color:#ffd860;font-size:22px;margin:12px 16px}
+ main{display:flex;flex-wrap:wrap;gap:12px;padding:0 16px 16px}
+ .c{background:#262d42;border-radius:10px;padding:8px;text-align:center;width:200px}
+ canvas{width:192px;height:192px;image-rendering:pixelated;background:#fff;border-radius:8px}
+ b{color:#ffd860}
+</style></head><body>
+<h1>🧬 FUSÕES TRIPLAS</h1><main id="m"></main>
+<script type="module">
+import { DB } from "/src/data/index.js";
+import { Assets } from "/src/core/assets.js";
+import { pedirMon } from "/src/core/sprites.js";
+import * as F from "/src/systems/fusao.js";
+Assets.init?.();
+const q = new URLSearchParams(location.search);
+const L = (q.get("l") || "pikachu.charmander.machamp,articuno.zapdos.moltres,bulbasaur.squirtle.charizard,gengar.snorlax.ponyta,eevee.lucario.blaziken,mudkip.gyarados.machamp,psyduck.onix.dragonite,meowth.slowpoke.tauros").split(",").map((t) => t.split("."));
+const m = document.getElementById("m");
+for (const [a, b, c] of L) {
+  for (const id of [a, b, c].filter(Boolean)) { const sp = DB.SPECIES[id]; if (sp) pedirMon(sp.id, sp.spriteDex || sp.dex); }
+}
+for (let k = 0; k < 40; k++) { if (L.flat().filter(Boolean).every((id) => (Assets.mon(id, 7)?.width || 0) > 16)) break; await new Promise((r) => setTimeout(r, 150)); }
+for (const [a, b, c] of L) {
+  const id = F.idFusao(a, b, "", c || ""), sp = F.garantirEspecie(id);
+  const d = document.createElement("div"); d.className = "c";
+  const cv = document.createElement("canvas"); cv.width = 64; cv.height = 64;
+  const g = cv.getContext("2d"); g.imageSmoothingEnabled = false;
+  const img = Assets.mon(id, 7); if (img) g.drawImage(img, 0, 0, 64, 64);
+  d.append(cv); d.insertAdjacentHTML("beforeend", `<div><b>${sp?.name || "?"}</b></div><div>${[a, b, c].filter(Boolean).join(" + ")}</div>`);
+  m.append(d);
+}
+</script></body></html>

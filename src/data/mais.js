@@ -676,6 +676,10 @@ for (const line of TABLE.trim().split("\n")) {
   };
 }
 
+// o ETERNATUS aprende o RAIO ETERNO (que transforma ele em ETERNAMAX; o
+// ETERNAMAX aprende o mesmo que ele, src/data/extra.js)
+if (MAIS.eternatus) MAIS.eternatus.learnsetExtra = [[88, "raioeterno"]];
+
 /** as regras de evolução (troca e felicidade viraram nível, como no resto do jogo) */
 export const EVO_MAIS = {
   girafarig: [{ lvl: 32, to: "farigiraf" }],

@@ -129,9 +129,6 @@ export const MINA_LORE = {
   ...LORE_BRAG,
 };
 
-/** Preço de venda dos achados que nenhuma loja vende. */
-export const MINA_VENDA = { "pepita": 5000, "pepita grande": 20000, "estrela": 1500 };
-
 export const MINEIRO = {
   id: "mineiro", x: 20, y: 30, sprite: "montanhista", dir: "down", mineracao: true,
 };

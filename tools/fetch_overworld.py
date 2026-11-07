@@ -78,6 +78,11 @@ LIDERES = {
     "sabrina": "sabrina",
     "blaine": "blaine",
     "giovanni": "giovanni",
+    # a ELITE 4 DE KANTO (a LIGA, nov/2026)
+    "lorelei": "lorelei",
+    "bruno": "bruno",
+    "agatha": "agatha",
+    "lance": "lance",
 }
 
 # (linha, coluna) -> índice do quadro no original; -1 = repete o parado da linha

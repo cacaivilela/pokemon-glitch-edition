@@ -19,5 +19,8 @@ export const VERSAO = "2026-10-04.8";
  *  trios), das PROVAÇÕES espalhadas por Kanto e do MEWTHREE; o VOL. 5 foi o de
  *  BRAGLITCH, do mundo ISOMÉTRICO e das configurações de FALA; o VOL. 6 é o do
  *  RIVAL GÊMEO, da LIGA DE BRAGLITCH (o ELITE QUIZ e a final em dupla), da
- *  cutscene da MEGA EVOLUÇÃO e das MEGAS DESCONTROLADAS. */
-export const VOLUME = "VOL. 6";
+ *  cutscene da MEGA EVOLUÇÃO e das MEGAS DESCONTROLADAS. O VOL. 7 é o do
+ *  PAINTBALL de Celadon (e das FICHAS do cassino), dos DOCES do ALCREMIE (com
+ *  os do Brasil), dos ITENS DE SEGURAR, da missão das CORES TRAVADAS, do MEIO
+ *  PASSO no andar, da evolução do FireRed e do fundo de FOGOS DE POKÉMON. */
+export const VOLUME = "VOL. 7";

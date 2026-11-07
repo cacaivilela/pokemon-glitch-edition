@@ -57,6 +57,12 @@ import { DB } from "./src/data/index.js";
 import { trainerArt } from "./src/core/sprites.js";
 import { Assets } from "./src/core/assets.js";
 import { desenharQuadro, pedirArtes, QUADRO } from "./src/scenes/tirinha.js";
+import { carregarDLC, aplicarDLC, ligarDoLink } from "./src/systems/dlc.js";
+
+// os DLCs ligados também põem tirinha no caderno (a GLITCH DIMENSION EXTREMA)
+ligarDoLink();
+await carregarDLC();
+aplicarDLC();
 
 Assets.init();                      // as formas da arte provisória (o jogo faz isso no main.js)
 const T = DB.TIRINHAS, caderno = document.getElementById("caderno"), indice = document.getElementById("indice");

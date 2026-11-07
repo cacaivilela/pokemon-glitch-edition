@@ -19,6 +19,7 @@ const baseDe = (mon) => mon.megaDe || mon.species;
  *  CARDUME do WISHIWASHI se desfaz no banco (ele volta SOLITÁRIO). */
 export function saiuDaLuta(mon) {
   if (!mon) return;
+  desfazerTransformacao(mon);        // o DITTO que sai da luta volta a ser DITTO
   if (baseDe(mon) === "palafin") SAIU.add(mon);
   if (mon.species === "wishiwashicardume") {
     const frac = mon.hp / mon.maxHp;
@@ -54,4 +55,57 @@ export function ajustarForma(mon) {
   if (quer === "wishiwashi") return `O CARDUME DE ${mon.nickname} SE DESFEZ!`;
   if (quer === "palafinheroi") return `${mon.nickname} VOLTOU COMO HERÓI!`;
   return null;
+}
+
+/** O ETERNAMAX (pedido do CAIO, nov/2026): o RAIO ETERNO transforma o
+ *  ETERNATUS (src/scenes/battle.js `virarEternamax`), e ele FICA assim depois
+ *  da batalha — só volta a ser ETERNATUS quando desmaia ou quando é curado no
+ *  CENTRO POKÉMON. Por isso não usa o `megaDe` da MEGA (que se desfaz no fim
+ *  de toda luta e ao abrir o jogo): guarda de onde veio em `eternamaxDe`. */
+export function virarEternamax(mon) {
+  if (!mon || mon.species !== "eternatus" || mon.megaDe || mon.eternamaxDe || !DB.SPECIES.eternatuseternamax) return false;
+  const frac = mon.hp / mon.maxHp;
+  mon.eternamaxDe = mon.species;
+  mon.species = "eternatuseternamax";
+  recalc(mon);
+  mon.hp = Math.max(1, Math.min(mon.maxHp, Math.round(frac * mon.maxHp)));
+  return true;
+}
+
+/** volta a ser ETERNATUS (desmaiou, ou o CENTRO POKÉMON curou). */
+export function voltarDoEternamax(mon) {
+  if (!mon?.eternamaxDe) return false;
+  const de = mon.eternamaxDe;
+  delete mon.eternamaxDe;
+  if (!DB.SPECIES[de]) return false;
+  mon.species = de;
+  recalc(mon);
+  mon.hp = Math.min(mon.hp, mon.maxHp);
+  return true;
+}
+
+/** A TRANSFORMAÇÃO do DITTO (o golpe `transformacao`): vira a cópia de `alvo`.
+ *  Guarda o que ele era em `mon.transformado` (a espécie, os golpes e a vida). */
+export function transformar(mon, alvo) {
+  if (!mon || !alvo || mon.transformado) return false;
+  mon.transformado = { species: mon.species, moves: mon.moves.map((m) => ({ ...m })), maxHp: mon.maxHp };
+  const hp = mon.hp, maxHp = mon.maxHp;
+  mon.species = alvo.species;
+  recalc(mon);
+  mon.maxHp = maxHp; mon.hp = Math.min(hp, maxHp);           // a vida continua a do DITTO
+  mon.moves = alvo.moves.map((m) => ({ id: m.id, pp: 5, ppMax: 5 }));
+  return true;
+}
+
+/** volta a ser DITTO (fim da luta, desmaio, troca). */
+export function desfazerTransformacao(mon) {
+  const t = mon?.transformado;
+  if (!t) return false;
+  delete mon.transformado;
+  const hp = mon.hp;
+  mon.species = t.species;
+  mon.moves = t.moves;
+  recalc(mon);
+  mon.hp = Math.min(hp, mon.maxHp);
+  return true;
 }

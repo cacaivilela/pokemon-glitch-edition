@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>checagem do SEGURAR A TAMPA</title>
+<style>
+  body { background:#111; color:#9fd; font:13px/1.45 ui-monospace,monospace; margin:0; padding:10px; }
+  .erro { color:#f66; } .ok { color:#7f7; }
+  canvas { image-rendering:pixelated; margin:6px 8px 0 0; vertical-align:top; }
+</style>
+</head>
+<body>
+<div id="out">rodando...</div>
+<div id="arte"></div>
+<script type="module">
+// SEGURAR A TAMPA (src/systems/tampa.js): a regra sozinha e três quadros da
+// batalha: sem mão, segurando e no APERTÃO, desenhados na mão.
+const out = document.getElementById("out");
+const arte = document.getElementById("arte");
+const linhas = [];
+const p = (t, cls = "") => linhas.push(`<div class="${cls}">${t}</div>`);
+let falhas = 0;
+const ok = (t, c) => { if (!c) falhas++; p(`${t}: ${c ? "OK" : "FALHOU"}`, c ? "ok" : "erro"); };
+try {
+  const { jeitoDaMao, ajudaDaMao } = await import("/src/systems/tampa.js");
+  ok("sem a mão, nada muda", ajudaDaMao(jeitoDaMao(false, null, 5)) === 0);
+  ok("segurando, ajuda um pouco", ajudaDaMao(jeitoDaMao(true, 1, 5)) > 0);
+  ok("apertar no ! ajuda mais", ajudaDaMao(jeitoDaMao(true, 5.1, 5)) > ajudaDaMao(jeitoDaMao(true, 1, 5)));
+  const fr = document.createElement("iframe");
+  fr.width = 240; fr.height = 160; fr.style.opacity = "0.01";
+  fr.src = "/index.html?map=route1&starter=bulbasaur:20&battle=pidgey&lvl=5&perfil=tampa-teste";
+  document.body.appendChild(fr);
+  const espera = async (cond, ms = 12000) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) { try { if (cond()) return true; } catch {} await new Promise((r) => setTimeout(r, 50)); }
+    return false;
+  };
+  const subiu = await espera(() => fr.contentWindow?.game?.scenes?.top?.constructor?.name === "BattleScene");
+  ok("a batalha abriu", subiu);
+  if (subiu) {
+    const cena = fr.contentWindow.game.scenes.top;
+    cena.showTrainer = false;
+    Object.assign(cena.sp.f, { alpha: 0, blink: 0, lunge: 0, dx: 0, dy: 0 });
+    Object.assign(cena.sp.p, { alpha: 1, blink: 0, lunge: 0, dx: 0, dy: 0 });
+    cena.dlg.queue.length = 0; cena.dlg.active = false; cena.menu = null;
+    const cv = document.createElement("canvas");
+    cv.width = 720; cv.height = 320;
+    const c = cv.getContext("2d"); c.imageSmoothingEnabled = false;
+    const um = document.createElement("canvas"); um.width = 240; um.height = 160;
+    const u = um.getContext("2d"); u.imageSmoothingEnabled = false;
+    const quadros = [
+      { segura: false, sinal: true, jeito: null, efeito: 0 },
+      { segura: true, sinal: false, jeito: "segurando", efeito: 0.2 },
+      { segura: true, sinal: true, jeito: "apertao", efeito: 0.2 },
+    ];
+    quadros.forEach((mao, i) => {
+      cena.ballAnim = { t: 0.7, shakes: 0, mao };
+      u.clearRect(0, 0, 240, 160);
+      cena.render(u);
+      c.drawImage(um, (i % 3) * 240, 0, 240, 160);
+      c.drawImage(um, 120, 10, 120, 80, (i % 3) * 240, 160, 240, 160);
+    });
+    arte.append(cv);
+    fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "tampa", dataUrl: cv.toDataURL(), log: "tampa" }) }).catch(() => {});
+  }
+  p(falhas ? `<br>${falhas} FALHA(S)` : "<br>tudo certo.", falhas ? "erro" : "ok");
+} catch (e) {
+  p("EXPLODIU: " + (e?.stack || e), "erro");
+}
+out.innerHTML = linhas.join("");
+document.title = falhas ? "FALHOU" : "PRONTO";
+</script>
+</body>
+</html>

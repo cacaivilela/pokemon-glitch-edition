@@ -110,7 +110,11 @@ Batalha por turnos completa: os 16 tipos de Kanto com a tabela do FireRed, STAB,
 crítico, queimadura/paralisia/veneno, alterações de atributo, PP, XP, level up,
 aprender golpe, troca de Pokémon, item e captura com a fórmula de chacoalhada.
 
-**Animações**: transição de batalha com flashes e barras, sprites entrando
+**Animações**: entrada de batalha de três jeitos — **redemoinho** no
+selvagem, **VS** com você e o treinador em duas faixas no treinador, e a **tela
+rachando** em cacos no chefe (líder de ginásio, raid, totem, lendário, mega
+descontrolada) — com a música da batalha já começando nela
+(`entrarEmBatalha`, em `src/scenes/overworld.js`), sprites entrando
 deslizando, avanço no golpe, piscada ao levar dano, queda ao desmaiar, barra de
 HP animada, tufo de grama ao pisar na grama alta, caminhada de 4 quadros e Poké
 Bola chacoalhando na captura.
@@ -729,8 +733,15 @@ na hora e registrada em `DB.SPECIES` — como o id carrega os dois lados, dá pr
 remontar a espécie só de olhar pro save (`registrarDoEstado`, em
 `src/systems/fusao.js`, roda no boot, ao adotar um save de fora e a cada
 hot-swap). O sprite também é montado na hora, sempre em **64x64** (o tamanho do
-sprite do jogo): corpo inteiro recolorido com a cor da cabeça, e a cabeça por
-cima até a linha do pescoço.
+sprite do jogo), por `src/systems/montagem.js` — a mesma conta que a oficina de
+fora (FUSIONGLITCH) usa: acha o pescoço de cada um (a linha mais fina no meio
+do desenho), tira só o pedaço da cabeça (rabo e asa que sobem pelo lado ficam;
+cabeça grudada em braço ou em corpo de cobra sai só na largura da cabeça
+nova), pinta cada família de cor do corpo com uma família de cor da cabeça
+mantendo a luz de cada pixel (sombra continua sombra; barriga branca fica
+branca, a não ser que o bicho todo seja cinza), senta a cabeça nova no meio do
+pescoço do corpo e costura: sombra embaixo do queixo, contorno onde ele ficou
+no ar e no ombro que ficou aberto.
 
 Diferente da MEGA, **a fusão fica**: ela é gravada no save e sobrevive à troca
 online (do outro lado a espécie é remontada pelo id).
@@ -799,20 +810,29 @@ A oficina também existe **fora do jogo**, numa página só:
 [`fusionglitch/`](http://cacaivilela.github.io/pokemon-glitch-edition/fusionglitch/)
 (o endereço curto **cacaivilela.github.io/fusionglitch** leva pra ela). Ali dá pra: escolhe os dois pelo número ou
 pelo nome, monta a fusão automática, deixa desenhar por cima com o mouse (tela
-grande, pincel de 1 a 8, balde, conta-gotas, sete paletas, desfazer), e a ficha
+grande com zoom, pincel de 1 a 8, balde, conta-gotas, linha reta, espelhar,
+contorno, sete paletas, desfazer e refazer — CTRL+Z / CTRL+Y), e a ficha
 sai como um arquivo `.fusao.json` — o desenho vai dentro.
+
+A **montagem automática da página** é a do jogo (`src/systems/montagem.js`,
+importada do jogo como os sprites). E cada um dos dois tem **◀ ▶ pro quadro da animação** (a mesma do jogo,
+`assets/sprites/pokemon/anim/`): a pose escolhida é a que entra na montagem e
+nas peças. Quadro repetido sai da lista; PARADO é o sprite de sempre.
 
 A lista de espécies dela (`fusionglitch/especies.js`) é uma **cópia**: a página
 precisa funcionar aberta pelo endereço público, sem servidor, então ela não
 importa `src/data/`. Cópia feita à mão envelhece — foi o que aconteceu quando
 RAMPARDOS e BASTIODON entraram no jogo e a oficina não soube. Agora ela é
-gerada: `python3 tools/gera_especies.py` reescreve o arquivo a partir das
-mesmas tabelas que montam `DB.SPECIES` — `gen1.js`, `extra.js`, `iniciais.js`,
-`eras.js`, `regionais.js`, `bones.js` e `decamark.js` —, e `--ver` só diz se
-está desatualizada (e sai com erro se estiver). Mexeu numa espécie, rode. A
+gerada: `python3 tools/gera_especies.py` reescreve o arquivo a partir do
+**próprio `DB.SPECIES`** (`tools/especies_do_jogo.mjs` carrega o jogo no node;
+precisa do node), e `--ver` só diz se está desatualizada (e sai com erro se
+estiver). Antes ela lia tabela por tabela, e toda tabela nova ficava de fora —
+em out/2026 eram 471 espécies na oficina contra 1400 no jogo, e o ETERNATUS
+não aparecia. Mexeu numa espécie, rode. A
 lista tem **tudo que o DECODIFICADOR aceita** (`especiePorTexto`: qualquer
 espécie que não seja MEGA nem fusão): as formas regionais e os bonés vão com o
-arquivo do sprite deles (`sprite`, o `spriteDex` do jogo) e a região, e o
+arquivo do sprite deles (`sprite`, o `spriteDex` do jogo) e a região, a forma
+única vai com o caminho inteiro do desenho (`url`), e o
 `??????????` vai com `sprite: "decamark"`. Na página, o número sozinho (`037`)
 é a forma de Kanto; a de Alola se escolhe pelo nome ou pela lista
 (`037 VULPIX-ALOLA`). `dev/fusionglitchcheck.html` confere a cópia contra o
@@ -1749,6 +1769,22 @@ virando atributo (e o HP ficando de fora), os `stats` gravados intactos, o byte
 dando a volta em 270 → 14, o bug sumindo no fim, e a casca da raid segurando o
 dano até quebrar e deixar o resto passar.
 
+### Eventos e ULTRA RAIDS
+
+Os eventos com data (`src/data/eventos.js`) põem **raids fixas** num lugar do
+mapa, uma vez por ano cada. Um evento pode ter várias épocas (`janelas`) e pode
+ser **`ultra`**: enquanto ele está aberto, todo rasgo que abre é um **ULTRA
+BURACO** (redondo, com anéis de luz e confete), o que sai dele é uma ultra beast
+e a luta é uma **ULTRA RAID** — mesma raid, sem ser glitch: música normal da
+região, BARREIRA amarela no lugar da CASCA, textos de `STORY.ultra`.
+
+O **CARNAVAL DAS ULTRA BEASTS** é assim: de 30/10 a 15/11 (a primeira vez) e
+de 5/2 a 17/2 todo ano, com oito ULTRA RAIDS fixas desfilando dos dois lados da
+avenida da praça do ARCEUS REDENTOR, no RIO DE JANEEVEE. Cada uma tem
+`fantasia: "CARNAVAL"`: usa a forma única daquele bicho (UNIQUEMON) que tem
+CARNAVAL no nome, e o bicho de sempre enquanto ela não existe. Pra testar fora
+da data: `?data=2027-02-10` na URL.
+
 ## POKÉSAVE: jogar como um Pokémon
 
 A página [`pokesave/`](pokesave/) monta uma partida em que **você é um
@@ -1941,14 +1977,9 @@ sempre), a parede ceder no 6º esbarrão, e a remontagem depois do hot-swap.
 Pra ver no jogo: `?map=pallet&zona=1` (ou `?zona=lavender_town` pra escolher a
 entrada).
 
-### GLITCHZONE: montar uma zona e mandar o link
+### GLITCH ZONE por link
 
-A oficina [`glitchzone/`](glitchzone/) pega um mapa de Kanto e deixa **trocar
-os tiles de lugar na mão**: clique num tile, depois em outro, e os dois trocam
-— desenho e colisão juntos (pedaço de 1x1 a 4x4). Dá pra começar do mapa
-inteiro ou do embaralhado que o jogo faz sozinho (semente, bloco, soltos), ver
-a colisão por cima, escolher **onde se cai** (que é o vão de volta), dar nome e
-**copiar o link**. A zona inteira mora no link:
+Uma zona inteira cabe num link:
 
 ```
 ?area=fonte.semente.bloco.soltos.x.y.trocas[.nome]
@@ -1962,11 +1993,144 @@ trocas dentro do mapa e chão onde se cai; link torto é ignorado com aviso no
 console. As trocas ficam em `st.zona.trocas` e são aplicadas por cima da
 permutação da semente, então continua sendo o mesmo conjunto de tiles da fonte
 em outra ordem. `dev/zonacheck.html` também testa o código (ida e volta, troca
-na mão, nome na faixa, link torto).
+na mão, nome na faixa, link torto). (A oficina que montava esses links, a
+GLITCHZONE, saiu; os links continuam valendo.)
+
+### As montarias voadoras
+
+Quem da equipe sabe VOAR também te leva nas costas: no menu, VOAR LIVRE (o
+VOAR de sempre continua sendo a lista de cidades). Montado você voa por cima
+de árvore, casa, água e gente, correndo, sem selvagem nenhum; pra descer,
+menu → POUSAR (em chão livre ou mato). CHARIZARD, DRAGONITE, PIDGEOT,
+SALAMENCE, LUGIA e HO-OH têm modelo 3D (`src/core/gigante3d.js`,
+`MONTARIAS_3D`): batem as asas, viram pra onde você vai e você vai sentado
+na sela (só montados: te seguindo e no mato eles são o sprite de sempre). Os outros
+voam no sprite de batalha, com você em cima. `?montaria=charizard,lugia` põe
+eles na equipe sabendo VOAR; `dev/montariascheck.html` (os modelos nas quatro
+direções) e `dev/montarcheck.html` (no jogo) testam.
+
+### Os Pokéblocos
+
+Como no Ruby/Sapphire (`src/data/pokeblocos.js`, contas em
+`src/systems/pokeblocos.js`). As berries têm os cinco sabores dos jogos
+(picante, seco, doce, amargo, azedo). Elas são vendidas ao lado do palco do
+concurso em Cinnabar e dão nos ARBUSTOS da MATA DAS FRUTAS (Ilha Três): cada um
+dá uma berry e volta a dar depois de 20 minutos de jogo, e os do fundo dão as
+raras. No LIQUIDIFICADOR DE BERRIES (Cinnabar, `src/scenes/liquidificador.js`)
+vão até quatro berries diferentes; você aperta A quando a seta passa no verde,
+oito voltas, e o ritmo deixa o pokébloco mais forte e mais macio. A cor sai dos
+sabores (um sabor: a cor dele; dois: misturada; três ou mais: cinza, ou dourado
+se ficou forte; berry repetida estraga e dá preto). Cada pokébloco tem uma
+RESISTÊNCIA (a dureza das berries; a CHESTO, a ASPEAR, a GANLON e a STARF são
+duras) e um PESO (a SITRUS, a LANSAT e a STARF pesam mais). Na primeira vez a
+máquina dá o ESTOJO DE POKÉBLOCOS, que só abre na mochila da BATALHA, contra
+SELVAGEM: você joga um pokébloco e ele come (gasta o turno).
+- Comendo, ele fica MAIS FÁCIL DE PEGAR (até 3x, quanto mais sabor, mais); a
+  resistência diz quantos turnos isso dura.
+- O peso enche a barriga (bicho grande aguenta mais). Encheu demais: ele fica
+  GORDO, é mais difícil de pegar (metade) e não come mais.
+- Pokébloco PESADO (peso 6+) dá +1 de DEFESA a ele e, enquanto o efeito dura,
+  ele fica MAIS LARGO na tela.
+- Pegou um que comeu pesado: ele vem com o GARFO (ψ) depois do nome, fica 6 kg
+  mais pesado por pokébloco pesado (vale no PISÃO e nas habilidades de peso) e
+  a defesa ganha 1 a mais a cada 3 níveis. O garfo fica quando ele evolui.
+`?berries=1` começa com 3 de cada berry;
+`dev/pokeblococheck.html` testa tudo.
+
+### As músicas de batalha
+
+A música da batalha depende de onde ela é (`src/systems/musicabatalha.js`).
+Ela começa **na entrada da batalha**, ainda no mapa, e a cena da batalha não
+recomeça a mesma música (`Audio2.estaTocando`):
+
+- **Kanto**: as do **Red/Blue** de verdade — Pokémon selvagem, treinador, líder
+  de ginásio (quem dá insígnia) e a batalha final (chefes e lendários). As notas
+  vêm do [pret/pokered](https://github.com/pret/pokered) (copiadas em
+  `tools/pokered_musicas/`; `tools/musicas_gb.py` gera `src/data/musicas-gb.js`)
+  e tocam no mesmo imitador do chip do Game Boy dos gritos (`src/core/gb.js`,
+  com o canal de onda e o vibrato do motor), em laço, voltando onde o jogo voltava.
+- **Braglitch**: original, mas escrita do jeito das de Kanto — no formato de
+  música do pokered (`tools/batalha_braglitch.py` gera
+  `tools/musicas_proprias/braglitchbattle.asm`, que o `tools/musicas_gb.py` lê)
+  e tocada no mesmo chip do Game Boy — mas é um FORRÓ: a sanfona sobe a escala
+  e a zabumba toca sozinha um compasso, o tema é sincopado na escala do baião
+  (ré mixolídio com o sol sustenido), o segundo canal canta uma terça abaixo
+  (a sanfona em terças), o canal de onda faz o baixo do baião e o canal 4 (o
+  chiado, que as do Red/Blue não usam) é a zabumba e o triângulo. O baião de
+  antes, com os instrumentos do jogo, ficou como `batalhaBraglitchBaiao`.
+- **Kalos (Lumiose)**: a batalha selvagem do **X/Y**, copiada de uma
+  transcrição em MIDI do VGMusic (guardada em `tools/midis/`):
+  `tools/midi_pra_musica.py` lê o MIDI sem biblioteca nenhuma e
+  `tools/musica_lumiose.py` gera `src/data/musica-lumiose.js` — cada
+  instrumento num canal, a introdução tocando uma vez (`intro`) e o laço depois.
+  Toca com a banda do arranjo do **Legends Z-A** (jazz-funk): saxofone, piano
+  elétrico, metais, guitarra limpa, marimba, baixo funk e bateria — os timbres
+  de `src/core/timbres.js`, que agora servem pra música também (`timbre` no
+  canal) — e a bateria inteira num canal só (o modo `kit` do conversor).
+
+A batalha glitch e a da mega descontrolada continuam com as delas.
+`dev/musicas.html` toca as seis.
+
+**Todas as músicas tocam na mesma altura.** Toda nota de música passa por um
+fio só (`saidaMusica` em `src/core/audio.js`), e o ganho dele é o ajuste da
+música que está tocando (`src/data/volumes-musica.js`). Os ajustes foram
+MEDIDOS: `dev/volumes.html` toca cada música escondido (chrome headless com
+`--autoplay-policy=no-user-gesture-required`), mede o volume de verdade e
+calcula quanto cada uma sobe ou desce pra chegar na altura da do meio
+(`?conferir=1` mede de novo com os ajustes ligados). Música nova: rodar de novo
+e passar o resultado (`dev/captures/volumes.log`) pro arquivo.
+
+### Os gritos originais
+
+Todo Pokémon de verdade — e as formas oficiais (Alola, Galar, Hisui, Paldea,
+mega), que nos jogos têm o grito do normal — toca o **grito original**, pelo
+número da Pokédex:
+
+- **Kanto (1–151)**: o do **Red/Blue**, e **Johto (152–251)**: o do
+  **Crystal**. Os dois tocados por `src/core/gb.js`, que imita o chip de som do
+  Game Boy (duas ondas quadradas que trocam de formato a cada quadro, o chiado
+  de 15 bits, o volume em degraus, o tom escorregando do Crystal, o motor a
+  59,7 quadros por segundo). Os dados vêm do
+  [pret/pokered](https://github.com/pret/pokered) e do
+  [pret/pokecrystal](https://github.com/pret/pokecrystal): só os arquivos que
+  interessam, copiados em `tools/pokered_gritos/` e `tools/pokecrystal_gritos/`;
+  `tools/gritos_gb.py` gera `src/data/gritos-gb.js` a partir deles.
+- **Hoenn em diante (252–1025)**: desde o GBA o grito é gravação, não nota,
+  então é o arquivo: `assets/gritos/<número>.mp3`, da
+  [PokeAPI](https://github.com/PokeAPI/cries) (até o 649 a versão antiga, dos
+  jogos daquela época; dali pra frente, a atual).
+
+Fakemons, formas -BRAG, de vínculo, o ZYGARDE 200% e as fusões continuam com
+os gritos escritos de `src/data/gritos.js`, e a onomatopeia da Pokédex é
+sempre a de lá. Um grito ativado no ESTÚDIO DE GRITOS ainda ganha de tudo.
+`dev/gritosgb.html` toca os originais, região por região, do lado do antigo.
+
+### ESTÚDIO DE GRITOS: editar o som de um Pokémon
+
+A oficina [`estudio/`](estudio/) edita o **grito de qualquer Pokémon**, com o
+mesmo sintetizador do jogo: escolha o Pokémon, e o grito aparece como um
+**rolo** — cada sílaba é uma linha no tempo, subindo ou descendo de tom. Dá pra
+arrastar o tom do começo e do fim e a duração de cada sílaba, trocar a onda
+(quadrada, pulso, fina, triângulo, serra, seno, chiado, silêncio), pôr vibrato e
+ruído, e jogar **efeitos** no grito inteiro: 2× rápido/lento, **10× (estilo
+REGIGLITCH)**, oitava acima/abaixo, ao contrário, gaguejar, repetir, glitchar e
+**misturar com o grito de outro Pokémon** (uma sílaba de cada, em rodízio — a
+receita do grito do REGIGLITCH). Desfaz com Ctrl+Z; espaço toca.
+
+O que você salva vai pra **GALERIA**, e cada grito da galeria pode ser
+**ATIVADO**: daí em diante aquele Pokémon grita assim no jogo — batalha, mapa,
+companheiro — **só neste aparelho**. A galeria e os ativos moram no
+`localStorage` do navegador (`pge.gritos`, `src/core/gritosmeus.js`), como as
+opções: nada vai pro save, pro servidor ou pra quem joga com você online. Pra
+mostrar um grito pra alguém, **COPIAR CÓDIGO** dá um texto `PGE-GRITO:…` que a
+pessoa cola na galeria dela (entra desativado: ativar é escolha de cada um).
+`gritoDe` (src/systems/gritos.js) consulta o aparelho antes de tudo, e o jogo
+aberto noutra aba pega a mudança na hora. `?mon=pikachu` abre o estúdio já num
+Pokémon.
 
 ## DLC: os pacotes extras
 
-Três pacotes vêm com o jogo, desligados. A página [`dlc/`](dlc/) liga e
+Oito pacotes vêm com o jogo, desligados. A página [`dlc/`](dlc/) liga e
 desliga cada um (a escolha fica no navegador, `localStorage` `pge.dlc`, não no
 save — a mesma partida roda com ou sem eles); `?dlc=torneio` liga por link
 (`?dlc=torneio,decamark` vários, `?dlc=nenhum` desliga todos).
@@ -2017,6 +2181,102 @@ E quatro que trazem, cada um, **nove PRESENTES MISTERIOSOS** por código
   floresta e nas Rotas 2 e 22, Hisui na Rota 10 e no Túnel de Pedra, Paldea nas
   Rotas 12 e 21; uma viajante em Celadon. Cartões `VIZINHAS001`–`VIZINHAS009`:
   um inicial de cada região (Johto a Paldea) e um MEOWTH-GALAR shiny.
+
+E um com história própria, que é o pós-jogo dos dois pós-jogos:
+
+- **GLITCH DIMENSION EXTREMA** (`dlc/extrema.js`): **UM ANO DEPOIS** do fim
+  da sua história. Começa quando UMA delas acabou: Kanto (`caughtMissingno`)
+  ou Braglitch (`bragCampeao`) — não precisa das duas; aí a tela escurece e diz "UM ANO DEPOIS...", e o OBJETIVO
+  do canto passa a contar a história do pacote (`DB.OBJETIVO_DLC`).
+  - **A festa.** Uma carteira (na VILA PALETA ou em SÃO LUCARIO, conforme
+    onde você começou) traz o convite dos professores e pede pra levar os
+    outros: quem começou em Kanto leva pro **AZUL**, que passou o ano treinando
+    **na frente de casa, em PALLET**, e só aceita depois de perder, com o time
+    da Rota 23 crescido; quem começou em Braglitch leva pro **VÍTOR** e
+    o **ANDRÉ**, no píer, com a lancha que o VÍTOR prometeu quando você virou
+    campeão (o motor é um ROTOM no centrifugar).
+  - **Você de um ano atrás.** Na festa, a máquina do CARVALHO (ou o
+    computador da IPÊ) apita e sai de lá **você mesmo**, com a sua cara, o
+    seu nome e o seu inicial no nível 5, querendo lutar. Depois da luta ele
+    pergunta se vai dar certo, e volta. É o tempo entortado: **o MISSINGNO
+    absorveu o GIRATINA**, e a GLITCH DIMENSION e o MUNDO DISTORCIDO viraram
+    uma coisa só.
+  - **O GLITNEXY** sai da máquina no lugar dele: um bichinho voador e comilão
+    com o formato do sinal de internet (o pontinho é a boca, os arcos são as
+    asas, o rabo é um cabo de rede), GLITCH/PSÍQUICO, desenhado pixel por
+    pixel em `tools/extrema_desenhos/glitnexy.py` (com shiny). Golpe próprio:
+    BAIXAR TUDO.
+  - **A fenda extrema.** A máquina e os fragmentos não levam mais lá
+    (`DB.FENDA_TRANCADA`): quem leva é o GLITNEXY, e só por um **ESPETINHO DE
+    BERRIES** (donut não), que **ele mesmo faz**: você escolhe três berries,
+    uma de cada vez, de até três tipos (vinte berries, da CHERI à STARF, em
+    toda loja; o professor dá dez ORAN e dez CHESTO quando você aceita o
+    pedido — e quem já tinha aceitado recebe também). Lá dentro **todo
+    selvagem tem +100 níveis**, e os do Mundo Distorcido (SABLEYE, DUSKNOIR,
+    DRIFBLIM, MISMAGIUS, o próprio GLITNEXY...) entram na tabela. **Capturado,
+    ele devolve os 100**: o 101 vira 1, o 150 vira 50.
+
+    O espetinho **empresta à sua equipe**, enquanto você está lá, a MÉDIA dos
+    níveis e dos atributos das três berries, e **cada tipo de berry dá um
+    poderzinho** — com a classe dele, que é honesta:
+
+    | berry | níveis | atributos | poder | classe |
+    |---|---|---|---|---|
+    | CHERI | +55 | +4% | +2% de velocidade | QUASE INÚTIL |
+    | RAWST | +56 | +4% | +2% de defesa | QUASE INÚTIL |
+    | ASPEAR | +57 | +4% | +1% na captura | QUASE INÚTIL |
+    | PERSIM | +58 | +5% | +2% de experiência | QUASE INÚTIL |
+    | ORAN | +60 | +5% | +2% na captura | QUASE INÚTIL |
+    | NANAB | +60 | +5% | +3% de defesa especial | QUASE INÚTIL |
+    | PINAP | +62 | +6% | +3% na captura | QUASE INÚTIL |
+    | CHESTO | +65 | +7% | +3% de experiência | QUASE INÚTIL |
+    | LEPPA | +66 | +8% | +8% de ataque especial | POUCO ÚTIL |
+    | FIGY | +68 | +8% | +8% de ataque | POUCO ÚTIL |
+    | PECHA | +70 | +10% | -10% no dano recebido | POUCO ÚTIL |
+    | LUM | +75 | +12% | -8% no dano recebido | POUCO ÚTIL |
+    | SITRUS | +85 | +15% | +25% de experiência | POUCO ÚTIL |
+    | GANLON | +88 | +15% | +12% de defesa | POUCO ÚTIL |
+    | APICOT | +88 | +15% | +12% de defesa especial | POUCO ÚTIL |
+    | SALAC | +95 | +18% | +20% de velocidade | ÚTIL |
+    | PETAYA | +95 | +18% | +20% de ataque especial | ÚTIL |
+    | LIECHI | +100 | +20% | +50% na captura | ÚTIL |
+    | LANSAT | +100 | +20% | +40% de experiência | ÚTIL |
+    | STARF | +105 | +22% | -20% no dano recebido | ÚTIL |
+
+    O espetinho também decide **quanto tempo você fica lá** (o relógio FENDA
+    no canto; quando zera, a fenda te devolve): cada berry vale 5, 10 ou 15
+    minutos pela classe, o espetinho é a média, e um **tempero** (um
+    ingrediente de sanduíche, que o GLITNEXY pergunta depois das berries) soma
+    3. Espetinho de um tipo só é "ESPETINHO DE ORAN"; misturado, **ganha nome
+    de Pokémon** (sempre o mesmo pra mesma mistura), e algumas misturas são
+    **receitas**, que valem mais que a média:
+
+    | espetinho | berries | tempero | tempo | níveis | atributos |
+    |---|---|---|---|---|---|
+    | **RAYQUAZA** (a melhor) | PETAYA, SALAC, STARF | HORTELÃ | 50 min | +130 | +35% |
+    | GROUDON | FIGY, LIECHI, GANLON | PIMENTA | 35 min | +115 | +28% |
+    | KYOGRE | ORAN, SITRUS, APICOT | LIMÃO | 35 min | +115 | +28% |
+    | MEW | LUM, LANSAT, PERSIM | MORANGO | 30 min | +105 | +25% |
+    | DARKRAI | 3 CHESTO | CAFÉ | 25 min | +90 | +15% |
+    | SNORLAX | 3 ORAN | MEL | 20 min | +80 | +12% |
+    | PIKACHU | CHERI, PINAP, NANAB | BANANA | 20 min | +80 | +12% |
+
+    Os poderes e a FORÇA DO ESPETINHO (os atributos) entram na mochila como
+    as PEDRAS de Braglitch (`src/systems/pedras.js`) e saem quando você sai;
+    os níveis voltam também, e a XP que juntou fica pra subir de verdade na
+    próxima batalha.
+  - **O GIRATINA**, nível 170, no fundo da fenda, com o MISSINGNO dentro.
+    Derrubar já liberta (é o que o pedido confere), mas ele está de pé de novo
+    na próxima viagem até ser capturado. Pego, ele vira o GIRATINA nível 70.
+
+  O que o motor ganhou pra isso, e qualquer pacote pode usar: `aoFalar` num
+  NPC (a conversa inteira em código), `DB.FENDA_TRANCADA(st)`,
+  `DB.OBJETIVO_DLC(st, regiao)`, nível acima de 100 (a dificuldade não corta, e a captura tira
+  os 100) e `nivelEmprestado` num Pokémon (a XP junta mas não sobe de nível, e
+  a evolução não conta o emprestado). Atalho:
+  `?extrema=convite|festa|glitnexy&dlc=extrema&perfil=teste` (`&regiao=braglitch`
+  pro caminho de lá); `dev/extremacheck.html` dá o espetinho, entra, confere os
+  +100 e o empréstimo, volta pelo portal e encosta no GIRATINA.
 
 Cada DLC é um módulo ES em `dlc/` que exporta um objeto com seções — `especies`,
 `golpes`, `evolucoes`, `itens`, `npcs`, `placas`, `encontros`/`encontrosExtra`,
@@ -2153,6 +2413,77 @@ eles não existem. Dentro de casa o teto não deixa; dentro da fenda o céu é o
 mesmo pedaço repetido, e dá pra ver onde ele emenda.
 
 (A tecla é **O**, e não D, porque D já é o "direita" do WASD.)
+
+### Os golpes
+
+São 280: os de `src/data/moves.js`, os golpes Z, os de clima, os de Kalos e
+**200 a mais** em `src/data/golpes-mais.js` — onze de cada tipo e dois do
+GLITCH, usando só os efeitos que a batalha já faz (queimar, paralisar,
+envenenar, subir ou baixar um atributo, crítico, prioridade e recuo). Todo
+Pokémon aprende alguns deles subindo de nível: até quatro do primeiro tipo e
+dois do segundo, escolhidos pelo nome da espécie (dois do mesmo tipo não
+aprendem a mesma lista), do mais fraco pro mais forte, depois do último golpe
+que ele já tinha e até o nível 58 (`maisGolpes` em `src/data/species.js`).
+A **prioridade** (ATAQUE RÁPIDO, JATO D'ÁGUA, SOCO BALA...) vale antes da
+velocidade em todas as batalhas.
+
+O **ZYGARDE 200%** (`zygarde200`: a base desenhada pelo CAIO em
+`dev/pixelart.html`, guardada em `tools/zygarde200_base.png`, e o acabamento
+de sombra em `tools/acabar_zygarde200.py`; a animação é quadro a quadro em
+`tools/anima_zygarde200.py`: ele arranha o ar, pula, solta três disparos do
+núcleo e corta os próprios disparos) sai do CUBO ZYGARDE, só pra quem já está
+COMPLETO. Toda forma do ZYGARDE aprende a **LUZ NULA** no nível 50; no 200% ela
+vira a **EXPLOSÃO DA VIDA OU MORTE** (`trocaGolpe`): 150 de poder, e o tipo é o
+da maior fraqueza do alvo (`maiorFraqueza` em `battle-engine.js`; tipo que a
+habilidade dele bloqueia, como TERRA no LEVITAR, não conta). Saindo do 200%,
+volta a ser LUZ NULA.
+
+### Os bichos 3D
+
+O mapa, o herói, os NPCs e as batalhas são 2D. Alguns bichos são **modelos 3D**
+(`src/core/gigante3d.js`), e ser 3D não é ser gigante: cada um tem o tamanho
+dele perto do herói. O **RAYQUAZA cruzando o céu** é do tamanho da tela.
+Ao ar livre, de vez em quando (1 em 900 passos; olhando pro céu com **O**, bem
+mais fácil), uma sombra imensa cruza o chão e ele passa por cima da tela, volta
+lá do fundo e fica dando voltas em cima de você, enrolado em anel. Aí ele desce:
+a **batalha é 2D**, nível 70, com o sprite de batalha de sempre. Pego, ele não
+passa mais (`flags.gigantes`) e **te segue em 2D com o sprite de batalha**,
+maior que o dos outros e boiando um pouco acima do chão. Fugiu ou caiu, ele
+sobe de volta e um dia passa de novo.
+
+O modelo é o **sprite de batalha dele em volta**: a paleta é a do
+`assets/sprites/pokemon/384.png` cor por cor, o corpo tem os anéis amarelos
+ligados por linha nos lados ("O—O—O") e os "∞" nas costas, as barbatanas são
+placas grossas com a lateral vinho e batem enquanto ele voa, o rabo é um
+tridente, e a cabeça tem chifres em lâmina, olho com pupila, bracinhos com
+garras brancas e a mandíbula que abre quando ele ruge. Ele é rasterizado ali
+mesmo, sem biblioteca, **na resolução do jogo**: cada pixel do modelo é um pixel
+da tela, a luz cai em degraus só nos tons da paleta (como alguém pintando à
+mão) e ele ganha o contorno preto de 1 pixel do sprite. Pra outro gigante,
+é mais uma entrada em `GIGANTES`. `?gigante=rayquaza` na URL faz ele passar no
+primeiro momento ao ar livre; `dev/gigantecheck.html` roda o evento inteiro
+(e `?seguir=1`, ele já pego te seguindo), com o save próprio `?perfil=gigantecheck`.
+
+Os **REGIS** (umas três alturas do herói) e os **lendários parados no mapa**
+(ARCEUS, DIALGA, PALKIA, XERNEAS e YVELTAL: os `ESTÁTICOS`) ficam **em pé em
+3D** onde estão (`LENDAS_3D`; os de quatro patas são montados de lado e o
+`giro` vira eles de 3/4). Quando um deles é alto e está logo acima de você, a
+câmera sobe pra cabeça caber (`panAlvo`). Na **011GLITCHDIMENSION110** o
+**RAYQUAZA selvagem** (o lendário raro do ar) não fica no céu, que lá não
+existe: ele **anda pelo mapa em 3D**, uns cinco heróis de comprido, com o corpo
+seguindo o rastro da cabeça, e ruge quando você chega perto
+(`desenharSolto`; `?rayquazasolto=1` faz ele ser o primeiro selvagem da fenda).
+
+O **ZYGARDE** tem as cinco formas em 3D (CÉLULA, NÚCLEO, 10%, 50% e COMPLETO)
+e a missão **O Z DO DNA** virou uma caçada (`ZYGARDE_CACADA` em
+`src/data/extra.js`): as células do fundo do TÚNEL ROCHA B1F se juntam num
+**10%**, e cada forma foge tantos tiles quanto a porcentagem dela: o 10% foge
+10, achado vira o **50%** e foge 50, achado vira o **COMPLETO** e foge 100, até
+a ROTA 10 — e lá ele luta (a missão pede o COMPLETO capturado). O OBJETIVO diz
+onde ele foi, e um rastro de células verdes no chão (que brilha no escuro do
+túnel) leva até ele, mapa por mapa (`rastro` em cada etapa). `dev/zygardecheck.html` roda a caçada inteira (`?rayquaza=1`: a
+serpente na fenda; `?lenda=dialga`: um estático), e `dev/regitamanho.html?ids=…`
+mede a altura de cada modelo ao lado do herói.
 
 ### As lanternas
 
@@ -2563,6 +2894,25 @@ antes de dar o resultado por bom. A única diferença que ela aceita é a cor
 debaixo de um pixel invisível (a paleta junta todo transparente numa cor só, e
 não existe jeito de isso mudar o que aparece na tela).
 
+Os **mapas iguais** guardam um arquivo só: os 16 Centros Pokémon do FireRed são
+o mesmo desenho, as lojas também, e vários andares (NAVEL ROCK, TORRE DO
+TREINADOR, TORRE POKÉMON) têm a mesma camada de cima. `tools/compacta_mapas.py`
+apaga os repetidos e escreve no `kanto.json` de quem o mapa pega o desenho
+(`png` pro chão, `pngOver` pra camada de cima); o jogo acha o arquivo por
+`arquivoMapa()` (src/core/sprites.js). Foram 151 arquivos a menos. Depois de
+rodar o `fetch_maps.py`, rode ele de novo:
+
+```bash
+python3 tools/compacta_mapas.py         # junta os mapas iguais
+python3 tools/compacta_mapas.py --ver   # só mostra quanto daria
+```
+
+E o último aperto, em out/2026: todos os PNGs passaram pelo `oxipng -o 2 -Z`
+(o zopfli, o compressor mais lento e mais apertado do PNG) — 2 a 3% a menos em
+cada pasta, conferido pixel por pixel. Trocar pra WebP sem perda daria uns 11%,
+mas aí nada mais seria `.png` (a oficina, as ferramentas e a edição pixel por
+pixel); ficou de fora de propósito.
+
 ### Sprite pequeno sem perder o olho
 
 Compactar **não muda o desenho** (o `compacta.py` confere pixel por pixel). O
@@ -2702,8 +3052,10 @@ assets/
   maps/                mapas renderizados + kanto.json (geometria e colisão)
 tools/                 fetch_sprites / fetch_overworld / fetch_trainers / fetch_maps / fetch_pesos / slice_sheet / png_io
                        itens_sprites (+ itens_desenhos/): os ícones dos itens, 16x16, em código
-                       gera_especies.py — reescreve a lista da oficina de fora a partir das tabelas
+                       gera_especies.py — reescreve a lista da oficina de fora a partir do DB do jogo
                        compacta.py — reescreve os PNGs em paleta, sem perder pixel
+                       compacta_mapas.py — mapas iguais viram um arquivo só (png/pngOver no kanto.json)
+                       extrema_desenhos/glitnexy.py — o GLITNEXY, pixel por pixel (DLC GLITCH DIMENSION EXTREMA)
 dev/smoke.html         teste headless com roteiro de teclas
 dev/cutscenecheck.html roda a cutscene de todos os golpes num palco de mentira
 dev/ciclocheck.html    anda com o relógio e confere a virada do dia e da noite
@@ -2719,7 +3071,7 @@ dev/habcheck.html      as habilidades e o clima: tabelas, peso, dano e o LAMPENT
 dev/travessiacheck.html o montanhista do MONTE LUA: $2500 e um item, ida e volta
 dev/crechecheck.html   a creche: crescer andando, o casal, o ovo, o PICHU e a amizade
 giveglitch/            versão web do mesmo terminal (fora do jogo)
-glitchzone/            oficina de GLITCH ZONES: troca tiles de lugar e gera o link ?area=
+estudio/               ESTÚDIO DE GRITOS: edita o grito de um Pokémon e ativa só neste aparelho
 dlc/                   a página dos DLCs e os sete pacotes (glitchcitytour, torneio, decamark, lendas, silph, festival, vizinhas)
 faxinamissingno/       a FAXINA MISSINGNO.: o acervo medido, com a senha pra jogar fora
 save/save.json         o save (um por máquina; fora do git)

@@ -6,12 +6,15 @@
 // choque, céu preto com fogos de artifício, a forma nova colorida entrando
 // com um soco de zoom, faíscas e a fanfarra. A música (MUSIC.evolucao) tem
 // 12,8 s e as fases somam isso: a virada da bateria cai bem no BUUM.
+import { contar as contarPesquisa } from "../systems/pesquisa.js";
 import { DB } from "../data/index.js";
 import { Assets, makeCanvas } from "../core/assets.js";
 import { Audio2 } from "../core/audio.js";
 import { Glitch } from "../systems/glitchfx.js";
 import { Dialogue } from "../systems/dialogue.js";
-import { evolveTo } from "../systems/mon.js";
+import { tocarGrito } from "../systems/gritos.js";
+import { Input } from "../core/input.js";
+import { evolveTo, createMon } from "../systems/mon.js";
 import { drawText, fade } from "../core/gfx.js";
 import { isoLigado, palcoIso, cubosIso, bichoNoPalco } from "../core/isometrico.js";
 
@@ -23,9 +26,18 @@ const SEPARA = 2.4;            // segundos se desmanchando
 const JUNTA = 5.5;             // segundos dos pixels voando até a forma nova
 const CARREGA = 3.2;           // a forma nova branca tremendo antes do BUUM (a última frase)
 const CLARAO = 0.5;            // tela branca antes de revelar
+// A ANIMAÇÃO DO BICHO ACELERANDO (pedido do CAIO): no "O QUÊ? ... ESTÁ
+// EVOLUINDO!" ela começa normal e vai ficando ANIM_MAX vezes mais rápida em
+// ANIM_RAMPA segundos — e para no quadro em que a evolução começa (é ele que
+// vira os pixels que se desmancham)
+const ANIM_MAX = 4;
+// depois do "PARABÉNS" + musiquinha (FANFARRA_TEMPOS tempos, a do FireRed), a
+// música da evolução continua, nesta fração do volume, até fechar a frase
+const FANFARRA_TEMPOS = 8.5;
+const EVOLUCAO_BAIXA = 0.75;      // era 0.5: "vai 3/4"
+const ANIM_RAMPA = 5;          // era 2.5: "faz ele acelerar mais devagar"
 const ATRASO_S = 0.9;          // os pixels não se soltam todos juntos...
 const ATRASO_J = 1.6;          // ...nem voam todos juntos
-const FANFARRA = 3.0;          // duração da fanfarra do BUUM, até a música de festa
 const BARRA = 18;              // altura das barras de cinema
 
 // MUDANÇA DE FORMA (o CUBO ZYGARDE, src/data/extra.js): o mesmo filme, com
@@ -39,9 +51,6 @@ const TEMAS = {
     luz: "150,255,170", particula: "120,255,140", celulas: true,
   },
 };
-
-/** o som de quem não toca nada (o MODO FUNDO): qualquer chamada vira nada */
-const MUDO = new Proxy({}, { get: () => () => 0 });
 
 const suave = (t) => t * t * (3 - 2 * t);
 const sai = (t) => 1 - (1 - t) * (1 - t);
@@ -67,15 +76,11 @@ function pixelsDe(img) {
 
 export class EvolutionScene {
   enter(args = {}) {
-    const { mon, to, estranho = false, forma = null, fundo = false } = args;
-    // MODO FUNDO (o fundo da tela de título, src/scenes/fundo-evolucoes.js): o
-    // filme inteiro, mas mudo, sem caixa de texto, sem mexer em bicho nenhum,
-    // sem tremer a tela do jogo e sempre reto — e ele não sai da pilha: quem
-    // toca olha `terminou` e põe outra no lugar
-    this.fundo = fundo;
-    this.som = fundo ? MUDO : Audio2;
-    this.gl = fundo ? { hit() {} } : Glitch;
-    this.terminou = false;
+    const { mon, to, estranho = false, forma = null, semParar = false } = args;
+    this.semParar = semParar;                       // evolução por pedra: B não para
+    // (o MODO FUNDO, do fundo antigo da tela de título, saiu em nov/2026)
+    this.som = Audio2;
+    this.gl = Glitch;
     this.mon = mon;
     this.to = to;
     this.estranho = estranho;                       // pedra da fenda: evolução torta
@@ -90,6 +95,9 @@ export class EvolutionScene {
     this.t = 0;
     this.fase = "chegando";
     this.tf = 0;              // tempo dentro da fase atual
+    this.animMs = 0;          // o relógio da animação do bicho velho (acelera no "chegando")
+    this.parabensEm = null;   // quando o grito do bicho novo acaba e vem o PARABÉNS
+    this.evolucaoBaixaEm = null; // quando a musiquinha acaba e a da evolução volta baixinho
     this.pixels = [];
     this.particulas = [];
     this.aneis = [];
@@ -107,24 +115,23 @@ export class EvolutionScene {
     this.camada = cv;
     this.camadaCtx = ctx;
     this.camadaDados = ctx.createImageData(W, H);
-    if (this.fundo) return;                         // começa sozinho, quando a arte chegar
     this.som.stopLoop();
+    // O GRITO de quem vai evoluir, junto com o "O QUÊ?" (como no FireRed)
+    tocarGrito(this.mon);
     const abre = this.forma ? this.forma.inicio.replace("{MON}", this.mon.nickname)
       : `O QUÊ? ${this.mon.nickname} ESTÁ EVOLUINDO!`;
     this.dlg.say(abre, () => this.racha());
   }
 
-  exit() { if (this.fundo) return; Glitch.burst = 0; Audio2.stopLoop(); }
+  exit() { Glitch.burst = 0; Audio2.stopLoop(); }
 
-  /** isométrico só no jogo: o fundo do título é sempre reto */
-  iso() { return !this.fundo && isoLigado(); }
-  bicho(ctx, img, x, y, w, h) {
-    if (this.fundo) { if (img) ctx.drawImage(img, x, y, w, h); }
-    else bichoNoPalco(ctx, img, x, y, w, h);
-  }
+  iso() { return isoLigado(); }
+  bicho(ctx, img, x, y, w, h) { bichoNoPalco(ctx, img, x, y, w, h); }
 
   // animados (o quadro do B/W de agora) quando tem; senão o desenho parado
-  get velho() { return Assets.vivo(this.mon) || Assets.mon(this.mon.species, this.mon.seed); }
+  get velho() {
+    return Assets.vivo(this.mon, false, this.animMs + ((this.mon?.seed || 0) % 997) * 7) || Assets.mon(this.mon.species, this.mon.seed);
+  }
   get novo() { return Assets.vivo({ ...this.mon, species: this.to }) || Assets.mon(this.to, this.mon.seed); }
 
   mudaFase(f) { this.fase = f; this.tf = 0; }
@@ -161,19 +168,29 @@ export class EvolutionScene {
   update(dt) {
     this.t += dt;
     this.tf += dt;
+    // a animação do bicho: acelera enquanto ele está pra evoluir, e congela
+    // quando a evolução começa (o quadro dos pixels e o do contorno de luz)
+    if (this.fase === "chegando" || this.fase === "parou") {
+      const vel = this.fase === "chegando" ? 1 + (ANIM_MAX - 1) * Math.min(1, this.tf / ANIM_RAMPA) : 1;
+      this.animMs += dt * 1000 * vel;
+    }
     if (this.fadeDir) {
       this.fadeA = Math.max(0, Math.min(1, this.fadeA + this.fadeDir * dt * 3));
       if (this.fadeDir < 0 && this.fadeA <= 0) this.fadeDir = 0;
     }
     this.cinema += (this.cinemaAlvo - this.cinema) * Math.min(1, dt * 4);
     this.dlg.update(dt);
-    if (this.fundo && this.fase === "chegando" && this.tf > 1 && this.velho && this.novo) this.racha();
-    if (this.fundo && this.fase === "pronto" && this.tf > 4) this.terminou = true;
     if (this.saindo && this.fadeA >= 1) {
       this.saindo = false;
       this.game.scenes.pop();
       return;
     }
+    // B PARA A EVOLUÇÃO, como nos jogos oficiais: enquanto o bicho está
+    // rachando de luz dá pra segurar ele como está. Mudança de forma não para
+    // (é o item, não o bicho).
+    // (o B do GBA é o X do teclado; a letra B também vale, que é o que a gente
+    // aperta quando a tela diz "B")
+    if (this.podeParar() && (Input.consume("b") || Input.consomeTecla("KeyB"))) return this.parar();
     if (this.flash > 0 && this.fase !== "clarao") this.flash = Math.max(0, this.flash - dt * 1.6);
     if (this.tremor > 0 && this.fase !== "carregando" && this.fase !== "rachando") {
       this.tremor = Math.max(0, this.tremor - dt * 8);
@@ -211,13 +228,12 @@ export class EvolutionScene {
       this.flash = 1;
       if (this.tf >= CLARAO) this.concluir();
     } else if (this.fase === "pronto") {
+      if (this.parabensEm != null && this.t >= this.parabensEm) this.parabens();
+      if (this.evolucaoBaixaEm != null && this.t >= this.evolucaoBaixaEm && !this.saindo) this.evolucaoBaixa();
       // brilhinhos em volta do bicho novo, um tempinho depois do clarão
       if (this.tf < 1.6 && Math.random() < dt * 10) this.particulas.push(this.brilho());
-      // fanfarra acabou (7,5 tempos a 150 bpm) e a frase ainda na tela: festa
-      if (!this.festa && !this.saindo && this.tf >= FANFARRA) {
-        this.festa = true;
-        if (DB.MUSIC?.evolucao_festa) this.som.playMusic("evolucao_festa", DB.MUSIC.evolucao_festa);
-      }
+      // (sem festa depois da fanfarra: como no FireRed, a musiquinha do
+      // "EVOLUIU!" toca UMA vez junto com a frase e pronto — pedido do CAIO)
       // fogos de artifício no céu preto até a tela fechar
       if (Math.random() < dt * (this.tf < 1 ? 5 : 2.2)) this.soltaFoguete();
     }
@@ -428,6 +444,31 @@ export class EvolutionScene {
     };
   }
 
+  podeParar() {
+    return !this.forma && !this.semParar && ["rachando", "separando", "juntando", "carregando"].includes(this.fase);
+  }
+
+  /** PAROU DE EVOLUIR: o bicho volta inteiro, e só tenta de novo quando subir
+   *  de nível (`naoEvoluiAte`, conferido em src/scenes/overworld.js,
+   *  `rodarEvolucao`) — senão ele tentaria toda vez que você voltasse pro mapa. */
+  parar() {
+    this.mudaFase("parou");
+    this.pixels = [];
+    this.raiosEletricos = [];
+    this.riscos = [];
+    this.cinemaAlvo = 0;
+    this.tremor = 0;
+    this.flash = 0.6;
+    this.mon.naoEvoluiAte = this.mon.level;
+    this.som.stopLoop();
+    this.som.cancel?.();
+    this.game.autosave?.(true);
+    this.dlg.say(`UÉ? ${this.mon.nickname} PAROU DE EVOLUIR!`, () => {
+      this.fadeDir = 1;
+      this.saindo = true;
+    });
+  }
+
   /** aplica a evolução de verdade e anuncia */
   concluir() {
     this.mudaFase("pronto");
@@ -436,22 +477,57 @@ export class EvolutionScene {
     this.cinemaAlvo = 0;
     for (let i = 0; i < 70; i++) this.particulas.push(this.faisca());
     this.aneis.push({ r: 10, a: 1, choque: true }, { r: 2, a: 0.9, choque: true }, { r: 6, a: 0.8 });
-    if (this.fundo) return;                          // no fundo é só o filme: ninguém evolui
     const st = this.game.state;
+    // a CASCA que fica (o GHOTOLT do VOLTURG): lida antes, que a espécie muda
+    const casca = DB.SPECIES[this.mon.species]?.deixaCasca;
+    const antes = this.mon.species;
     const evo = evolveTo(this.mon, this.to);
+    if (evo) contarPesquisa(st, antes, "evoluir");      // as MISSÕES DA POKÉDEX
     if (evo) {
       st.seen[this.mon.species] = true;
       st.caught[this.mon.species] = true;
     }
+    let novaCasca = null;
+    if (evo && casca && DB.SPECIES[casca] && st.party.length < 6) {
+      novaCasca = createMon(casca, this.mon.level);
+      st.party.push(novaCasca);
+      st.seen[casca] = st.caught[casca] = true;
+    }
+    this.novaCasca = novaCasca;
     if (this.estranho) this.gl.hit(1.2);
-    if (DB.MUSIC?.evolucao_fanfarra) this.som.playSong(DB.MUSIC.evolucao_fanfarra);
-    else this.som.heal();
-    this.festa = false;       // a música de festa entra quando a fanfarra acaba
     this.game.autosave?.(true);
+    // como no FireRed: primeiro o GRITO do bicho novo; quando ele acaba, o
+    // "PARABÉNS!" e a musiquinha do EVOLUIU (`update` conta o tempo)
+    const grito = tocarGrito(this.to) || 0;
+    this.parabensEm = this.t + Math.min(2.5, Math.max(0.8, grito));
+  }
+
+  /** A MÚSICA DA EVOLUÇÃO DE NOVO, mais baixa: só a parte que repete (sem a
+   *  entrada), com cada canal em EVOLUCAO_BAIXA do volume */
+  evolucaoBaixa() {
+    this.evolucaoBaixaEm = null;
+    const evo = DB.MUSIC?.evolucao;
+    if (!evo) return;
+    this.som.playSong({ ...evo, tracks: evo.tracks.map(({ intro, ...t }) => ({ ...t, vol: (t.vol ?? 0.5) * EVOLUCAO_BAIXA })) });
+  }
+
+  /** o "PARABÉNS! ... EVOLUIU!" com a musiquinha, depois do grito */
+  parabens() {
+    this.parabensEm = null;
+    const fan = DB.MUSIC?.evolucao_fanfarra;
+    if (fan) this.som.playSong(fan);
+    else this.som.heal();
+    // quando a musiquinha acaba, a da EVOLUÇÃO volta mais baixinho enquanto a
+    // frase estiver na tela (pedido do CAIO). FANFARRA_TEMPOS é o tamanho dela
+    this.evolucaoBaixaEm = this.t + (fan ? FANFARRA_TEMPOS * 60 / (fan.bpm || 150) : 1);
+    const novaCasca = this.novaCasca;
     const fecha = this.forma
       ? this.forma.fim.replace("{MON}", this.mon.nickname).replace("{NOVO}", this.nomeNovo)
       : `PARABÉNS! SEU ${this.nomeVelho} EVOLUIU PARA ${this.nomeNovo}!`;
-    this.dlg.say(fecha, () => {
+    const falas = novaCasca
+      ? [fecha, `A CASCA VELHA FICOU NO CHÃO... E SE LEVANTOU SOZINHA! ${novaCasca.nickname} ENTROU NA EQUIPE!`]
+      : fecha;
+    this.dlg.say(falas, () => {
       this.som.stopLoop();      // passou a frase: a festa acaba
       this.fadeDir = 1;
       this.saindo = true;
@@ -604,7 +680,7 @@ export class EvolutionScene {
     // o bicho: sprite normal parado, ou os pixels dele voando
     const flutua = Math.round(Math.sin(this.t * 2.2) * 2);
     const x0 = Math.round(CX - LADO / 2), y0 = Math.round(CY - LADO / 2);
-    if (this.fase === "chegando") {
+    if (this.fase === "chegando" || this.fase === "parou") {
       this.bicho(ctx, this.velho, x0, y0 + flutua, LADO, LADO);
     } else if (this.fase === "pronto") {
       // a forma nova entra com um soco de zoom e balança até assentar
@@ -660,6 +736,12 @@ export class EvolutionScene {
       const nx = CX - this.nomeNovo.length * 3;
       drawText(ctx, this.nomeNovo, nx + 1, 103, "#333");
       drawText(ctx, this.nomeNovo, nx, 102, "#fff");
+    }
+
+    // a dica de que dá pra parar (o jogo nunca tinha dito)
+    if (this.podeParar()) {
+      drawText(ctx, "X: PARAR", W - 53, 4, "#000");
+      drawText(ctx, "X: PARAR", W - 54, 3, "#c8c8d8");
     }
 
     this.dlg.render(ctx);

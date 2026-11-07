@@ -72,6 +72,18 @@ const OBJETIVOS = {
   /** uma bandeira do save ficou marcada. É o objetivo de quem pede pra você IR
    *  a um lugar e olhar: não existe item pra conferir, nem bicho na equipe —
    *  existe só o fato de você ter estado lá, e o mundo escreve isso. */
+  /** quantos bichos COM ESSA MARCA estão com você (os 5 MINIORS da chapada) */
+  "tem-marcados": (st, o) => {
+    const n = todos(st).filter((m) => m?.[o.marca]).length;
+    return { feito: n >= o.quantos, atual: Math.min(n, o.quantos), alvo: o.quantos };
+  },
+
+  /** VÁRIAS bandeiras: conta quantas já foram marcadas */
+  "bandeiras": (st, o) => {
+    const n = (o.flags || []).filter((f) => st?.flags?.[f]).length;
+    return { feito: n >= (o.flags || []).length, atual: n, alvo: (o.flags || []).length };
+  },
+
   "bandeira": (st, o) => {
     const tem = !!st?.flags?.[o.flag];
     return { feito: tem, atual: tem ? 1 : 0, alvo: 1 };

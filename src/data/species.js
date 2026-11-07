@@ -118,7 +118,7 @@ const MISSINGNO = {
   base: { hp: 33, atk: 136, def: 0, spa: 6, spd: 6, spe: 29 },
   catchRate: 30, xpYield: 200,
   placeholder: { shape: "glitch" },
-  learnset: [[1, "corrompida"], [1, "ruidobranco"], [10, "sobrescrever"]],
+  learnset: [[1, "corrompida"], [1, "ruidobranco"], [10, "sobrescrever"], [24, "pixelmorto"], [40, "estourodebuffer"]],
   dexText: "ERRO 0x00. ESTE REGISTRO NÃO DEVERIA EXISTIR. NÃO SALVE DEPOIS DE VÊ-LO.",
   lore: true,
 };
@@ -137,6 +137,29 @@ function autoLearnset(types) {
   return [[1, pool[0]], [1, pool[1]], [7, pool[2]], [16, pool[3]]];
 }
 
+/** OS GOLPES A MAIS (src/data/golpes-mais.js) que a espécie `id` aprende
+ *  subindo de nível: até quatro do primeiro tipo dela e dois do segundo. Quais
+ *  sai do nome da espécie, então dois Pokémon do mesmo tipo não aprendem a
+ *  mesma lista; e eles vão do mais fraco pro mais forte, espalhados do nível
+ *  depois do último golpe que ela já tinha até o 58. */
+function maisGolpes(id, types, base, MAIS) {
+  const porTipo = (t) => Object.keys(MAIS).filter((m) => MAIS[m].type === t);
+  let h = 0;
+  for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const escolhe = (t, n) => {
+    const l = porTipo(t);
+    if (!l.length) return [];
+    const passo = Math.max(1, Math.floor(l.length / n));
+    return [...new Set(Array.from({ length: n }, (_, k) => l[(h + k * passo) % l.length]))];
+  };
+  const golpes = [...escolhe(types[0], 4), ...(types[1] ? escolhe(types[1], 2) : [])]
+    .filter((m) => !base.some(([, b]) => b === m))
+    .sort((a, b) => MAIS[a].power - MAIS[b].power);
+  const ini = Math.max(10, ...base.map(([l]) => l + 3));
+  const fim = Math.max(ini + golpes.length * 3, 58);
+  return golpes.map((m, k) => [Math.round(ini + ((k + 1) * (fim - ini)) / (golpes.length + 1)), m]);
+}
+
 function shapeFor(sp) {
   if (sp.types[0] === "NORMAL" && sp.types[1] === "VOADOR") return "passaro";
   return SHAPE_BY_TYPE[sp.types[0]] || SHAPE_BY_TYPE[sp.types[1]] || "roedor";
@@ -144,15 +167,17 @@ function shapeFor(sp) {
 
 /** `TEXTOS`: o texto de Pokédex de quem não trouxe o seu na própria tabela
  *  (src/data/pokedex-textos.js). A frase escrita junto da espécie ganha. */
-export function buildSpecies(GEN1, TYPE_COLOR = {}, TEXTOS = {}) {
+export function buildSpecies(GEN1, TYPE_COLOR = {}, TEXTOS = {}, MAIS = {}) {
   const out = {};
   for (const [id, sp] of Object.entries(GEN1)) {
     const extra = FEATURED[id] || {};
     const frase = extra.dexText || sp.dexText || TEXTOS[id];
+    // `learnsetExtra`: golpes a mais, somados à lista (a escrita ou a automática);
+    // e depois deles, os golpes novos dos tipos dela (`maisGolpes`)
+    const base = [...(extra.learnset || sp.learnset || autoLearnset(sp.types)), ...(sp.learnsetExtra || [])];
     out[id] = {
       ...sp,
-      // `learnsetExtra`: golpes a mais, somados à lista (a escrita ou a automática)
-      learnset: [...(extra.learnset || sp.learnset || autoLearnset(sp.types)), ...(sp.learnsetExtra || [])],
+      learnset: [...base, ...maisGolpes(id, sp.types || ["NORMAL"], base, MAIS)],
       dexText: frase || `${sp.name}. DADOS DA POKÉDEX AINDA NÃO CARREGADOS.`,
       lore: !!frase,   // tem frase própria (não é o texto genérico)
       placeholder: sp.placeholder || { shape: shapeFor(sp), tint: TYPE_COLOR[sp.types[0]] },

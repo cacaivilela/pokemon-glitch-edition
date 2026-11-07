@@ -1,0 +1,39 @@
+<!doctype html>
+<!-- OS LENDÁRIOS 3D em pé, mexendo, ao lado do herói (pra ver o tamanho).
+     Não abre o jogo nem mexe em save. ?ids=giratina,darkrai escolhe quem;
+     ?giro=1 faz eles girarem devagar. -->
+<meta charset="utf-8"><title>Lendários 3D</title>
+<style>
+  body { background: #1c1a24; color: #ddd; font: 14px monospace; margin: 12px; }
+  .grade { display: flex; flex-wrap: wrap; gap: 12px; }
+  figure { margin: 0; text-align: center; }
+  canvas { width: 480px; height: 320px; image-rendering: pixelated; background: #6a8a5a; border-radius: 6px; }
+</style>
+<h2>LENDÁRIOS 3D</h2>
+<div class="grade" id="g"></div>
+<script type="module">
+import { desenharParado, altura3D } from "/src/core/gigante3d.js";
+const q = new URLSearchParams(location.search);
+const ids = (q.get("ids") || "giratina,darkrai,necrozma,deoxys,palkia,dialga").split(",");
+const heroi = new Image(); heroi.src = "/assets/sprites/overworld/hero.png"; await heroi.decode().catch(() => {});
+const telas = ids.map((id) => {
+  const fig = document.createElement("figure");
+  const cv = document.createElement("canvas"); cv.width = 240; cv.height = 160;
+  const cap = document.createElement("figcaption");
+  const h = altura3D(id);
+  cap.textContent = `${id.toUpperCase()} — ${h}px de altura (${(h / 22).toFixed(1)} heróis)`;
+  fig.append(cv, cap); document.getElementById("g").append(fig);
+  return [id, cv.getContext("2d")];
+});
+const t0 = performance.now();
+function quadro() {
+  const t = (performance.now() - t0) / 1000;
+  for (const [id, c] of telas) {
+    c.clearRect(0, 0, 240, 160);
+    desenharParado(c, id, 130, 140, t);
+    if (heroi.width) c.drawImage(heroi, 0, 0, 16, 32, 60, 140 - 30, 16, 32);
+  }
+  requestAnimationFrame(quadro);
+}
+quadro();
+</script>

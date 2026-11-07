@@ -148,7 +148,7 @@ export const PONTOS = [
   // A praia de CINNABAR. Nos jogos de verdade é o lugar mais quebrado que já
   // existiu num Pokémon; aqui ela não ia ficar de fora.
   { mapa: "cinnabar_island", x: 10, y: 10, nome: "A PRAIA DE CINNABAR" },
-  // Ao lado do canteiro de flores da VILA PALETA, que já vaza sozinho
+  // Ao lado do canteiro de flores da CIDADE DE PALLET, que já vaza sozinho
   { mapa: "pallet", x: 7, y: 14, nome: "AO LADO DAS FLORES" },
   { mapa: "lavender_town", x: 13, y: 10, nome: "A SOMBRA DA TORRE" },
   { mapa: "power_plant", x: 24, y: 18, nome: "A USINA PARADA" },

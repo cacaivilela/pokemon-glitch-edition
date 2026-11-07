@@ -5,11 +5,19 @@
 // nome, música, NPCs, diálogos, placas, encontros e pontos de entrada.
 //
 // As coordenadas dos NPCs são as mesmas do jogo original (x,y em tiles).
+import { LIGA_KANTO_MAPAS } from "./liga-kanto.js";
 import { CONCURSO } from "./concurso.js";
+import { VENDA_BERRIES, ARBUSTOS, POKEBLOCO_TEXTO } from "./pokeblocos.js";
 import { MISSOES } from "./missoes.js";
 import { MINEIRO, PALEONTOLOGA } from "./mineracao.js";
 import { NPC_GO_PARK } from "./gopark.js";
 import { BLAINE_CONTA } from "./decamark.js";
+import { PLACAS_REGI } from "./regis.js";
+import { PAINTBALL } from "./paintball.js";
+import { BOLAS_SEGURAR } from "./segurar.js";
+import { MTS_NO_CHAO, MOS_COM_PESSOAS, MTS_NA_LOJA, MTS_NA_LOJA2, PRECO_MT, MT_ETERNA, itemDaMT, itemDaMO } from "./maquinas.js";
+import { NPCS_BASE, LOJA_DECORACAO, BOLAS_MOVEIS, BASES_TEXTO } from "./bases.js";
+import { BILL_CASOS } from "./bill-casos.js";
 
 /** O palco do CONCURSO DE FUSÃO, na praça do sul de Cinnabar: a anfitriã na
  *  beira e os três jurados de frente pra plateia. Os nomes e as falas de
@@ -32,12 +40,39 @@ const PALCO_CINNABAR = [
   })),
 ];
 
+/** OS POKÉBLOCOS (src/data/pokeblocos.js): do lado esquerdo do palco, o
+ *  LIQUIDIFICADOR DE BERRIES e o VENDEDOR de berries */
+const POKEBLOCOS_CINNABAR = [
+  { id: "liquidificador", x: 8, y: 13, dir: "down", sprite: "liquidificador", liquidificador: true,
+    lines: POKEBLOCO_TEXTO.liquidificador },
+  { id: "vendedor_berries", x: 8, y: 12, dir: "right", sprite: "balconista", shop: VENDA_BERRIES,
+    lines: POKEBLOCO_TEXTO.vendedor },
+  // a CONFEITEIRA: as receitas dos DOCES DO BRASIL (src/data/doces.js)
+  { id: "confeiteira", x: 9, y: 12, dir: "down", sprite: "mae", confeiteira: true, lines: [] },
+];
+/** os ARBUSTOS DE BERRIES da MATA DAS FRUTAS */
+const ARBUSTOS_MATA = ARBUSTOS.lugares.map(([x, y, rara], i) => ({
+  id: `arbusto_${i}`, x, y, dir: "down", sprite: "arbusto", arbusto: { rara: !!rara },
+}));
+
 export const MAPS = {
+  // O SEU QUARTO, o andar de cima da casa (o do FireRed, baixado por
+  // tools/fetch_maps.py): é onde o jogo novo começa. O PC guarda os itens do
+  // começo (src/scenes/overworld.js, `abrirPcItens`).
+  quarto: {
+    name: "SEU QUARTO", music: "casa", interior: true,
+    spawn: { x: 3, y: 6, dir: "down" },
+    signs: { "6,4": "UM VIDEOGAME LIGADO NA TV. VOCÊ JOGOU ATÉ TARDE ONTEM...\n...MELHOR NÃO CONTAR PRA SUA MÃE." },
+    encounters: [],
+    npcs: [
+      // o PC: invisível, em cima da mesa (é a mesa que bloqueia o tile)
+      { id: "pc_itens", x: 1, y: 1, sprite: "ball", invisivel: true, pcItens: true, lines: ["..."] },
+    ],
+  },
   home: {
     name: "SUA CASA", music: "casa", interior: true,
     spawn: { x: 5, y: 7, dir: "down" },
     signs: { "6,1": "A TV ESTÁ PASSANDO UM DOCUMENTÁRIO SOBRE TREINADORES." },
-    lockedWarps: { "10,2": "A ESCADA SOBE PRO SEU QUARTO. VOCÊ ACABOU DE DESCER DE LÁ." },
     encounters: [],
     npcs: [{
       // `aniversario`: ela pergunta a data uma vez, antes de você sair de casa,
@@ -53,7 +88,7 @@ export const MAPS = {
   },
 
   pallet: {
-    name: "VILA PALETA", music: "pallet",
+    name: "CIDADE DE PALLET", music: "pallet",
     spawn: { x: 6, y: 8, dir: "down" },
     // O canteiro de flores (4x2 tiles, entre a cerca e a placa). Enquanto o
     // mundo está inteiro é só desenho; depois que MISSINGNO. atravessa
@@ -62,10 +97,11 @@ export const MAPS = {
     flores: ["5,12", "6,12", "7,12", "8,12", "5,13", "6,13", "7,13", "8,13"],
     floresChance: 0.3,       // por passo dado em cima delas, com o mundo bugado
     signs: {
-      "4,7": "CASA DO VERMELHO.",
-      "13,7": "CASA DO AZUL.",
+      // as CAIXAS DE CORREIO: quem mora ali (o seu nome e o do rival)
+      "4,7": "CASA DE {NOME}.",
+      "13,7": "CASA DE {RIVAL}.",
       "9,11": "CUIDADO: A GRAMA ALTA COMEÇA AO NORTE.",
-      "5,14": "VILA PALETA — UM TOM DE FOLHA NOVA.\nO CANTEIRO AO LADO TEM AS MESMAS FLORES DESDE QUE O JOGO EXISTE.",
+      "5,14": "CIDADE DE PALLET — UM TOM DE FOLHA NOVA.\nO CANTEIRO AO LADO TEM AS MESMAS FLORES DESDE QUE O JOGO EXISTE.",
       "16,16": "LABORATÓRIO DE POKÉMON DO PROF. CARVALHO.",
     },
     encounters: [],
@@ -103,7 +139,7 @@ export const MAPS = {
     signs: {
       "39,59": "FLORESTA VIRIDIAN — CUIDADO: DÁ PRA SE PERDER AQUI DENTRO.",
       "28,44": "OS INSETOS DAQUI EVOLUEM RÁPIDO. NÃO SUBESTIME UM CATERPIE.",
-      "9,29": "SAÍDA NORTE: CIDADE PEWTER E O GINÁSIO DE PEDRA.",
+      "9,29": "SAÍDA NORTE: CIDADE DE PEWTER E O GINÁSIO DE PEDRA.",
       "43,26": "SE UM TREINADOR TE VER, ELE VAI QUERER BATALHAR.",
     },
     npcs: [
@@ -164,7 +200,7 @@ export const MAPS = {
     name: "ROTA 1", music: "route",
     pedras: ["7,8"],              // a primeira pedra rachada do jogo
     spawn: { x: 9, y: 38, dir: "up" },
-    signs: { "9,31": "ROTA 1 — VILA PALETA ↔ CIDADE VIRIDIAN." },
+    signs: { "9,31": "ROTA 1 — CIDADE DE PALLET ↔ CIDADE DE VIRIDIAN." },
     encounters: [
       { id: "pidgey", min: 2, max: 5, w: 45 },
       { id: "rattata", min: 2, max: 5, w: 45 },
@@ -185,13 +221,13 @@ export const MAPS = {
   },
 
   viridian: {
-    name: "CIDADE VIRIDIAN", music: "viridian",
+    name: "CIDADE DE VIRIDIAN", music: "viridian",
     spawn: { x: 26, y: 27, dir: "up" },
     signs: {
       "23,1": "AO NORTE: ROTA 2 E A FLORESTA DE VIRIDIAN.",
       "32,10": "GINÁSIO POKÉMON DE VIRIDIAN — LÍDER: GIOVANNI.",
       "36,10": "GINÁSIO DE VIRIDIAN. O ÚLTIMO DESAFIO DE KANTO.",
-      "20,16": "CIDADE VIRIDIAN — A CIDADE PINTADA DE VERDE ETERNO.",
+      "20,16": "CIDADE DE VIRIDIAN — A CIDADE PINTADA DE VERDE ETERNO.",
       "20,31": "CENTRO POKÉMON: CURA GRÁTIS. LOJA POKÉMON: TRAGA DINHEIRO.",
     },
     lockedWarps: {
@@ -289,13 +325,13 @@ export const MAPS = {
     ],
   },
 
-  // CIDADE SAFFRON continua tomada pela EQUIPE ROCKET, do jeito que ela vem do
+  // CIDADE DE SAFFRON continua tomada pela EQUIPE ROCKET, do jeito que ela vem do
   // FireRed — e um dos recrutas fica plantado em 46,13, bem na porta do ginásio
   // da SABRINA. No original ele só sai depois da SILPH CO., que não existe
   // neste jogo: sem isso a INSÍGNIA PÂNTANO era impossível e não dava pra fechar
   // as oito. Aqui ele sai na base da batalha (`sumirDepois`).
   saffron_city: {
-    name: "CIDADE SAFFRON",
+    name: "CIDADE DE SAFFRON",
     npcPatch: {
       n2: {
         lines: [
@@ -468,7 +504,7 @@ export const MAPS = {
       lines: ["EU SOU BROCK, LÍDER DO GINÁSIO DE PEWTER.", "MEUS POKÉMON SÃO DUROS COMO PEDRA. MOSTRE O QUE SABE!"],
       afterLines: ["VOCÊ TEM ALGO ALÉM DE FORÇA BRUTA. SIGA EM FRENTE."],
       trainer: { name: "LÍDER BROCK", prize: 1400, badge: "pedra",
-                party: [{ id: "geodude", lvl: 12 }, { id: "onix", lvl: 14 }] },
+                party: [{ id: "geodude", lvl: 12 }, { id: "fus-geodude-onix", lvl: 13 }, { id: "onix", lvl: 14 }] },
     }],
   },
   cerulean_city_gym: {
@@ -478,7 +514,7 @@ export const MAPS = {
       lines: ["EU SOU MISTY, A SEREIA DE CERULEAN.", "MINHA ESTRATÉGIA É SIMPLES: ATAQUE TOTAL COM POKÉMON DE ÁGUA!"],
       afterLines: ["VOCÊ É MESMO BOM. TÁ BOM, LEVA A INSÍGNIA."],
       trainer: { name: "LÍDER MISTY", prize: 2100, badge: "cascata",
-                party: [{ id: "staryu", lvl: 18 }, { id: "starmie", lvl: 21 }] },
+                party: [{ id: "staryu", lvl: 18 }, { id: "fus-psyduck-starmie", lvl: 20 }, { id: "starmie", lvl: 21 }] },
     }],
   },
   vermilion_city_gym: {
@@ -495,7 +531,7 @@ export const MAPS = {
       lines: ["EI, PIRRALHO! EU SOU O TENENTE SURGE.", "APRENDI A LUTAR NA GUERRA. ELÉTRICO SALVOU MINHA VIDA LÁ!"],
       afterLines: ["VOCÊ É DURO NA QUEDA, PIRRALHO. RESPEITO."],
       trainer: { name: "LÍDER TENENTE SURGE", prize: 2400, badge: "trovao",
-                party: [{ id: "voltorb", lvl: 21 }, { id: "pikachu", lvl: 18 }, { id: "raichu", lvl: 24 }] },
+                party: [{ id: "voltorb", lvl: 21 }, { id: "pikachu", lvl: 18 }, { id: "fus-voltorb-pikachu", lvl: 22 }, { id: "raichu", lvl: 24 }] },
     }],
   },
   celadon_city_gym: {
@@ -505,7 +541,7 @@ export const MAPS = {
       lines: ["BEM-VINDO. EU SOU ERIKA, DE CELADON.", "EU ENSINO A ARTE DOS ARRANJOS FLORAIS... E DOS POKÉMON DE PLANTA."],
       afterLines: ["QUE DERROTA AGRADÁVEL. VOCÊ MERECEU."],
       trainer: { name: "LÍDER ERIKA", prize: 2900, badge: "arcoiris",
-                party: [{ id: "victreebel", lvl: 29 }, { id: "tangela", lvl: 24 }, { id: "vileplume", lvl: 29 }] },
+                party: [{ id: "victreebel", lvl: 29 }, { id: "tangela", lvl: 24 }, { id: "fus-oddish-tangela", lvl: 27 }, { id: "vileplume", lvl: 29 }] },
     }],
   },
   fuchsia_city_gym: {
@@ -515,7 +551,7 @@ export const MAPS = {
       lines: ["FWAHAHAHA! EU SOU KOGA, MESTRE DOS NINJAS.", "MEU VENENO VAI CORROER VOCÊ AOS POUCOS!"],
       afterLines: ["ADMIRÁVEL. VOCÊ VIU ATRAVÉS DA MINHA NÉVOA."],
       trainer: { name: "LÍDER KOGA", prize: 3700, badge: "alma",
-                party: [{ id: "koffing", lvl: 37 }, { id: "muk", lvl: 39 }, { id: "koffing", lvl: 37 }, { id: "weezing", lvl: 43 }] },
+                party: [{ id: "koffing", lvl: 37 }, { id: "muk", lvl: 39 }, { id: "koffing", lvl: 37 }, { id: "fus-weezing-muk", lvl: 41 }, { id: "weezing", lvl: 43 }] },
     }],
   },
   saffron_city_gym: {
@@ -525,7 +561,7 @@ export const MAPS = {
       lines: ["EU SABIA QUE VOCÊ VIRIA. EU SOU SABRINA.", "JÁ VI ESTA BATALHA NA MINHA MENTE. VOCÊ PERDE... TALVEZ."],
       afterLines: ["MINHA PREVISÃO FALHOU. ISSO NUNCA ACONTECEU ANTES."],
       trainer: { name: "LÍDER SABRINA", prize: 4300, badge: "pantano",
-                party: [{ id: "kadabra", lvl: 38 }, { id: "mrmime", lvl: 37 }, { id: "venomoth", lvl: 38 }, { id: "alakazam", lvl: 43 }] },
+                party: [{ id: "kadabra", lvl: 38 }, { id: "mrmime", lvl: 37 }, { id: "venomoth", lvl: 38 }, { id: "fus-mrmime-alakazam", lvl: 41 }, { id: "alakazam", lvl: 43 }] },
     }],
   },
   cinnabar_island: {
@@ -533,11 +569,16 @@ export const MAPS = {
     // sempre foi ver o que o DECODIFICADOR DE GENOMA faz com dois vivos — e
     // montou um concurso na praça do sul pra julgar o resultado.
     // a PALEONTÓLOGA na porta do laboratório ressuscita os fósseis da mina
-    addNpcs: [...PALCO_CINNABAR, PALEONTOLOGA],
+    addNpcs: [...PALCO_CINNABAR, ...POKEBLOCOS_CINNABAR, PALEONTOLOGA],
     signs: {
       // cartaz na parede do Centro Pokémon, ao lado da porta
       "12,11": "CONCURSO DE FUSÃO DE CINNABAR. TRAGA UMA DUPLA. TRÊS JURADOS, TRINTA PONTOS.",
     },
+  },
+
+  // a MATA DAS FRUTAS (Ilha Três): os arbustos de berries (src/data/pokeblocos.js)
+  three_island_berry_forest: {
+    addNpcs: ARBUSTOS_MATA,
   },
 
   cinnabar_island_gym: {
@@ -576,7 +617,7 @@ export const MAPS = {
       // da página que arrancou (src/data/decamark.js)
       conta: BLAINE_CONTA,
       trainer: { name: "LÍDER BLAINE", prize: 4700, badge: "vulcao",
-                party: [{ id: "growlithe", lvl: 42 }, { id: "ponyta", lvl: 40 }, { id: "rapidash", lvl: 42 }, { id: "arcanine", lvl: 47 }] },
+                party: [{ id: "growlithe", lvl: 42 }, { id: "rapidash", lvl: 42 }, { id: "fus-darmanitan-pichu", lvl: 44 }, { id: "fus-charmander-masquerain", lvl: 44 }, { id: "fus-arcanine-ponyta", lvl: 47 }] },
     }],
   },
   viridian_city_gym: {
@@ -586,7 +627,7 @@ export const MAPS = {
       lines: ["ENTÃO É VOCÊ. EU SOU GIOVANNI, LÍDER DESTE GINÁSIO.", "A ÚLTIMA TRAVA DE KANTO ESTÁ COMIGO. VENHA BUSCÁ-LA."],
       afterLines: ["...O QUE FOI ISSO? O CHÃO TREMEU QUANDO VOCÊ GANHOU.", "VÁ EMBORA. AGORA."],
       trainer: { name: "LÍDER GIOVANNI", prize: 5000, badge: "terra",
-                party: [{ id: "rhyhorn", lvl: 45 }, { id: "dugtrio", lvl: 42 }, { id: "nidoqueen", lvl: 44 }, { id: "nidoking", lvl: 45 }, { id: "rhydon", lvl: 50 }] },
+                party: [{ id: "rhyhorn", lvl: 45 }, { id: "dugtrio", lvl: 42 }, { id: "nidoqueen", lvl: 44 }, { id: "nidoking", lvl: 45 }, { id: "rhydon", lvl: 50 }, { id: "fus-nidoking-rhydon", lvl: 52 }] },
     }],
   },
 
@@ -605,7 +646,13 @@ export const MAPS = {
     addNpcs: [{ id: "pedra_gengarita", x: 3, y: 5, sprite: "ball", gift: { item: "gengarita", qty: 1 } }],
   },
   fuchsia_city: {
-    addNpcs: [{ id: "pedra_kangaskhanita", x: 42, y: 30, sprite: "ball", gift: { item: "kangaskhanita", qty: 1 } }],
+    addNpcs: [
+      { id: "pedra_kangaskhanita", x: 42, y: 30, sprite: "ball", gift: { item: "kangaskhanita", qty: 1 } },
+      // o CIENTISTA na frente do POKÉ MART: vende a ESFERA DE JADE, que chama
+      // o RAYQUAZA do céu (src/core/gigante3d.js)
+      { id: "cientista_jade", x: 12, y: 16, dir: "down", sprite: "cientista",
+        aoFalar: (cena, npc, state) => cena.venderEsferaDeJade(state) },
+    ],
   },
   route13: {
     addNpcs: [{ id: "pedra_pinsirita", x: 1, y: 14, sprite: "ball", gift: { item: "pinsirita", qty: 1 } }],
@@ -624,6 +671,20 @@ export const MAPS = {
       MINEIRO,
     ],
   },
+  // A CASA DO RIVAL (pedido do CAIO, nov/2026: "faz dar pra ir na casa do
+  // gary"): a do FireRed, com a DAISY, a irmã dele, e o mapa da cidade na parede
+  pallet_town_rivals_house: {
+    name: "CASA DO RIVAL", music: "casa", interior: true,
+    npcs: [{
+      id: "daisy", x: 10, y: 6, dir: "down", sprite: "garota",
+      lines: [
+        "DAISY: OI! VOCÊ É AMIGO DO MEU IRMÃO, {RIVAL}, NÉ?",
+        "DAISY: ELE SAIU CORRENDO DE CASA FALANDO QUE IA SER O MELHOR TREINADOR DO MUNDO.",
+        "DAISY: ELE É UM POUCO METIDO... MAS NO FUNDO ELE GOSTA DE VOCÊ. SÓ NÃO CONTA PRA ELE QUE EU FALEI.",
+      ],
+    }],
+    signs: { "6,4": "UM MAPA DE KANTO NA PAREDE. A CIDADE DE PALLET ESTÁ MARCADA COM UMA ESTRELINHA." },
+  },
   victory_road_2f: {
     addNpcs: [{ id: "pedra_mewtwonita_x", x: 14, y: 13, sprite: "ball", gift: { item: "mewtwonita x", qty: 1 } }],
   },
@@ -632,10 +693,15 @@ export const MAPS = {
   },
 };
 
-export const START_MAP = "home";
+// A LIGA DE KANTO (src/data/liga-kanto.js)
+Object.assign(MAPS, LIGA_KANTO_MAPAS);
+
+export const START_MAP = "quarto";   // o andar de cima da sua casa, como no FireRed
 
 // tags de célula que vêm de assets/maps/kanto.json
-export const TAG = { FREE: 0, BLOCK: 1, GRASS: 2, WATER: 3, LEDGE_S: 4, LEDGE_E: 5, LEDGE_W: 6, LEDGE_N: 7 };
+// ICE (nov/2026, pedido do CAIO): chão de GELO — passa por cima, mas escorrega
+// reto até bater em alguma coisa ou sair do gelo (src/scenes/overworld.js, `andarLivre`)
+export const TAG = { FREE: 0, BLOCK: 1, GRASS: 2, WATER: 3, LEDGE_S: 4, LEDGE_E: 5, LEDGE_W: 6, LEDGE_N: 7, ICE: 8 };
 
 // O PC do CENTRO POKÉMON. Todo centro de Kanto tem a mesma planta: a máquina
 // branca fica encostada na parede do fundo, no canto direito do balcão (x=11).
@@ -650,6 +716,15 @@ export const LEDGE_DIR = { 4: "down", 5: "right", 6: "left", 7: "up" };
 // Os NPCs das missões (src/data/missoes.js) entram aqui, cada um no mapa dele.
 // Fica assim, e não escrito à mão mapa por mapa, porque o pedido, a fala e o
 // lugar são a MESMA coisa: escrever a missão já é colocar o NPC no mundo.
+// AS PLACAS DOS REGIS (src/data/regis.js): uma em cada câmara das RUÍNAS TANOBY
+// As câmaras têm faixa própria, "regis" (src/data/music.js): um arquivo em
+// assets/music/regis.wav toca só nelas, e não em toda casa do jogo.
+for (const { mapa, npc } of PLACAS_REGI) {
+  const m = (MAPS[mapa] ||= {});
+  m.addNpcs = [...(m.addNpcs || []), npc];
+  m.music = "regis";
+}
+
 const jaPosto = new Set();
 for (const q of MISSOES) {
   // várias missões no mesmo tile são o MESMO NPC (o marinheiro tem três): ele
@@ -667,3 +742,87 @@ for (const q of MISSOES) {
   if (Array.isArray(mapa.npcs)) mapa.npcs.push(npc);
   else (mapa.addNpcs ||= []).push(npc);
 }
+
+// O PAINTBALL DE CELADON (src/data/paintball.js): as portas da LOJA DE
+// DEPARTAMENTO abrem a arena (src/scenes/paintball.js), e o atendente do meio
+// da sala de prêmios do cassino troca as FICHAS que ela dá
+(MAPS.celadon_city ||= {}).paintball = PAINTBALL.portas;
+// O PESADÃO DA ROTA 12 (pedido do CAIO; o nome OBESO voltou a ser PESADÃO): um cara gordo (o FAT_MAN do FireRed),
+// dono do SNORLAX, com o time mais PESADO de KANTO — SNORLAX 460 kg, GOLEM 300,
+// GYARADOS 235, LAPRAS 220, ONIX e DRAGONITE 210. Na BATALHA EXPLOSIVA cada
+// pisão dele faz uma explosão enorme.
+(MAPS.route12 ||= {}).addNpcs = [...(MAPS.route12.addNpcs || []).filter((n) => n.id !== "pesadao"), { id: "pesadao", x: 9, y: 11, dir: "right", sprite: "gordo",
+  lines: ["PESADÃO: EI! VOCÊ SABIA QUE O MEU TIME PESA MAIS DE UMA TONELADA E MEIA?", "EU E O MEU SNORLAX COMEMOS O MESMO TANTO NO ALMOÇO. ELE SOZINHO PESA 460 QUILOS!", "QUANDO ELE PISA, O CHÃO SOME! VAMOS VER SE VOCÊ AGUENTA O PESO!"],
+  afterLines: ["PESADÃO: VOCÊ É MAIS FORTE QUE 1.635 QUILOS DE POKÉMON... ISSO ME DEU FOME."],
+  trainer: { name: "PESADÃO", prize: 12000, sight: 4,
+    party: [{ id: "onix", lvl: 52 }, { id: "lapras", lvl: 54 }, { id: "gyarados", lvl: 54 }, { id: "golem", lvl: 54 }, { id: "dragonite", lvl: 55 }, { id: "snorlax", lvl: 56 }] } }];
+// O BILL VIROU UM SNORLAX (pedido do CAIO): como no jogo de verdade ele se
+// misturou com um Pokémon no TELEPORTADOR — aqui com um SNORLAX —, e está DENTRO
+// DA CASA dele, a casa do mar da ROTA 25 (o interior baixado do FireRed, mapa
+// route25_sea_cottage). O SEPARADOR DE CÉLULAS é o computador da mesa.
+(MAPS.route25_sea_cottage ||= {}).name = "CASA DO BILL";
+MAPS.route25_sea_cottage.interior = true;
+MAPS.route25_sea_cottage.addNpcs = [...(MAPS.route25_sea_cottage.addNpcs || []),
+  // do lado do computador, TENTANDO apertar o botão (pedido do CAIO) — mas é pesado
+  // demais: se estica, pula, cai sentado e o chão treme (`tentaBotao`, overworld)
+  { id: "bill_snorlax", x: 6, y: 5, dir: "left", sprite: "mon:snorlax", someComFlag: "billSeparado", billWailord: true, tentaBotao: true,
+    lines: ["SNORLAX: EI! EI, VOCÊ AÍ! EU NÃO SOU UM POKÉMON DE VERDADE!", "EU SOU O BILL, UM POKÉMANÍACO! EU ESTAVA TESTANDO O MEU TELEPORTADOR...",
+            "...E ENTREI NELE JUNTO COM UM SNORLAX. AGORA EU PESO 460 QUILOS!",
+            "EU ESTOU TENTANDO APERTAR O BOTÃO DO SEPARADOR DE CÉLULAS NO COMPUTADOR...",
+            "...MAS SOU PESADO DEMAIS! EU ME ESTICO, PULO, E CAIO SENTADO. O DEDO NÃO CHEGA!", "APERTA PRA MIM? É O BOTÃO VERMELHO NA TELA!"],
+    afterLines: ["SNORLAX: O COMPUTADOR DA MESA! RÁPIDO, ANTES QUE EU DURMA DE NOVO... ZZZ..."] },
+  { id: "separador", x: 4, y: 5, dir: "down", invisivel: true, sprite: "ball", someComFlag: "billSeparado", separadorBill: true, lines: [] },
+  { id: "separador2", x: 5, y: 5, dir: "down", invisivel: true, sprite: "ball", someComFlag: "billSeparado", separadorBill: true, lines: [] },
+  { id: "bill", x: 7, y: 5, dir: "down", sprite: "bill", comFlag: "billSeparado", someComFlag: "billCasoAtivo", billHumano: true,
+    lines: ["BILL: UFA! VOLTEI A SER GENTE! OBRIGADO!", "SER UM SNORLAX É LEGAL ATÉ VOCÊ PERCEBER QUE, DE TÃO GORDO, MAL SE MEXE."],
+    afterLines: ["BILL: SE VOCÊ VIR UM SNORLAX DORMINDO NO MEIO DA ESTRADA... CONFERE SE NÃO SOU EU DE NOVO."] },
+  // OS OUTROS CASOS (src/data/bill-casos.js): o Pokémon da vez, no mesmo lugar,
+  // também tentando apertar o botão; e o separador volta a funcionar
+  ...BILL_CASOS.map((c, i) => ({ id: `bill_caso${i}`, x: 6, y: 5, dir: "left", sprite: `mon:${c.especie}`, comFlag: `billCaso${i}`,
+    // o que está NO CANO (o WAILORD) é desenhado pela cena, lá no tubo: aqui fica só a conversa
+    ...(c.noCano ? { invisivel: true } : { tentaBotao: true }),
+    billCaso: i, lines: c.lines, afterLines: c.afterLines })),
+  { id: "separador_caso", x: 4, y: 5, dir: "down", invisivel: true, sprite: "ball", comFlag: "billCasoAtivo", separadorBill: true, lines: [] },
+  { id: "separador_caso2", x: 5, y: 5, dir: "down", invisivel: true, sprite: "ball", comFlag: "billCasoAtivo", separadorBill: true, lines: [] }];
+
+// A LOJA DE ROUPAS (src/data/roupas.js): a vendedora na frente da loja de departamento
+(MAPS.celadon_city.addNpcs ||= []).push({ id: "loja_roupas", x: 17, y: 15, dir: "down", sprite: "garota", lojaRoupas: true,
+  lines: ["EU VENDO ROUPAS! CHAPÉU, ÓCULOS, MOLETOM... TUDO PRA VOCÊ FICAR NO ESTILO."] });
+(MAPS.celadon_city_game_corner_prize_room ||= {}).npcPatch = { n3: { fichas: true, lines: [] } };
+
+// OS ITENS DE SEGURAR no chão (src/data/segurar.js): uma POKÉ BOLA em cada
+// lugar onde o FireRed tinha bola. Mapa que escreve a lista `npcs` inteira
+// ignora `addNpcs` (mergeMaps em src/data/index.js), então entra na dele.
+BOLAS_SEGURAR.forEach(([mapa, x, y, item], i) => {
+  const m = (MAPS[mapa] ||= {});
+  const npc = { id: `bola_segurar_${i}`, x, y, sprite: "ball", gift: { item, qty: 1 } };
+  if (Array.isArray(m.npcs)) m.npcs.push(npc);
+  else (m.addNpcs ||= []).push(npc);
+});
+
+// AS MTs E AS MOs (src/data/maquinas.js): as MTs no chão, as pessoas que dão
+// as MOs e o VENDEDOR DE MTs em frente à loja de CELADON
+{
+  const bota = (mapa, npc) => { const m = (MAPS[mapa] ||= {}); if (Array.isArray(m.npcs)) m.npcs.push(npc); else (m.addNpcs ||= []).push(npc); };
+  MTS_NO_CHAO.forEach(([mapa, x, y, n]) => bota(mapa, { id: `bola_mt_${n}`, x, y, sprite: "ball", gift: { item: n ? itemDaMT(n) : MT_ETERNA.item, qty: 1 } }));
+  MOS_COM_PESSOAS.forEach(([mapa, x, y, sprite, n, lines]) => bota(mapa, { id: `pessoa_mo_${n}`, x, y, dir: "down", sprite, lines, gift: { item: itemDaMO(n), qty: 1 } }));
+  bota("celadon_city", { id: "vendedor_mt", x: 13, y: 16, dir: "down", sprite: "balconista", estoqueFechado: true,
+    lines: ["A LOJA ESTÁ EM OBRAS (VIROU ARENA DE PAINTBALL!), ENTÃO EU VENDO AS MTs AQUI FORA."],
+    shop: MTS_NA_LOJA.map((n) => ({ item: itemDaMT(n), price: PRECO_MT(n) })) });
+  bota("celadon_city", { id: "vendedor_mt2", x: 15, y: 16, dir: "down", sprite: "balconista", estoqueFechado: true,
+    lines: ["EU VENDO AS MTs NOVAS: GOLPES QUE OS POKÉMON SÓ APRENDEM POR MÁQUINA."],
+    shop: MTS_NA_LOJA2.map((n) => ({ item: itemDaMT(n), price: PRECO_MT(n) })) });
+}
+
+// AS BASES SECRETAS (src/data/bases.js): a ESCOTEIRA que dá o kit e a LOJA DE
+// DECORAÇÃO do lado dela (Viridian e São Lucário), e os MÓVEIS ACHADOS no chão
+const poe = (mapa, npc) => {
+  const m = (MAPS[mapa] ||= {});
+  if (Array.isArray(m.npcs)) m.npcs.push(npc);
+  else (m.addNpcs ||= []).push(npc);
+};
+NPCS_BASE.forEach(({ mapa, x, y }) => {
+  poe(mapa, { id: "escoteira_base", x, y, dir: "down", sprite: "garota", escoteiraBase: true, lines: BASES_TEXTO.escoteira });
+  poe(mapa, { id: "loja_decoracao", x: x + 2, y, dir: "down", sprite: "balconista", shop: LOJA_DECORACAO, lines: BASES_TEXTO.loja });
+});
+BOLAS_MOVEIS.forEach(([mapa, x, y, item], i) => poe(mapa, { id: `bola_movel_${i}`, x, y, sprite: "ball", gift: { item, qty: 1 } }));
