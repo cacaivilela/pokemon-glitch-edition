@@ -828,6 +828,7 @@ function montarDB() {
     BICICLETA: itensUso.BICICLETA,
     BOLSOS: itensUso.BOLSOS,
     RIVAL: rival.RIVAL,
+    RATICATE_DO_RIVAL: rival.RATICATE_DO_RIVAL,
     VERSAO: versao.VERSAO,
     VOLUME: versao.VOLUME,
     MISSAO_TEXTO: missoes.MISSAO_TEXTO,

@@ -46,6 +46,9 @@ export function mtsOficiais(id) {
   const T = DB.MT_OFICIAIS || {};
   if (T[id]) return T[id];
   const sp = DB.SPECIES[id];
+  // a FUSÃO aprende as MTs de todos que entraram nela (nov/2026)
+  const fz = sp?.fusao;
+  if (fz) return [...new Set([fz.cabeca, fz.corpo, fz.pernas].filter(Boolean).flatMap((p) => mtsOficiais(p)))];
   const base = sp?.formaDe || sp?.megaDe || sp?.unicaDe;
   if (base && T[base]) return T[base];
   if (sp?.dex) { const irmao = Object.values(DB.SPECIES).find((o) => o.dex === sp.dex && T[o.id]); if (irmao) return T[irmao.id]; }

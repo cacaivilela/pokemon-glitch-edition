@@ -5,6 +5,9 @@
 // nome, música, NPCs, diálogos, placas, encontros e pontos de entrada.
 //
 // As coordenadas dos NPCs são as mesmas do jogo original (x,y em tiles).
+import { CACA_FANTASMA } from "./cacafantasma.js";
+import { RATICATE_DO_RIVAL } from "./rival.js";
+import { ZEROGLE } from "./zerogle.js";
 import { LIGA_KANTO_MAPAS } from "./liga-kanto.js";
 import { CONCURSO } from "./concurso.js";
 import { VENDA_BERRIES, ARBUSTOS, POKEBLOCO_TEXTO } from "./pokeblocos.js";
@@ -502,7 +505,8 @@ export const MAPS = {
     addNpcs: [{
       id: "lider", x: 6, y: 5, dir: "down", sprite: "brock",
       lines: ["EU SOU BROCK, LÍDER DO GINÁSIO DE PEWTER.", "MEUS POKÉMON SÃO DUROS COMO PEDRA. MOSTRE O QUE SABE!"],
-      afterLines: ["VOCÊ TEM ALGO ALÉM DE FORÇA BRUTA. SIGA EM FRENTE."],
+      afterLines: ["VOCÊ TEM ALGO ALÉM DE FORÇA BRUTA. SIGA EM FRENTE.",
+        "[foto]DEIXA EU TIRAR UMA FOTO PRO MEU ROTOMFONE. *CLIQUE* O MURAL DE QUEM ME VENCEU ESTÁ CRESCENDO."],
       trainer: { name: "LÍDER BROCK", prize: 1400, badge: "pedra",
                 party: [{ id: "geodude", lvl: 12 }, { id: "fus-geodude-onix", lvl: 13 }, { id: "onix", lvl: 14 }] },
     }],
@@ -512,7 +516,8 @@ export const MAPS = {
     addNpcs: [{
       id: "lider", x: 8, y: 6, dir: "down", sprite: "misty",
       lines: ["EU SOU MISTY, A SEREIA DE CERULEAN.", "MINHA ESTRATÉGIA É SIMPLES: ATAQUE TOTAL COM POKÉMON DE ÁGUA!"],
-      afterLines: ["VOCÊ É MESMO BOM. TÁ BOM, LEVA A INSÍGNIA."],
+      afterLines: ["VOCÊ É MESMO BOM. TÁ BOM, LEVA A INSÍGNIA.",
+        "[foto]MAS PRIMEIRO, UMA SELFIE! *CLIQUE* ...EU SAÍ DE OLHO FECHADO. ESQUECE, FICA ASSIM."],
       trainer: { name: "LÍDER MISTY", prize: 2100, badge: "cascata",
                 party: [{ id: "staryu", lvl: 18 }, { id: "fus-psyduck-starmie", lvl: 20 }, { id: "starmie", lvl: 21 }] },
     }],
@@ -789,6 +794,18 @@ MAPS.route25_sea_cottage.addNpcs = [...(MAPS.route25_sea_cottage.addNpcs || []),
 (MAPS.celadon_city.addNpcs ||= []).push({ id: "loja_roupas", x: 17, y: 15, dir: "down", sprite: "garota", lojaRoupas: true,
   lines: ["EU VENDO ROUPAS! CHAPÉU, ÓCULOS, MOLETOM... TUDO PRA VOCÊ FICAR NO ESTILO."] });
 (MAPS.celadon_city_game_corner_prize_room ||= {}).npcPatch = { n3: { fichas: true, lines: [] } };
+
+// A CAÇA-FANTASMAS (src/data/cacafantasma.js): o caçador no 2º andar da TORRE
+// POKÉMON, do lado do AZUL, que está de frente pra lápide do RATICATE dele
+// (RATICATE_DO_RIVAL em src/data/rival.js: o n0 do FireRed vira ele)
+((MAPS.pokemon_tower_2f ||= {}).addNpcs ||= []).push(CACA_FANTASMA.npc);
+MAPS.pokemon_tower_2f.npcPatch = { ...(MAPS.pokemon_tower_2f.npcPatch || {}),
+  n0: { ...RATICATE_DO_RIVAL.npc, raticateRival: true, lines: [] } };
+// O ENTERRO DO BRASEAGLE (src/data/zerogle.js): o TOMÁS no 2º andar, e a
+// zeladora do térreo (n0) é quem tem a pá
+MAPS.pokemon_tower_2f.addNpcs.push(ZEROGLE.dono);
+MAPS.pokemon_tower_1f = MAPS.pokemon_tower_1f || {};
+MAPS.pokemon_tower_1f.npcPatch = { ...(MAPS.pokemon_tower_1f.npcPatch || {}), n0: { zeladoraPa: true } };
 
 // OS ITENS DE SEGURAR no chão (src/data/segurar.js): uma POKÉ BOLA em cada
 // lugar onde o FireRed tinha bola. Mapa que escreve a lista `npcs` inteira

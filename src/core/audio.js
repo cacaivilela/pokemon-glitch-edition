@@ -1230,6 +1230,15 @@ export const Audio2 = {
   },
 
   grito(spec, tom = 1, efeito = null) {
+    // `repete` (quantas vezes seguidas) e `depois` (um segundo som colado no
+    // fim) — o PARACELERADO: 9x o grito acelerado, e a fanfarra
+    if (spec?.depois || spec?.repete > 1) {
+      const n = Math.max(1, spec.repete | 0), um = { ...spec, depois: null, repete: 0 };
+      const d = this.grito(um, tom, efeito) || 0;
+      for (let i = 1; i < n; i++) setTimeout(() => this.grito(um, tom, efeito), d * 1000 * i);
+      if (spec.depois) setTimeout(() => this.grito(spec.depois, 1), d * 1000 * n);
+      return d * n + (spec.depois?.s || []).reduce((s, x) => s + (x[2] || 100), 0) / 1000;
+    }
     // os de KANTO e JOHTO tocam o grito ORIGINAL, no chip do Game Boy; os de
     // HOENN em diante, o arquivo do grito original (assets/gritos/)
     // (`efeito: "estouro"`: a voz vira explosão de fogo — cadeiaEstouro)

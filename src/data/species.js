@@ -177,7 +177,8 @@ export function buildSpecies(GEN1, TYPE_COLOR = {}, TEXTOS = {}, MAIS = {}) {
     const base = [...(extra.learnset || sp.learnset || autoLearnset(sp.types)), ...(sp.learnsetExtra || [])];
     out[id] = {
       ...sp,
-      learnset: [...base, ...maisGolpes(id, sp.types || ["NORMAL"], base, MAIS)],
+      // (`soGolpesDele`, o PARACELERADO: só a lista dele, sem os do tipo)
+      learnset: sp.soGolpesDele ? base : [...base, ...maisGolpes(id, sp.types || ["NORMAL"], base, MAIS)],
       dexText: frase || `${sp.name}. DADOS DA POKÉDEX AINDA NÃO CARREGADOS.`,
       lore: !!frase,   // tem frase própria (não é o texto genérico)
       placeholder: sp.placeholder || { shape: shapeFor(sp), tint: TYPE_COLOR[sp.types[0]] },

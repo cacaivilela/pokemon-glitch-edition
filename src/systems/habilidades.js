@@ -9,14 +9,20 @@ import { partes } from "./fusao.js";
  *  - escrita à mão como UMA só: ela, mais a padrão de cada tipo da espécie —
  *    menos as de ASSINATURA (as inventadas, que são a marca do bicho: ficam sozinhas);
  *  - sem nada escrito: a padrão de cada tipo.
- *  Fusão usa a lista da cabeça; mega, a da espécie de origem. */
+ *  Fusão (nov/2026): as habilidades de TODOS que entraram nela, uma de cada
+ *  por vez (cabeça, corpo, pernas), até 3; mega, a da espécie de origem. */
 export function habilidadesDe(species) {
   const H = DB.HABILIDADES || {};
   const sp = DB.SPECIES?.[species];
   if (!sp) return [];
   if (sp.megaDe) return habilidadesDe(sp.megaDe);
   const p = partes(species);
-  if (p) return habilidadesDe(p.cabeca);
+  if (p) {
+    const listas = [p.cabeca, p.corpo, p.pernas].filter(Boolean).map((id) => habilidadesDe(id));
+    const out = [];
+    for (let i = 0; out.length < 3 && i < 3; i++) for (const l of listas) if (l[i] && !out.includes(l[i]) && out.length < 3) out.push(l[i]);
+    return out.length ? out : ["regeneracao"];
+  }
   const escrita = DB.HABILIDADE_DE?.[species];
   if (Array.isArray(escrita)) return escrita.filter((id) => H[id]).slice(0, 3);
   const doTipo = (sp.types || []).map((t) => DB.HABILIDADE_POR_TIPO?.[t]).filter(Boolean);

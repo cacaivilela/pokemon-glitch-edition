@@ -7,6 +7,7 @@
 // com um soco de zoom, faíscas e a fanfarra. A música (MUSIC.evolucao) tem
 // 12,8 s e as fases somam isso: a virada da bateria cai bem no BUUM.
 import { contar as contarPesquisa } from "../systems/pesquisa.js";
+import { fotoDoMon } from "../systems/fotos.js";
 import { DB } from "../data/index.js";
 import { Assets, makeCanvas } from "../core/assets.js";
 import { Audio2 } from "../core/audio.js";
@@ -27,10 +28,14 @@ const JUNTA = 5.5;             // segundos dos pixels voando até a forma nova
 const CARREGA = 3.2;           // a forma nova branca tremendo antes do BUUM (a última frase)
 const CLARAO = 0.5;            // tela branca antes de revelar
 // A ANIMAÇÃO DO BICHO ACELERANDO (pedido do CAIO): no "O QUÊ? ... ESTÁ
-// EVOLUINDO!" ela começa normal e vai ficando ANIM_MAX vezes mais rápida em
-// ANIM_RAMPA segundos — e para no quadro em que a evolução começa (é ele que
-// vira os pixels que se desmancham)
-const ANIM_MAX = 4;
+// EVOLUINDO!" ela começa normal e ganha ANIM_GANHO de velocidade a cada
+// ANIM_RAMPA segundos, sem limite ("acelerar infinitamente") — e para no quadro
+// em que a evolução começa (é ele que vira os pixels que se desmancham)
+const ANIM_GANHO = 3;
+// o PARACELERADO: quantos segundos acelerando o PARASECT precisa, e o fundo
+// amarelo de quando dá a hora (o mesmo jeito dos TEMAS das formas)
+const PARACELERA = 15;
+const TEMA_ACELERADO = { fundo: ["#5a4400", "#e0b800"], degrau: "255,250,170", fita: "255,255,210", fita2: "255,215,80", luz: "255,240,120", particula: "255,235,110", ceu: ["#1a1400", "#4a3800"] };
 // depois do "PARABÉNS" + musiquinha (FANFARRA_TEMPOS tempos, a do FireRed), a
 // música da evolução continua, nesta fração do volume, até fechar a frase
 const FANFARRA_TEMPOS = 8.5;
@@ -171,8 +176,19 @@ export class EvolutionScene {
     // a animação do bicho: acelera enquanto ele está pra evoluir, e congela
     // quando a evolução começa (o quadro dos pixels e o do contorno de luz)
     if (this.fase === "chegando" || this.fase === "parou") {
-      const vel = this.fase === "chegando" ? 1 + (ANIM_MAX - 1) * Math.min(1, this.tf / ANIM_RAMPA) : 1;
+      const vel = this.fase === "chegando" ? 1 + ANIM_GANHO * this.tf / ANIM_RAMPA : 1;
       this.animMs += dt * 1000 * vel;
+      // O PARACELERADO (src/data/secretas.js): PARASECT acelerando 15 segundos
+      // aqui vira ELE no lugar do que ia virar — e o fundo fica AMARELO
+      if (this.fase === "chegando" && !this.forma && !this.acelerou && this.mon.species === "parasect"
+          && this.tf >= PARACELERA && DB.SPECIES.paracelerado) {
+        this.acelerou = true;
+        this.to = "paracelerado";
+        this.nomeNovo = DB.SPECIES.paracelerado.name;
+        this.tema = TEMA_ACELERADO;
+        this.flash = 1;
+        Audio2.tone?.(1600, 0.25, "square", 0.2);
+      }
     }
     if (this.fadeDir) {
       this.fadeA = Math.max(0, Math.min(1, this.fadeA + this.fadeDir * dt * 3));
@@ -486,6 +502,7 @@ export class EvolutionScene {
     if (evo) {
       st.seen[this.mon.species] = true;
       st.caught[this.mon.species] = true;
+      fotoDoMon(st, this.mon);                         // a foto da evolução vai pro álbum da CÂMERA
     }
     let novaCasca = null;
     if (evo && casca && DB.SPECIES[casca] && st.party.length < 6) {

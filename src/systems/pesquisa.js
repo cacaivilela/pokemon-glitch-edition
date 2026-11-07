@@ -10,6 +10,7 @@
 import { DB } from "../data/index.js";
 import { LENDARIOS } from "../data/leilao.js";
 import { agora } from "./ciclo.js";
+import { metaDerrotou, metaPegou } from "./metas.js";
 
 /** quem é EVOLUÇÃO de alguém (esses não saem de ovo: o ovo dá o primeiro) */
 let alvosCache = null, alvosDb = null;
@@ -81,6 +82,7 @@ export function contar(st, id, k, n = 1) {
 /** PEGOU: conta pegar, e de noite / alfa se for */
 export function contarCaptura(st, mon) {
   if (!mon) return;
+  metaPegou(st);
   contar(st, mon.species, "pegar");
   if (mon.alfa) contar(st, mon.species, "alfa");
   try { if (agora().noite) contar(st, mon.species, "noite"); } catch { /* sem relógio */ }
@@ -89,6 +91,7 @@ export function contarCaptura(st, mon) {
 /** VENCEU: conta derrotar, e super efetivo se o último golpe foi */
 export function contarVitoria(st, mon, eff) {
   if (!mon) return;
+  metaDerrotou(st, mon);
   contar(st, mon.species, "derrotar");
   if (eff > 1) contar(st, mon.species, "fraqueza");
 }

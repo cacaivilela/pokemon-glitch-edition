@@ -48,6 +48,30 @@ export const SECRETAS_ESPECIES = {
   },
 };
 
+/** O PARACELERADO (pedido do CAIO, nov/2026): o PARASECT que ficou 15 segundos
+ *  ACELERANDO na cena da evolução (src/scenes/evolution.js, o fundo fica
+ *  amarelo quando dá a hora). 10 em tudo e 1000 de VELOCIDADE; os golpes são os
+ *  que ficam melhores quanto mais rápido (BOLA ELÉTRICA, ACELERADA...). O
+ *  desenho é o PARASECT editado pixel por pixel (tools/paracelerado/desenha.py);
+ *  o grito, o do PARASECT 10x acelerado + a fanfarra da evolução. */
+SECRETAS_ESPECIES.paracelerado = {
+  id: "paracelerado", dex: 47, name: "PARACELERADO",
+  types: ["INSETO", "ELÉTRICO"],
+  base: { hp: 10, atk: 10, def: 10, spa: 10, spd: 10, spe: 1000 }, bst: 1050,
+  spriteDex: 31004,
+  // (o texto é dele, nov/2026)
+  dexText: "CORREU TANTO QUE NÃO PARA DE SE MOVER. PRA NÃO SE CANSAR, PASSOU TODOS OS SEUS STATS PRA VELOCIDADE.",
+  catchRate: 45, xpYield: 140, soEvolucao: true,
+  soGolpesDele: true,          // evoluindo, troca os golpes do PARASECT pelos dele (src/systems/mon.js)
+  // a VELOCIDADE que ele escolheu, nível a nível (src/systems/mon.js `recalc`)
+  velocidadePorNivel: [[5, 1000], [30, 1255], [100, 2000]],
+  // SÓ golpes que ficam melhores quanto mais rápido (ele escolheu: nada de
+  // ATAQUE RÁPIDO, AGILIDADE nem VELOCIDADE EXTREMA, que não mudam com a velocidade)
+  learnset: [
+    [1, "bolaeletrica"], [1, "acelerada"], [1, "mangueira"], [20, "rodaveloz"], [35, "trovaoveloz"],
+  ],
+};
+
 export const EVO_SECRETAS = {
   parasect: [
     { secreta: "choqueSevii", comeu: "cogumelo dourado", to: "parasectromamarelo" },

@@ -52,13 +52,16 @@ export const RIVAL = {
         "ESPERA AÍ. ACHOU QUE IA SAIR DAQUI SEM ME MOSTRAR?",
         "EU PEGUEI O QUE GANHA DO SEU. NÃO FOI SORTE, FOI CONTA — EU FIZ NO PAPEL.",
         "VAMOS VER SE ISSO IMPORTA.",
+        // o RATICATE dele (RATICATE_DO_RIVAL): antes de morrer, ele nem ligava
+        "AH, E ESSE AQUI É O RATICATE. EU TENHO ELE FAZ TEMPO. É MEIO DENTUÇO... E MEIO ESQUISITO. MAS SERVE.",
       ],
       depois: [
         "...",
         "O PAPEL ESTÁ CERTO. EU CONFERI DUAS VEZES ANTES DE ESCOLHER.",
         "VOCÊ TEVE SORTE NO ÚLTIMO GOLPE. SÓ ISSO.",
+        "...E VOCÊ, RATICATE, PARA DE ME OLHAR COM ESSES DENTES.",
       ],
-      time: [{ id: "INICIAL", lvl: 5 }],
+      time: [{ id: "INICIAL", lvl: 5 }, { id: "raticate", lvl: 3 }],
       premio: 175,
     },
     {
@@ -69,13 +72,16 @@ export const RIVAL = {
         "OLHA SÓ QUEM APRENDEU A GANHAR INSÍGNIA.",
         "EU REFIZ A CONTA DAQUELE DIA. ESTAVA CERTA. O PROBLEMA FOI O TERRENO.",
         "AQUI NÃO TEM TERRENO NENHUM. VAMOS DE NOVO.",
+        "NEM LIGA PRO RATICATE. ELE FICA RANGENDO ESSES DENTÕES O DIA INTEIRO. ESQUISITO.",
       ],
       depois: [
         "O VENTO. FOI O VENTO, ELE MEXEU NO ÚLTIMO GOLPE.",
         "...E TEM UM BARULHO NESSA ESTRADA QUE NÃO É DE POKÉMON NENHUM. VOCÊ NÃO OUVIU?",
+        "AH, NÃO. ERA O RATICATE RANGENDO OS DENTES. DE NOVO.",
       ],
       time: [
         { id: "pidgey", lvl: 9 },
+        { id: "raticate", lvl: 9 },
         { id: "INICIAL", lvl: 11 },
       ],
       premio: 420,
@@ -89,41 +95,22 @@ export const RIVAL = {
         "PEDI UMA PRO MEU AVÔ TRÊS VEZES. NA TERCEIRA ELE DISSE \"LEVA E PARA DE ME PERGUNTAR\".",
         "ENTÃO AGORA SOMOS DOIS COM DECODIFICADOR. SÓ QUE EU SEI USAR A TABELA DE TIPOS.",
         "...EU SEI USAR A TABELA DE TIPOS.",
+        "E O RATICATE AINDA ESTÁ AQUI. EU TENTEI DEIXAR ELE NO PC, MAS ELE ROEU A BOLA E VOLTOU. ESQUISITÃO.",
       ],
       depois: [
         "ELE ERA DOIS E GANHOU DE DOIS. ISSO NEM DEVIA CONTAR.",
         "TÁ. ME EXPLICA UMA COISA: COMO VOCÊ ESCOLHE QUEM VAI SER A CABEÇA?",
+        "...E ESSE DENTUÇO PERDEU DE NOVO. NA PRÓXIMA EU VOU SEM ELE.",
       ],
       time: [
-        { id: "rattata", lvl: 16 },
+        { id: "raticate", lvl: 17 },
         { id: "spearow", lvl: 16 },
         { id: "INICIAL", lvl: 18 },
       ],
       premio: 900,
     },
-    {
-      id: "lavanda",
-      mapa: "lavender_town", x: 14, y: 10, dir: "down",
-      requer: { insignias: 4 },
-      antes: [
-        "NÃO ENTRA NA TORRE HOJE.",
-        "EU SUBI ATÉ O QUARTO ANDAR E VOLTEI. TINHA UM POKÉMON LÁ QUE NÃO ESTAVA NA MINHA POKÉDEX.",
-        "NÃO ERA ESPÉCIE NOVA. ERA UM QUE EU JÁ TINHA VISTO, SÓ QUE ERRADO.",
-        "OLHA O QUE EU FIZ NA MÁQUINA. AGORA A CONTA ESTÁ CERTA DE VERDADE.",
-      ],
-      depois: [
-        "DE NOVO NÃO...",
-        "EU JUNTEI OS DOIS QUE GANHAVAM DO SEU. OS DOIS. COMO É QUE ISSO PERDE?",
-        "...OBRIGADO POR VIR. EU PREFIRO PERDER PRA VOCÊ DO QUE FICAR AQUI SOZINHO PENSANDO NAQUELA TORRE.",
-      ],
-      time: [
-        { id: "gyarados", lvl: 30 },
-        { id: "kadabra", lvl: 32 },
-        { id: "FUSAO:pidgeotto+growlithe", lvl: 33 },
-        { id: "INICIAL", lvl: 34 },
-      ],
-      premio: 2100,
-    },
+    // (a luta em LAVENDER saiu em nov/2026: no lugar dela, o AZUL está na
+    // TORRE POKÉMON chorando o RATICATE — RATICATE_DO_RIVAL, lá embaixo)
     {
       id: "route23",
       mapa: "route23", x: 12, y: 76, dir: "down",
@@ -145,6 +132,8 @@ export const RIVAL = {
         { id: "alakazam", lvl: 47 },
         { id: "FUSAO:gyarados+arcanine", lvl: 48 },
         { id: "rhyhorn", lvl: 45 },
+        // o RATICATE só volta se você reviveu e entregou (RATICATE_DO_RIVAL)
+        { id: "raticate", lvl: 46, soSeEntregue: true },
         { id: "INICIAL", lvl: 50 },
       ],
       premio: 6500,
@@ -165,6 +154,47 @@ export const RIVAL = {
       "VAI. EU FICO AQUI SEGURANDO A PORTA — ALGUÉM TEM QUE SABER O CAMINHO DE VOLTA.",
     ],
   },
+};
+
+// ---------------------------------------------------------- O RATICATE DELE
+// Pedido do CAIO (nov/2026), em cima da história que todo mundo conta: o
+// RATICATE do rival morreu depois do S.S. ANNE, e é por isso que na TORRE
+// POKÉMON ele pergunta se você sabe como é perder um Pokémon. Aqui:
+//  - o AZUL tem RATICATE em todas as lutas até CERULEAN
+//  - na TORRE POKÉMON (2º andar) ele não luta: está olhando uma lápide
+//  - na 2ª conversa, o CAÇADOR DE FANTASMAS (src/data/cacafantasma.js) diz que
+//    dá pra reviver: é só juntar as 100 fichas da alma do RATICATE
+//  - revivido, o RATICATE é DELE (mon.doRival): você leva e entrega
+//  - entregou: o RATICATE volta pro time dele na ROTA 23
+// O estado fica em st.flags.raticateRival: 1 chorando, 2 caçando, 3 entregue.
+export const RATICATE_DO_RIVAL = {
+  npc: { x: 15, y: 8, dir: "up" },        // de frente pra lápide (15,7)
+  companheiro: { x: 14, y: 8 },           // o RATICATE, depois de entregue, do lado dele
+  chorando: ["{RIVAL}: OI... O *SNIF* O *SNIF* RATICATE MORREU..."],
+  pedido: [
+    "{RIVAL}: SE DESSE PRA REVIVER VOCÊ, RATICATE...",
+    "CAÇADOR DE FANTASMAS: TEM COMO.",
+    "{RIVAL}: *SNIF* DÁ?",
+    "CAÇADOR DE FANTASMAS: SIM! SÓ TEMOS QUE PEGAR AS PARTES DA ALMA DELE!",
+    "CAÇADOR DE FANTASMAS: {NOME}, PEGA A MINHA MÁQUINA E JUNTA 100 FICHAS DO RATICATE. FALA COMIGO PRA CAÇAR.",
+  ],
+  esperando: ["{RIVAL}: *SNIF* JÁ JUNTOU A ALMA DO RATICATE?"],
+  noBox: ["{RIVAL}: VOCÊ REVIVEU ELE?! CADÊ? TRAZ ELE NA SUA EQUIPE!"],
+  // o caçador, na hora de reviver o dele
+  reviveuDele: "ESSE É O RATICATE DO {RIVAL}! LEVA PRA ELE.",
+  equipeCheia: "A SUA EQUIPE ESTÁ CHEIA. ABRE UM ESPAÇO PRO RATICATE DO {RIVAL} E VOLTA.",
+  entrega: [
+    "{RIVAL}: ...RATICATE?",
+    "{RIVAL}: É VOCÊ MESMO! *SNIF* EU NUNCA MAIS DEIXO VOCÊ CAIR.",
+    "{RIVAL}: ...OBRIGADO, {NOME}. NÃO CONTA PRA NINGUÉM QUE EU CHOREI.",
+    // o ROTOMFONE dele (src/core/rotomfone.js): a selfie
+    "[foto]{RIVAL}: SORRI, RATICATE! *CLIQUE* ...ESSA VAI SER A MINHA FOTO DE FUNDO.",
+  ],
+  depois: [
+    "{RIVAL}: O RATICATE ESTÁ BEM. A GENTE SÓ VEIO VISITAR A LÁPIDE... ELA FICA AQUI DE LEMBRANÇA.",
+    "[foto]{RIVAL}: TODO DIA EU TIRO UMA FOTO DELE AQUI. *CLIQUE* ...PRONTO, A FOTO NÚMERO 47.",
+  ],
+  nome: "RATICATE",
 };
 
 // ---------------------------------------------------------------- O GÊMEO

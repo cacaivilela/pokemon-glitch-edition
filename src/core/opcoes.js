@@ -18,7 +18,11 @@ const PADRAO = {
   // O ESTILO DE TROCA, como no FireRed: "alternar" (o treinador vai mandar o
   // próximo e o jogo pergunta se você quer trocar) ou "set" (não pergunta)
   estiloTroca: "alternar",
+  // O FPS (pedido do CAIO, nov/2026: "de 30 a 2.000"): quantas vezes por
+  // segundo a tela é desenhada (o jogo em si anda sempre a 60 por segundo)
+  fps: 60,
 };
+export const FPS_OPCOES = [30, 60, 120, 144, 240, 500, 1000, 2000];
 
 let atual = null;
 

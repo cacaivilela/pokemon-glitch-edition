@@ -118,7 +118,9 @@ export function montarTime(st, enc) {
       if (sp) out.push({ ...p, id: sp.id });
       continue;                       // a dupla não existe mais: ele vem sem ela
     }
-    if (DB.SPECIES[p.id]) out.push({ ...p });
+    // o RATICATE dele: na ROTA 23 só se você reviveu e entregou
+    if (p.soSeEntregue && (st?.flags?.raticateRival || 0) < 3) continue;
+    if (DB.SPECIES[p.id]) { const { soSeEntregue, ...resto } = p; out.push(resto); }
   }
   return out;
 }

@@ -61,9 +61,18 @@ export function calcDamage(atk, def, moveId, aStages, dStages, clima = null) {
   // PARA-RAIOS...), o multiplicador dos dois lados e a fala de quem anuncia
   const hab = efeitoNoGolpe(mv, atk, def, clima);
   if (hab.imune) return { dmg: 0, eff: 0, crit: false, mv, imune: hab.hab, cura: hab.cura };
+  // A MANGUEIRA: dano FIXO, uma fração da velocidade de quem usa
+  if (mv.danoVelocidade) return { dmg: Math.max(1, Math.floor(effectiveStat(atk, "spe", aStages) * mv.danoVelocidade)), eff: 1, crit: false, mv };
 
   const physical = mv.category === "fisico";
-  const A = effectiveStat(atk, physical ? "atk" : "spa", aStages);
+  // QUANTO MAIS RÁPIDO, MELHOR (o PARACELERADO, nov/2026): a BOLA ELÉTRICA pela
+  // razão das velocidades, como no oficial; a ACELERADA bate COM a velocidade
+  const veloA = effectiveStat(atk, "spe", aStages), veloD = Math.max(1, effectiveStat(def, "spe", dStages));
+  if (mv.porVelocidade) {
+    const r = veloA / veloD;
+    mv = { ...mv, power: r >= 4 ? 150 : r >= 3 ? 120 : r >= 2 ? 80 : r >= 1 ? 60 : 40 };
+  }
+  const A = mv.usaVelocidade ? veloA : effectiveStat(atk, physical ? "atk" : "spa", aStages);
   const D = Math.max(1, effectiveStat(def, physical ? "def" : "spd", dStages));
   const crit = !semCrit(def, atk) && chance((mv.crit || 1) / 16);
   // ADAPTABILIDADE: o golpe do próprio tipo bate 2x em vez de 1,5x

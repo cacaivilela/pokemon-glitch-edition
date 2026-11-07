@@ -149,6 +149,16 @@ export function recalc(mon) {
     spd: Math.floor(statValue(base.spd, mon.ivs.spd, mon.level) * f),
     spe: Math.floor(statValue(base.spe, mon.ivs.spe, mon.level) * f),
   };
+  // `velocidadePorNivel` (o PARACELERADO, nov/2026): a VELOCIDADE não sai da
+  // conta — sai destes pontos [nível, velocidade], em linha reta entre eles
+  // (e seguindo a última reta depois do último, a primeira antes do primeiro)
+  const vpn = sp.velocidadePorNivel;
+  if (vpn?.length > 1) {
+    let i = vpn.findIndex(([n]) => n >= mon.level);
+    if (i <= 0) i = i === 0 ? 1 : vpn.length - 1;
+    const [n0, v0] = vpn[i - 1], [n1, v1] = vpn[i];
+    mon.stats.spe = Math.max(1, Math.round((v0 + (v1 - v0) * (mon.level - n0) / (n1 - n0)) * f));
+  }
   // O TRUNFO: o que ele ganhou a mais subindo de nível (ver `gainXp`) é dele
   // pra sempre — soma por cima da conta, mesmo depois de evoluir
   const t = mon.trunfoExtra;
@@ -267,6 +277,11 @@ export function evolveTo(mon, toId) {
   };
   for (const [a, b] of Object.entries(from.trocaGolpe || {})) troca(b, a);
   for (const [a, b] of Object.entries(DB.SPECIES[toId].trocaGolpe || {})) troca(a, b);
+  // `soGolpesDele` (o PARACELERADO): evoluiu, esquece os golpes de antes e fica
+  // só com os da espécie nova (ele SÓ sabe golpes que ficam melhores quanto mais rápido)
+  if (DB.SPECIES[toId].soGolpesDele) {
+    mon.moves = learnableMoves(toId, mon.level).slice(-4).map((id) => ({ id, pp: DB.MOVES[id].pp, ppMax: DB.MOVES[id].pp }));
+  }
   // golpes que a espécie nova já deveria saber, se ainda tem espaço na lista
   for (const id of learnableMoves(toId, mon.level).slice(-4)) {
     if (mon.moves.length >= 4 || mon.moves.some((m) => m.id === id)) continue;

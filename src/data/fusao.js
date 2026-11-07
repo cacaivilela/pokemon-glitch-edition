@@ -93,7 +93,9 @@ export const FUSAO = {
    *  pernas: DEF ESP e VELOCIDADE) — metade de quem manda, um quarto de cada
    *  um dos outros dois. */
   stats3(cab, meio, pernas) {
-    const mix = (dono, a, b) => Math.floor((2 * dono + a + b) / 4);
+    // (nov/2026, "melhore as fusões"): arredonda em vez de cortar, e a TRIPLA
+    // ganha o BÔNUS DE FUSÃO — três juntos valem mais que a média deles
+    const mix = (dono, a, b) => Math.round((2 * dono + a + b) / 4 * FUSAO.bonusTripla);
     return {
       hp:  mix(cab.hp,  meio.hp,  pernas.hp),
       atk: mix(meio.atk, cab.atk, pernas.atk),
@@ -116,9 +118,15 @@ export const FUSAO = {
     return out;
   },
 
-  /** ATRIBUTOS: 2/3 de quem manda naquele atributo, 1/3 do outro. */
+  /** O BÔNUS DE FUSÃO (nov/2026): a fusão sai um pouco mais forte que a média
+   *  das partes — antes, cortando as casas, ela saía até mais FRACA (o
+   *  GROORBUBBLE dava 308 com três Pokémon de 310). */
+  bonusDupla: 1.05,
+  bonusTripla: 1.1,
+
+  /** ATRIBUTOS: 2/3 de quem manda naquele atributo, 1/3 do outro (+ o bônus). */
   stats(cab, cor) {
-    const mix = (dono, outro) => Math.floor((2 * dono + outro) / 3);
+    const mix = (dono, outro) => Math.round((2 * dono + outro) / 3 * FUSAO.bonusDupla);
     return {
       hp:  mix(cab.hp,  cor.hp),
       atk: mix(cor.atk, cab.atk),
@@ -130,11 +138,12 @@ export const FUSAO = {
   },
 
   /** TIPOS: o primeiro da cabeça e o segundo do corpo (o único dele, se só tem
-   *  um). Deu igual, a fusão sai com um tipo só. */
+   *  um). Deu igual: entra o OUTRO tipo do corpo, ou o outro da cabeça (como
+   *  na tripla); só sai com um tipo só se os dois só têm aquele mesmo. */
   tipos(cab, cor) {
     const t1 = cab.types[0];
-    const t2 = cor.types[1] || cor.types[0];
-    return t1 === t2 ? [t1] : [t1, t2];
+    const t2 = [cor.types[1] || cor.types[0], cor.types[0], cab.types[1]].find((t) => t && t !== t1);
+    return t2 ? [t1, t2] : [t1];
   },
 
   /** O EDITOR (src/scenes/fusaoeditor.js). O desenho é 256x256: quatro vezes o

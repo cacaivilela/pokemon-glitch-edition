@@ -52,6 +52,8 @@ import { tocarMega } from "./mega.js";
 import { marcarSecreta } from "../systems/secretas.js";
 import { cumprirProcurado } from "../systems/bicos.js";
 import { venceu as venceuAmizade } from "../systems/creche.js";
+import { metaUsou } from "../systems/metas.js";
+import { fotoDaLuta, fotoDaCaptura, FOTO_TEXTO } from "../systems/fotos.js";
 import { reduzido } from "../core/reduzir.js";
 import { desenharItem } from "../core/itens.js";
 import { segura, comerBerry, curaDasSobras, segurarComFoco, garraBrilhou, fatorXp as fatorXpItem, talvezSegurando, itensDoLider, depoisDoGolpe } from "../systems/segurar.js";
@@ -402,6 +404,9 @@ export class BattleScene {
 
   get st() { return this.game.state; }
   get mine() { return this.st.party[this.playerIdx]; }
+  // todo Pokémon que entra na luta passa por aqui: as METAS de um tipo só conferem
+  get playerIdx() { return this._playerIdx; }
+  set playerIdx(i) { this._playerIdx = i; metaUsou(this.st, this.st.party[i]); }
   get foe() { return this.foeParty[this.foeIdx]; }
 
   // ------------------------------------------------- helpers de fluxo
@@ -1354,6 +1359,8 @@ export class BattleScene {
       if (this.npcKey) (this.st.npcState[this.npcKey] ||= {}).defeated = true;
       await this.say(`VOCÊ DERROTOU ${this.trainer.name}!`);
       await this.say(`VOCÊ GANHOU $${prize}!`);
+      // A CÂMERA DO ROTOMFONE (src/systems/fotos.js): líder, rival, amigo, gêmeo → foto juntos
+      { const foto = fotoDaLuta(this.st, this.trainer); if (foto) await this.say(foto.tipo === "campeao" ? FOTO_TEXTO.campeao : FOTO_TEXTO.luta); }
       // AS INSÍGNIAS DE BRAGLITCH moram à parte (src/data/braglitch-mundo.js):
       // a história de Kanto conta as oito dela e não pode contar estas
       const bb = this.trainer.bragBadge;
@@ -1824,6 +1831,8 @@ export class BattleScene {
     { const t = contarSurto(this.st, this.foe); if (t) await this.say(t); }
     // as MISSÕES DA POKÉDEX (src/systems/pesquisa.js): pegou (de noite? alfa?)
     contarCaptura(this.st, this.foe);
+    // um LENDÁRIO ou um SHINY: foto com ele na CÂMERA do ROTOMFONE
+    if (fotoDaCaptura(this.st, this.foe)) await this.say(FOTO_TEXTO.captura.replace("{MON}", this.foe.nickname));
     // espécie nova: a POKÉDEX anota, e diz que anotou (src/data/pokedex.js)
     const novo = !this.st.caught[this.foe.species] && !!this.st.flags?.pokedex;
     this.st.caught[this.foe.species] = true;

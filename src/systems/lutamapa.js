@@ -31,6 +31,7 @@ import { bonusDaBola } from "./bolas.js";
 import { fatorCaptura, fatorXp } from "./pedras.js";
 import { fatorXp as fatorXpItem } from "./segurar.js";
 import { contarVitoria } from "./pesquisa.js";
+import { metaUsou } from "./metas.js";
 import { contarSurto } from "./surtos.js";
 import { garantirEspecie } from "./fusao.js";
 import { linhaPMD } from "./roubopixels.js";
@@ -173,6 +174,7 @@ function acertar(ow, L, f, user, target, id, meu) {
 function caiu(ow, L, f) {
   ow.lutadores = ow.lutadores.filter((o) => o !== f);
   const st = ow.st, ultimo = f.doTreinador && L.treinador && L.treinador.i >= L.treinador.time.length - 1;
+  metaUsou(st, ow.quemSegue());
   contarVitoria(st, f.mon, 1);       // (conta o último do treinador também: a cena transparente não conta)
   texto(L, f.x, f.y - 1, `${f.mon.nickname} DESMAIOU!`, "#ffe060", 1.3);
   Audio2.tone(180, 0.2, "square", 0.4);

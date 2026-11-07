@@ -80,7 +80,17 @@ export const MAIS_GOLPES = {
   // ---------------------------------------------------------- ELÉTRICO
   faisca:            { name: "FAÍSCA",            type: "ELÉTRICO", power: 65,  acc: 100, pp: 20, category: "fisico", para: 0.3 },
   presaeletrica:     { name: "PRESA ELÉTRICA",    type: "ELÉTRICO", power: 65,  acc: 95,  pp: 15, category: "fisico", para: 0.1, mordida: true },
-  bolaeletrica:      { name: "BOLA ELÉTRICA",     type: "ELÉTRICO", power: 70,  acc: 100, pp: 10, category: "especial" },
+  // (nov/2026) como no oficial: quanto MAIS RÁPIDO que o alvo, mais forte
+  // (`porVelocidade`, src/systems/battle-engine.js): de 40 a 150
+  bolaeletrica:      { name: "BOLA ELÉTRICA",     type: "ELÉTRICO", power: 70,  acc: 100, pp: 10, category: "especial", porVelocidade: true },
+  // a do PARACELERADO (src/data/secretas.js): bate com a VELOCIDADE no lugar do ataque
+  acelerada:         { name: "ACELERADA",         type: "INSETO",   power: 40,  acc: 100, pp: 15, category: "fisico", usaVelocidade: true },
+  // mais dois dele, também com a VELOCIDADE no lugar do ataque: as rodinhas e o raio
+  rodaveloz:         { name: "RODA VELOZ",        type: "NORMAL",   power: 50,  acc: 100, pp: 15, category: "fisico", usaVelocidade: true },
+  // A MANGUEIRA (pedido do CAIO, nov/2026): o dano é a METADE DA VELOCIDADE de
+  // quem usa, fixo (1000 de velocidade = 500 de dano), sem ataque nem defesa
+  mangueira:         { name: "MANGUEIRA",         type: "ÁGUA",     power: 1,   acc: 100, pp: 10, category: "especial", danoVelocidade: 0.5 },
+  trovaoveloz:       { name: "TROVÃO VELOZ",      type: "ELÉTRICO", power: 50,  acc: 95,  pp: 10, category: "especial", usaVelocidade: true },
   trocavolt:         { name: "TROCA VOLT",        type: "ELÉTRICO", power: 70,  acc: 100, pp: 20, category: "especial" },
   socodotrovao:      { name: "SOCO DO TROVÃO",    type: "ELÉTRICO", power: 75,  acc: 100, pp: 15, category: "fisico", para: 0.1 },
   descarga:          { name: "DESCARGA",          type: "ELÉTRICO", power: 80,  acc: 100, pp: 15, category: "especial", para: 0.3 },

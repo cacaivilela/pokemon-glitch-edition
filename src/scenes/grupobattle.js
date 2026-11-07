@@ -37,6 +37,8 @@ import { tocarMega } from "./mega.js";
 import { marcarSecreta } from "../systems/secretas.js";
 import { cumprirProcurado } from "../systems/bicos.js";
 import { venceu as venceuAmizade } from "../systems/creche.js";
+import { metaUsou, metaDerrotou } from "../systems/metas.js";
+import { fotoDaLuta, FOTO_TEXTO } from "../systems/fotos.js";
 import { isFainted, gainXp, xpYieldFor, heal, createMon } from "../systems/mon.js";
 import {
   calcDamage, accuracyCheck, applyMoveEffects, statusTickDamage, effText,
@@ -714,6 +716,8 @@ export class GrupoBattleScene {
     const xp = Math.floor(xpYieldFor(foe) * (this.trainer ? 1.5 : 1) * fator(this.st, "xp") * fatorXp());
     const share = DB.CONFIG?.shareXp !== false;
     const emCampo = this.vivas("p").filter((v) => v.t === "p").map((v) => this.monDe("p", v));
+    for (const m of emCampo) metaUsou(this.st, m);
+    metaDerrotou(this.st, foe);
     const quem = (share ? this.st.party : emCampo).filter((m) => m && !isFainted(m));
     if (!quem.length) return;
     await this.say(share ? `A EQUIPE GANHOU ${xp} DE EXP.!` : `${this.nomes(emCampo).join(" E ")} GANHARAM ${xp} DE EXP.!`);
@@ -817,6 +821,8 @@ export class GrupoBattleScene {
       if (this.npcKey) (this.st.npcState[this.npcKey] ||= {}).defeated = true;
       await this.say(`VOCÊ DERROTOU ${this.trainer.name}!`);
       await this.say(`VOCÊ GANHOU $${prize}!`);
+      // A CÂMERA DO ROTOMFONE (src/systems/fotos.js)
+      { const foto = fotoDaLuta(this.st, this.trainer); if (foto) await this.say(foto.tipo === "campeao" ? FOTO_TEXTO.campeao : FOTO_TEXTO.luta); }
       // AS INSÍGNIAS DE BRAGLITCH moram à parte (src/data/braglitch-mundo.js):
       // a história de Kanto conta as oito dela e não pode contar estas
       const bb = this.trainer.bragBadge;

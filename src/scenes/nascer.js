@@ -12,6 +12,7 @@
 //
 // O bicho já foi criado antes de a cena abrir; aqui é só o filme. As frases
 // (`frase`, uma ou várias) fecham no A.
+import { fotoDoMon } from "../systems/fotos.js";
 import { contar as contarPesquisa } from "../systems/pesquisa.js";
 import { Assets } from "../core/assets.js";
 import { Audio2 } from "../core/audio.js";
@@ -87,6 +88,7 @@ export class NascerScene {
   enter(args = {}) {
     this.mon = args.mon;
     if (this.mon && !args.pesquisaContada) contarPesquisa(globalThis.game?.state, this.mon.species, "chocar");   // as MISSÕES DA POKÉDEX
+    if (this.mon && !args.pesquisaContada) fotoDoMon(globalThis.game?.state, this.mon);   // a foto do nascimento (CÂMERA)
     this.frase = args.frase || "";
     this.aoFim = args.aoFim || null;
     Assets.mon(this.mon.species, this.mon.seed);

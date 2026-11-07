@@ -155,7 +155,28 @@ function originalDaForma(sp, id = sp?.id) {
  *  Antes de tudo, o que ESTE APARELHO ativou no ESTÚDIO DE GRITOS
  *  (src/core/gritosmeus.js) — `doAparelho = false` pula isso (o estúdio quer
  *  o original pra editar). */
+/** O GRITO AO CONTRÁRIO: o de arquivo (e o do Game Boy) toca invertido
+ *  inteiro (Audio2: editarGrito `espelho`); o de sílabas toca as sílabas da
+ *  última pra primeira, cada uma deslizando ao contrário. Mesma conta do
+ *  gritos.html. */
+export function gritoAoContrario(g) {
+  if (!g) return g;
+  if (g.gb || g.arquivo) return { ...g, edita: { tipos: [], puro: true, ...(g.edita || {}), espelho: true } };
+  return { ...g, s: (g.s || []).slice().reverse().map((sil) => [sil[1], sil[0], ...sil.slice(2)]) };
+}
+
+/** OS GRITOS DE ENCOMENDA: montados em cima do grito de outro.
+ *  O PARACELERADO: o do PARASECT 10x acelerado, NOVE vezes seguidas
+ *  (`repete`; pedido do CAIO, nov/2026 — a fanfarra no fim ele tirou). */
+function deEncomenda(id) {
+  if (id !== "paracelerado") return null;
+  const base = gritoDe("parasect", false);
+  return { ...base, som: "PRRRRRT! PRRRRRT! PRRRRRT!", edita: { tipos: [], puro: true, ...(base.edita || {}), tom: 10 }, repete: 9 };
+}
+
 export function gritoDe(id, doAparelho = true) {
+  const enc = deEncomenda(id);
+  if (enc) return enc;
   if (doAparelho) {
     const meu = gritoAtivo(id);
     // o feito em cima do GRITO DE VERDADE (`arquivo` + `edita`); as sílabas de

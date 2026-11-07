@@ -6,6 +6,8 @@ import { panel, drawText, wrapText, cursor, PAL, LINE_H } from "../core/gfx.js";
 import { Opcoes } from "../core/opcoes.js";
 import { Assets } from "../core/assets.js";
 import { reduzido } from "../core/reduzir.js";
+import { desenharRotomfone } from "../core/rotomfone.js";
+import { trainerArt } from "../core/sprites.js";
 
 /** trechos que o jogo substitui em qualquer fala: {NOME} = nome do jogador */
 let TEXT_VARS = {};
@@ -34,6 +36,9 @@ const emBalao = () => Opcoes.get("falaEstilo") === "balao";
 // mantém a nuvem; fala nova sem marca fecha.
 const PENSA = /^\[pensa:([a-z0-9~-]+)\]\s*/;
 const CONTINUA = "\u0001";
+// O ROTOMFONE NA CONVERSA (src/core/rotomfone.js): fala que começa com `[foto]`
+// tira uma foto — clarão na tela e o ROTOMFONE aparece do lado da caixa.
+const FOTO = /^\[foto\]\s*/;
 // a nuvem: círculos (dx, dy, raio) em volta do meio
 const NUVEM = [[0, 0, 22], [-19, 5, 14], [19, 5, 14], [-11, -13, 13], [11, -13, 13], [-9, 15, 12], [9, 15, 12]];
 const suaveSai = (k) => 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2);   // passa um pouco e volta
@@ -53,6 +58,10 @@ export class Dialogue {
     this.falante = null;
     this.parado = 0;           // quanto tempo a página está inteira na tela (o AVANÇO sozinho)
     this.pensa = null;         // { especie, t }: o balão de pensamento aberto agora
+    this.foto = null;          // { t }: a foto do ROTOMFONE desta fala
+    // A LIGAÇÃO (src/data/rotomfone.js): { retrato, t } — o ROTOMFONE grande
+    // em cima, com o rosto de quem fala na tela, até a conversa acabar
+    this.fone = null;
   }
 
   say(text, onDone) {
@@ -78,6 +87,8 @@ export class Dialogue {
       this.active = false;
       this.lines = [];
       this.pensa = null;
+      this.foto = null;
+      this.fone = null;
       const cb = this.done;
       this.done = null;
       cb?.();
@@ -92,6 +103,13 @@ export class Dialogue {
       const m = PENSA.exec(t);
       this.pensa = m ? { especie: m[1], t: 0 } : null;
       if (m) t = t.slice(m[0].length);
+      const f = FOTO.exec(t);
+      this.foto = f ? { t: 0 } : null;
+      if (f) {
+        t = t.slice(f[0].length);
+        Audio2.tone(1800, 0.03, "square", 0.25);      // *clique*
+        Audio2.tone(900, 0.06, "square", 0.2);
+      }
     }
     // traduz a frase inteira antes de quebrar: a quebra tem que contar as
     // letras do texto que vai aparecer, não as do original
@@ -114,6 +132,8 @@ export class Dialogue {
     if (!this.active && !this.choice) return false;
     this.blink += dt;
     if (this.pensa) this.pensa.t += dt;
+    if (this.foto) this.foto.t += dt;
+    if (this.fone) this.fone.t += dt;
 
     if (this.choice) {
       const c = this.choice;
@@ -148,6 +168,21 @@ export class Dialogue {
     return true;
   }
 
+  /** A LIGAÇÃO: o ROTOMFONE grande no alto da tela, com o rosto de quem liga */
+  desenhaLigacao(ctx) {
+    const f = this.fone, img = f.retrato ? trainerArt(f.retrato) : null;
+    desenharRotomfone(ctx, 178, 22, 3, f.t, (c, x, y, w, h) => {
+      if (img) {
+        const fw = img.width, fh = Math.round(fw * h / w);
+        c.drawImage(img, 0, Math.max(0, Math.round(img.height * 0.08)), fw, fh, x, y, w, h);
+      } else {
+        // sem retrato: as ondinhas do som
+        c.fillStyle = "#40d0e0";
+        for (let i = 0; i < 5; i++) { const a = 2 + Math.abs(Math.sin(f.t * 8 + i)) * (h - 6); c.fillRect(x + 4 + i * 6, y + (h - a) / 2, 3, a); }
+      }
+    });
+  }
+
   render(ctx) {
     if (!this.active && !this.choice) return;
     const balao = this.balao && this.lines.length;
@@ -166,6 +201,13 @@ export class Dialogue {
       ctx.fillRect(caixa.x + caixa.w - 10, caixa.y + caixa.h - 8, 1, 1);
     }
     if (this.pensa) this.desenhaPensamento(ctx, caixa, balao);
+    if (this.fone) this.desenhaLigacao(ctx);
+    if (this.foto) {
+      // o ROTOMFONE do lado da caixa, e o clarão da foto
+      desenharRotomfone(ctx, caixa.x + caixa.w - 26, caixa.y - 24, 1, this.foto.t);
+      const a = Math.max(0, 1 - this.foto.t * 3);
+      if (a > 0) { ctx.fillStyle = `rgba(255,255,255,${a * 0.9})`; ctx.fillRect(0, 0, 240, 160); }
+    }
     if (this.choice) {
       const c = this.choice;
       const w = 8 + Math.max(...c.options.map((o) => o.length)) * 6 + 14;

@@ -4,6 +4,7 @@ import { makeCanvas as fazerCanvas } from "./core/assets.js";
 import { nomesDasMaquinas, golpeDeAlfa } from "./systems/maquinas.js";
 import { garantirCardume, idCardume } from "./systems/cardume.js";
 import { DB, ILHA_GERADA } from "./data/index.js";
+import { LIGA_ETAPAS } from "./data/liga-kanto.js";
 import { Assets } from "./core/assets.js";
 import { initInput, Input } from "./core/input.js";
 import { ligarToque, ehCelular, alturaDosBotoes } from "./core/toque.js";
@@ -469,6 +470,16 @@ if (q.has("subterraneo") && !q.has("map")) {
 }
 // ?segurar=1 -> OS ITENS DE SEGURAR: na ROTA 1, com CHARMANDER e PIKACHU e um
 // de cada item de segurar na mochila (dê pela mochila, tire pelo menu EQUIPE)
+// ?fantasmas=1 -> na TORRE POKÉMON (2º andar), do lado do AZUL na lápide e do
+// CAÇADOR DE FANTASMAS (src/data/cacafantasma.js). &almas=1 -> com 95 fichas de
+// alma do PIKACHU e do RATICATE
+if (q.has("fantasmas") && !q.has("map")) {
+  for (const [k, v] of [["map", "pokemon_tower_2f"], ["x", "16"], ["y", "8"], ["dir", "left"], ["starter", "charmander:20"]]) if (!q.has(k)) q.set(k, v);
+}
+// ?metas=1 -> na ROTA 1 com metas de exemplo (menu START → METAS)
+if (q.has("metas") && !q.has("map")) {
+  for (const [k, v] of [["map", "route1"], ["starter", "charmander:20"], ["party", "pikachu:20"]]) if (!q.has(k)) q.set(k, v);
+}
 if (q.has("segurar") && !q.has("map")) {
   for (const [k, v] of [["map", "route1"], ["starter", "charmander:20"], ["party", "pikachu:20"]]) if (!q.has(k)) q.set(k, v);
 }
@@ -777,6 +788,49 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
   }
   // ?missao=blacephalon-contra-deus -> essa side quest já aceita (pra testar o que ela destrava)
   if (q.has("fichas")) game.state.fichas = +q.get("fichas") || 0;
+  // &reencontro=1 -> já com o RATICATE do AZUL revivido na equipe (é só falar com ele)
+  if (q.has("reencontro") && !game.state.party.some((m) => m.doRival)) {
+    (game.state.flags ||= {}).raticateRival = 2;
+    game.state.party.push(Object.assign(createMon("raticate", 20), { doRival: true }));
+  }
+  // &fotos=1 -> a CÂMERA do ROTOMFONE com 3 fotos de exemplo (BROCK, o AZUL com o RATICATE, o VÍTOR)
+  // &fotos=lideres -> uma foto com CADA líder de ginásio (Kanto e Braglitch), no ginásio dele
+  if (q.get("fotos") === "lideres") {
+    const d = Date.now(), eu = game.state.player?.genero === "menina" ? "heroina" : "hero";
+    const lideres = [];
+    for (const [mapa, m] of Object.entries(DB.MAPS)) for (const n of m.npcs || []) {
+      const tr = n.trainer;
+      if (!tr?.badge && !tr?.bragBadge) continue;
+      const s = tr.sprite || n.sprite;
+      lideres.push({ retrato: s, ator: s, nome: String(tr.name).replace(/^LÍDER /, ""), eu, mapa, x: n.x, y: n.y + 1,
+                     lugar: m.name, data: d, ordem: (tr.bragBadge ? 1e6 : 0) + (tr.prize || 0) });
+    }
+    // e depois deles, a ELITE 4 e o CAMPEÃO (src/data/liga-kanto.js), na ordem da liga
+    const liga = LIGA_ETAPAS.map((e, i) => {
+      const tr = e.npc?.trainer, s = tr?.sprite || e.npc?.sprite;
+      // o CAMPEÃO é a foto especial: você no lugar dele, ele indo embora com o time
+      if (tr && tr.ligaKanto && /^CAMPE/.test(tr.name)) return { tipo: "campeao", retrato: "rival", nome: "AZUL", eu,
+        time: ["pidgeot", "gyarados", "rhydon", "articuno"], mapa: e.chao?.de, x: 6, y: 5, lugar: "LIGA POKÉMON", data: d, ordem: 2e6 + i };
+      return tr && { retrato: s, ator: s, nome: String(tr.name).replace(/^(ELITE 4|CAMPEÃO|CAMPEÃ) /, ""), eu,
+                     mapa: e.chao?.de || "pokemon_league_loreleis_room", x: 6, y: 6, lugar: "LIGA POKÉMON", data: d, ordem: 2e6 + i };
+    }).filter(Boolean);
+    game.state.fotos = [...lideres, ...liga].sort((a, b) => a.ordem - b.ordem).map(({ ordem, ...f }) => f);
+  }
+  if (q.has("fotos") && !(game.state.fotos || []).length) {
+    const d = Date.now(), eu = game.state.player?.genero === "menina" ? "heroina" : "hero";
+    game.state.fotos = [
+      { retrato: "brock", nome: "BROCK", eu, mapa: "pewter_city_gym", x: 6, y: 7, lugar: "GINÁSIO DE PEWTER", data: d },
+      { retrato: "rival", nome: "AZUL", mon: "raticate", eu, mapa: "pokemon_tower_2f", x: 15, y: 9, lugar: "TORRE POKÉMON", data: d },
+      { retrato: "vitor", nome: "VÍTOR", eu, mapa: "route1", x: 10, y: 10, lugar: "ROTA 1", data: d },
+      { retrato: "lance", nome: "LANCE", eu, mapa: "pokemon_league_lances_room", x: 6, y: 6, lugar: "SALA DO LANCE", data: d },
+      { mon: "mewtwo", nome: "MEWTWO", eu, mapa: "cerulean_cave_b1f", x: 10, y: 10, lugar: "CAVERNA CELESTE", data: d },
+      { retrato: "garoto", ator: "garoto", nome: "GAROTO", eu, mapa: "pallet_town", x: 10, y: 10, lugar: "PALLET", data: d },
+      { mon: "pikachu", nome: "PIKACHU", eu, mapa: "viridian_forest", x: 20, y: 30, lugar: "FLORESTA DE VIRIDIAN", data: d },
+      { retrato: "garoto", nome: "TOMÁS", mon: "zerogle", eu, mapa: "pokemon_tower_2f", x: 13, y: 16, lugar: "TORRE POKÉMON", data: d },
+    ];
+  }
+  if (q.has("almas")) { game.state.almas ||= {}; game.state.almas.pikachu = Math.max(game.state.almas.pikachu || 0, 95); game.state.almas.raticate = Math.max(game.state.almas.raticate || 0, 95); }
+  if (q.has("metas")) game.state.metas ||= [{ k: "tipo", tipo: "FOGO", n: 3 }, { k: "derrotar", alvo: 2, n: 1 }, { k: "nivel", alvo: 21, n: 0 }];
   if (q.has("segurar")) for (const it of Object.keys(DB.SEGURAVEIS || {})) game.state.items[it] = Math.max(game.state.items[it] || 0, 1);
   if (q.has("doces")) for (const d of DB.DOCES || []) game.state.items[d.item] = Math.max(game.state.items[d.item] || 0, 2);
   if (q.has("subterraneo")) {
@@ -1059,6 +1113,20 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
 
 // ?evolucao=charmander:charmeleon&perfil=teste -> abre direto a tela de evolução
 // (jogo novo, o primeiro vira o inicial). &estranho=1 -> a versão da pedra da fenda.
+// ?trabalhos=1 -> abre direto os POKÉTRABALHOS (src/scenes/trabalhos.js), com 4
+// Pokémon no BOX e um trabalho de hoje já PRONTO pra buscar
+if (q.has("trabalhos")) Promise.all([import("./scenes/trabalhos.js"), import("./systems/trabalhos.js"), import("./systems/box.js"), import("./systems/mon.js")])
+  .then(([{ TrabalhosScene }, J, B, M]) => {
+    const st = game.state;
+    if (!J.doBox(st).length) for (const s of ["squirtle", "bulbasaur", "pikachu", "gastly", "geodude"]) B.guardar(st, M.createMon(s, 15));
+    const job = J.trabalhosDoDia()[0];
+    if (!Object.keys(J.emAndamento(st)).length) J.mandar(st, job.id, J.doBox(st).slice(0, 2), 30, Date.now() - 31 * 60000);
+    game.scenes.push(new TrabalhosScene(), {});
+  });
+// ?fps=2000 -> o FPS das OPÇÕES (src/core/opcoes.js)
+if (q.get("fps")) Opcoes.set("fps", +q.get("fps"));
+// &camera=1 -> abre direto o álbum da CÂMERA do ROTOMFONE (src/scenes/fotos.js)
+if (q.has("camera")) import("./scenes/fotos.js").then(({ FotosScene }) => game.scenes.push(new FotosScene(), q.get("fotos") === "lideres" ? { inicio: 0 } : {}));
 if (q.has("evolucao")) {
   const [de, para] = (q.get("evolucao") || "").split(":");
   const sid = DB.SPECIES[de] ? de : "charmander";
@@ -1430,7 +1498,23 @@ let acc = 0;
 const STEP = 1 / 60;
 let fps = 0, fpsT = 0, frames = 0;
 
+// O FPS das OPÇÕES (src/core/opcoes.js): até 60, o requestAnimationFrame (que
+// segue o monitor) pulando quadro se precisar; acima, um laço sem freio pelo
+// MessageChannel — o jogo desenha mais vezes, mas a tela do monitor continua
+// mostrando só o que ela aguenta (quase sempre 60 por segundo)
+let ultimoDesenho = 0;
+const canalFps = new MessageChannel();
+canalFps.port1.onmessage = () => frame(performance.now());
+function agendar() {
+  if ((Opcoes.get("fps") || 60) > 60) canalFps.port2.postMessage(0);
+  else requestAnimationFrame(frame);
+}
+
 function frame(now) {
+  const alvo = Opcoes.get("fps") || 60;
+  // ainda não deu a hora do próximo quadro (30 FPS, ou acima de 60): espera
+  if (alvo !== 60 && now - ultimoDesenho < 1000 / alvo - 0.25) return void agendar();
+  ultimoDesenho = now;
   game.frames = (game.frames || 0) + 1;
   const dt = Math.min(0.25, (now - last) / 1000);
   last = now;
@@ -1480,7 +1564,14 @@ function frame(now) {
   // na GLITCH DIMENSION, cores parecidas se juntam: o jogador derrete no chão
   if (Opcoes.get("suave")) suavizar(buffer, Opcoes.get("suave"), game.state?.player?.map === "glitchdim" ? TOL_GLITCH : 0);
   Glitch.render(dctx, buffer);
-  requestAnimationFrame(frame);
+  // o FPS de verdade no canto, quando a opção não está no 60 de sempre
+  if (alvo !== 60 && !game.debug) {
+    const txt = `${fps} FPS`;
+    dctx.save(); dctx.font = "bold 14px monospace"; dctx.fillStyle = "rgba(0,0,0,0.6)";
+    dctx.fillRect(dctx.canvas.width - txt.length * 9 - 12, 4, txt.length * 9 + 8, 20);
+    dctx.fillStyle = "#00ffcc"; dctx.fillText(txt, dctx.canvas.width - txt.length * 9 - 8, 19); dctx.restore();
+  }
+  agendar();
 }
 requestAnimationFrame(frame);
 

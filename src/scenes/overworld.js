@@ -15,6 +15,19 @@ import { CAMINHAO, desenhoCaminhao } from "../core/caminhao.js";
 import { vestirQuadro, roupasDoJogador, roupasNovas, roupa } from "../systems/roupas.js";
 import { ROUPAS, ROUPAS_TEXTO } from "../data/roupas.js";
 import { RoupasScene } from "./roupas.js";
+import { CacaFantasmaScene } from "./cacafantasma.js";
+import { ReviverScene } from "./reviver.js";
+import { FotosScene } from "./fotos.js";
+import { TrabalhosScene } from "./trabalhos.js";
+import { tirarFoto, FOTO_TEXTO } from "../systems/fotos.js";
+import { desenharCorpoMenu, desenharIcone, desenharRotomfone, LARGURA_FONE, ALTURA_FONE } from "../core/rotomfone.js";
+import { CONTATOS, ROTOMFONE_TEXTO } from "../data/rotomfone.js";
+import { ZEROGLE } from "../data/zerogle.js";
+import { SELVAGENS_3D } from "../data/selvagem3d.js";
+import { pedirModelo, desenharModelo } from "../core/modelo3d.js";
+import { CACA_FANTASMA } from "../data/cacafantasma.js";
+import { MetasScene } from "./metas.js";
+import { recadoDasMetas } from "../systems/metas.js";
 import { tempoAgora, porTempo, TEMPOS } from "../systems/tempo.js";
 import { roubarPixels, andarRoubo, desenharRouboChao, desenharRouboAr } from "../systems/roubopixels.js";
 import { ligada as lutaLigada, podeLutar, podeLutarTreinador, comecar as comecarLuta, comecarTreinador, largarLuta, atacar as atacarNaLuta, andarLuta, atoresDaLuta, desenharLuta, emLuta, desenharMovimentoPMD } from "../systems/lutamapa.js";
@@ -27,7 +40,7 @@ import { Input, Texto } from "../core/input.js";
 import { Audio2 } from "../core/audio.js";
 import { tocarGrito, onomatopeias } from "../systems/gritos.js";
 import { Save } from "../core/save.js";
-import { Opcoes } from "../core/opcoes.js";
+import { Opcoes, FPS_OPCOES } from "../core/opcoes.js";
 import { nivelSuave, nomeSuave, NIVEL_MAX } from "../core/suave.js";
 import { panel, drawText, cursor, bar, hpColor, fade, sinal, PAL, LINE_H, moeda, ESCALA_TELA } from "../core/gfx.js";
 import { Dialogue, FALA_VELOCIDADES } from "../systems/dialogue.js";
@@ -89,7 +102,7 @@ import * as Aniv from "../systems/aniversario.js";
 import { alvoDaPedra, emBraglitch, seisLendasPegas, glitchDeVerdade, regiaoDoMapa } from "../systems/regionais.js";
 import { ilhas, ilhaDoMapa, ilhaAberta, ilhaEntregue, ilhaCompleta, insigniaDaIlha, formasPegas,
          chefeVencido, todasEntregues } from "../systems/ilhas.js";
-import { guardar as guardarNoBox, cheio as boxCheio } from "../systems/box.js";
+import { guardar as guardarNoBox, cheio as boxCheio, todosGuardados } from "../systems/box.js";
 import { veu, temCeu, agora as horaDoMundo, ajustarRelogio } from "../systems/ciclo.js";
 import { escuridaoDoLugar, ehCaverna, acesa, camadaDeLuz, brilho, RAIO } from "../systems/lanterna.js";
 import { AcampamentoScene } from "./acampamento.js";
@@ -166,6 +179,10 @@ const EMOTES = {
   "Z": ["       ", "#######", "    ## ", "   ##  ", "  ##   ", " ##    ", "#######"],
 };
 const COR_EMOTE = { "♥": "#e0304a", "♪": "#3a6fd0", "!": "#d04020", "?": "#3a6fd0", "…": "#505868", "Z": "#505868" };
+const T_SELFIE = () => FOTO_TEXTO.selfie;
+// O MENU ROTOMFONE: quantos ícones por linha
+const COLUNAS_FONE = 3;
+
 /** o balão: branco com borda escura e a pontinha embaixo, entrando com um "pop" */
 function desenharEmote(ctx, emote, x, y, t = 1) {
   const m = EMOTES[emote] || EMOTES["!"];
@@ -2554,6 +2571,8 @@ export class OverworldScene {
 
   // -------------------------------------------------------------- update
   update(dt) {
+    // O REENCONTRO do RATICATE com o AZUL: ninguém anda enquanto passa
+    if (this.reencontro) return void this.atualizarReencontro(dt);
     // conversa nenhuma na tela: ninguém está falando (um talkTo que abriu loja
     // ou batalha sem dizer nada não pode deixar o NPC dono da próxima fala)
     if (!this.dlg.active && !this.dlg.choice) this.dlg.falante = null;
@@ -2563,6 +2582,12 @@ export class OverworldScene {
       this.game.music(this.map.music);
     }
     // A SALA DA LIGA SE TRANSFORMANDO (src/data/liga-kanto.js): ninguém anda
+    // O ROTOMFONE (src/data/rotomfone.js): de vez em quando alguém liga
+    this.talvezTocarRotomfone(dt);
+    // OS SELVAGENS 3D (src/data/selvagem3d.js): o WAILORD nadando solto no mar
+    this.atualizarSelvagens3D(dt);
+    // AS METAS (src/systems/metas.js): cumpriu ou quebrou, o mapa conta
+    if (!this.aviso || this.aviso.t <= 0) { const r = recadoDasMetas(this.st); if (r) this.avisar(r); }
     // O SURTO EM MASSA (src/systems/surtos.js): de vez em quando começa um perto de
     // você; e entrar no mapa do surto avisa
     this.surtoT = (this.surtoT || 0) - dt;
@@ -5116,6 +5141,10 @@ export class OverworldScene {
     }
     if (npc.pcItens) return this.abrirPcItens();
     if (npc.fichas) return this.balcaoFichas();
+    if (npc.cacaFantasma) return this.falarCacaFantasma();
+    if (npc.raticateRival) return this.falarRivalLapide(npc);
+    if (npc.zerogleDono) return this.falarTomas();
+    if (npc.zeladoraPa && this.st.flags?.zerogle === 1) return this.falarZeladora();
     if (npc.confeiteira) return this.falarConfeiteira();
     if (npc.escoteiraBase) return this.falarEscoteira();
     if ((npc.sprite === "ball" || npc.bau) && npc.gift) {
@@ -5675,6 +5704,257 @@ export class OverworldScene {
       ctx.fillStyle = "rgba(255,220,120,0.5)";
       ctx.fillRect(x + 7, y + 9, 2, 1);
     }
+  }
+
+  /** O AZUL NA LÁPIDE do RATICATE (RATICATE_DO_RIVAL, src/data/rival.js):
+   *  1ª conversa ele chora; na 2ª o caçador diz que dá pra reviver; depois,
+   *  com o RATICATE dele revivido na equipe, você entrega. */
+  falarRivalLapide(npc) {
+    const R = DB.RATICATE_DO_RIVAL, st = this.st, f = (st.flags ||= {});
+    const etapa = f.raticateRival || 0;
+    if (etapa === 0) { f.raticateRival = 1; return void this.dlg.say(R.chorando); }
+    if (etapa === 1) {
+      f.raticateRival = 2;
+      this.game.autosave?.(true);
+      return void this.dlg.say(R.pedido);
+    }
+    if (etapa === 2) {
+      const i = st.party.findIndex((m) => m.doRival);
+      if (i < 0) return void this.dlg.say(todosGuardados(st).some((m) => m.doRival) ? R.noBox : R.esperando);
+      const [mon] = st.party.splice(i, 1);
+      f.raticateRival = 3;
+      this.game.autosave?.(true);
+      // O REENCONTRO (desenharReencontro): ele corre e pula no colo; a fala vem depois
+      // ele sai da bola um pouco atrás e do lado de você, pra dar tempo de correr
+      const px = this.st.player.x, py = this.st.player.y;
+      const ux = Math.sign(px - npc.x), uy = Math.sign(py - npc.y);
+      const de = { x: px + ux * 1.5 - uy * 1.2, y: py + uy * 1.5 + ux * 1.2 };
+      this.reencontro = { t: 0, npc, mon, de, coracoes: [], gritos: 0 };
+      return;
+    }
+    this.dlg.say(R.depois);
+  }
+
+  /** O ENTERRO DO BRASEAGLE (src/data/zerogle.js), com o TOMÁS */
+  falarTomas() {
+    const Z = ZEROGLE, f = (this.st.flags ||= {}), etapa = f.zerogle || 0;
+    if (etapa === 0) { f.zerogle = 1; this.game.autosave?.(true); return void this.dlg.say(Z.pede); }
+    if (etapa === 1) return void this.dlg.say(Z.esperandoPa);
+    if (etapa >= 3) return void this.dlg.say(Z.visita);
+    this.dlg.ask(Z.vamos, Z.opcoes, (i) => {
+      if (i !== 0) return void this.dlg.say(Z.depois);
+      this.enterrarBraseagle();
+    });
+  }
+
+  falarZeladora() {
+    this.st.flags.zerogle = 2;
+    Audio2.heal();
+    this.game.autosave?.(true);
+    this.dlg.say(ZEROGLE.zeladora);
+  }
+
+  /** o enterro: três pás de terra (a tela treme), a lápide nova aparece, a
+   *  despedida... e o UIVO do ZEROGLE */
+  enterrarBraseagle() {
+    const Z = ZEROGLE, f = this.st.flags;
+    const pa = (n, depois) => {
+      if (n === 0) return depois();
+      this.tremor = Math.max(this.tremor || 0, 0.3);
+      Audio2.tone(140, 0.12, "sawtooth", 0.25);
+      Audio2.tone(90, 0.18, "square", 0.15);
+      this.dlg.say(Z.cava, () => pa(n - 1, depois));
+    };
+    this.dlg.say(Z.comeco, () => pa(3, () => {
+      f.zerogle = 3;                                  // a lápide aparece (desenharLapideZerogle)
+      Audio2.heal();
+      this.game.autosave?.(true);
+      this.dlg.say(Z.despedida, () => {
+        // o uivo: duas vezes, a segunda um tiquinho depois e mais baixa — o eco de fantasma
+        Audio2.grito(Z.grito, 1);
+        setTimeout(() => Audio2.grito(Z.grito, 0.985), 230);
+        this.dlg.say(Z.uivo, () => this.dlg.say(Z.fim, () => {
+          // a LAMBIDA: *slurp*, e ele aparece em cima da lápide
+          Audio2.tone(700, 0.08, "sine", 0.2); Audio2.tone(1100, 0.12, "sine", 0.15);
+          this.dlg.say(Z.lambida, () => this.dlg.say(Z.sentiu, () => {
+            f.zerogleViu = true;
+            this.zerogleAparece = performance.now();
+            tocarGrito({ species: "zerogle" });
+            tirarFoto(this.st, { retrato: "garoto", nome: "TOMÁS", mon: "zerogle" });
+            this.dlg.say(Z.apareceu);
+          }));
+        }));
+      });
+    }));
+  }
+
+  /** O ZEROGLE em cima da lápide: aparece devagar (transparente) e fica
+   *  boiando, meio de fantasma */
+  desenharZerogle(ctx, cx, cy) {
+    const Z = ZEROGLE.fantasma, agora = performance.now();
+    const k = this.zerogleAparece ? Math.min(1, (agora - this.zerogleAparece) / 1400) : 1;
+    const q = Assets.monAndando({ species: "zerogle" }, Z.dir, agora);
+    const boia = Math.sin(agora / 420) * 2;
+    const x = Z.x * TILE - cx + 8, y = Z.y * TILE - cy + 15 + boia;
+    ctx.save();
+    ctx.globalAlpha = k * (0.72 + 0.12 * Math.sin(agora / 300));
+    if (q) ctx.drawImage(q, Math.round(x - q.width / 2), Math.round(y - q.height));
+    else Assets.desenhaVivo(ctx, { species: "zerogle" }, Math.round(x - 14), Math.round(y - 28), 28);
+    ctx.restore();
+    // aparecendo: brilhinhos subindo
+    if (k < 1) {
+      ctx.fillStyle = `rgba(220,235,255,${1 - k})`;
+      for (let i = 0; i < 8; i++) ctx.fillRect(Math.round(x - 12 + ((i * 7) % 24)), Math.round(y - 4 - ((agora / 20 + i * 13) % 26)), 1, 1);
+    }
+  }
+
+  /** a LÁPIDE NOVA do BRASEAGLE, pixel por pixel */
+  desenharLapideZerogle(ctx, cx, cy) {
+    const Z = ZEROGLE, x0 = Z.lapide.x * TILE - cx, y0 = Z.lapide.y * TILE - cy;
+    Z.lapideGrade.forEach((l, j) => {
+      for (let i = 0; i < l.length; i++) {
+        const c = Z.lapideCores[l[i]];
+        if (!c) continue;
+        ctx.fillStyle = c;
+        ctx.fillRect(x0 + i, y0 + j, 1, 1);
+      }
+    });
+  }
+
+  /** onde está o RATICATE do AZUL agora, em tiles (e o que ele está fazendo).
+   *  Linha do tempo do reencontro (pedido do CAIO: "CORRE E PULA NO COLO"):
+   *  0 sai da bola · 0,5 "!" nos dois · 1,3 corre · 2,4 pula · 2,9 giram com
+   *  corações · 5 assenta do lado dele · 5,6 a fala. */
+  raticateDoRival() {
+    const R = DB.RATICATE_DO_RIVAL, lado = R.companheiro;
+    const c = this.reencontro;
+    if (!c) {
+      if (this.st.player.map !== "pokemon_tower_2f" || (this.st.flags?.raticateRival || 0) < 3) return null;
+      return { x: lado.x, y: lado.y, dir: "down", parado: true };
+    }
+    const t = c.t, P = c.de, Rv = { x: c.npc.x, y: c.npc.y };
+    const dx = P.x - Rv.x, dy = P.y - Rv.y, d = Math.hypot(dx, dy) || 1;
+    const A = d <= 1 ? P : { x: Rv.x + dx / d, y: Rv.y + dy / d };   // do lado dele
+    const rumo = (ax, ay) => (Math.abs(ax) > Math.abs(ay) ? (ax > 0 ? "right" : "left") : ay > 0 ? "down" : "up");
+    const lerp = (a, b, k) => ({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k });
+    if (t < 0.5) return { ...P, dir: rumo(-dx, -dy), escala: Math.min(1, t / 0.3), bola: t };
+    if (t < 1.3) return { ...P, dir: rumo(-dx, -dy), exclama: t - 0.5 };
+    if (t < 2.4) return { ...lerp(P, A, (t - 1.3) / 1.1), dir: rumo(-dx, -dy), correndo: true };
+    if (t < 2.9) { const k = (t - 2.4) / 0.5; return { ...lerp(A, Rv, k), dir: rumo(-dx, -dy), pulo: Math.sin(Math.PI * k) * 14 + k * 8 }; }
+    if (t < 5) { const a = (t - 2.9) * 12; return { x: Rv.x + Math.cos(a) * 0.45, y: Rv.y + Math.sin(a) * 0.3, dir: ["down", "left", "up", "right"][Math.floor((t - 2.9) / 0.1) % 4], pulo: 8, girando: true }; }
+    return { ...lerp(Rv, lado, Math.min(1, (t - 5) / 0.6)), dir: "down", correndo: t < 5.6 };
+  }
+
+  atualizarReencontro(dt) {
+    const c = this.reencontro, R = DB.RATICATE_DO_RIVAL;
+    c.t += dt;
+    const t = c.t, n = c.npc;
+    const rumo = (ax, ay) => (Math.abs(ax) > Math.abs(ay) ? (ax > 0 ? "right" : "left") : ay > 0 ? "down" : "up");
+    if (t >= 0.5 && c.gritos === 0) { c.gritos = 1; tocarGrito(c.mon); }
+    if (t >= 0.5 && t < 2.9) n.dir = rumo(c.de.x - n.x, c.de.y - n.y);            // ele vira e vê
+    if (t >= 2.9 && c.gritos === 1) { c.gritos = 2; tocarGrito(c.mon); Audio2.heal(); }
+    if (t >= 2.9 && t < 5) n.dir = ["down", "right", "up", "left"][Math.floor((t - 2.9) / 0.1) % 4];   // girando
+    if (t >= 2.9 && t < 5.4 && Math.floor(t / 0.15) !== Math.floor((t - dt) / 0.15)) {
+      c.coracoes.push({ x: n.x * TILE + 8 + (Math.random() - 0.5) * 24, y: n.y * TILE - 6, v: 14 + Math.random() * 10, vida: 1.4 });
+    }
+    for (const h of c.coracoes) { h.y -= h.v * dt; h.vida -= dt; }
+    c.coracoes = c.coracoes.filter((h) => h.vida > 0);
+    if (t >= 5) n.dir = rumo(this.st.player.x - n.x, this.st.player.y - n.y);
+    if (t >= 5.6) {
+      this.reencontro = null;
+      // a selfie do fim vai pra CÂMERA (src/systems/fotos.js): ele e o RATICATE
+      tirarFoto(this.st, { retrato: "rival", nome: this.st.rivalNome || DB.RIVAL?.nome || "AZUL", mon: "raticate" });
+      this.dlg.say(R.entrega);
+    }
+  }
+
+  /** o RATICATE (e, no reencontro, a bola, o "!" e os corações) */
+  desenharReencontro(ctx, rr, cx, cy) {
+    const c = this.reencontro, mon = c?.mon || (this._raticateRival ||= createMon("raticate", 46));
+    const x = rr.x * TILE - cx, y = rr.y * TILE - cy - (rr.pulo || 0);
+    if (rr.bola != null) {
+      const r = 4 + rr.bola * 30;
+      ctx.fillStyle = `rgba(255,255,255,${Math.max(0, 1 - rr.bola * 2)})`;
+      ctx.beginPath(); ctx.arc(x + 8, y + 8, r, 0, Math.PI * 2); ctx.fill();
+    }
+    const e = rr.escala ?? 1;
+    if (e > 0) {
+      const passo = Assets.monAndando(mon, rr.dir, rr.correndo || rr.girando ? (c?.t || 0) * 2000 : 0);
+      if (passo) {
+        const w = Math.round(passo.width * e), h = Math.round(passo.height * e);
+        ctx.drawImage(passo, Math.round(x + 8 - w / 2), Math.round(y + 15 - h), w, h);
+      } else Assets.desenhaVivo(ctx, mon, Math.round(x + 8 - 14 * e), Math.round(y + 16 - 28 * e), Math.round(28 * e));
+    }
+    if (!c) return;
+    if (rr.exclama != null) {
+      desenharEmote(ctx, "!", Math.round(x + 8), Math.round(y - 22), rr.exclama);
+      desenharEmote(ctx, "!", c.npc.x * TILE - cx + 8, c.npc.y * TILE - cy - 26, rr.exclama);
+    }
+    // os corações (pixel por pixel)
+    const CORACAO = [".#.#.", "#####", "#####", ".###.", "..#.."];
+    for (const h of c.coracoes) {
+      ctx.globalAlpha = Math.min(1, h.vida);
+      ctx.fillStyle = "#e0304a";
+      CORACAO.forEach((l, j) => { for (let i = 0; i < l.length; i++) if (l[i] === "#") ctx.fillRect(Math.round(h.x - cx) + i, Math.round(h.y - cy) + j, 1, 1); });
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  /** O CAÇADOR DE FANTASMAS da TORRE POKÉMON (src/data/cacafantasma.js):
+   *  CAÇAR abre a máquina; REVIVER gasta 100 FICHAS DE ALMA de um Pokémon. */
+  falarCacaFantasma() {
+    const C = CACA_FANTASMA, T = C.texto, st = this.st;
+    const nome = (id) => DB.SPECIES[id]?.name || id.toUpperCase();
+    const menu = () => this.dlg.ask(T.pergunta, T.opcoes, (i) => {
+      if (i === 0) return void this.game.scenes.push(new CacaFantasmaScene(), {});
+      if (i === 1) return reviver();
+      if (i === 2) return void this.dlg.say(T.regras, menu);
+      this.dlg.say(T.tchau);
+    });
+    // a lista das almas, das mais cheias pras mais vazias, de 6 em 6
+    const reviver = (pag = 0) => {
+      const todas = Object.entries(st.almas || {}).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+      if (!todas.length) return void this.dlg.say(T.semAlma, menu);
+      const POR = 6, lista = todas.slice(pag * POR, pag * POR + POR);
+      const mais = (pag + 1) * POR < todas.length, volta = pag > 0;
+      const ops = [...lista.map(([id, n]) => `${nome(id)} ${n}%`), ...(mais ? [T.mais] : []), ...(volta ? [T.voltar] : []), T.sair];
+      this.dlg.ask(T.qual, ops, (k) => {
+        if (ops[k] === T.mais) return reviver(pag + 1);
+        if (ops[k] === T.voltar) return reviver(pag - 1);
+        const par = lista[k];
+        if (!par) return menu();
+        const [id, n] = par;
+        if (n < 100) return void this.dlg.say(T.falta.replace("{MON}", nome(id)).replace("{P}", n).replace("{F}", 100 - n), () => reviver(pag));
+        // o RATICATE do AZUL (RATICATE_DO_RIVAL): o 1º revivido na missão é DELE
+        const R = DB.RATICATE_DO_RIVAL;
+        const doRival = id === "raticate" && st.flags?.raticateRival === 2
+          && ![...st.party, ...todosGuardados(st)].some((m) => m.doRival);
+        if (doRival && st.party.length >= 6) return void this.dlg.say(R.equipeCheia, () => reviver(pag));
+        this.dlg.ask(T.confirma.replace("{MON}", nome(id)), T.sim, (s) => {
+          if (s !== 0) return reviver(pag);
+          st.almas[id] -= 100;
+          if (!st.almas[id]) delete st.almas[id];
+          const mon = createMon(id, C.nivelRevive);
+          // A CENA DO REVIVER (src/scenes/reviver.js): as fichas viram alma;
+          // a fala vem quando ela fecha
+          const cena = (fala) => this.game.scenes.push(new ReviverScene(), { mon, fim: () => this.dlg.say(fala) });
+          if (doRival) {
+            mon.doRival = true;
+            st.party.push(mon);
+            this.game.autosave?.(true);
+            return void cena([...T.reviveu.map((l) => l.replace("{MON}", nome(id))), R.reviveuDele]);
+          }
+          const noBox = st.party.length >= 6;
+          if (noBox) guardarNoBox(st, mon); else st.party.push(mon);
+          st.seen[id] = st.caught[id] = true;
+          this.game.autosave?.(true);
+          const fala = T.reviveu.map((l) => l.replace("{MON}", nome(id)));
+          if (noBox) fala.push(T.foiPraBox.replace("{MON}", nome(id)));
+          cena(fala);
+        });
+      });
+    };
+    this.dlg.say(T.oi, menu);
   }
 
   /** O BALCÃO DE FICHAS do cassino: os prêmios do FireRed, pagos com as
@@ -8152,10 +8432,19 @@ export class OverworldScene {
     // continuam funcionando com um SIM — quem quer o CHARMANDER de sempre não
     // atravessa menu nenhum, e quem quer um FUECOCO acha o caminho na primeira
     // pergunta em vez de descobrir que não dá.
-    this.dlg.ask(`ESTA POKÉ BOLA CONTÉM ${nomeBola || sp.name}. LEVAR?`,
-                 ["SIM", "OUTRA REGIÃO", "NÃO"], (i) => {
-      if (i === 1) return this.escolherRegiao(state);
-      if (i !== 0) return;
+    // MODO FUSÃO: SORTEAR DE NOVO (pedido do CAIO, nov/2026: "faz ter como
+    // redefinir as fusões com os iniciais na mesa") — esquece os pares de todas
+    // as bolas (e das outras regiões), sorteia outros e mostra esta bola de novo
+    const ops = nomeBola ? ["SIM", "SORTEAR DE NOVO", "OUTRA REGIÃO", "NÃO"] : ["SIM", "OUTRA REGIÃO", "NÃO"];
+    this.dlg.ask(`ESTA POKÉ BOLA CONTÉM ${nomeBola || sp.name}. LEVAR?`, ops, (i) => {
+      const op = ops[i];
+      if (op === "SORTEAR DE NOVO") {
+        this.st.flags.paresIniciais = {};
+        Audio2.select();
+        return this.dlg.say("AS POKÉ BOLAS DA MESA BRILHARAM... AS FUSÕES MUDARAM!", () => this.pickStarter(npc, state));
+      }
+      if (op === "OUTRA REGIÃO") return this.escolherRegiao(state);
+      if (op !== "SIM") return;
       this.entregarInicial(npc.starter, state);
     });
   }
@@ -9244,7 +9533,8 @@ export class OverworldScene {
     return A.faltam.replace("{DIAS}", dias);
   }
 
-  openMenu() { Audio2.select(); this.menu = { type: "main", index: 0 }; }
+  // o ROTOMFONE sai voando da sua frente e vira o menu (drawMenu)
+  openMenu() { Audio2.select(); this.menu = { type: "main", index: 0, abre: performance.now() }; Audio2.tone(900, 0.05, "triangle", 0.12); }
 
   /** VELOCIDADE: quantos passos por segundo o jogador dá. Ela é do aparelho,
    *  não da partida (mora nas opções do navegador), então vale pra qualquer
@@ -9275,7 +9565,7 @@ export class OverworldScene {
 
   /** itens do menu principal: VOAR entra quando alguém da equipe sabe voar */
   itensMenu() {
-    const base = ["POKÉMON", "BOX", "MOCHILA", "INSÍGNIAS", "ROUPAS"];
+    const base = ["POKÉMON", "BOX", "MOCHILA", "INSÍGNIAS", "ROUPAS", "METAS", "CONTATOS", "CÂMERA", "TRABALHOS"];
     // a POKÉDEX vem do professor, logo depois do inicial (src/data/pokedex.js)
     if (temPokedex(this.st)) base.unshift("POKÉDEX");
     // ACAMPAR só aparece quando dá: com barraca na mochila e chão de fora. Menu
@@ -10561,11 +10851,24 @@ export class OverworldScene {
       m.pagina = m.pagina ? 0 : 1;
       return void Audio2.blip();
     }
+    if (m.type === "contatos") {
+      const lista = this.contatos();
+      const n = lista.length;
+      if (Input.consume("b") || (!n && Input.consume("a"))) { this.menu = { type: "main", index: this.itensMenu().indexOf("CONTATOS") }; return void Audio2.cancel(); }
+      if (Input.consume("up")) { m.index = (m.index + n - 1) % n; Audio2.blip(); }
+      if (Input.consume("down")) { m.index = (m.index + 1) % n; Audio2.blip(); }
+      if (Input.consume("a")) { Audio2.select(); this.menu = null; return void this.ligar(lista[m.index]); }
+      return;
+    }
     if (m.type === "main") {
       const items = this.itensMenu();
       m.index = Math.min(m.index, items.length - 1);
-      if (Input.consume("up")) { m.index = (m.index + items.length - 1) % items.length; Audio2.blip(); }
-      if (Input.consume("down")) { m.index = (m.index + 1) % items.length; Audio2.blip(); }
+      // O ROTOMFONE: os ícones em grade (COLUNAS_FONE por linha)
+      const n = items.length, C = COLUNAS_FONE;
+      if (Input.consume("left")) { m.index = (m.index + n - 1) % n; Audio2.blip(); }
+      if (Input.consume("right")) { m.index = (m.index + 1) % n; Audio2.blip(); }
+      if (Input.consume("up")) { m.index = m.index - C >= 0 ? m.index - C : Math.min(n - 1, m.index + C * Math.floor((n - 1 - m.index) / C)); Audio2.blip(); }
+      if (Input.consume("down")) { m.index = m.index + C < n ? m.index + C : m.index % C; Audio2.blip(); }
       if (Input.consume("b")) { this.menu = null; Audio2.cancel(); }
       if (Input.consume("a")) {
         Audio2.select();
@@ -10585,6 +10888,10 @@ export class OverworldScene {
         if (pick === "ONLINE") { this.menu = null; return void this.game.scenes.push(new OnlineMenuScene()); }
         if (pick === "POKÉDEX") { this.menu = null; return void this.game.scenes.push(new PokedexScene(), {}); }
         if (pick === "ROUPAS") { this.menu = null; return void this.game.scenes.push(new RoupasScene(), {}); }
+        if (pick === "METAS") { this.menu = null; return void this.game.scenes.push(new MetasScene(), {}); }
+        if (pick === "CONTATOS") { this.menu = { type: "contatos", index: 0 }; return; }
+        if (pick === "CÂMERA") { this.menu = null; return void this.abrirCamera(); }
+        if (pick === "TRABALHOS") { this.menu = null; return void this.game.scenes.push(new TrabalhosScene(), {}); }
         if (pick === "POKÉMON") this.menu = { type: "party", index: 0 };
         else if (pick === "BOX") {
           // o PC do jeito oficial (src/scenes/pc.js)
@@ -11144,7 +11451,7 @@ export class OverworldScene {
     }
     if (m.type === "optsFala") return this.menuFala(m);
     if (m.type === "opts") {
-      const n = 14;
+      const n = 15;
       if (Input.consume("up")) m.index = (m.index + n - 1) % n;
       if (Input.consume("down")) m.index = (m.index + 1) % n;
       if (Input.consume("b")) {
@@ -11165,6 +11472,9 @@ export class OverworldScene {
       // ESTILO DE TROCA (como no FireRed): ALTERNAR ou SET (src/scenes/battle.js `perguntaTroca`)
       const trocaEstilo = () => Opcoes.set("estiloTroca", Opcoes.get("estiloTroca") === "set" ? "alternar" : "set");
       if (lado && m.index === 11) { trocaEstilo(); Audio2.blip(); }
+      // FPS: de 30 a 2.000 (o laço do src/main.js lê a opção)
+      const mudaFps = (d) => { const L = FPS_OPCOES, i = Math.max(0, L.indexOf(Opcoes.get("fps") || 60)); Opcoes.set("fps", L[(i + d + L.length) % L.length]); };
+      if (lado && m.index === 13) { mudaFps(lado); Audio2.blip(); }
       if (Input.consume("a")) {
         Audio2.select();
         if (m.index === 0) Glitch.scanlines = !Glitch.scanlines;
@@ -11186,6 +11496,7 @@ export class OverworldScene {
         else if (m.index === 11) trocaEstilo();
         // MODO FUSÃO (src/data/modo-fusao): todo selvagem nasce fundido
         else if (m.index === 12) this.st.flags.modoFusao = !this.st.flags.modoFusao;
+        else if (m.index === 13) mudaFps(1);
         else { Save.clear(); this.menu = null; this.dlg.say("SAVE APAGADO. RECARREGUE A PÁGINA."); }
       }
     }
@@ -11301,6 +11612,18 @@ export class OverworldScene {
       actors.push({ x: (n.fx ?? n.x) + t, y: n.y + t, ax: n.fx ?? n.x, ay: n.fy ?? n.y, dir: n.dir || "down",
                     draw: (c = ctx) => this.drawNpc(c, n, cx, cy) });
     }
+    // O SELVAGEM 3D nadando (src/data/selvagem3d.js, src/core/modelo3d.js)
+    { const s = this.solto3d, S = s && SELVAGENS_3D.find((x) => x.id === s.id);
+      if (S) actors.push({ x: s.x, y: s.y, semSombra: true, draw: () => desenharModelo(ctx, S.especie, s.x * TILE - cx + 8, s.y * TILE - cy + 4,
+        { comprimento: S.comprimento, angulo: s.ang, boia: Math.sin(s.t * 1.6) * 2.5, t: s.t }) }); }
+    // a LÁPIDE do BRASEAGLE (src/data/zerogle.js), depois do enterro
+    if ((this.st.flags?.zerogle || 0) >= 3 && this.st.player.map === ZEROGLE.lapide.mapa) {
+      actors.push({ x: ZEROGLE.lapide.x, y: ZEROGLE.lapide.y, semSombra: true, draw: (c = ctx) => this.desenharLapideZerogle(c, cx, cy) });
+      if (this.st.flags.zerogleViu) actors.push({ x: ZEROGLE.fantasma.x, y: ZEROGLE.fantasma.y + 0.01, semSombra: true, draw: (c = ctx) => this.desenharZerogle(c, cx, cy) });
+    }
+    // o RATICATE do AZUL: no reencontro, ou depois, do lado dele na lápide
+    { const rr = this.raticateDoRival();
+      if (rr) actors.push({ x: rr.x, y: rr.y, ax: rr.x, ay: rr.y, draw: (c = ctx) => this.desenharReencontro(c, rr, cx, cy) }); }
     // OS SELVAGENS À VISTA e o COMPANHEIRO entram na MESMA lista de atores que
     // o resto: assim eles passam por trás e pela frente das coisas na ordem
     // certa, em vez de flutuarem por cima do mundo.
@@ -12175,6 +12498,7 @@ export class OverworldScene {
   }
 
   drawPlayer(ctx, x, y) {
+    this._telaJogador = { x, y };     // (o ROTOMFONE do menu boia do lado de você)
     // NADANDO: em cima (surfando) ou no FUNDO DO MAR (mergulhado, com quem te leva)
     const nadador = this.st.surfando || (this.map?.submerso && this.st.mergulho?.especie) || null;
     const nadando = !!nadador;
@@ -13060,19 +13384,194 @@ export class OverworldScene {
     drawText(ctx, "?", x + 30, y + 41, PAL.glitch);
   }
 
-  drawMenu(ctx) {
-    const m = this.menu;
-    if (m.type === "mapaRegiao") return this.drawMapaRegiao(ctx, m);
-    if (m.type === "main") {
-      const items = this.itensMenu();
-      const w = 84, x = W - w - 4, y = 4;
-      panel(ctx, x, y, w, items.length * LINE_H + 8);
-      items.forEach((it, i) => {
-        drawText(ctx, it, x + 14, y + 4 + i * LINE_H, PAL.ink);
-        if (i === m.index) cursor(ctx, x + 6, y + 4 + i * LINE_H);
+  /** O MENU START é um ROTOMFONE (src/core/rotomfone.js): ao abrir, ele sai
+   *  voando da frente de você e cresce até o canto; aí os ícones aparecem. Em
+   *  cima da tela, o nome do ícone escolhido. CONTATOS é a lista de quem liga. */
+  desenharRotomfoneMenu(ctx, m) {
+    const t = performance.now() / 1000;
+    // PEQUENO e NA SUA FRENTE (pedido do CAIO): do lado pra onde você olha
+    // (olhando pra cima/baixo, do lado direito), boiando; se não couber, do outro lado
+    const w = 66, h = 86, eu = this._telaJogador || { x: W / 2 - 8, y: H / 2 - 16 };
+    const pcx = eu.x + 8, pcy = eu.y + 6;
+    let lado = this.st.player.dir === "left" ? -1 : 1;
+    const xDe = (l) => (l > 0 ? pcx + 12 : pcx - 12 - w);
+    if (xDe(lado) < 2 || xDe(lado) + w > W - 2) lado = -lado;
+    const fim = {
+      x: Math.max(2, Math.min(W - w - 2, xDe(lado))),
+      y: Math.max(16, Math.min(H - h - 8, Math.round(pcy - h / 2))) + Math.round(Math.sin(t * 2.4)),
+      w, h,
+    };
+    const k = m.abre ? Math.min(1, (performance.now() - m.abre) / 380) : 1;
+    if (k < 1) {
+      // voando: sai de você (as costas, com a cara do ROTOM) e cresce até o lugar
+      const e = 1 - Math.pow(1 - k, 3);
+      const s = 1 + e, fw = LARGURA_FONE * s, fh = ALTURA_FONE * s;
+      const x = pcx + (fim.x + w / 2 - pcx) * e - fw / 2;
+      const y = pcy + (fim.y + h / 2 - pcy) * e - fh / 2 - Math.sin(Math.PI * k) * 16;
+      desenharRotomfone(ctx, Math.round(x), Math.round(y), Math.max(1, Math.round(s)), t);
+      return;
+    }
+    const tela = desenharCorpoMenu(ctx, fim.x, fim.y, fim.w, fim.h, t);
+    if (m.type === "contatos") {
+      const lista = this.contatos(), T = ROTOMFONE_TEXTO;
+      drawText(ctx, T.contatos, tela.x + 3, tela.y + 3, "#40d0e0");
+      if (!lista.length) { drawText(ctx, "...", tela.x + 3, tela.y + 18, "#ffffff"); return; }
+      const POR = 5, top = Math.max(0, Math.min(m.index - 2, lista.length - POR));
+      lista.slice(top, top + POR).forEach((c, i) => {
+        const y = tela.y + 16 + i * 12, sel = top + i === m.index;
+        if (sel) { ctx.fillStyle = "#2c4a64"; ctx.fillRect(tela.x + 1, y - 2, tela.w - 2, 11); }
+        desenharIcone(ctx, "CONTATOS", tela.x + 2, y - 2);
+        drawText(ctx, this.nomeContato(c).slice(0, 6), tela.x + 16, y, sel ? "#ffd860" : "#ffffff");
       });
       return;
     }
+    const items = this.itensMenu();
+    const extra = { [DB.MISSAO_TEXTO?.titulo]: "MISSÕES", [DB.STORY.fusao.atualizar]: "BAIXAR" };
+    // em cima, o nome do escolhido
+    const nome = String(items[m.index] || "").slice(0, Math.floor(tela.w / 6));
+    drawText(ctx, nome, tela.x + Math.max(2, (tela.w - nome.length * 6) / 2), tela.y + 3, "#40d0e0");
+    const cel = 16, x0 = tela.x + Math.round((tela.w - COLUNAS_FONE * cel) / 2), y0 = tela.y + 13;
+    const linhas = Math.floor((tela.h - 16) / cel);
+    const linhaSel = Math.floor(m.index / COLUNAS_FONE);
+    const primeira = Math.max(0, linhaSel - linhas + 1);
+    items.forEach((it, i) => {
+      const l = Math.floor(i / COLUNAS_FONE) - primeira;
+      if (l < 0 || l >= linhas) return;
+      const x = x0 + (i % COLUNAS_FONE) * cel, y = y0 + l * cel;
+      if (i === m.index) {
+        ctx.fillStyle = "#ffd860"; ctx.fillRect(x, y, cel - 1, cel - 1);
+        ctx.fillStyle = "#16202c"; ctx.fillRect(x + 1, y + 1, cel - 3, cel - 3);
+      }
+      desenharIcone(ctx, it, x + 2, y + 2 - (i === m.index ? Math.round(Math.abs(Math.sin(t * 6))) : 0), extra);
+    });
+  }
+
+  /** A CÂMERA (src/systems/fotos.js): TIRAR FOTO aqui mesmo, ou ver o ÁLBUM */
+  abrirCamera() {
+    const T = FOTO_TEXTO;
+    this.dlg.ask(T.oQue, T.opcoes, (i) => {
+      if (i === 0) return this.selfie();
+      if (i === 1) this.game.scenes.push(new FotosScene(), {});
+    });
+  }
+
+  /** a SELFIE: com quem está na sua frente; sem ninguém, com o Pokémon que te
+   *  segue; sem ele, só você */
+  selfie() {
+    const p = this.st.player, [dx, dy] = DIRS[p.dir] || [0, 1];
+    const npc = this.npcAt(p.x + dx, p.y + dy);
+    const pessoa = npc && !["ball", "portal", "bau"].includes(npc.sprite) && !npc.invisivel ? npc : null;
+    if (pessoa) {
+      const nome = pessoa.trainer?.name?.replace(/^(LÍDER|ELITE 4|CAMPEÃO|CAMPEÃ) /, "")
+        || (pessoa.sprite === "rival" ? this.st.rivalNome || DB.RIVAL?.nome || "AZUL" : String(pessoa.sprite || "").toUpperCase());
+      tirarFoto(this.st, { retrato: pessoa.sprite, ator: pessoa.sprite, nome });
+    } else {
+      const mon = this.quemSegue();
+      if (mon) tirarFoto(this.st, { mon: mon.species, nome: mon.nickname });
+      else tirarFoto(this.st, {});
+    }
+    this.game.autosave?.(true);
+    this.dlg.say(T_SELFIE());
+  }
+
+  /** O dia de hoje (pra o selvagem 3D voltar no dia seguinte) */
+  diaDeHoje() { const d = new Date(); return d.getFullYear() * 1000 + Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000); }
+
+  /** OS SELVAGENS 3D: nasce numa água qualquer do mapa, nada pra lugares
+   *  sorteados (só por água), e encostar nele começa a luta */
+  atualizarSelvagens3D(dt) {
+    const st = this.st, aqui = st.player.map;
+    const S = SELVAGENS_3D.find((s) => s.mapa === aqui && st.flags?.[`selv3d_${s.id}`] !== this.diaDeHoje());
+    if (!S) { this.solto3d = null; return; }
+    pedirModelo(S.especie, S.modelo, S.mexe);
+    const agua = (x, y) => this.tagAt(Math.round(x), Math.round(y)) === DB.TAG.WATER;
+    let s = this.solto3d;
+    if (!s || s.id !== S.id) {
+      // nasce longe de você, numa água
+      const W = this.geo?.w || 30, H = this.geo?.h || 30;
+      let x = 0, y = 0;
+      for (let k = 0; k < 400; k++) {
+        x = Math.floor(Math.random() * W); y = Math.floor(Math.random() * H);
+        if (agua(x, y) && Math.hypot(x - st.player.x, y - st.player.y) > 8) break;
+      }
+      s = this.solto3d = { id: S.id, x, y, alvo: null, ang: 0, t: 0, avisou: false };
+    }
+    s.t += dt;
+    if (this.menu || this.dlg.active || this.dlg.choice || this.fx) return;
+    if (!s.avisou) { s.avisou = true; this.avisar(S.aviso); }
+    // nadando: escolhe um ponto de água por perto e vai até lá, virando devagar
+    if (!s.alvo || Math.hypot(s.alvo.x - s.x, s.alvo.y - s.y) < 0.3) {
+      for (let k = 0; k < 40; k++) {
+        const a = Math.random() * Math.PI * 2, r = 3 + Math.random() * 7;
+        const tx = s.x + Math.cos(a) * r, ty = s.y + Math.sin(a) * r;
+        if (agua(tx, ty) && agua((s.x + tx) / 2, (s.y + ty) / 2)) { s.alvo = { x: tx, y: ty }; break; }
+      }
+    }
+    if (s.alvo) {
+      const dx = s.alvo.x - s.x, dy = s.alvo.y - s.y, d = Math.hypot(dx, dy) || 1;
+      const passo = Math.min(d, S.velocidade * dt);
+      const nx = s.x + (dx / d) * passo, ny = s.y + (dy / d) * passo;
+      if (agua(nx, ny)) { s.x = nx; s.y = ny; } else s.alvo = null;
+      // o ângulo do modelo: a cabeça (o -x dele) aponta pra onde ele nada
+      const quer = Math.atan2(dy, -dx);
+      let dif = quer - s.ang;
+      while (dif > Math.PI) dif -= Math.PI * 2;
+      while (dif < -Math.PI) dif += Math.PI * 2;
+      s.ang += dif * Math.min(1, dt * 2);
+    }
+    // ENCOSTOU: a luta (e ele some até amanhã)
+    if (Math.hypot(st.player.x - s.x, st.player.y - s.y) < S.encosta) {
+      (st.flags ||= {})[`selv3d_${S.id}`] = this.diaDeHoje();
+      this.solto3d = null;
+      const b = { foe: createMon(S.especie, S.nivel), boss: false };
+      this.entrarEmBatalha("selvagem", b, () => this.game.scenes.push(new BattleScene(), b));
+    }
+  }
+
+  /** quem está nos CONTATOS agora (src/data/rotomfone.js) */
+  contatos() { return CONTATOS.filter((c) => c.tem(this.st)); }
+  /** o nome e o retrato de um contato (podem ser função do save, como o do GÊMEO) */
+  nomeContato(c) {
+    const n = typeof c.nome === "function" ? c.nome(this.st) : c.nome;
+    return String(n).replace("{RIVAL}", this.st.rivalNome || DB.RIVAL?.nome || "AZUL");
+  }
+  retratoContato(c) { return typeof c.retrato === "function" ? c.retrato(this.st) : c.retrato; }
+
+  /** LIGAR (ou atender): o ROTOMFONE grande no alto com o rosto de quem fala */
+  ligar(c, recebida = false) {
+    const T = ROTOMFONE_TEXTO;
+    const conversas = c.falas(this.st) || [];
+    const conversa = conversas[Math.floor(Math.random() * conversas.length)] || [];
+    const nome = this.nomeContato(c);
+    this.dlg.say([...(recebida ? [] : [T.ligando.replace("{NOME}", nome)]), ...conversa, T.desligou.replace("{NOME}", nome)]);
+    this.dlg.fone = { retrato: this.retratoContato(c), t: 0 };
+  }
+
+  /** alguém te liga de vez em quando (ROTOMFONE_TEXTO.intervalo, em segundos andando) */
+  talvezTocarRotomfone(dt) {
+    const T = ROTOMFONE_TEXTO;
+    if (this.menu || this.dlg.active || this.dlg.choice || this.fx || !this.st.flags?.starterChosen) return;
+    const [a, b] = T.intervalo;
+    if (this.ligacaoT == null) this.ligacaoT = a + Math.random() * (b - a);
+    this.ligacaoT -= dt;
+    if (this.ligacaoT > 0) return;
+    this.ligacaoT = a + Math.random() * (b - a);
+    const lista = this.contatos();
+    if (!lista.length) return;
+    const c = lista[Math.floor(Math.random() * lista.length)];
+    // trim-trim
+    for (let i = 0; i < 3; i++) setTimeout(() => Audio2.tone(1400, 0.08, "square", 0.15), i * 160);
+    this.dlg.ask(T.chamando.replace("{NOME}", this.nomeContato(c)), T.atender, (i) => {
+      if (i === 0) this.ligar(c, true);
+      else this.dlg.say(T.recusou);
+    });
+    this.dlg.fone = { retrato: this.retratoContato(c), t: 0 };
+  }
+
+  drawMenu(ctx) {
+    const m = this.menu;
+    if (m.type === "mapaRegiao") return this.drawMapaRegiao(ctx, m);
+    if (m.type === "main" || m.type === "contatos") return this.desenharRotomfoneMenu(ctx, m);
     if (m.type === "party") {
       panel(ctx, 4, 4, W - 8, H - 8);
       drawText(ctx, m.titulo || "EQUIPE", 12, 10, PAL.ink);
@@ -13708,11 +14207,12 @@ export class OverworldScene {
         ["TELA SUAVE", nomeSuave(Opcoes.get("suave"))],
         ["ESTILO DE TROCA", Opcoes.get("estiloTroca") === "set" ? "SET" : "ALTERNAR"],
         ["MODO FUSÃO", this.st.flags?.modoFusao ? "ON" : "OFF"],
+        ["FPS", String(Opcoes.get("fps") || 60)],
         ["LIMPAR SAVE", ""],
       ];
-      // 14 linhas: o painel sobe e as linhas apertam (10 em vez de 11) pra
+      // 15 linhas: o painel sobe e as linhas apertam (9 em vez de 11) pra
       // dica de baixo não cair dentro dele
-      const LH = 10;
+      const LH = 9;
       panel(ctx, 30, 2, 180, linhas.length * LH + 16);
       drawText(ctx, `CORRUPÇÃO: ${Math.round(this.st.corruption)}%`, 40, 6, PAL.glitch);
       linhas.forEach(([rot, val], i) => {
