@@ -27,7 +27,9 @@ import { LUGARES as LIGA } from "./braglitch-liga.js";
 // AS CINCO ILHAS da história (src/data/braglitch-ilhas.js): só se chega na lancha da IPÊ
 import { LUGARES as ILHAS, ILHAS as ILHAS_DA_HISTORIA } from "./braglitch-ilhas.js";
 import { OURO_GASTLY_MINA } from "./fosseis-brag.js";
-export const LUGARES_NOVOS = [...SUL, ...NORTE, ...CENTRO, ...ILHAS, ...LIGA];
+// a DIMENSÃO LITERARTE (src/data/braglitch-literarte.js): só se chega pela toca do coelho da BR-101
+import { LUGARES as LITERARTE } from "./braglitch-literarte.js";
+export const LUGARES_NOVOS = [...SUL, ...NORTE, ...CENTRO, ...ILHAS, ...LIGA, ...LITERARTE];
 
 // ------------------------------------------------------- as plantas-molde
 const MOLDE_A = [
@@ -569,6 +571,7 @@ export const LAYOUT = {
   manaus:             { pos: [27, 23], liga: { right: "floresta_amazonica" } },
   // AS ILHAS: sem estrada nenhuma, só a lancha da PROFA. IPÊ (src/data/braglitch-ilhas.js)
   ilha_do_mel:        { pos: [67, 81], liga: {} },
+  literarte:          { pos: [60, 86], liga: {} },   // a DIMENSÃO LITERARTE: no mapa, fica "embaixo" da BR-101 (a toca)
   queimada_grande:    { pos: [74, 76], liga: {} },
   ilhabela:           { pos: [77, 76], liga: {} },
   ilha_grande:        { pos: [83, 75], liga: {} },

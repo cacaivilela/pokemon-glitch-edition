@@ -1,9 +1,11 @@
 // Tela do DECODIFICADOR DE GENOMA: a fusão e a separação acontecendo.
-// FUNDIR (`renderDoido`): os dois se encaram com o sprite normal, se DESFAZEM
-// nos pixels deles, os pixels rodam num redemoinho (com um brilho de cor de
-// vez em quando) em cima de um caleidoscópio discreto, se juntam no desenho da
-// fusão ficando brancos e tremendo — e BUUM, a fusão aparece. Já foi mais
-// doido (tela invertendo, glitch, nome embaralhado): ficou bizarro demais.
+// FUNDIR (`renderDoido`): AS POKÉBOLAS SE CHOCANDO (nov/2026, no lugar do
+// redemoinho de pixels). Os dois se encaram, VOLTAM PRAS POKÉBOLAS (o raio
+// vermelho, a silhueta sendo sugada), as bolas VOAM girando em órbitas que vão
+// apertando, DISPARAM uma contra a outra e se CHOCAM no meio (clarão, tremor,
+// faíscas, os gritos juntos), se ESPREMEM e VIRAM UMA BOLA SÓ (a de cima na cor
+// da cabeça, a de baixo na do corpo), que cai, quica, SACODE três vezes como
+// numa captura — e BUUM, ela abre e a fusão aparece. Com a tripla são três bolas.
 // SEPARAR continua o filme simples: os dois saem pelos lados.
 //
 // A mecânica (o que vira o quê) está em src/systems/fusao.js; aqui só tem
@@ -25,11 +27,13 @@ const DUR = 1.5;            // quanto dura o encontro (ou a abertura)
 const CENTRO = { x: 120, y: 62 };
 const LADO = 64;            // tamanho do sprite na tela
 const FITA = "0123456789ABCDEF";
-// o filme doido da fusão: quando começa cada parte (s, desde o fim da fala).
+// o filme da fusão: quando começa cada parte (s, desde o fim da fala).
 // Casado com MUSIC.fusao (src/data/music.js): 32 tempos a 150 bpm, 0,4 s por
-// tempo — o desfaz no tempo 4, o redemoinho no 8 (o tema), a mistura no 24, a
-// carga no 28 e o BUUM no 32, no silêncio depois da caixa acelerando
-const DOIDO = { desfaz: 1.6, ciranda: 3.2, mistura: 9.6, carrega: 11.2, buum: 12.8 };
+// tempo — volta pra bola no tempo 4, o voo no 8 (o tema), o disparo no 24, o
+// CHOQUE no 25, VIRAM UMA no 26, a queda no 28, as três sacudidas no 29, 30 e
+// 31, e o BUUM no 32, no silêncio depois da caixa
+const DOIDO = { recolhe: 1.6, voa: 3.2, dispara: 9.6, choque: 10.0, junta: 10.4, cai: 11.2, sacode: [11.8, 12.2, 12.6], buum: 12.8 };
+const ESPERA = 0.8;          // quanto dura o raio vermelho puxando pra bola
 const suave = (t) => t * t * (3 - 2 * t);
 const sai = (t) => 1 - (1 - t) * (1 - t);
 const prende = (t) => Math.max(0, Math.min(1, t));
@@ -51,10 +55,70 @@ function pixelsDe(img) {
   return out;
 }
 
-/** h (0..360) -> [r,g,b] bem saturado, pro arco-íris dos pixels */
-function arco(h) {
-  const f = (n) => { const k = (n + h / 30) % 12; return 255 * (0.5 - 0.5 * Math.max(-1, Math.min(k - 3, 9 - k, 1))); };
-  return [f(0), f(8), f(4)];
+/** a COR de um Pokémon: a média das cores vivas do sprite (pra luz que vaza da bola dele) */
+function corDe(img) {
+  let r = 0, g = 0, b = 0, n = 0;
+  for (const p of pixelsDe(img)) {
+    const mx = Math.max(p.r, p.g, p.b), mn = Math.min(p.r, p.g, p.b);
+    if (mx < 60 || mx - mn < 40) continue;          // contorno, preto, cinza: fora
+    r += p.r; g += p.g; b += p.b; n++;
+  }
+  if (!n) return [200, 220, 255];
+  // um pouco mais clara e viva: é luz, não tinta
+  return [r / n, g / n, b / n].map((c) => Math.min(255, c * 1.15 + 30));
+}
+
+/** UMA POKÉBOLA, pixel a pixel: `r` o raio, `ang` o giro, `racha` 0..1 (as
+ *  rachaduras crescendo, com a luz `cor` vazando), `branco` 0..1 (o clarão) */
+function bola(ctx, x, y, r, ang, racha = 0, cor = null, branco = 0, trincas = null, cores = null) {
+  const cs = Math.cos(ang), sn = Math.sin(ang), R = Math.ceil(r);
+  const mix = (c) => c.map((v) => Math.round(v + (255 - v) * branco));
+  for (let dy = -R; dy <= R; dy++) {
+    for (let dx = -R; dx <= R; dx++) {
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d > r) continue;
+      const u = dx * cs + dy * sn, v = -dx * sn + dy * cs;   // coordenadas da bola girada
+      let c;
+      if (d > r - 1) c = [24, 22, 32];                         // o contorno
+      else if (Math.sqrt(u * u + v * v) < r * 0.32) c = Math.sqrt(u * u + v * v) < r * 0.2 ? [248, 248, 248] : [24, 22, 32];   // o botão
+      else if (Math.abs(v) < Math.max(1, r * 0.12)) c = [24, 22, 32];                    // a faixa do meio
+      else if (cores) {
+        // a BOLA FUNDIDA: a metade de cima na cor da cabeça, a de baixo na do corpo
+        const base = v < 0 ? cores.cima : cores.baixo;
+        const luz = (dx + dy < -r * 0.6) ? 0.45 : (dx + dy > r * 0.6) ? -0.25 : 0;
+        c = base.map((q) => Math.round(luz >= 0 ? q + (255 - q) * luz : q * (1 + luz)));
+      }
+      else if (v < 0) c = (dx + dy < -r * 0.7) ? [255, 120, 110] : [226, 44, 52];        // a metade de cima, vermelha (com o brilho)
+      else c = (dx + dy > r * 0.6) ? [196, 196, 206] : [244, 244, 248];                  // a de baixo, branca (com a sombra)
+      ctx.fillStyle = `rgb(${mix(c).join(",")})`;
+      ctx.fillRect(Math.round(x + dx), Math.round(y + dy), 1, 1);
+    }
+  }
+  // as RACHADURAS, com a luz de dentro
+  if (racha > 0 && trincas) {
+    const k = Math.floor(trincas.length * Math.min(1, racha));
+    const c = cor || [255, 255, 255];
+    for (let i = 0; i < k; i++) {
+      const [tx, ty] = trincas[i];
+      ctx.fillStyle = `rgb(${c.map((v) => Math.round(v + (255 - v) * 0.4)).join(",")})`;
+      ctx.fillRect(Math.round(x + tx * r), Math.round(y + ty * r), 1, 1);
+    }
+  }
+}
+
+/** o desenho das rachaduras de uma bola: caminhos tortos saindo do meio (em unidades de raio) */
+function trincasDe() {
+  const pts = [];
+  for (let k = 0; k < 4; k++) {
+    let a = Math.random() * Math.PI * 2, x = (Math.random() - 0.5) * 0.3, y = (Math.random() - 0.5) * 0.3;
+    for (let i = 0; i < 10; i++) {
+      a += (Math.random() - 0.5) * 1.2;
+      x += Math.cos(a) * 0.11; y += Math.sin(a) * 0.11;
+      if (x * x + y * y > 0.85) break;
+      pts.push([x, y]);
+    }
+  }
+  return pts;
 }
 
 export class FusionScene {
@@ -195,7 +259,7 @@ export class FusionScene {
     this.dlg.say(msgs, () => { this.fadeDir = 1; this.saindo = true; });
   }
 
-  /** o som e o tempo do filme doido; no BUUM a fusão acontece de verdade */
+  /** o som e o tempo do filme; no BUUM a fusão acontece de verdade */
   atualizaDoido(dt) {
     this.td += dt;
     const td = this.td, uma = (nome) => !this.marcos.has(nome) && this.marcos.add(nome);
@@ -203,16 +267,43 @@ export class FusionScene {
     if (td > 0.2 && uma("grito1")) tocarGrito(this.cabeca);
     if (td > 0.8 && uma("grito2")) tocarGrito(this.corpo);
     if (this.pernas && td > 1.2 && uma("grito3")) tocarGrito(this.pernas);
-    if (td > DOIDO.desfaz && uma("desfaz")) { this.montaPixels(); Audio2.noise(0.4, 0.5); this.flash = 0.35; }
-    if (td > DOIDO.mistura && uma("mistura")) {
-      // os dois gritos juntos, graves: os dois virando um só
+    // VOLTA PRA BOLA: o raio vermelho (o "tchuuu" descendo)
+    if (td > DOIDO.recolhe && uma("recolhe")) {
+      this.montaBolas();
+      Audio2.tone(1400, 0.06, "square", 0.5); Audio2.tone(900, 0.12, "triangle", 0.5); Audio2.tone(500, 0.18, "triangle", 0.4);
+    }
+    if (td > DOIDO.recolhe + ESPERA && uma("fechou")) { Audio2.tone(320, 0.05, "square", 0.6); Audio2.tone(240, 0.06, "square", 0.5); }
+    // O VOO: um "vush" a cada dois tempos, cada vez mais agudo
+    if (td > DOIDO.voa && td < DOIDO.dispara) {
+      const tempo = Math.floor((td - DOIDO.voa) / 0.8);
+      if (uma("vush" + tempo)) { Audio2.noise(0.12, 0.25); Audio2.tone(300 + tempo * 60, 0.05, "triangle", 0.35); }
+    }
+    if (td > DOIDO.dispara && uma("dispara")) Audio2.noise(0.35, 0.45);
+    // O CHOQUE: a pancada, o tremor, as faíscas e os gritos juntos (graves)
+    if (td > DOIDO.choque && uma("choque")) {
+      this.tremor = 6; this.flash = 0.7;
+      Audio2.noise(0.5, 1); Audio2.tone(90, 0.35, "square", 0.9);
+      Glitch.hit(1.2);
+      this.faiscas = Array.from({ length: 40 }, () => {
+        const a = Math.random() * Math.PI * 2, v = 40 + Math.random() * 110;
+        return { x: CENTRO.x, y: CENTRO.y - 18, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 30, vida: 0.5 + Math.random() * 0.6 };
+      });
       Audio2.grito(gritoDe(this.cabeca.species), 0.6);
       Audio2.grito(gritoDe(this.corpo.species), 0.55);
       if (this.pernas) Audio2.grito(gritoDe(this.pernas.species), 0.5);
     }
+    // VIRAM UMA: o clarão e o som subindo
+    if (td > DOIDO.junta && uma("junta")) {
+      this.flash = 0.5; Glitch.hit(0.6);
+      Audio2.tone(500, 0.08, "triangle", 0.5); Audio2.tone(800, 0.1, "triangle", 0.5); Audio2.tone(1200, 0.16, "triangle", 0.45);
+    }
+    // a QUEDA (a pancada no chão)
+    if (td > DOIDO.cai + 0.35 && uma("chao")) { Audio2.tone(140, 0.08, "square", 0.6); Audio2.noise(0.08, 0.35); }
+    // as TRÊS SACUDIDAS, com o clique de captura
+    DOIDO.sacode.forEach((ts, i) => { if (td > ts && uma("sacode" + i)) { Audio2.tone(320, 0.04, "square", 0.6); Audio2.tone(260, 0.05, "square", 0.5); } });
     if (td > DOIDO.buum && uma("buum")) {
       this.tremor = 5;
-      this.pixels = [];
+      this.bolas = [];
       Audio2.noise(0.7, 1);
       Audio2.tone(60, 0.5, "sawtooth", 0.8);
       this.tp = 0;
@@ -223,145 +314,159 @@ export class FusionScene {
       setTimeout(() => tocarGrito(this.fus), 350);
     }
     if (this.tremor > 0) this.tremor = Math.max(0, this.tremor - dt * 10);
+    for (const f of this.faiscas || []) { f.x += f.vx * dt; f.y += f.vy * dt; f.vy += 160 * dt; f.vida -= dt; }
+    if (this.faiscas) this.faiscas = this.faiscas.filter((f) => f.vida > 0);
   }
 
-  /** os pixels dos dois, cada um com o lugar de onde sai e o lugar que ele
-   *  ocupa no desenho da FUSÃO (na ordem de leitura: cabeça vira cabeça) */
-  montaPixels() {
-    const cx = CENTRO.x, cy = CENTRO.y;
-    const [l0, l1, l2] = this.lados;
-    const de = [
-      ...pixelsDe(this.esq).map((p) => ({ ...p, ox: cx + l0 })),
-      ...pixelsDe(this.dir).map((p) => ({ ...p, ox: cx + l1 })),
-      ...(this._ter ? pixelsDe(this.ter).map((p) => ({ ...p, ox: cx + l2 })) : []),
-    ].sort((a, b) => a.dy - b.dy || a.dx - b.dx);
-    const para = pixelsDe(this.meio);
-    if (!de.length || !para.length) { this.pixels = []; return; }
-    const n = Math.max(de.length, para.length);
-    this.pixels = [];
-    for (let k = 0; k < n; k++) {
-      const a = de[Math.floor((k * de.length) / n)], b = para[Math.floor((k * para.length) / n)];
-      const ax = a.ox + a.dx, ay = cy + a.dy;
-      const ang = Math.atan2(a.dy, a.dx) + (Math.random() - 0.5) * 1.2, dist = 10 + Math.random() * 30;
-      this.pixels.push({
-        r: a.r, g: a.g, b: a.b, tr: b.r, tg: b.g, tb: b.b,
-        ax, ay, sx: ax + Math.cos(ang) * dist, sy: ay + Math.sin(ang) * dist * 0.8,
-        tx: cx + b.dx, ty: cy + b.dy,
-        raio: 20 + Math.random() * 70, fase: Math.random() * Math.PI * 2,
-        vel: (Math.random() < 0.5 ? -1 : 1) * (1.5 + Math.random() * 2.5),
-        matiz: Math.random() * 360, atraso: Math.random() * 0.4,
-      });
-    }
+  /** uma bola pra cada um, onde ele está, com a cor dele e as rachaduras sorteadas */
+  montaBolas() {
+    const imgs = [this.esq, this.dir, ...(this._ter ? [this.ter] : [])];
+    this.bolas = imgs.map((img, i) => ({
+      img, lado: this.lados[i], cor: corDe(img), trincas: trincasDe(),
+      sentido: i % 2 ? -1 : 1, fase: (i / imgs.length) * Math.PI * 2,
+    }));
   }
 
-  /** onde está cada pixel agora, e de que cor */
-  desenhaPixels(ctx) {
-    if (!this.camada) {
-      const { cv, ctx: c2 } = makeCanvas(W, H);
-      this.camada = cv; this.camadaCtx = c2; this.camadaDados = c2.createImageData(W, H);
+  /** a BOLA FUNDIDA: onde ela está, o tamanho, o giro e a sacudida */
+  ondeFundida(td) {
+    const cx = CENTRO.x, cy = CENTRO.y, chao = cy + 16, alto = cy - 18;
+    const cresce = suave(prende((td - DOIDO.junta) / 0.3));
+    const r = 6 + 3 * cresce;
+    if (td < DOIDO.cai) return { x: cx, y: alto + Math.sin(td * 6) * 1.5, r, ang: td * 3 };
+    // cai e quica duas vezes
+    const q = td - DOIDO.cai;
+    let y;
+    if (q < 0.35) y = alto + (chao - alto) * (q / 0.35) ** 2;
+    else if (q < 0.55) { const k = (q - 0.35) / 0.2; y = chao - Math.sin(k * Math.PI) * 7; }
+    else if (q < 0.65) { const k = (q - 0.55) / 0.1; y = chao - Math.sin(k * Math.PI) * 2; }
+    else y = chao;
+    // as sacudidas: um balanço curto pra cada lado
+    let ang = 0;
+    for (const ts of DOIDO.sacode) if (td > ts && td < ts + 0.3) ang = Math.sin((td - ts) / 0.3 * Math.PI * 2) * 0.45;
+    return { x: cx + ang * 4, y, r, ang };
+  }
+
+  /** onde a bola `i` está agora (e o giro dela) */
+  ondeBola(b, td) {
+    const cx = CENTRO.x, cy = CENTRO.y, chao = cy + 20;
+    const x0 = cx + b.lado, y0 = chao;
+    if (td < DOIDO.voa) return { x: x0, y: y0, ang: Math.sin(td * 18) * 0.25 * prende(td - DOIDO.recolhe - ESPERA) };
+    if (td < DOIDO.dispara) {
+      // sobem num pulo e entram na órbita, que vai apertando e acelerando
+      const k = (td - DOIDO.voa) / (DOIDO.dispara - DOIDO.voa);
+      const sobe = suave(prende(k * 4));
+      const raio = 56 - 36 * k, a = b.fase + b.sentido * (td - DOIDO.voa) * (2 + k * 5);
+      const ox = cx + Math.cos(a) * raio, oy = cy - 22 + Math.sin(a) * raio * 0.45;
+      return { x: x0 + (ox - x0) * sobe, y: y0 + (oy - y0) * sobe - Math.sin(Math.PI * prende(k * 4)) * 18, ang: td * 14 * b.sentido };
     }
-    const d = this.camadaDados.data, td = this.td, t = this.t, cx = CENTRO.x, cy = CENTRO.y;
-    const pedaco = (a, b) => prende((td - a) / (b - a));
-    for (let i = 3; i < d.length; i += 4) if (d[i]) d[i] = d[i] * 0.72;
-    // onde o pixel está na CIRANDA num instante (pra a mistura sair de lá)
-    const orbita = (p, tt) => {
-      const k = prende((tt - DOIDO.ciranda) / (DOIDO.mistura - DOIDO.ciranda));
-      const a = p.fase + (tt - DOIDO.ciranda) * p.vel * (1 + k * 2.5);
-      const r = p.raio * (0.7 + 0.3 * Math.sin(tt * 5 + p.fase * 3));
-      return [cx + Math.cos(a) * r, cy + Math.sin(a) * r * 0.62];
-    };
-    const cubos = this.baseIso ? [] : null;
-    for (const p of this.pixels) {
-      let x, y, cor = [p.r, p.g, p.b], branco = 0;
-      if (td < DOIDO.ciranda) {
-        // DESFAZ: cada pixel se solta e boia pra fora
-        const e = sai(pedaco(DOIDO.desfaz + p.atraso * 0.5, DOIDO.ciranda));
-        // e depois vai entrando na ciranda
-        x = p.ax + (p.sx - p.ax) * e;
-        y = p.ay + (p.sy - p.ay) * e + Math.sin(t * 6 + p.ax) * e;
-        branco = 0.5 * (1 - e);
-      } else if (td < DOIDO.mistura) {
-        // A CIRANDA: um redemoinho doido em volta do meio, piscando arco-íris
-        const k = pedaco(DOIDO.ciranda, DOIDO.mistura);
-        const entra = suave(prende(k * 3));
-        const [ox, oy] = orbita(p, td);
-        x = p.sx + (ox - p.sx) * entra;
-        y = p.sy + (oy - p.sy) * entra;
-        if (Math.sin(t * 6 + p.matiz) > 0.9) {
-          const a = arco((p.matiz + t * 200) % 360);
-          cor = [(p.r + a[0]) / 2, (p.g + a[1]) / 2, (p.b + a[2]) / 2];
-        }
-      } else {
-        // A MISTURA: de onde estava no redemoinho até o lugar dele na fusão,
-        // ganhando a cor nova e ficando branco; depois treme carregando
-        const e = suave(pedaco(DOIDO.mistura + p.atraso, DOIDO.carrega));
-        const [ox, oy] = orbita(p, DOIDO.mistura);
-        const giro = (1 - e) * (1 - e) * Math.PI * 2 * Math.sign(p.vel);
-        const bx = ox + (p.tx - ox) * e, by = oy + (p.ty - oy) * e;
-        const cs = Math.cos(giro), sn = Math.sin(giro);
-        x = cx + (bx - cx) * cs - (by - cy) * sn;
-        y = cy + (bx - cx) * sn + (by - cy) * cs;
-        cor = [p.r + (p.tr - p.r) * e, p.g + (p.tg - p.g) * e, p.b + (p.tb - p.b) * e];
-        if (td > DOIDO.carrega) {
-          const kk = pedaco(DOIDO.carrega, DOIDO.buum);
-          x += (Math.random() - 0.5) * (1 + kk * 3);
-          y += (Math.random() - 0.5) * (1 + kk * 3);
-          branco = 0.3 + 0.7 * kk;
-        }
-      }
-      if (cubos) { cubos.push([x, y, cor[0] + (255 - cor[0]) * branco, cor[1] + (255 - cor[1]) * branco, cor[2] + (255 - cor[2]) * branco]); continue; }
-      const xi = Math.round(x), yi = Math.round(y);
-      if (xi < 0 || yi < 0 || xi >= W || yi >= H) continue;
-      const i = (yi * W + xi) * 4;
-      d[i] = cor[0] + (255 - cor[0]) * branco;
-      d[i + 1] = cor[1] + (255 - cor[1]) * branco;
-      d[i + 2] = cor[2] + (255 - cor[2]) * branco;
-      d[i + 3] = 255;
+    const centro = { x: cx + Math.sign(b.lado || 1) * 0, y: cy - 18 };
+    if (td < DOIDO.choque) {
+      // O DISPARO: da órbita direto pro meio
+      const ini = this.ondeBola(b, DOIDO.dispara - 0.0001);
+      const e = prende((td - DOIDO.dispara) / (DOIDO.choque - DOIDO.dispara));
+      const enc = Math.sign(ini.x - cx || b.sentido) * 6;     // param encostadas, uma de cada lado
+      return { x: ini.x + (cx + enc - ini.x) * e * e, y: ini.y + (centro.y - ini.y) * e * e, ang: td * 30 * b.sentido };
     }
-    if (cubos) return cubosIso(ctx, cubos, this.baseIso, CENTRO.x, CENTRO.y + LADO / 2);
-    this.camadaCtx.putImageData(this.camadaDados, 0, 0);
-    ctx.drawImage(this.camada, 0, 0);
+    // GRUDADAS, se espremendo até o meio (e aí viram uma só: `ondeFundida`)
+    const ini = this.ondeBola(b, DOIDO.dispara - 0.0001);
+    const lado = Math.sign(ini.x - cx || b.sentido);
+    const e = suave(prende((td - DOIDO.choque) / (DOIDO.junta - DOIDO.choque)));
+    const treme = (Math.random() - 0.5) * 2 * e;
+    return { x: cx + lado * 6 * (1 - e) + treme, y: centro.y + treme, ang: 0.4 * lado * (1 - e) };
   }
 
   renderDoido(ctx) {
     const td = this.td, pronto = this.fase === "pronto", tp = this.tp || 0, t = this.t;
-    const cx = CENTRO.x, cy = CENTRO.y;
-    const energia = pronto ? Math.max(0, 1 - tp * 0.6) : Math.min(1, td / DOIDO.carrega);
+    const cx = CENTRO.x, cy = CENTRO.y, chao = cy + 20;
+    const energia = pronto ? Math.max(0, 1 - tp * 0.6) : Math.min(1, td / DOIDO.cai);
     ctx.save();
     if (this.tremor > 0) ctx.translate(Math.round((Math.random() - 0.5) * this.tremor), Math.round((Math.random() - 0.5) * this.tremor));
-    // o CALEIDOSCÓPIO: fatias de cor girando, cada vez mais rápido
-    ctx.fillStyle = "#0a0414";
+    // O PALCO: o céu escurecendo, os holofotes e o chão de arena
+    const ceu = ctx.createLinearGradient(0, 0, 0, H);
+    ceu.addColorStop(0, `rgb(${10 + 20 * energia},${8 + 6 * energia},${30 + 30 * energia})`);
+    ceu.addColorStop(1, "#05030c");
+    ctx.fillStyle = ceu;
     ctx.fillRect(-10, -10, W + 20, H + 20);
-    const n = 16, rot = t * (0.3 + energia * 1.2);
-    for (let i = 0; i < n; i++) {
-      const a = rot + (i / n) * Math.PI * 2;
-      ctx.fillStyle = `hsla(${(i * 47 + t * 60) % 360},70%,50%,${0.03 + 0.08 * energia})`;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(cx + Math.cos(a) * 200, cy + Math.sin(a) * 200);
-      ctx.lineTo(cx + Math.cos(a + Math.PI / n) * 200, cy + Math.sin(a + Math.PI / n) * 200);
-      ctx.fill();
+    for (let i = 0; i < 2; i++) {
+      const a = Math.sin(t * 0.7 + i * 2) * 0.35 + (i ? 0.5 : -0.5);
+      ctx.fillStyle = `rgba(255,255,230,${0.04 + 0.05 * energia})`;
+      ctx.beginPath(); ctx.moveTo(cx + (i ? 90 : -90), -10);
+      ctx.lineTo(cx + Math.sin(a) * 60 - 22, chao + 6); ctx.lineTo(cx + Math.sin(a) * 60 + 22, chao + 6); ctx.fill();
     }
-    for (let r = (t * (20 + energia * 40)) % 24; r < 200; r += 24) {
-      ctx.strokeStyle = `hsla(${(r * 3 + t * 80) % 360},70%,70%,${0.04 + 0.08 * energia})`;
-      ctx.beginPath(); ctx.ellipse(cx, cy, r, r * 0.7, 0, 0, Math.PI * 2); ctx.stroke();
-    }
+    ctx.fillStyle = `rgba(120,140,255,${0.10 + 0.10 * energia})`;
+    ctx.beginPath(); ctx.ellipse(cx, chao + 4, 92, 14, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = `rgba(170,190,255,${0.25 + 0.2 * energia})`;
+    ctx.beginPath(); ctx.ellipse(cx, chao + 4, 92, 14, 0, 0, Math.PI * 2); ctx.stroke();
 
-    // NO ISOMÉTRICO: o palco inclinado, sem chão; os pixels viram cubinhos
+    // NO ISOMÉTRICO: o palco inclinado
     if (isoLigado()) {
       ctx.translate(0, -8);
       this.baseIso = ctx.getTransform();
       palcoIso(ctx, cx, cy + LADO / 2);
     } else this.baseIso = null;
-    if (!pronto && td < DOIDO.desfaz) {
+
+    const [l0, l1, l2] = this.lados;
+    if (!pronto && td < DOIDO.recolhe) {
       // ENCARAM-SE: o sprite normal dos dois, um de cada lado, tremendo
       const tr = td * 1.5, sx = () => Math.round((Math.random() - 0.5) * tr);
-      const [l0, l1, l2] = this.lados;
       if (this._ter) bichoNoPalco(ctx, this.ter, cx + l2 - LADO / 2 + sx(), cy - LADO / 2 + sx(), LADO, LADO);
       bichoNoPalco(ctx, this.esq, cx + l0 - LADO / 2 + sx(), cy - LADO / 2 + sx(), LADO, LADO);
       bichoNoPalco(ctx, this.dir, cx + l1 - LADO / 2 + sx(), cy - LADO / 2 + sx(), LADO, LADO);
     } else if (!pronto) {
-      this.desenhaPixels(ctx);
+      const bolas = this.bolas || [];
+      // VOLTANDO PRA BOLA: a silhueta encolhendo pra dentro dela, puxada pelo raio vermelho
+      if (td < DOIDO.recolhe + ESPERA) {
+        const e = suave(prende((td - DOIDO.recolhe) / ESPERA));
+        for (const b of bolas) {
+          const bx = cx + b.lado, lado = Math.max(2, Math.round(LADO * (1 - e)));
+          const x = Math.round(bx - lado / 2), y = Math.round(cy + (chao - cy) * e - lado / 2);
+          ctx.strokeStyle = `rgba(255,60,60,${0.9 - 0.6 * e})`; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(bx, chao); ctx.lineTo(bx + (Math.random() - 0.5) * 6, cy - 10 + 30 * e); ctx.stroke();
+          ctx.globalAlpha = 1 - e * 0.3;
+          ctx.drawImage(Assets.silhueta(b.img), x, y, lado, lado);
+          ctx.globalAlpha = 1;
+        }
+      }
+      // O RASTRO do voo: as bolas de um instante atrás, sumindo
+      if (td > DOIDO.voa && td < DOIDO.choque) {
+        for (let k = 4; k >= 1; k--) for (const b of bolas) {
+          const p = this.ondeBola(b, td - k * 0.035);
+          ctx.globalAlpha = 0.12 * (5 - k);
+          bola(ctx, p.x, p.y, 6, p.ang);
+        }
+        ctx.globalAlpha = 1;
+      }
+      // AS BOLAS SEPARADAS (no voo, no choque e se espremendo)
+      if (td < DOIDO.junta) {
+        for (const b of bolas) {
+          const p = this.ondeBola(b, td);
+          const brilho = td > DOIDO.voa && td < DOIDO.dispara ? Math.max(0, Math.cos(((td - DOIDO.voa) % 0.8) / 0.8 * Math.PI * 2)) * 0.35 : 0;
+          const aperta = prende((td - DOIDO.choque) / (DOIDO.junta - DOIDO.choque));
+          bola(ctx, p.x, p.y, td < DOIDO.voa ? 5 : 6, p.ang, 0, null, Math.max(brilho, aperta * 0.7));
+        }
+      } else if (bolas.length) {
+        // A BOLA FUNDIDA: em cima a cor da cabeça, embaixo a do corpo, com o brilho das duas girando em volta
+        const p = this.ondeFundida(td);
+        const cima = bolas[0].cor, baixo = bolas[1]?.cor || bolas[0].cor;
+        const forte = Math.max(0, 1 - (td - DOIDO.junta) * 1.2);
+        for (let i = 0; i < 2; i++) {
+          const a = t * 4 + i * Math.PI, c = i ? baixo : cima;
+          const gx = p.x + Math.cos(a) * (p.r + 3), gy = p.y + Math.sin(a) * (p.r + 3) * 0.6;
+          const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, 10);
+          g.addColorStop(0, `rgba(${c.map(Math.round).join(",")},${0.25 + 0.4 * forte})`); g.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.fillStyle = g; ctx.fillRect(gx - 12, gy - 12, 24, 24);
+        }
+        // a sombra no chão, quando ela cai
+        if (td > DOIDO.cai) { ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.beginPath(); ctx.ellipse(p.x, cy + 16 + p.r - 1, p.r, 2, 0, 0, Math.PI * 2); ctx.fill(); }
+        // e ela vai ficando branca de tanta energia perto do BUUM
+        const carga = prende((td - DOIDO.sacode[2]) / (DOIDO.buum - DOIDO.sacode[2]));
+        bola(ctx, p.x, p.y, p.r, p.ang, 0, null, Math.max(forte * 0.6, carga * 0.8), null, { cima, baixo });
+      }
+      // AS FAÍSCAS do choque
+      for (const f of this.faiscas || []) {
+        ctx.fillStyle = f.vida > 0.4 ? "#fff6c0" : "#ffb040";
+        ctx.fillRect(Math.round(f.x), Math.round(f.y), 2, 2);
+      }
     } else {
       // NASCEU: o sprite normal da fusão, com um soco de zoom e a luz saindo dele
       const z = 1 + 0.6 * Math.exp(-6 * tp) * Math.cos(14 * tp);
@@ -373,7 +478,7 @@ export class FusionScene {
     }
     ctx.restore();
 
-    // o título e o nome, com a letra tremendo junto
+    // o título e o nome
     const F = DB.STORY.fusao;
     drawText(ctx, F.titulo, 8, 8, PAL.glitch);
     const nome = pronto ? this.fus.nickname : this.nomes.join(" + ");

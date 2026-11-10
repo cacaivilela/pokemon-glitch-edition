@@ -1,0 +1,201 @@
+<!doctype html>
+<!-- EDITOR DE FASE DO SUPER PAWMOT (o CAIO faz a fase dele aqui).
+     Salva em dev/captures/superpawmot_fase_caio.log (e no navegador também);
+     o jogo (src/scenes/superpawmot.js) lê de lá e mostra "★ A FASE DO CAIO"
+     no menu. Botão JOGAR abre o jogo já na fase dele. -->
+<meta charset="utf-8">
+<title>SUPER PAWMOT — FAÇA SUA FASE</title>
+<style>
+  body { background: #1a1628; color: #eee; font: 15px monospace; margin: 12px; }
+  h1 { color: #fff27a; font-size: 22px; margin: 4px 0 10px; }
+  #paleta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  #paleta button { background: #2a2440; color: #eee; border: 2px solid #4a4068; border-radius: 6px; padding: 4px 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; font: 13px monospace; }
+  #paleta button.sel { border-color: #fff27a; background: #4a4068; }
+  #paleta canvas { width: 32px; height: 32px; image-rendering: pixelated; }
+  #rolo { overflow-x: auto; border: 2px solid #4a4068; background: #000; }
+  #grade { display: block; image-rendering: pixelated; cursor: crosshair; }
+  .linha { margin: 8px 0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  input, select, textarea { background: #2a2440; color: #fff; border: 1px solid #4a4068; font: 14px monospace; padding: 4px; }
+  textarea { width: 560px; height: 60px; }
+  .grande { background: #3ec46a; color: #102010; border: 0; border-radius: 6px; padding: 8px 16px; font: bold 15px monospace; cursor: pointer; }
+  .grande.azul { background: #3b7bea; color: #fff; }
+  .grande.cinza { background: #4a4068; color: #fff; }
+  #aviso { color: #fff27a; min-height: 20px; }
+  small { color: #a898c8; }
+</style>
+<h1>SUPER PAWMOT — FAÇA SUA FASE</h1>
+<div id="paleta"></div>
+<div id="rolo"><canvas id="grade"></canvas></div>
+<p><small>Clique (ou arraste) pra pôr. Botão direito apaga. A fase tem 10 linhas de altura; o PAWMOT começa no 🟠 e a fase acaba na TORRE.
+Blocos "?": o PAWMOT bate a cabeça embaixo e sai o power-up. Com GARCHOMP na fase, a torre só acende depois de derrotar ele.
+Ponte: põe o INTERRUPTOR antes e a PONTE (no buraco) depois — só o SOCO ELÉTRICO liga. Porta: precisa da CHAVE.</small></p>
+<div class="linha">
+  NOME: <input id="nome" maxlength="22" value="A FASE DO CAIO">
+  CÉU: <select id="ceu"><option value="floresta">FLORESTA</option><option value="lago">LAGO</option><option value="vulcao">VULCÃO</option><option value="piramide">PIRÂMIDE</option><option value="castelo">CASTELO</option></select>
+  LARGURA: <input id="largura" type="number" min="30" max="400" value="120" style="width:70px">
+</div>
+<div class="linha">FALAS DOS VOLBEAT (uma por linha):<br><textarea id="falas">OI! ESSA FASE FOI O CAIO QUE FEZ!</textarea></div>
+<div class="linha">
+  <button class="grande" id="salvar">SALVAR</button>
+  <button class="grande azul" id="jogar">SALVAR E JOGAR</button>
+  <button class="grande cinza" id="limpar">COMEÇAR DE NOVO</button>
+  <span id="aviso"></span>
+</div>
+<script type="module">
+const ALT = 10, T = 16, Z = 2;          // cada tile aparece 32px
+const PECAS = [
+  ["#", "CHÃO"], ["=", "TÁBUA"], ["o", "VITÓRIA-RÉGIA"], ["b", "PONTE"], ["S", "INTERRUPTOR"],
+  ["P", "PILHA"], ["K", "CHAVE"], ["D", "PORTA"], ["@", "COMEÇO"], ["F", "TORRE"], ["v", "VOLBEAT"],
+  ["e", "SHROOMISH", 285], ["t", "TINKATUFF", 958], ["c", "CACNEA (3)", 331], ["y", "YAMASK", 562],
+  ["O", "OCTILLERY", 224], ["L", "LICKITUNG", 108], ["f", "BOLA DE FOGO"],
+  ["B", "? BAGA"], ["R", "? PEDRA DO FOGO"], ["E", "? ESTRELA"], ["N", "? PENA"],
+  ["g", "GIBLE (BOWSER JR.)", 443], ["G", "GARCHOMP (BOWSER)", 445], [".", "BORRACHA"],
+];
+const VOLBEAT = 313, PAWMOT = 923;
+let sel = "#";
+let linhas = [];
+const grade = document.getElementById("grade"), g = grade.getContext("2d");
+const aviso = (t) => (document.getElementById("aviso").textContent = t);
+
+// os sprites de andar (o 1º quadro virado pra baixo), igual ao jogo
+const sprites = {};
+const indice = await fetch("../assets/sprites/pokemon/andar/andar.json").then((r) => r.json()).catch(() => ({}));
+async function sprite(dex) {
+  const k = String(dex).padStart(3, "0"), e = indice[k];
+  if (!e) return null;
+  const img = new Image(); img.src = `../assets/sprites/pokemon/andar/${k}.png`;
+  await img.decode().catch(() => null);
+  const cv = document.createElement("canvas"); cv.width = e[0]; cv.height = e[1];
+  cv.getContext("2d").drawImage(img, 0, 0, e[0], e[1], 0, 0, e[0], e[1]);
+  return cv;
+}
+for (const d of [VOLBEAT, PAWMOT, ...PECAS.filter((p) => p[2]).map((p) => p[2])]) sprites[d] = await sprite(d);
+
+function desenhaPeca(c, ch, X, Y) {
+  const sp = (dex) => { const s = sprites[dex]; if (s) { const k = dex === 445 ? 1.1 : Math.min(1.4, 22 / Math.max(s.width, s.height)) ; c.drawImage(s, X + 8 - s.width * k / 2, Y + 16 - s.height * k, s.width * k, s.height * k); } };
+  const r = (cor, x, y, w, h) => { c.fillStyle = cor; c.fillRect(X + x, Y + y, w, h); };
+  switch (ch) {
+    case "#": r("#6a4428", 0, 0, 16, 16); r("#3ea84a", 0, 0, 16, 3); break;
+    case "=": r("#a8743a", 0, 0, 16, 5); break;
+    case "o": r("#2a8a3a", 1, 6, 14, 4); r("#4ac85a", 2, 6, 12, 2); break;
+    case "b": c.strokeStyle = "#fff27a"; c.setLineDash([2, 2]); c.strokeRect(X + 0.5, Y + 0.5, 15, 3); c.setLineDash([]); break;
+    case "S": r("#2a3040", 3, 2, 10, 14); r("#e8504a", 5, 4, 6, 6); break;
+    case "P": r("#2a3040", 5, 4, 6, 8); r("#3ec46a", 6, 5, 4, 3); r("#f8d040", 6, 8, 4, 3); break;
+    case "K": r("#f8d040", 2, 6, 4, 4); r("#f8d040", 6, 7, 8, 2); r("#f8d040", 12, 9, 2, 2); break;
+    case "D": r("#5a3418", 1, 0, 14, 16); r("#f8d040", 7, 6, 2, 4); break;
+    case "@": if (!sprites[PAWMOT]) r("#f08a24", 3, 2, 10, 14); else sp(PAWMOT); break;
+    case "F": r("#4a4a5a", 4, 6, 8, 10); r("#fff27a", 0, 0, 16, 6); break;
+    case "v": sprites[VOLBEAT] ? sp(VOLBEAT) : r("#f8e858", 4, 4, 8, 8); break;
+    case "B": case "R": case "E": case "N":
+      r("#d89a2a", 0, 0, 16, 16); r("#8a5a1a", 0, 15, 16, 1); r("#8a5a1a", 15, 0, 1, 16);
+      c.fillStyle = "#5a3a10"; c.font = "bold 8px monospace"; c.fillText("?", X + 2, Y + 9);
+      c.fillStyle = { B: "#3a6ad8", R: "#e8502a", E: "#f8f8a0", N: "#ffffff" }[ch]; c.fillRect(X + 9, Y + 9, 5, 5);
+      break;
+    case "f": c.fillStyle = "#e8402a"; c.beginPath(); c.arc(X + 8, Y + 8, 5, 0, 7); c.fill(); r("#f8d040", 7, 6, 3, 3); break;
+    default: { const p = PECAS.find((q) => q[0] === ch); if (p?.[2]) sprites[p[2]] ? sp(p[2]) : r("#888", 2, 2, 12, 12); }
+  }
+}
+
+// a paleta
+const pal = document.getElementById("paleta");
+for (const [ch, nome] of PECAS) {
+  const b = document.createElement("button");
+  const cv = document.createElement("canvas"); cv.width = 16; cv.height = 16;
+  desenhaPeca(cv.getContext("2d"), ch, 0, 0);
+  b.append(cv, nome);
+  b.onclick = () => { sel = ch; [...pal.children].forEach((x) => x.classList.toggle("sel", x === b)); };
+  if (ch === sel) b.classList.add("sel");
+  pal.append(b);
+}
+
+function nova(L) {
+  linhas = Array.from({ length: ALT }, (_, y) => (y >= 8 ? "#" : ".").repeat(L).split(""));
+  linhas[7][3] = "@"; linhas[4][L - 5] = "F";
+}
+function desenha() {
+  const L = linhas[0].length;
+  grade.width = L * T * Z; grade.height = ALT * T * Z;
+  g.setTransform(Z, 0, 0, Z, 0, 0);
+  g.imageSmoothingEnabled = false;
+  const ceu = { floresta: "#3a3060", lago: "#7ab0e0", vulcao: "#4a1a1a", piramide: "#e8a060", castelo: "#2a2434" }[document.getElementById("ceu").value];
+  g.fillStyle = ceu; g.fillRect(0, 0, L * T, ALT * T);
+  g.strokeStyle = "rgba(255,255,255,0.08)"; g.lineWidth = 1 / Z;
+  for (let x = 0; x <= L; x++) { g.beginPath(); g.moveTo(x * T, 0); g.lineTo(x * T, ALT * T); g.stroke(); }
+  for (let y = 0; y <= ALT; y++) { g.beginPath(); g.moveTo(0, y * T); g.lineTo(L * T, y * T); g.stroke(); }
+  for (let x = 0; x < L; x += 10) { g.fillStyle = "rgba(255,255,255,0.35)"; g.font = "6px monospace"; g.fillText(x, x * T + 1, 6); }
+  linhas.forEach((l, y) => l.forEach((ch, x) => {
+    if (ch === ".") return;
+    desenhaPeca(g, ch, x * T, y * T);
+    if (ch === "#" && linhas[y - 1]?.[x] === "#") { g.fillStyle = "#6a4428"; g.fillRect(x * T, y * T, T, 3); }   // grama só no topo
+  }));
+}
+function pinta(ev) {
+  const r = grade.getBoundingClientRect();
+  const x = Math.floor((ev.clientX - r.left) / (T * Z)), y = Math.floor((ev.clientY - r.top) / (T * Z));
+  if (y < 0 || y >= ALT || x < 0 || x >= linhas[0].length) return;
+  const ch = ev.buttons === 2 || ev.button === 2 ? "." : sel;
+  // só um COMEÇO e uma TORRE
+  if (ch === "@" || ch === "F") linhas.forEach((l) => l.forEach((c, i) => { if (c === ch) l[i] = "."; }));
+  if (linhas[y][x] === ch) return;
+  linhas[y][x] = ch;
+  desenha();
+}
+let apertado = false;
+grade.addEventListener("mousedown", (e) => { apertado = true; pinta(e); });
+grade.addEventListener("mousemove", (e) => { if (apertado) pinta(e); });
+addEventListener("mouseup", () => (apertado = false));
+grade.addEventListener("contextmenu", (e) => e.preventDefault());
+
+document.getElementById("ceu").onchange = desenha;
+document.getElementById("largura").onchange = (e) => {
+  const L = Math.max(30, Math.min(400, +e.target.value || 120));
+  linhas = linhas.map((l, y) => (l.length >= L ? l.slice(0, L) : [...l, ...(y >= 8 ? "#" : ".").repeat(L - l.length)]));
+  desenha();
+};
+
+function dados() {
+  return {
+    nome: document.getElementById("nome").value.toUpperCase(),
+    ceu: document.getElementById("ceu").value,
+    falas: document.getElementById("falas").value.split("\n").map((s) => s.trim().toUpperCase()).filter(Boolean),
+    linhas: linhas.map((l) => l.join("")),
+  };
+}
+function confere(d) {
+  const tudo = d.linhas.join("");
+  if (!tudo.includes("@")) return "FALTA O COMEÇO (🟠 PAWMOT)!";
+  if (!tudo.includes("F")) return "FALTA A TORRE DO FIM!";
+  if (tudo.includes("D") && !tudo.includes("K")) return "TEM PORTA MAS NÃO TEM CHAVE: NÃO DÁ PRA PASSAR!";
+  if (tudo.includes("b") && !tudo.includes("S")) return "TEM PONTE MAS NÃO TEM INTERRUPTOR!";
+  return null;
+}
+async function salvar() {
+  const d = dados(), erro = confere(d);
+  if (erro) { aviso(erro); return false; }
+  try { localStorage.setItem("superpawmot_fase_caio", JSON.stringify(d)); } catch {}
+  try {
+    await fetch("/__capture", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "superpawmot_fase_caio", log: JSON.stringify(d) }) });
+    aviso("SALVO! " + new Date().toLocaleTimeString());
+  } catch { aviso("SALVO SÓ NO NAVEGADOR (o servidor não respondeu)"); }
+  return true;
+}
+document.getElementById("salvar").onclick = salvar;
+document.getElementById("jogar").onclick = async () => { if (await salvar()) open("../index.html?superpawmot=caio&perfil=pawmotcaio", "_blank"); };
+document.getElementById("limpar").onclick = () => { if (confirm("APAGAR TUDO E COMEÇAR DE NOVO?")) { nova(+document.getElementById("largura").value || 120); desenha(); } };
+
+// abre a que já existe
+let d = null;
+try { const r = await fetch("captures/superpawmot_fase_caio.log?v=" + Date.now()); if (r.ok) d = JSON.parse(await r.text()); } catch {}
+if (!d) try { d = JSON.parse(localStorage.getItem("superpawmot_fase_caio")); } catch {}
+if (d?.linhas?.length) {
+  const L = Math.max(...d.linhas.map((l) => l.length));
+  linhas = d.linhas.map((l) => l.padEnd(L, ".").split(""));
+  while (linhas.length < ALT) linhas.unshift(".".repeat(L).split(""));
+  document.getElementById("nome").value = d.nome || "A FASE DO CAIO";
+  document.getElementById("ceu").value = d.ceu || "floresta";
+  document.getElementById("falas").value = (d.falas || []).join("\n");
+  document.getElementById("largura").value = L;
+  aviso("ABRI A SUA FASE QUE JÁ ESTAVA SALVA.");
+} else nova(120);
+desenha();
+</script>

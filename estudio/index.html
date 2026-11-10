@@ -170,6 +170,32 @@
       </div>
     </section>
 
+    <section aria-label="Microfone">
+      <h2>🎙 GRAVAR NO MICROFONE</h2>
+      <p class="exp">Pra quem não tem grito de verdade (os de <b>BRAGLITCH</b> e os outros feitos aqui): escolha o Pokémon na lista, aperte <b>GRAVAR</b> e faça o grito com a voz (até 3 s). O silêncio do começo e do fim sai sozinho e o volume fica igual ao dos outros gritos. Depois dá pra pôr os efeitos de tipo e o tom aqui em cima, e <b>SALVAR NO JOGO</b> vale pra todo mundo que jogar.</p>
+      <div class="bts">
+        <button class="liga" id="micGravar" aria-pressed="false">● GRAVAR</button>
+        <button class="forte" id="micSalvar">Salvar no jogo (todo mundo)</button>
+        <button id="micTirar">Tirar do jogo</button>
+      </div>
+      <small id="micStatus" style="color:var(--apagado);font-size:12px;display:block;margin-top:6px" aria-live="polite"></small>
+      <div id="micEditor" hidden>
+        <canvas id="micOnda" style="width:100%;height:72px;display:block;margin-top:10px;cursor:ew-resize;touch-action:none;background:var(--cartao2);border:1px solid var(--borda);border-radius:6px" role="img" aria-label="a gravação inteira: arraste as alças amarelas pra cortar o começo e o fim"></canvas>
+        <small id="micTempos" style="color:var(--apagado);font-size:12px;display:block;margin-top:4px"></small>
+        <div class="linha">
+          <label for="micGanho">VOLUME</label><input id="micGanho" type="range" min="-12" max="12" step="1" value="0">
+          <span id="micGanhoV" style="min-width:52px">0 dB</span>
+        </div>
+        <div class="linha">
+          <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="micSuave" checked> suavizar o começo e o fim (sem estalo)</label>
+        </div>
+        <div class="bts">
+          <button id="micOriginal">▶ ouvir a gravação inteira</button>
+          <button id="micAuto">↺ corte automático</button>
+        </div>
+      </div>
+    </section>
+
     <section aria-label="Grito de verdade" id="gravacao">
       <h2>🎙️ O GRITO DE VERDADE <small>o mesmo que toca no jogo</small></h2>
       <p class="exp">Este é o grito original do Pokémon. Mude o tom e ligue os efeitos que quiser (dá pra ligar vários). Cada clique toca de novo.</p>
@@ -281,6 +307,7 @@ import { Audio2 } from "../src/core/audio.js";
 import { panel, bar, drawText, wrapText, PAL } from "../src/core/gfx.js";
 import { gritoDe } from "../src/systems/gritos.js";
 import { lerGritos, gravarGritos, gritoLimpo, silabaLimpa, codigoDoGrito, gritoDoCodigo, ONDAS, editaLimpa, EFEITOS_TIPO } from "../src/core/gritosmeus.js";
+import { GRAVADOS } from "../src/data/gritos-gravados.js";
 import { TIMBRES as MAIS_TIMBRES } from "../src/core/timbres.js";
 
 const $ = (id) => document.getElementById(id);
@@ -989,6 +1016,7 @@ function mostra() {
   $("voltaGravacao").hidden = !temGrav(ed);
   if (grav) mostraGravacao();
   mostraMedida(); mostraInsp(); desenhaRolo(); desenhaPrevia();
+  pintaMicEditor();
 }
 
 // ------------------------------------------------------------ salvar
@@ -1009,6 +1037,175 @@ function salvar(novo, ativar) {
 $("salvar").addEventListener("click", () => salvar(false, false));
 $("salvarNovo").addEventListener("click", () => salvar(true, false));
 $("salvarAtivar").addEventListener("click", () => salvar(false, true));
+
+// ------------------------------------------------------------ o MICROFONE
+// Grava o grito de quem não tem grito de verdade. O áudio vai pro dev_server
+// (/__gritogravado), que corta o silêncio, iguala o volume e devolve o mp3; a
+// gravação abre aqui no modo "grito de verdade" (efeitos e tom por cima).
+// SALVAR NO JOGO escreve src/data/gritos-gravados.js (/__gritogravado_salvar).
+const ehGravado = (arq) => /^assets\/gritos\/braglitch\//.test(arq || "");
+const podeGravar = (id) => { const o = gritoDe(id, false); return !temGrav(o) || ehGravado(o.arquivo); };
+const micStatus = (t) => { $("micStatus").textContent = t; };
+let rec = null, fimAuto = null;
+function pintaMic() {
+  const on = rec?.state === "recording";
+  $("micGravar").setAttribute("aria-pressed", on ? "true" : "false");
+  $("micGravar").textContent = on ? "■ PARAR" : "● GRAVAR";
+}
+async function gravarMic() {
+  if (rec?.state === "recording") return rec.stop();
+  if (!ed) return toast("escolha um Pokémon na lista primeiro");
+  if (!podeGravar(ed.alvo)) return toast(`${nomeDe(ed.alvo)} já tem grito de verdade: o microfone é pros que não têm`);
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: true } }); }
+  catch { return micStatus("o navegador não deixou usar o microfone (permita no cadeado da barra de endereço)"); }
+  const alvo = ed.alvo, pedacos = [];
+  rec = new MediaRecorder(stream);
+  rec.ondataavailable = (e) => { if (e.data.size) pedacos.push(e.data); };
+  rec.onstop = async () => {
+    stream.getTracks().forEach((t) => t.stop());
+    clearTimeout(fimAuto);
+    rec = null; pintaMic();
+    micStatus("cortando o silêncio e acertando o volume...");
+    try {
+      const r = await fetch(`../__gritogravado?id=${encodeURIComponent(alvo)}`, { method: "POST", body: new Blob(pedacos, { type: pedacos[0]?.type || "audio/webm" }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.erro || "o servidor recusou");
+      if (!ed || ed.alvo !== alvo) return micStatus("gravado, mas você trocou de Pokémon: grave de novo");
+      lembra();
+      ed.arquivo = j.arquivo; ed.partes = null; ed.edita = editaLimpa(ed.edita || {}); ed.modo = "grav";
+      ed.cru = j.cru; ed.corte = { ...j.corte }; ed.corteAuto = { ...j.corte };
+      mostra(); tocaTudo();
+      micStatus(`gravado! arraste as alças pra acertar o corte, ponha efeitos se quiser, e SALVAR NO JOGO`);
+    } catch (e) {
+      micStatus("não deu: " + (e.message || "abra o estúdio pelo ./run.sh (precisa do servidor do jogo)"));
+    }
+  };
+  rec.start(); pintaMic();
+  micStatus(`gravando ${nomeDe(alvo)}... faça o grito! (para sozinho em 3 s)`);
+  fimAuto = setTimeout(() => { if (rec?.state === "recording") rec.stop(); }, 3000);
+}
+async function salvarNoJogo(apagar) {
+  if (!ed) return toast("escolha um Pokémon na lista primeiro");
+  if (!apagar && !(ed.modo === "grav" && ehGravado(ed.arquivo))) return toast("grave no microfone primeiro");
+  const corpo = apagar ? { id: ed.alvo, apagar: true }
+    : { id: ed.alvo, arquivo: ed.arquivo, edita: ed.edita || {}, som: ed.som || "", cru: ed.cru || "", corte: ed.corte || {} };
+  try {
+    const r = await fetch("../__gritogravado_salvar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).erro || "o servidor recusou");
+    micStatus(apagar ? `${nomeDe(ed.alvo)} voltou pro grito de sílabas` : `salvo no jogo: ${nomeDe(ed.alvo)} agora grita com a sua voz, pra todo mundo`);
+    toast(apagar ? "tirado do jogo" : "salvo no jogo");
+  } catch (e) {
+    micStatus("não deu: " + (e.message || "precisa do servidor do jogo (./run.sh)"));
+  }
+}
+$("micGravar").addEventListener("click", gravarMic);
+$("micSalvar").addEventListener("click", () => salvarNoJogo(false));
+$("micTirar").addEventListener("click", () => salvarNoJogo(true));
+
+// o EDITOR DA GRAVAÇÃO: a onda inteira (a crua), com o corte em alças amarelas
+let ondaCru = null, ondaCruArq = null, arrastoCorte = null, aplicando = 0;
+const fmtS = (t) => t.toFixed(2).replace(".", ",") + " s";
+function pintaMicEditor() {
+  const box = $("micEditor");
+  if (!ed) { box.hidden = true; return; }
+  // o que já está salvo no jogo abre com o corte de quando foi salvo
+  const salvo = GRAVADOS[ed.alvo];
+  if (!ed.cru && salvo?.cru && ed.arquivo === salvo.arquivo) {
+    ed.cru = salvo.cru; ed.corte = { ganho: 0, suave: true, ...(salvo.corte || {}) }; ed.corteAuto = { ...ed.corte };
+  }
+  box.hidden = !(ed.cru && ed.corte && ed.modo === "grav");
+  if (box.hidden) return;
+  $("micGanho").value = ed.corte.ganho || 0;
+  $("micGanhoV").textContent = `${ed.corte.ganho > 0 ? "+" : ""}${ed.corte.ganho || 0} dB`;
+  $("micSuave").checked = ed.corte.suave !== false;
+  desenhaCorte();
+}
+async function carregaCru(arq) {
+  if (ondaCruArq !== arq) {
+    ondaCruArq = arq; ondaCru = null;
+    try {
+      const b = await fetch("../" + arq).then((r) => r.arrayBuffer());
+      const buf = await new OfflineAudioContext(1, 1, 44100).decodeAudioData(b);
+      if (ondaCruArq === arq) ondaCru = buf;
+    } catch { ondaCru = null; }
+  }
+  return ondaCru;
+}
+async function desenhaCorte() {
+  if (!ed?.cru) return;
+  const buf = await carregaCru(ed.cru);
+  if (!buf || !ed?.corte) return;
+  const cv = $("micOnda"), px = devicePixelRatio || 1;
+  const W = cv.width = Math.max(1, cv.clientWidth * px), H = cv.height = 72 * px, c = cv.getContext("2d");
+  const d = buf.getChannelData(0), dur = buf.duration, passo = Math.max(1, Math.floor(d.length / W));
+  let pico = 0.001;
+  for (let i = 0; i < d.length; i += 16) pico = Math.max(pico, Math.abs(d[i]));
+  const x0 = ed.corte.inicio / dur * W, x1 = ed.corte.fim / dur * W;
+  c.clearRect(0, 0, W, H);
+  for (let x = 0; x < W; x++) {
+    let m = 0;
+    for (let i = x * passo; i < (x + 1) * passo && i < d.length; i += 4) m = Math.max(m, Math.abs(d[i]));
+    const h = Math.max(1, (m / pico) * (H - 8));
+    c.fillStyle = x >= x0 && x <= x1 ? COR.q : "#3a4250";
+    c.fillRect(x, (H - h) / 2, 1, h);
+  }
+  c.fillStyle = "rgba(0,0,0,.45)"; c.fillRect(0, 0, x0, H); c.fillRect(x1, 0, W - x1, H);
+  c.fillStyle = "#ffd166"; c.fillRect(x0 - px, 0, 3 * px, H); c.fillRect(x1 - 2 * px, 0, 3 * px, H);
+  const T = ed.corte.fim - ed.corte.inicio;
+  $("micTempos").textContent = `corte: ${fmtS(ed.corte.inicio)} até ${fmtS(ed.corte.fim)} · o grito fica com ${fmtS(T)} (a gravação tem ${fmtS(dur)})`
+    + (T > 2.5 ? " · ⚠ passa de 2,5 s: no jogo o fim é cortado" : "");
+}
+function moverAlca(e) {
+  const r = $("micOnda").getBoundingClientRect(), dur = ondaCru.duration;
+  const t = Math.max(0, Math.min(dur, (e.clientX - r.left) / r.width * dur));
+  if (arrastoCorte === "inicio") ed.corte.inicio = Math.min(t, ed.corte.fim - 0.05);
+  else ed.corte.fim = Math.max(t, ed.corte.inicio + 0.05);
+  desenhaCorte();
+}
+$("micOnda").addEventListener("pointerdown", (e) => {
+  if (!ed?.cru || !ondaCru) return;
+  const r = e.currentTarget.getBoundingClientRect(), t = (e.clientX - r.left) / r.width * ondaCru.duration;
+  arrastoCorte = Math.abs(t - ed.corte.inicio) <= Math.abs(t - ed.corte.fim) ? "inicio" : "fim";
+  e.currentTarget.setPointerCapture(e.pointerId);
+  lembra(); moverAlca(e);
+});
+$("micOnda").addEventListener("pointermove", (e) => { if (arrastoCorte) moverAlca(e); });
+$("micOnda").addEventListener("pointerup", () => { if (!arrastoCorte) return; arrastoCorte = null; aplicaCorte(); });
+// refaz o mp3 a partir da crua, com o corte, o volume e a suavidade de agora
+async function aplicaCorte() {
+  if (!ed?.cru || !ed.corte) return;
+  const n = ++aplicando, alvo = ed.alvo;
+  micStatus("refazendo o grito...");
+  try {
+    const r = await fetch("../__gritogravado_cortar", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: alvo, cru: ed.cru, inicio: ed.corte.inicio, fim: ed.corte.fim, ganho: ed.corte.ganho || 0,
+                             suave: ed.corte.suave !== false, anterior: ed.arquivo }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.erro || "o servidor recusou");
+    if (n !== aplicando || !ed || ed.alvo !== alvo) return;
+    ed.arquivo = j.arquivo;
+    mostra(); tocaTudo();
+    micStatus("pronto! ouça e, quando gostar, SALVAR NO JOGO");
+  } catch (e) {
+    micStatus("não deu: " + (e.message || "precisa do servidor do jogo (./run.sh)"));
+  }
+}
+$("micGanho").addEventListener("input", () => { const v = +$("micGanho").value; $("micGanhoV").textContent = `${v > 0 ? "+" : ""}${v} dB`; });
+$("micGanho").addEventListener("change", () => { if (!ed?.corte) return; lembra(); ed.corte.ganho = +$("micGanho").value; aplicaCorte(); });
+$("micSuave").addEventListener("change", () => { if (!ed?.corte) return; lembra(); ed.corte.suave = $("micSuave").checked; aplicaCorte(); });
+$("micAuto").addEventListener("click", () => {
+  if (!ed?.corteAuto) return;
+  lembra(); ed.corte = { ...ed.corte, inicio: ed.corteAuto.inicio, fim: ed.corteAuto.fim };
+  desenhaCorte(); aplicaCorte();
+});
+$("micOriginal").addEventListener("click", () => {
+  if (!ondaCru) return;
+  const ac = new AudioContext(), src = ac.createBufferSource();
+  src.buffer = ondaCru; src.connect(ac.destination); src.start();
+  src.onended = () => ac.close();
+});
+addEventListener("resize", () => { if (!$("micEditor").hidden) desenhaCorte(); });
 
 // ------------------------------------------------------------ a galeria
 // EXEMPLOS: gritos prontos, feitos na hora a partir dos originais do jogo

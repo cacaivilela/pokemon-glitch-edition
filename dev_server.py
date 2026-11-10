@@ -754,6 +754,192 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_response(204)
         self.end_headers()
 
+    # ------------------------------------------------ OS GRITOS GRAVADOS
+    # O ESTUDIO DE GRITOS (estudio/) grava no MICROFONE o grito de quem nao tem
+    # grito de verdade (os de BRAGLITCH e os outros feitos aqui). Duas rotas:
+    #   /__gritogravado?id=<especie>  o audio cru do navegador (webm/ogg) vira
+    #       assets/gritos/braglitch/<especie>-<hora>.mp3: o ffmpeg corta o
+    #       silencio do comeco e do fim, deixa no volume dos outros gritos e
+    #       corta em 2,5 s (o limite do grito no jogo). Responde {arquivo}.
+    #   /__gritogravado_salvar  {id, arquivo, edita, som} (ou {id, apagar})
+    #       reescreve src/data/gritos-gravados.js, que o jogo toca no lugar
+    #       das silabas (src/systems/gritos.js). As gravacoes que ninguem usa
+    #       mais sao apagadas.
+    GRAVADOS_JS = os.path.join(ROOT, "src", "data", "gritos-gravados.js")
+    GRAVADOS_DIR = os.path.join(ROOT, "assets", "gritos", "braglitch")
+
+    def _json(self, codigo, obj):
+        corpo = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+        self.send_response(codigo)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(corpo)))
+        self.end_headers()
+        self.wfile.write(corpo)
+
+    def _gravados_ler(self):
+        try:
+            t = open(self.GRAVADOS_JS, encoding="utf-8").read()
+            return json.loads(t[t.index("export const GRAVADOS = ") + len("export const GRAVADOS = "):t.rindex(";")])
+        except (OSError, ValueError):
+            return {}
+
+    def _gravados_escrever(self, dados, especie):
+        cab = (
+            "// OS GRITOS GRAVADOS NO MICROFONE (Estudio de Gritos, estudio/ -> GRAVAR NO MICROFONE).\n"
+            "//\n"
+            "// Este arquivo e ESCRITO PELO dev_server (rota /__gritogravado_salvar): da pra\n"
+            "// editar a mao, e apagar uma linha volta o bicho pro grito de silabas\n"
+            "// (src/data/gritos/). O audio mora em assets/gritos/braglitch/, ja cortado e\n"
+            "// no volume dos outros gritos; `edita` sao os efeitos por cima (Audio2:\n"
+            "// editarGrito) e `som` e como se escreve (aparece na POKEDEX).\n"
+        )
+        corpo = json.dumps(dict(sorted(dados.items())), ensure_ascii=False, indent=1)
+        tmp = self.GRAVADOS_JS + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(cab + "export const GRAVADOS = " + corpo + ";\n")
+        os.replace(tmp, self.GRAVADOS_JS)
+        # as gravacoes DESTA especie que ficaram sem uso (regravou, cortou de novo, ou
+        # tirou do jogo) saem da pasta: os mp3 e as cruas
+        usados = {os.path.basename(dados.get(especie, {}).get(k, "")) for k in ("arquivo", "cru")}
+        for pasta in (self.GRAVADOS_DIR, os.path.join(self.GRAVADOS_DIR, "cru")):
+            if os.path.isdir(pasta):
+                for nome in os.listdir(pasta):
+                    if nome.endswith((".mp3", ".wav")) and nome.rsplit("-", 1)[0] == especie and nome not in usados:
+                        os.remove(os.path.join(pasta, nome))
+
+    def _gravado_render(self, especie, cru, inicio, fim, ganho_db, suave):
+        """O mp3 que o jogo toca, refeito da gravacao CRUA (sem perda): corta de
+        `inicio` a `fim` (segundos), deixa o pico no dos outros gritos, aplica o
+        `ganho_db` do jogador e, com `suave`, um fade curtinho nas pontas (sem
+        estalo). No maximo 2,5 s, o limite do grito no jogo. Devolve o caminho."""
+        import subprocess, time
+        dur = max(0.05, min(2.5, fim - inicio))
+        nome = f"{especie}-{int(time.time() * 1000)}.mp3"
+        destino = os.path.join(self.GRAVADOS_DIR, nome)
+        # o VOLUME: pelo pico do trecho cortado (o loudnorm se perde em som de menos
+        # de 3 s). O pico vai pra -1 dB, como os gritos oficiais, e o ganho do
+        # jogador entra por cima.
+        med = subprocess.run(["ffmpeg", "-hide_banner", "-ss", f"{inicio:.3f}", "-t", f"{dur:.3f}", "-i", cru,
+                              "-af", "volumedetect", "-f", "null", "-"], capture_output=True, timeout=60)
+        m = re.search(r"max_volume: (-?[\d.]+) dB", med.stderr.decode(errors="ignore"))
+        pico = float(m.group(1)) if m else -1.0
+        filtro = f"volume={(-1.0 - pico) + ganho_db:+.1f}dB,alimiter=limit=0.95"
+        if suave:
+            f = min(0.015, dur / 4)
+            filtro += f",afade=t=in:d={f:.3f},afade=t=out:st={dur - f:.3f}:d={f:.3f}"
+        r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{inicio:.3f}", "-t", f"{dur:.3f}", "-i", cru,
+                            "-af", filtro, "-ac", "1", "-ar", "44100", "-b:a", "96k", destino],
+                           capture_output=True, timeout=60)
+        if r.returncode or not os.path.exists(destino) or os.path.getsize(destino) < 300:
+            if os.path.exists(destino):
+                os.remove(destino)
+            raise RuntimeError(r.stderr.decode()[-300:])
+        return f"assets/gritos/braglitch/{nome}"
+
+    def gravado_post(self):
+        """A gravacao do microfone: guarda a CRUA (wav, em braglitch/cru/), acha
+        sozinha onde o som comeca e termina (o silencio fica de fora) e faz o mp3."""
+        import subprocess, tempfile, time, wave, array
+        from urllib.parse import parse_qs
+        q = parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "")
+        especie = (q.get("id") or [""])[0]
+        if not re.fullmatch(r"[a-z0-9]{1,40}", especie):
+            return self._json(400, {"erro": "especie invalida"})
+        n = int(self.headers.get("Content-Length", 0))
+        if n < 200 or n > 10 * 1024 * 1024:
+            return self._json(400, {"erro": "gravacao vazia ou grande demais"})
+        cru_dir = os.path.join(self.GRAVADOS_DIR, "cru")
+        os.makedirs(cru_dir, exist_ok=True)
+        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as t:
+            t.write(self.rfile.read(n))
+            entrada = t.name
+        cru_nome = f"{especie}-{int(time.time() * 1000)}.wav"
+        cru = os.path.join(cru_dir, cru_nome)
+        try:
+            r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", entrada, "-ac", "1", "-ar", "44100",
+                                "-t", "6", "-c:a", "pcm_s16le", cru], capture_output=True, timeout=60)
+        finally:
+            os.remove(entrada)
+        if r.returncode or not os.path.exists(cru):
+            return self._json(422, {"erro": "nao deu pra ler a gravacao"})
+        # onde o som comeca e termina: o primeiro e o ultimo trecho acima de -42 dB
+        with wave.open(cru) as w:
+            taxa, quadros = w.getframerate(), w.readframes(w.getnframes())
+        amostras = array.array("h", quadros)
+        duracao = len(amostras) / taxa
+        limiar, passo = 260, max(1, taxa // 200)          # -42 dB; janelas de 5 ms
+        altos = [i for i in range(0, len(amostras), passo) if max(map(abs, amostras[i:i + passo]), default=0) > limiar]
+        if not altos:
+            os.remove(cru)
+            return self._json(422, {"erro": "so silencio: chegue mais perto do microfone"})
+        inicio = max(0.0, altos[0] / taxa - 0.02)
+        fim = min(duracao, (altos[-1] + passo) / taxa + 0.05)
+        try:
+            arquivo = self._gravado_render(especie, cru, inicio, fim, 0, True)
+        except RuntimeError as e:
+            print(f"\033[31m[grito]\033[0m {especie}: ffmpeg falhou {e}", flush=True)
+            return self._json(422, {"erro": "nao deu pra converter a gravacao"})
+        print(f"\033[36m[grito]\033[0m {especie}: gravado -> {arquivo}", flush=True)
+        return self._json(200, {"arquivo": arquivo, "cru": f"assets/gritos/braglitch/cru/{cru_nome}",
+                                "corte": {"inicio": round(inicio, 3), "fim": round(fim, 3), "duracao": round(duracao, 3),
+                                          "ganho": 0, "suave": True}})
+
+    def gravado_cortar_post(self):
+        """O jogador mexeu no corte, no volume ou na suavidade: refaz o mp3 da crua."""
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            p = json.loads(self.rfile.read(n) or b"{}")
+            especie, cru = str(p.get("id", "")), str(p.get("cru", ""))
+            inicio, fim = float(p.get("inicio", 0)), float(p.get("fim", 0))
+            ganho = max(-12.0, min(12.0, float(p.get("ganho", 0))))
+        except (ValueError, TypeError):
+            return self._json(400, {"erro": "dados"})
+        if not re.fullmatch(r"[a-z0-9]{1,40}", especie) or not re.fullmatch(rf"assets/gritos/braglitch/cru/{especie}-\d+\.wav", cru):
+            return self._json(400, {"erro": "gravacao invalida"})
+        caminho = os.path.join(ROOT, cru)
+        if not os.path.exists(caminho) or not (0 <= inicio < fim):
+            return self._json(400, {"erro": "corte invalido"})
+        try:
+            arquivo = self._gravado_render(especie, caminho, inicio, fim, ganho, bool(p.get("suave", True)))
+        except RuntimeError:
+            return self._json(422, {"erro": "nao deu pra cortar"})
+        # o mp3 do ajuste anterior sai (menos o que esta salvo no jogo)
+        anterior = str(p.get("anterior", ""))
+        salvo = self._gravados_ler().get(especie, {}).get("arquivo", "")
+        if re.fullmatch(rf"assets/gritos/braglitch/{especie}-\d+\.mp3", anterior) and anterior != salvo:
+            try:
+                os.remove(os.path.join(ROOT, anterior))
+            except OSError:
+                pass
+        return self._json(200, {"arquivo": arquivo})
+
+    def gravado_salvar_post(self):
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            p = json.loads(self.rfile.read(n) or b"{}")
+        except ValueError:
+            return self._json(400, {"erro": "json"})
+        especie = str(p.get("id", ""))
+        if not re.fullmatch(r"[a-z0-9]{1,40}", especie):
+            return self._json(400, {"erro": "especie invalida"})
+        dados = self._gravados_ler()
+        if p.get("apagar"):
+            dados.pop(especie, None)
+        else:
+            arq = str(p.get("arquivo", ""))
+            if not re.fullmatch(r"assets/gritos/braglitch/[a-z0-9]+-\d+\.mp3", arq) or not os.path.exists(os.path.join(ROOT, arq)):
+                return self._json(400, {"erro": "arquivo invalido"})
+            edita = p.get("edita") if isinstance(p.get("edita"), dict) else {}
+            dados[especie] = {"arquivo": arq, "edita": edita, "som": str(p.get("som", "")).upper()[:40]}
+            cru = str(p.get("cru", ""))
+            if re.fullmatch(rf"assets/gritos/braglitch/cru/{especie}-\d+\.wav", cru) and os.path.exists(os.path.join(ROOT, cru)):
+                dados[especie]["cru"] = cru
+                c = p.get("corte") if isinstance(p.get("corte"), dict) else {}
+                dados[especie]["corte"] = {k: c[k] for k in ("inicio", "fim", "duracao", "ganho", "suave") if k in c}
+        self._gravados_escrever(dados, especie)
+        print(f"\033[36m[grito]\033[0m {especie}: {'tirado do jogo' if p.get('apagar') else 'salvo no jogo'}", flush=True)
+        return self._json(200, {"ok": True})
+
     def ficha_post(self):
         """A oficina publicou uma ficha de fusao: ela vira CODIGO.
 
@@ -1029,6 +1215,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.mundo_post()
         if self.path.split("?")[0] == "/__som":
             return self.som_post()
+        if self.path.split("?")[0] == "/__gritogravado":
+            return self.gravado_post()
+        if self.path.split("?")[0] == "/__gritogravado_salvar":
+            return self.gravado_salvar_post()
+        if self.path.split("?")[0] == "/__gritogravado_cortar":
+            return self.gravado_cortar_post()
         if self.path.split("?")[0] != "/__capture":
             self.send_error(404)
             return

@@ -27,6 +27,10 @@ export const SEGURAVEIS = {
   "óculos sábios": { efeito: "sabio", desc: "GOLPES ESPECIAIS BATEM 10% MAIS FORTE." },
   "sino da concha": { efeito: "concha", desc: "CURA UM OITAVO DO DANO QUE CAUSAR." },
   "capacete rochoso": { efeito: "capacete", desc: "QUEM BATER COM GOLPE FÍSICO PERDE UM POUCO DE HP." },
+  // a PEDRA DO TROVÃO também se segura: com um FANTASMA (do tipo, ou que sabe
+  // golpe FANTASMA) ela volta ASSOMBRADA — é a que evolui o MONSTELITO. No
+  // bicho que ela evolui (PIKACHU, EEVEE...) ela continua sendo usada, não dada.
+  "pedra do trovão": { efeito: "assombrar", desc: "SE UM POKÉMON FANTASMA SEGURAR ESTA PEDRA, ELA VOLTA ASSOMBRADA." },
   // ---- de tipo (+20%)
   "lenço de seda": { tipo: "NORMAL" },
   "carvão": { tipo: "FOGO" },
@@ -118,6 +122,8 @@ export const SEGURAR_TEXTO = {
   nada: "{MON} NÃO ESTÁ SEGURANDO NADA. DÊ UM ITEM PELA MOCHILA.",
   tirarOpcoes: ["TIRAR", "DEIXAR"],
   tirou: "VOCÊ PEGOU {ITEM} DE VOLTA.",
+  // a PEDRA DO TROVÃO que ficou com um FANTASMA (src/systems/segurar.js)
+  assombrou: "A PEDRA VOLTOU FRIA... E TEM UM ROSTINHO DE PONTINHOS AZUIS PISCANDO DENTRO DELA.",
   // a batalha
   sobras: "{MON} RECUPEROU UM POUCO DE HP COM AS SOBRAS.",
   foco: "{MON} AGUENTOU FIRME COM A FAIXA DO FOCO!",

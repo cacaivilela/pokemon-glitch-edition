@@ -18,6 +18,8 @@ import { RoupasScene } from "./roupas.js";
 import { CacaFantasmaScene } from "./cacafantasma.js";
 import { ReviverScene } from "./reviver.js";
 import { FotosScene } from "./fotos.js";
+import { CameraRealScene } from "./camerareal.js";
+import { TremScene } from "./trem.js";
 import { TrabalhosScene } from "./trabalhos.js";
 import { tirarFoto, FOTO_TEXTO } from "../systems/fotos.js";
 import { desenharCorpoMenu, desenharIcone, desenharRotomfone, LARGURA_FONE, ALTURA_FONE } from "../core/rotomfone.js";
@@ -34,7 +36,11 @@ import { ligada as lutaLigada, podeLutar, podeLutarTreinador, comecar as comecar
 import { fundirSelvagem, fundirCom, especieSurpresa, ehBasico } from "../systems/modofusao.js";
 import { arvore3d, CAMADAS_NORMAL, CAMADAS_GRANDE } from "../core/arvore3d.js";
 import { url } from "../core/base.js";
-import { mapArt, mapArtInteira, mapOverlay, adiantarDoMapa, estatuaArt, trainerArt , arvoresDoMapa } from "../core/sprites.js";
+import { mapArt, mapArtInteira, mapOverlay, adiantarDoMapa, estatuaArt, trainerArt , arvoresDoMapa, loadImage } from "../core/sprites.js";
+
+// OBJETOS DESENHADOS À MÃO (`sprite: "desenho"` no NPC, `desenho` = o PNG):
+// o arquivo, quando chega (null carregando, false se não existe)
+const DESENHOS_OBJ = new Map();
 import { musicaDaBatalha } from "../systems/musicabatalha.js";
 import { Input, Texto } from "../core/input.js";
 import { Audio2 } from "../core/audio.js";
@@ -109,14 +115,20 @@ import { AcampamentoScene } from "./acampamento.js";
 import { MineracaoScene } from "./mineracao.js";
 import { TirinhaScene } from "./tirinha.js";
 import { GoParkScene } from "./gopark.js";
+import { SuperPawmotScene } from "./superpawmot.js";
+import { CelebaScene } from "./celeba.js";
+import { KartScene } from "./kart.js";
 import { PaintballScene } from "./paintball.js";
+import { CanhaoMaxScene, SOPA_CUSTA } from "./canhaomax.js";
 import { AlcremieScene } from "./alcremie.js";
 import { BaseScene } from "./base.js";
 import { abrirBase, baseNaPorta, regiaoDe } from "../systems/bases.js";
 import { doceDoItem, docesDoSeed, seedDosDoces, comerDoce } from "../systems/doces.js";
 import { novoGiro, girar, quemGira, formaDaqui, seedDaForma } from "../systems/bebbidah.js";
 import { salaPraDescer, brilhosDoDia, jaCavado, marcarCavado } from "../systems/subterraneo.js";
-import { seguravel, darItem, tirarItem, descDoItem } from "../systems/segurar.js";
+import { seguravel, darItem, tirarItem, descDoItem, devolvido, PEDRA_ASSOMBRADA } from "../systems/segurar.js";
+import { juntavel, comPar, previaJunta, oQueGanhou, juntar } from "../systems/juntar.js";
+import { abrirCaixa, falarComMaquina, maquinasNoMapa } from "../systems/pokemaquinas.js";
 import { ehMaquina, golpeDaMaquina, podeAprender } from "../systems/maquinas.js";
 import { MAQ_TEXTO } from "../data/maquinas.js";
 import * as GoPark from "../systems/gopark.js";
@@ -136,7 +148,7 @@ import { eraDoMapa, erasAbertas, celebiApareceu, chaveGuardiao, acabouOTempo }
   from "../systems/eras.js";
 import { ehFusao, fundivel, previsao, partes, temFicha, fichasProntas, variantes, evolucaoDaFusao, fundir, idFusao, garantirEspecie,
          buscarDoMundo, especiePorTexto, montarEspecie, servidorMundo,
-         importarFicha, trocarVariante, versoesInvertidas } from "../systems/fusao.js";
+         importarFicha, trocarVariante, inverterFusao, versoesInvertidas } from "../systems/fusao.js";
 import { noMapa as provacoesNoMapa, estado as estadoProvacao, montarTotem,
          chaveDoTotem, pagar as pagarProvacao, aPagar as provacaoAPagar,
          falaDaGuardia, ilhaAcordou, espalhar as espalharProvacoes, montarGrupoDoTotem,
@@ -556,7 +568,8 @@ export class OverworldScene {
     if (!g || this.st.surfando || this.st.voando || this.st.noPreto || p.map === ZONA || this.map?.interior) return;
     if (this.quemSabe("surfar") || this.quemSabe("voar") || euSei(this.st, "voar")) return;
     // NO ESPAÇO (e na BASE ESPACIAL) a saída é o FOGUETE, não porta nem beirada
-    if (String(p.map).startsWith("espaco") || p.map === "ceu_nuvens" || this.npcsHere().some((n) => n.foguete || n.voltaBaseEspacial || n.voltaNuvens)) return;
+    // ...e na DIMENSÃO LITERARTE a saída é a TOCA DO COELHO
+    if (String(p.map).startsWith("espaco") || p.map === "ceu_nuvens" || this.npcsHere().some((n) => n.foguete || n.voltaBaseEspacial || n.voltaNuvens || n.sprite === "toca")) return;
     const pisa = (x, y) => [DB.TAG.FREE, DB.TAG.GRASS].includes(this.tagAt(x, y));
     if (!pisa(p.x, p.y)) return;
     const visto = new Set([`${p.x},${p.y}`]), fila = [[p.x, p.y]];
@@ -1595,6 +1608,7 @@ export class OverworldScene {
     const celebi = this.celebiNpc();
     if (celebi) extra.push(celebi);
     extra.push(...this.erasNpcs());
+    extra.push(...maquinasNoMapa(this.st, this.st.player.map));   // as POKÉMÁQUINAS que você montou aqui
     const azul = rivalNpc(this.st);        // o AZUL aparece quando é a vez dele
     if (azul) extra.push(azul);
     const gemeo = gemeoNpc(this.st);       // em BRAGLITCH, o seu irmão gêmeo
@@ -5125,6 +5139,8 @@ export class OverworldScene {
     // `aoFalar`: a conversa inteira em código, pra NPC de DLC que não cabe em
     // nenhum dos campos daqui (o GLITNEXY pede um espetinho e abre a fenda)
     if (typeof npc.aoFalar === "function") return npc.aoFalar(this, npc, state);
+    // AS POKÉMÁQUINAS que o jogador construiu (src/systems/pokemaquinas.js): usar ou desmontar
+    if (npc.maquinaUid) return falarComMaquina(this, npc);
     if (npc.lojaRoupas) return this.lojaDeRoupas(npc);
     if (npc.voltaNuvens) return this.voltarDasNuvens(npc);
     if (npc.billWailord) { const ja = this.st.flags.billPediu; this.st.flags.billPediu = true; return void this.dlg.say(ja ? npc.afterLines : npc.lines); }
@@ -5140,10 +5156,18 @@ export class OverworldScene {
       if (r && !npc.shop && !npc.heal) return this.dlg.say(npc.lines?.length ? (state.defeated && npc.afterLines ? npc.afterLines : npc.lines) : ["..."], () => this.venderRoupa(r));
     }
     if (npc.pcItens) return this.abrirPcItens();
+    // o NINTENDO SWITCH do quarto: joga o SUPER PAWMOT (src/scenes/superpawmot.js)
+    // ...e agora também o THE LEGENDS OF CELEBI (src/scenes/celeba.js) e o SUPER PAWMOT KART (src/scenes/kart.js)
+    if (npc.switchJogo) return this.dlg.ask("UM NINTENDO SWITCH! QUAL JOGO?", ["SUPER PAWMOT", "THE LEGENDS OF CELEBI", "SUPER PAWMOT KART", "SAIR"], (i) => {
+      if (i === 0) this.game.scenes.push(new SuperPawmotScene(), {});
+      if (i === 1) this.game.scenes.push(new CelebaScene(), {});
+      if (i === 2) this.game.scenes.push(new KartScene(), {});
+    });
     if (npc.fichas) return this.balcaoFichas();
     if (npc.cacaFantasma) return this.falarCacaFantasma();
     if (npc.raticateRival) return this.falarRivalLapide(npc);
     if (npc.zerogleDono) return this.falarTomas();
+    if (npc.trem) return this.pegarTrem(npc.trem);
     if (npc.zeladoraPa && this.st.flags?.zerogle === 1) return this.falarZeladora();
     if (npc.confeiteira) return this.falarConfeiteira();
     if (npc.escoteiraBase) return this.falarEscoteira();
@@ -5247,6 +5271,31 @@ export class OverworldScene {
       const lines = state.defeated || state.talked ? npc.afterLines || npc.lines : npc.lines;
       state.talked = true;
       return void this.dlg.say(lines, () => this.oferecerTirinha());
+    }
+    // a PESQUISADORA DO DYNAMAX (SAFFRON): a missão é mostrar um Pokémon
+    // nível 30 ou mais; aí ela dá a PULSEIRA DYNAMAX (src/systems/dynamax.js)
+    if (npc.dynamax) {
+      if (this.st.items["pulseira dynamax"]) return void this.falarPesquisadoraMax();
+      const forte = (this.st.party || []).find((m) => (m.level || 0) >= 30);
+      if (!forte) return void this.dlg.say([
+        "EU ESTUDO A ENERGIA DYNAMAX. ELA FAZ OS POKÉMON FICAREM GIGANTES!",
+        "MAS SÓ POKÉMON FORTE AGUENTA. ME MOSTRA UM POKÉMON NÍVEL 30 OU MAIS QUE EU TE DOU UMA COISA.",
+      ]);
+      return void this.dlg.say([
+        "EU ESTUDO A ENERGIA DYNAMAX. ELA FAZ OS POKÉMON FICAREM GIGANTES!",
+        `UAU! ${forte.nickname} É FORTE MESMO! ELE AGUENTA O DYNAMAX.`,
+      ], () => {
+        this.st.items["pulseira dynamax"] = 1;
+        this.st.items["sopa max"] = (this.st.items["sopa max"] || 0) + 1;
+        Audio2.heal();
+        this.game.autosave?.(true);
+        this.dlg.say([
+          "VOCÊ GANHOU A PULSEIRA DYNAMAX!",
+          "ELA FUNCIONA EM GINÁSIO, NA LIGA E NAS RAIDS. NA BATALHA, APERTE V ANTES DE ESCOLHER O GOLPE.",
+          "SEU POKÉMON FICA GIGANTE POR 3 TURNOS, COM GOLPES MAX. O LÍDER TAMBÉM PODE FAZER ISSO, CUIDADO!",
+          "E TOMA UMA SOPA MAX! DÁ PRA UM POKÉMON E ELE GANHA O FATOR GIGANTAMAX.",
+        ]);
+      });
     }
     if (npc.shop) {
       state.talked = true;
@@ -5527,6 +5576,33 @@ export class OverworldScene {
     this.dlg.say(msgs);
   }
 
+  /** A PESQUISADORA DO DYNAMAX, depois da pulseira: o CANHÃO DE RAIOS
+   *  (src/scenes/canhaomax.js) dá COGUMELOS MAX, e com SOPA_CUSTA deles ela
+   *  faz uma SOPA MAX. */
+  falarPesquisadoraMax() {
+    const tem = () => this.st.items["cogumelo max"] || 0;
+    const menu = () => this.dlg.ask(`QUER O QUÊ? (VOCÊ TEM ${tem()} COGUMELO${tem() === 1 ? "" : "S"} MAX)`,
+      ["CANHÃO DE RAIOS", "FAZER SOPA MAX", "COMO USA A PULSEIRA", "TCHAU"], (i) => {
+        if (i === 0) return void this.dlg.say([
+          "OS CRAMORANT ENGOLEM OS COGUMELOS MAX DA REGIÃO!",
+          "LEVA UM CHOQUE DO MEU CANHÃO E ELES CUSPEM. O PIKACHU DA CÚPULA ADORA AJUDAR!",
+        ], () => this.game.scenes.push(new CanhaoMaxScene(), {}));
+        if (i === 1) {
+          if (tem() < SOPA_CUSTA) return void this.dlg.say(`PRA SOPA MAX EU PRECISO DE ${SOPA_CUSTA} COGUMELOS MAX. VOCÊ TEM ${tem()}. VAI NO CANHÃO!`, menu);
+          this.spend("cogumelo max", SOPA_CUSTA);
+          this.st.items["sopa max"] = (this.st.items["sopa max"] || 0) + 1;
+          Audio2.heal();
+          this.game.autosave?.(true);
+          return void this.dlg.say(["MEXE, MEXE, MEXE... PRONTO!", "VOCÊ GANHOU UMA SOPA MAX!"], menu);
+        }
+        if (i === 2) return void this.dlg.say([
+          "A PULSEIRA DYNAMAX FUNCIONA EM GINÁSIO, NA LIGA E NAS RAIDS.",
+          "NA BATALHA, APERTE V ANTES DE ESCOLHER O GOLPE. SEU POKÉMON FICA GIGANTE POR 3 TURNOS!",
+        ], menu);
+      });
+    menu();
+  }
+
   /** O PAINTBALL DE CELADON (src/data/paintball.js): a porta da loja de
    *  departamento chama a recepcionista, e JOGAR abre a arena com os 2
    *  primeiros da equipe que estão de pé. */
@@ -5733,6 +5809,30 @@ export class OverworldScene {
       return;
     }
     this.dlg.say(R.depois);
+  }
+
+  /** O TREM MAGNÉTICO (src/data/johto.js): o bilheteiro pergunta, a cena da
+   *  viagem (src/scenes/trem.js) passa, e você desce no destino */
+  pegarTrem(para) {
+    const T = DB.TREM, d = T?.destinos?.[para], st = this.st;
+    if (!d) return;
+    if (!T.pode(st)) return void this.dlg.say(T.fechado);
+    this.dlg.ask(T.pergunta(d.nome), T.opcoes, (i) => {
+      if (i !== 0) return;
+      Audio2.select();
+      this.game.scenes.push(new TremScene(), {
+        de: DB.MAPS[st.player.map]?.name || "", para: d.nome, indoPraJohto: para === "goldenrod",
+        fim: () => {
+          Object.assign(st.player, { map: d.mapa, x: d.x, y: d.y, dir: d.dir || "down" });
+          st.surfando = null;
+          this.compa = null;
+          this.justWarped = true;
+          this.afterTravel();
+          this.game.autosave?.(true);
+          this.dlg.say(T.chegou(d.nome));
+        },
+      });
+    });
   }
 
   /** O ENTERRO DO BRASEAGLE (src/data/zerogle.js), com o TOMÁS */
@@ -6912,6 +7012,36 @@ export class OverworldScene {
     this.menu = { type: "fusaoCabeca", index: 0, lista, modo: "tripla" };
   }
 
+  /** JUNTAR (ideia do CAIO): dois da MESMA espécie viram um só com o melhor
+   *  dos dois — PIPLUP SHINY + PIPLUP ALFA = PIPLUP SHINY ALFA. A regra está
+   *  em src/systems/juntar.js. */
+  escolherJuntar() {
+    const lista = comPar(this.st.party);
+    if (!lista.length) {
+      Audio2.cancel();
+      this.menu = null;
+      return void this.dlg.say(DB.STORY.fusao.juntarPoucos);
+    }
+    Audio2.select();
+    this.menu = { type: "juntar", index: 0, lista };
+  }
+
+  confirmaJuntar(base, outro) {
+    const F = DB.STORY.fusao;
+    this.menu = null;
+    this.dlg.ask(F.juntarConfirma.replace("{OUTRO}", outro.nickname).replace("{BASE}", base.nickname), F.juntarSim, (i) => {
+      if (i !== 0) return void this.escolherJuntar();
+      const ganhou = juntar(this.st, base, outro);
+      if (!ganhou) return void this.dlg.say(F.naoDaParaFundir);
+      Audio2.heal();
+      Glitch.hit(1);
+      this.game.autosave?.(true);
+      this.dlg.say([F.juntando, ganhou.length
+        ? F.juntou.replace("{BASE}", base.nickname).replace("{LISTA}", ganhou.join(", "))
+        : F.juntouNada.replace("{BASE}", base.nickname).replace("{OUTRO}", outro.nickname)]);
+    });
+  }
+
   confirmaTripla(cabeca, meio, pernas, variante = "") {
     const F = DB.STORY.fusao;
     const sp = previsao(cabeca, meio, variante, pernas);
@@ -7247,6 +7377,13 @@ export class OverworldScene {
 
   /** A PICARETA: lá embaixo, sobe; ao ar livre em Kanto, pergunta se desce ou
    *  cava ali; no resto, cava ali (como sempre foi) */
+  /** dá pra montar uma POKÉMÁQUINA neste tile? Chão livre (sem mato, água, porta, NPC ou o companheiro) */
+  lugarDeMaquina(x, y) {
+    if (this.tagAt(x, y) !== DB.TAG.FREE || this.blocked(x, y) || this.warpAt(x, y)) return false;
+    if (this.compa && this.compa.x === x && this.compa.y === y) return false;
+    return !(this.st.player.x === x && this.st.player.y === y);
+  }
+
   usarPicareta() {
     const T = DB.SUBTERRANEO?.TEXTO;
     if (!T) return this.cavarAqui();
@@ -8095,6 +8232,20 @@ export class OverworldScene {
     }
     Audio2.select();
     this.menu = { type: "fusaoVersao", index: 0, mon, lista: vs };
+  }
+
+  /** INVERTER: troca a cabeça e o corpo da fusão, sem passar pelo Centro */
+  inverter(mon) {
+    const F = DB.STORY.fusao;
+    this.menu = null;
+    if (partes(mon.species)?.pernas) { Audio2.cancel(); return void this.dlg.say(F.inverterTripla); }
+    const antes = mon.nickname;
+    const sp = inverterFusao(mon);
+    if (!sp) { Audio2.cancel(); return void this.dlg.say(F.naoDaParaFundir); }
+    Audio2.heal();
+    Glitch.hit(0.8);
+    this.game.autosave?.(true);
+    this.dlg.say(F.inverteu.replace("{MON}", antes).replace("{NOME}", sp.name));
   }
 
   trocarPorVersao(mon, v) {
@@ -9113,6 +9264,28 @@ export class OverworldScene {
   /** O BONDINHO (src/data/braglitch.js): a estação pergunta, e o SIM começa a
    *  viagem — a cabine atravessa o mar numa tela desenhada (`drawBondinho`) e
    *  desce na estação da outra ponta. */
+  /** A TOCA DO COELHO (ideia do CAIO): a da BR-101 leva pra DIMENSÃO LITERARTE
+   *  (src/data/braglitch-literarte.js) e a de lá traz de volta. Pergunta,
+   *  assobia caindo e aparece do outro lado. */
+  pularNaToca(mapa, x, y) {
+    if (!DB.MAPS[mapa]) return;
+    const indo = mapa === "literarte";
+    this.dlg.ask(indo ? "UMA TOCA DE COELHO FUNDA... LÁ DE BAIXO VEM UM TIC-TAC. PULAR?" : "A TOCA DE VOLTA PRA BR-101. PULAR?",
+      ["PULAR", "NÃO"], (i) => {
+        if (i !== 0) return;
+        for (let k = 0; k < 6; k++) Audio2.tone(1200 - k * 150, 0.09, "triangle", 0.3);   // o assobio da queda
+        const st = this.st;
+        Object.assign(st.player, { map: mapa, x, y, dir: "down" });
+        st.surfando = null;
+        this.compa = null;
+        this.selvagens = [];
+        this.justWarped = true;
+        this.afterTravel();
+        this.game.autosave?.(true);
+        this.dlg.say(indo ? ["VOCÊ CAIU... E CAIU... E CAIU...", "...E CHEGOU NA DIMENSÃO LITERARTE!"] : ["VOCÊ SUBIU PELA TOCA E SAIU NA BR-101."]);
+      });
+  }
+
   pegarBondinho(de) {
     const B = DB.BONDINHO;
     const para = B.estacoes.find((e) => e !== de);
@@ -9822,7 +9995,8 @@ export class OverworldScene {
       if (k !== 0) return;
       const it = tirarItem(this.st, mon);
       this.game.autosave?.(true);
-      this.dlg.say(T.tirou.replace("{ITEM}", it.toUpperCase()));
+      const fala = T.tirou.replace("{ITEM}", it.toUpperCase());
+      this.dlg.say(it === PEDRA_ASSOMBRADA ? [fala, T.assombrou] : fala);
     }));
   }
 
@@ -9835,6 +10009,20 @@ export class OverworldScene {
     this.game.autosave?.(true);
     const f = (t) => t.replace("{MON}", mon.nickname).replace("{ITEM}", item.toUpperCase()).replace("{VELHO}", (velho || "").toUpperCase());
     const desc = descDoItem(item);
+    // EVOLUI SEGURANDO (a regra com `segurando`, ex.: o MONSTELITO): o item na
+    // mão já conta — e a PEDRA DO TROVÃO na mão de um fantasma já é a assombrada
+    const regra = (DB.EVOLUTIONS?.[mon.species] || []).find((r) => r.segurando && DB.SPECIES[r.to]
+      && (r.item === item || r.item === devolvido(mon, item)));
+    if (regra) {
+      const assombrou = regra.item !== item;
+      return void this.dlg.say([f(velho ? T.trocou : T.deu),
+        ...(assombrou ? [`NA MÃO DE ${mon.nickname}, A ${item.toUpperCase()} FICOU ASSOMBRADA!`] : []),
+        `...${mon.nickname} ESTÁ REAGINDO À PEDRA!`], () => {
+        delete mon.item;                            // a pedra é gasta na evolução
+        this.game.autosave?.(true);
+        this.game.scenes.push(new EvolutionScene(), { mon, to: regra.to, semParar: true });
+      });
+    }
     this.dlg.say([f(velho ? T.trocou : T.deu), ...(desc ? [desc] : [])]);
   }
 
@@ -10462,9 +10650,13 @@ export class OverworldScene {
     const have = this.st.items[item] || 0;
     const n = Math.max(1, Math.min(qty, have));
     if (doceDoItem(item)) return this.darDoce(item, mon);
-    if (seguravel(item)) return this.darPraSegurar(item, mon);
+    // a PEDRA DO TROVÃO é as duas coisas: no bicho que ela evolui (PIKACHU, EEVEE...)
+    // ela é usada; em qualquer outro, ele segura (e num FANTASMA ela assombra)
+    const evoluiAqui = DB.EVO_ITEMS?.[item] && alvoDaPedra(item, mon.species, this.st.player.map);
+    if (seguravel(item) && !evoluiAqui) return this.darPraSegurar(item, mon);
     if (ehMaquina(item)) return this.usarMaquina(item, mon);
     if (DB.EVO_ITEMS?.[item]) return this.useEvoItem(item, mon);
+    if (item === "sopa max") return this.usarSopaMax(mon);
     if (item === DB.CUIA?.item) return this.usarCuia(mon);
     if (DB.COGUMELOS?.itens?.[item]) return this.darCogumelo(item, mon);
     if (item === DB.GUARDA_ROUPA?.item) return this.usarGuardaRoupa(mon);
@@ -10567,6 +10759,18 @@ export class OverworldScene {
   /** A CUIA TÉRMICA: o VICTREEBEL de Braglitch troca de CHIMARRÃO pra TERERÊ
    *  e de volta. É troca de forma, não evolução: mesmo nível, mesmos golpes,
    *  só o tipo e os números mudam. A cuia não se gasta. */
+  /** A SOPA MAX (desenho do CAIO, 07/nov/2026): o Pokémon ganha o FATOR
+   *  GIGANTAMAX. Quem tem forma GIGANTAMAX (as de Braglitch, que ele desenha)
+   *  vira ela quando dynamaxa (src/systems/dynamax.js). */
+  usarSopaMax(mon) {
+    if (mon.gmax) return void this.dlg.say(`${mon.nickname} JÁ TEM O FATOR GIGANTAMAX!`);
+    mon.gmax = true;
+    this.spend("sopa max", 1);
+    Audio2.heal();
+    this.game.autosave?.(true);
+    this.dlg.say([`${mon.nickname} TOMOU A SOPA MAX TODINHA!`, `${mon.nickname} GANHOU O FATOR GIGANTAMAX!`]);
+  }
+
   usarCuia(mon) {
     const C = DB.CUIA;
     const nova = C.troca[mon.species];
@@ -11019,6 +11223,11 @@ export class OverworldScene {
           Audio2.select();                       // item-chave: só se lê
           return void this.dlg.say(DB.GUIA_VOID.texto);
         }
+        if (item === DB.CAIXA_FERRAMENTAS?.item && owned > 0) {
+          Audio2.select();                       // item-chave: monta uma POKÉMÁQUINA no tile da frente
+          this.menu = null;
+          return void abrirCaixa(this, (x, y) => this.lugarDeMaquina(x, y));
+        }
         if (item === "picareta" && owned > 0) {
           Audio2.select();                       // item-chave: cava onde estiver — ou DESCE (o SUBTERRÂNEO)
           this.menu = null;
@@ -11070,7 +11279,7 @@ export class OverworldScene {
           || !!doceDoItem(item)             // os DOCES do MILCERY / ALCREMIE
           || seguravel(item)                // os ITENS DE SEGURAR
           || ehMaquina(item);               // as MTs e MOs (src/systems/maquinas.js)
-        if ((DB.EVO_ITEMS?.[item] || cuia) && owned > 0 && this.st.party.length) {
+        if ((DB.EVO_ITEMS?.[item] || cuia || item === "sopa max") && owned > 0 && this.st.party.length) {
           Audio2.select();                       // item de evolução: um por vez
           this.menu = { type: "useItem", index: 0, item, qty: 1 };
           return;
@@ -11139,6 +11348,8 @@ export class OverworldScene {
         else if (m.index === 3) this.abrirOficina();
         else if (m.index === 4) this.baixarDoMundo();
         else if (m.index === 5) this.escolherTripla();
+        else if (m.index === 6) this.escolherJuntar();
+        else if (m.index === 7) this.escolherFusao("inverter");
         else { this.menu = null; Audio2.cancel(); }
       }
       return;
@@ -11158,6 +11369,25 @@ export class OverworldScene {
       if (Input.consume("down")) { m.index = (m.index + 1) % n; Audio2.blip(); }
       if (Input.consume("b")) { this.menu = { type: "genoma", index: 2 }; Audio2.cancel(); }
       if (Input.consume("a")) this.trocarPorVersao(m.mon, m.lista[m.index]);
+      return;
+    }
+    if (m.type === "juntar") {
+      const n = m.lista.length;
+      if (!n) { this.menu = { type: "genoma", index: 6 }; return; }
+      m.index = Math.min(m.index, n - 1);
+      if (Input.consume("up")) { m.index = (m.index + n - 1) % n; Audio2.blip(); }
+      if (Input.consume("down")) { m.index = (m.index + 1) % n; Audio2.blip(); }
+      if (Input.consume("b")) {
+        Audio2.cancel();
+        this.menu = m.base ? { type: "juntar", index: 0, lista: comPar(this.st.party) } : { type: "genoma", index: 6 };
+        return;
+      }
+      if (Input.consume("a")) {
+        const escolhido = m.lista[m.index];
+        Audio2.select();
+        if (!m.base) this.menu = { type: "juntar", index: 0, base: escolhido, lista: this.st.party.filter((o) => juntavel(escolhido, o)) };
+        else this.confirmaJuntar(m.base, escolhido);
+      }
       return;
     }
     if (m.type === "fusaoCabeca" || m.type === "fusaoCorpo" || m.type === "fusaoAbrir") {
@@ -11223,6 +11453,7 @@ export class OverworldScene {
           else if (m.modo === "concurso") this.entrarNoPalco(m.cabeca.species, escolhido.species, v);
           else this.confirmaFusao(m.cabeca, escolhido, v);
         } else if (m.modo === "versao") this.escolherVersao(escolhido);
+        else if (m.modo === "inverter") this.inverter(escolhido);
         else this.confirmaSeparacao(escolhido);
       }
       return;
@@ -13002,8 +13233,26 @@ export class OverworldScene {
     // `fx, fy`: posição fracionária de quem está deslizando entre dois tiles
     // (o caçador do pokésave); os outros ficam parados no tile deles
     const x = (n.fx ?? n.x) * TILE - cx, y = (n.fy ?? n.y) * TILE - cy;
+    if (n.sprite === "desenho") {
+      // um OBJETO DESENHADO À MÃO (o NINTENDO SWITCH do quarto): `lado` é o
+      // tamanho na tela, em pixels; em pé no tile dele, centrado. Enquanto o
+      // PNG não existe, não desenha nada (fica o que o mapa tem embaixo)
+      if (!DESENHOS_OBJ.has(n.desenho)) {
+        DESENHOS_OBJ.set(n.desenho, null);
+        loadImage(url(n.desenho)).then((img) => DESENHOS_OBJ.set(n.desenho, img || false)).catch(() => DESENHOS_OBJ.set(n.desenho, false));
+      }
+      const img = DESENHOS_OBJ.get(n.desenho);
+      if (img) { const L = n.lado || 32; ctx.drawImage(img, Math.round(x + 8 - L / 2), Math.round(y + 16 - L), L, L); }
+      return;
+    }
+    // um OBJETO DESENHADO NA HORA (a POKÉMÁQUINA que você construiu: o desenho sai da grade dela)
+    if (n.sprite === "canvas") {
+      if (n.canvas) { const L = n.lado || 32; ctx.drawImage(n.canvas, Math.round(x + 8 - L / 2), Math.round(y + 16 - L), L, L); }
+      return;
+    }
     if (n.sprite === "ball") return void ctx.drawImage(Assets.ball, x + 4, y + 4);
     if (n.sprite === "portal") return void desenharPortal(ctx, x, y, performance.now() / 1000);
+    if (n.sprite === "toca") return void desenharToca(ctx, x, y);
     if (n.sprite === "bau") return void this.desenharBau(ctx, x, y, !!this.st.npcState[`${this.st.player.map}.${n.id}`]?.gotGift);
     if (n.sprite === "helicoptero") return void this.desenharHelicoptero(ctx, x, y);
     if (n.sprite === "foguete") return void this.desenharFoguete(ctx, x, y);
@@ -13133,6 +13382,7 @@ export class OverworldScene {
       ctx.fillStyle = "#3a200e"; ctx.fillRect(x + 7, y + 4, 2, 9);
       return;
     }
+    if (n.sprite === "toca") return void desenharToca(ctx, x, y);
     if (n.sprite === "portal") {
       const t = performance.now() / 200;
       for (let i = 0; i < 4; i++) {
@@ -13451,7 +13701,8 @@ export class OverworldScene {
     const T = FOTO_TEXTO;
     this.dlg.ask(T.oQue, T.opcoes, (i) => {
       if (i === 0) return this.selfie();
-      if (i === 1) this.game.scenes.push(new FotosScene(), {});
+      if (i === 1) this.game.scenes.push(new CameraRealScene(), {});
+      if (i === 2) this.game.scenes.push(new FotosScene(), {});
     });
   }
 
@@ -13731,7 +13982,7 @@ export class OverworldScene {
       drawText(ctx, F.titulo, 12, 10, PAL.glitch);
       drawText(ctx, `${DB.FUSAO.combinacoes} COMBINAÇÕES`, 12, 22, PAL.ink2);
       F.menu.forEach((o, i) => {
-        const y = 46 + i * LINE_H;
+        const y = 36 + i * LINE_H;                 // 9 opções: começa mais em cima pra caber
         drawText(ctx, o, 32, y, PAL.ink);
         if (i === m.index) cursor(ctx, 20, y);
       });
@@ -13762,10 +14013,47 @@ export class OverworldScene {
       drawText(ctx, F.ajuda, 12, H - 22, PAL.ink2);
       return;
     }
+    if (m.type === "juntar") {
+      const F = DB.STORY.fusao;
+      panel(ctx, 4, 4, W - 8, H - 8);
+      drawText(ctx, m.base ? F.juntarSegundo : F.juntarPrimeiro, 12, 10, PAL.glitch);
+      const marcas = (mon) => [mon.luminoso ? "L" : mon.shiny ? "*" : "", mon.alfa ? "A" : ""].join("");
+      m.lista.forEach((mon, i) => {
+        const y = 26 + i * 18;
+        if (y > 118) return;
+        if (i === m.index) cursor(ctx, 8, y + 4);
+        Assets.desenhaVivo(ctx, mon, 16, y, 18);
+        drawText(ctx, mon.nickname.slice(0, 9), 38, y + 5, PAL.ink);
+        drawText(ctx, marcas(mon), 96, y + 5, "#f0c419");
+        drawText(ctx, `N${mon.level}`, 112, y + 5, PAL.ink2);
+      });
+      // a vitrine: o que sai se juntar
+      panel(ctx, 142, 22, 92, 100);
+      const escolhido = m.lista[m.index];
+      // a prévia é guardada (não um objeto novo por quadro); o alfa que é seu
+      // não tem olho vermelho, só o tamanho — então ela desenha sem a marca
+      if (m.base && escolhido && m._previa?.de !== escolhido) m._previa = { de: escolhido, mon: { ...previaJunta(m.base, escolhido), alfa: false } };
+      const mostra = m.base && escolhido ? m._previa.mon : escolhido;
+      if (mostra) {
+        Assets.desenhaVivo(ctx, mostra, 164, 26, 48);
+        drawText(ctx, (m.base || mostra).nickname.slice(0, 14), 148, 78, PAL.ink);
+        if (m.base) {
+          const g = oQueGanhou(m.base, escolhido);
+          drawText(ctx, g.length ? F.juntarGanha : F.juntarNada.slice(0, 14), 148, 90, g.length ? "#59d99b" : PAL.ink2);
+          g.slice(0, 3).forEach((t, k) => drawText(ctx, t.slice(0, 14), 148, 100 + k * 10, "#f0c419"));
+        } else {
+          drawText(ctx, `N${mostra.level}`, 148, 90, PAL.ink2);
+          const t = [mostra.luminoso ? "LUMINOSO" : mostra.shiny ? "SHINY" : "", mostra.alfa ? "ALFA" : ""].filter(Boolean).join(" ");
+          if (t) drawText(ctx, t.slice(0, 14), 148, 100, "#f0c419");
+        }
+      }
+      drawText(ctx, F.ajuda, 12, H - 22, PAL.ink2);
+      return;
+    }
     if (m.type === "fusaoCabeca" || m.type === "fusaoCorpo" || m.type === "fusaoAbrir") {
       const F = DB.STORY.fusao;
       panel(ctx, 4, 4, W - 8, H - 8);
-      const titulo = m.type === "fusaoAbrir" ? (m.modo === "versao" ? F.escolheTrocar : F.escolheFusao)
+      const titulo = m.type === "fusaoAbrir" ? (m.modo === "versao" ? F.escolheTrocar : m.modo === "inverter" ? F.escolheInverter : F.escolheFusao)
         : m.type === "fusaoCorpo" && m.modo === "tripla" ? (m.meio ? F.escolhePernas : F.escolheMeio)
         : m.type === "fusaoCorpo" ? F.escolheCorpo
         : m.modo === "concurso" ? DB.CONCURSO.anfitria.escolha
@@ -14259,4 +14547,20 @@ function brilhinhos(ctx, x, y, tam, mon, semente = 0) {
     ctx.fillRect(sx - n, sy, n * 2 + 1, 1); ctx.fillRect(sx, sy - n, 1, n * 2 + 1);
     ctx.fillStyle = cores[0]; ctx.fillRect(sx, sy, 1, 1);
   }
+}
+
+
+/** A TOCA DO COELHO no chão (a entrada e a saída da DIMENSÃO LITERARTE): um
+ *  buraco escuro com a borda de terra e um tufinho de grama de cada lado. */
+function desenharToca(ctx, x, y) {
+  ctx.fillStyle = "#6b4426";                     // a terra em volta
+  ctx.fillRect(x + 1, y + 5, 14, 9);
+  ctx.fillRect(x + 3, y + 4, 10, 11);
+  ctx.fillStyle = "#3a2312";                     // a borda de dentro
+  ctx.fillRect(x + 3, y + 6, 10, 7);
+  ctx.fillStyle = "#0c0705";                     // o fundo, preto
+  ctx.fillRect(x + 4, y + 7, 8, 5);
+  ctx.fillRect(x + 5, y + 6, 6, 7);
+  ctx.fillStyle = "#4f9a3c";                     // os tufos
+  ctx.fillRect(x, y + 11, 2, 3); ctx.fillRect(x + 14, y + 6, 2, 3);
 }

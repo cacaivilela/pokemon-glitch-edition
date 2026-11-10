@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Conceito do Minijogo</title>
+<!-- O CONCEITO DO MINIJOGO (pedido do CAIO, 07/nov/2026): uma tela do tamanho
+     da tela do jogo (240x160) pra ele desenhar como o minijogo vai ser, com
+     até 4 telas e uma caixa de ideias pra cada. SALVAR manda pro dev_server:
+     dev/captures/conceito_<n>.png e conceito.log (as ideias escritas).
+     ?nome=sopamax troca o nome dos arquivos. -->
+<style>
+  body { margin: 0; background: #1b2030; color: #eef2ff; font: 15px system-ui, sans-serif; }
+  header { padding: 10px 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0; color: #ffd860; }
+  main { display: flex; gap: 16px; padding: 0 16px 16px; flex-wrap: wrap; align-items: flex-start; }
+  canvas { image-rendering: pixelated; border: 3px solid #000; background: #fff; cursor: crosshair; width: 720px; height: 480px; max-width: 100%; touch-action: none; }
+  button { background: #3a4466; color: #eef2ff; border: 0; border-radius: 8px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
+  button:hover { background: #4a5680; }
+  button.on { background: #e8a820; color: #000; }
+  .caixa { background: #262d42; border-radius: 10px; padding: 10px; width: 300px; }
+  .cores { display: grid; grid-template-columns: repeat(8, 30px); gap: 4px; margin: 8px 0; }
+  .cores div { width: 30px; height: 30px; border: 2px solid #000; border-radius: 4px; cursor: pointer; }
+  .cores div.on { outline: 3px solid #ffd860; }
+  textarea { width: 100%; height: 150px; border-radius: 8px; border: 0; padding: 6px; font: 14px system-ui; box-sizing: border-box; }
+  #msg { font-weight: bold; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎮 CONCEITO DO MINIJOGO</h1>
+  <span>TELA:</span>
+  <button data-tela="0" class="on">1</button><button data-tela="1">2</button><button data-tela="2">3</button><button data-tela="3">4</button>
+  <button id="salvar">💾 SALVAR</button>
+  <span id="msg"></span>
+</header>
+<main>
+  <canvas id="tela" width="240" height="160"></canvas>
+  <div class="caixa">
+    <div>
+      <button data-f="lapis" class="on">✏️ LÁPIS</button>
+      <button data-f="balde">🪣 BALDE</button>
+      <button data-f="borracha">🧽 BORRACHA</button>
+    </div>
+    <p>GROSSURA: <button data-g="1" class="on">1</button> <button data-g="2">2</button> <button data-g="4">4</button> <button data-g="8">8</button></p>
+    <div class="cores" id="cores"></div>
+    <p><button id="desfazer">↩️ DESFAZER</button> <button id="limpar">🧹 LIMPAR TELA</button></p>
+    <p><b>IDEIAS DESTA TELA</b> (o que acontece, como joga):</p>
+    <textarea id="ideia" placeholder="ex.: o canhão fica embaixo, as aves passam em cima..."></textarea>
+  </div>
+</main>
+<script>
+const q = new URLSearchParams(location.search);
+const NOME = q.get("nome") || "conceito";
+const tela = document.getElementById("tela"), g = tela.getContext("2d");
+const W = 240, H = 160;
+const CORES = ["#000000", "#ffffff", "#7a7a80", "#c8c8b8", "#e02828", "#ff8a3a", "#ffd860", "#f8f0a0",
+  "#30a040", "#90f070", "#2878d8", "#80d0ff", "#1c4890", "#a040a0", "#d090ff", "#ff6ad5",
+  "#6a4020", "#a07040", "#e8c890", "#f0b890", "#40e0d0", "#ffaa00", "#5a0010", "#ff4060"];
+let cor = "#000000", ferramenta = "lapis", grossura = 1, atual = 0;
+// 4 telas, cada uma com o desenho e a ideia; guardadas no navegador também
+let telas = [];
+try { telas = JSON.parse(localStorage.getItem("conceito:" + NOME) || "[]"); } catch {}
+while (telas.length < 4) telas.push({ png: null, ideia: "" });
+const historico = [];
+
+function guardaLocal() {
+  telas[atual].png = tela.toDataURL();
+  telas[atual].ideia = document.getElementById("ideia").value;
+  try { localStorage.setItem("conceito:" + NOME, JSON.stringify(telas)); } catch {}
+}
+function abrir(i) {
+  guardaLocal();
+  atual = i;
+  document.querySelectorAll("[data-tela]").forEach((b) => b.classList.toggle("on", +b.dataset.tela === i));
+  g.fillStyle = "#fff"; g.fillRect(0, 0, W, H);
+  document.getElementById("ideia").value = telas[i].ideia || "";
+  if (telas[i].png) { const im = new Image(); im.onload = () => g.drawImage(im, 0, 0); im.src = telas[i].png; }
+  historico.length = 0;
+}
+
+const caixaCores = document.getElementById("cores");
+CORES.forEach((c) => {
+  const d = document.createElement("div"); d.style.background = c; if (c === cor) d.className = "on";
+  d.onclick = () => { cor = c; caixaCores.querySelectorAll("div").forEach((x) => x.classList.toggle("on", x === d)); if (ferramenta === "borracha") escolher("lapis"); };
+  caixaCores.appendChild(d);
+});
+function escolher(f) { ferramenta = f; document.querySelectorAll("[data-f]").forEach((b) => b.classList.toggle("on", b.dataset.f === f)); }
+document.querySelectorAll("[data-f]").forEach((b) => (b.onclick = () => escolher(b.dataset.f)));
+document.querySelectorAll("[data-g]").forEach((b) => (b.onclick = () => { grossura = +b.dataset.g; document.querySelectorAll("[data-g]").forEach((x) => x.classList.toggle("on", x === b)); }));
+document.querySelectorAll("[data-tela]").forEach((b) => (b.onclick = () => abrir(+b.dataset.tela)));
+
+const ponto = (e) => { const r = tela.getBoundingClientRect(); return [Math.floor((e.clientX - r.left) * W / r.width), Math.floor((e.clientY - r.top) * H / r.height)]; };
+function pinta(x, y) {
+  const m = Math.floor((grossura - 1) / 2);
+  g.fillStyle = ferramenta === "borracha" ? "#ffffff" : cor;
+  g.fillRect(x - m, y - m, grossura, grossura);
+}
+function linha(a, b) {
+  const n = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]), 1);
+  for (let i = 0; i <= n; i++) pinta(Math.round(a[0] + (b[0] - a[0]) * i / n), Math.round(a[1] + (b[1] - a[1]) * i / n));
+}
+function balde(x, y) {
+  const img = g.getImageData(0, 0, W, H), d = img.data, i0 = (y * W + x) * 4;
+  const alvo = [d[i0], d[i0 + 1], d[i0 + 2]];
+  const novo = [parseInt(cor.slice(1, 3), 16), parseInt(cor.slice(3, 5), 16), parseInt(cor.slice(5, 7), 16)];
+  if (alvo.every((v, k) => v === novo[k])) return;
+  const pilha = [[x, y]];
+  while (pilha.length) {
+    const [px, py] = pilha.pop();
+    if (px < 0 || py < 0 || px >= W || py >= H) continue;
+    const i = (py * W + px) * 4;
+    if (d[i] !== alvo[0] || d[i + 1] !== alvo[1] || d[i + 2] !== alvo[2]) continue;
+    d[i] = novo[0]; d[i + 1] = novo[1]; d[i + 2] = novo[2]; d[i + 3] = 255;
+    pilha.push([px + 1, py], [px - 1, py], [px, py + 1], [px, py - 1]);
+  }
+  g.putImageData(img, 0, 0);
+}
+let ultimo = null;
+tela.onpointerdown = (e) => {
+  historico.push(g.getImageData(0, 0, W, H)); if (historico.length > 40) historico.shift();
+  const p = ponto(e);
+  if (ferramenta === "balde") return balde(...p);
+  tela.setPointerCapture(e.pointerId); ultimo = p; pinta(...p);
+};
+tela.onpointermove = (e) => { if (!ultimo) return; const p = ponto(e); linha(ultimo, p); ultimo = p; };
+tela.onpointerup = () => { if (ultimo) { ultimo = null; guardaLocal(); } };
+document.getElementById("desfazer").onclick = () => { const h = historico.pop(); if (h) { g.putImageData(h, 0, 0); guardaLocal(); } };
+document.getElementById("limpar").onclick = () => { historico.push(g.getImageData(0, 0, W, H)); g.fillStyle = "#fff"; g.fillRect(0, 0, W, H); guardaLocal(); };
+document.getElementById("ideia").oninput = guardaLocal;
+
+const msg = document.getElementById("msg");
+document.getElementById("salvar").onclick = async () => {
+  guardaLocal();
+  msg.textContent = "salvando...";
+  try {
+    for (let i = 0; i < 4; i++) {
+      if (!telas[i].png) continue;
+      await fetch("/__capture", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: `${NOME}_${i + 1}`, dataUrl: telas[i].png }) });
+    }
+    const texto = telas.map((t, i) => `TELA ${i + 1}: ${t.ideia || "(sem ideia escrita)"}`).join("\n\n");
+    const r = await fetch("/__capture", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: NOME, dataUrl: "", log: texto }) });
+    msg.textContent = r.ok ? "✅ SALVO! Pode falar pro Claude." : "❌ não salvou";
+  } catch { msg.textContent = "❌ não salvou (o servidor do jogo está ligado?)"; }
+};
+g.fillStyle = "#fff"; g.fillRect(0, 0, W, H);
+abrir(0);
+</script>
+</body>
+</html>

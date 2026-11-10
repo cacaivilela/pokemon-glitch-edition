@@ -7,6 +7,7 @@ import { PESO_MAXIMO } from "../data/pesos.js";
 // evolução, presente) antes de a Pokédex existir. O que esta pasta faz é
 // organizar isso em listas e responder as perguntas da ficha.
 import { DB } from "../data/index.js";
+import { idFusao, garantirEspecie } from "./fusao.js";
 
 /** Quem tem a Pokédex. Um save que já passou do laboratório antes de ela
  *  existir (inicial E decodificador na mão) ganha ela sem voltar lá — pedir pra
@@ -53,11 +54,14 @@ let cache = null;
  *  e aí elas são montadas de novo). */
 export function listas() {
   if (cache?.db === DB.SPECIES) return cache;
+  // as MEGAS EMPRESTADAS (src/data/mega.js) nascem aqui, pra aparecerem na aba FORMAS
+  for (const [pedra, quem] of Object.entries(DB.MEGAS_EMPRESTADAS || {}))
+    for (const s of quem) if (DB.MEGA_PEDRAS?.[pedra]) garantirEspecie(idFusao(s, DB.MEGA_PEDRAS[pedra]));
   const principais = new Map();          // número -> id (o primeiro que aparecer)
   const formas = [];
   const regionais = [];
   for (const [id, sp] of Object.entries(DB.SPECIES || {})) {
-    if (sp.fusao || sp.crescimento) continue;            // fusão fica no decodificador
+    if ((sp.fusao && !sp.megaEmprestada) || sp.crescimento) continue;   // fusão fica no decodificador (a mega emprestada é forma)
     if (NUMERO_EXTRA[id]) continue;                      // os três do fim, lá embaixo
     if (temCaraDeForma(id, sp)) { formas.push(id); continue; }
     if (DB.REGIAO?.[id]) { regionais.push(id); continue; }

@@ -10,6 +10,7 @@ import { folhaDoJogador } from "./pokesave.js";
 import { LENDARIOS } from "../data/leilao.js";
 
 const MAX = 300;
+const MAX_WEBCAM = 40;
 // quem tira foto com você (o retrato de batalha, assets/sprites/trainers/)
 const AMIGOS = new Set(["rival", "azulcampeao", "vitor", "andre", "hero_brag", "heroina_brag", "hero", "heroina",
   // e os da LIGA (src/data/liga-kanto.js) e o GIOVANNI
@@ -19,16 +20,22 @@ export const fotos = (st) => (st.fotos ||= []);
 
 /** guarda uma foto: `retrato` de quem está com você, `nome`, e opcional `mon`
  *  (um Pokémon junto na foto, como o RATICATE do AZUL) */
-export function tirarFoto(st, { retrato = null, nome = null, mon = null, ator = null, tipo = null, time = null }) {
+export function tirarFoto(st, { retrato = null, nome = null, mon = null, ator = null, tipo = null, time = null, img = null, boneco = null, foto = null }) {
   const p = st.player || {};
   fotos(st).push({
     retrato, nome, mon, ator, tipo, time,
+    ...(img ? { img } : {}),         // FOTO DE VERDADE antiga: a imagem pixelada da webcam
+    ...(boneco ? { boneco } : {}),   // o BONEQUINHO (src/systems/boneco.js): as cores de cada parte
+    ...(foto ? { foto } : {}),       // FOTO DE VERDADE: a foto normal da webcam com o Pokémon (JPEG)
     eu: folhaDoJogador(st),
     mapa: p.map, x: p.x, y: p.y,
     lugar: DB.MAPS?.[p.map]?.name || "",
     data: Date.now(),
   });
   if (st.fotos.length > MAX) st.fotos.splice(0, st.fotos.length - MAX);
+  // a foto da webcam é pesada (~50 KB): o álbum guarda só as MAX_WEBCAM mais novas
+  const comFoto = st.fotos.filter((f) => f.foto);
+  if (comFoto.length > MAX_WEBCAM) { const fora = new Set(comFoto.slice(0, comFoto.length - MAX_WEBCAM)); st.fotos = st.fotos.filter((f) => !fora.has(f)); }
   return st.fotos[st.fotos.length - 1];
 }
 
@@ -68,7 +75,7 @@ export const FOTO_TEXTO = {
   captura: "[foto]QUE MOMENTO! VOCÊ TIROU UMA FOTO COM {MON}!",
   selfie: "[foto]*CLIQUE* FOTO SALVA NO ÁLBUM!",
   oQue: "CÂMERA:",
-  opcoes: ["TIRAR FOTO", "ÁLBUM", "SAIR"],
+  opcoes: ["TIRAR FOTO", "FOTO DE VERDADE", "ÁLBUM", "SAIR"],
   vazio: ["NENHUMA FOTO AINDA.", "TIRE UMA NO MAPA, OU GANHE DE", "UM LÍDER, DO RIVAL OU DOS AMIGOS!"],
   titulo: "CÂMERA",
 };

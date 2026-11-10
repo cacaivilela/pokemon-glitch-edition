@@ -1,0 +1,41 @@
+<!doctype html>
+<!-- A OFICINA DE POKÉMÁQUINA (src/scenes/construcao.js) numa folha: a BÁSICA (sem peça),
+     uma MELHORADA com o menu aberto, e o desenho das duas no mapa.
+     /__capture -> dev/captures/oficina.png. ?grade=... (6x5 letras: p e f m r .) e ?tipo=FOGO -->
+<meta charset="utf-8"><title>oficinacheck</title>
+<style>body{background:#1b2030;color:#eef;font:16px system-ui;margin:16px} canvas{image-rendering:pixelated;width:min(100%,960px)}</style>
+<p id="aviso">MONTANDO A OFICINA...</p>
+<script type="module">
+import { DB } from "/src/data/index.js";
+import { ConstrucaoScene } from "/src/scenes/construcao.js";
+import { desenhoDaGrade } from "/src/systems/pokemaquinas.js";
+const q = new URLSearchParams(location.search);
+const grade = (q.get("grade") || "..pp..mppppm.reer.rffffrppprpp").padEnd(30, ".").slice(0, 30);
+const tipo = q.get("tipo") || "ELÉTRICO";
+const st = { items: { "placa de metal": 3, parafuso: 5, engrenagem: 1, fio: 2, motor: 1 }, party: [{ species: "pikachu", types: ["ELÉTRICO"] }] };
+const quadro = (gr, abreMenu) => {
+  const sc = new ConstrucaoScene();
+  sc.game = { scenes: { pop() {} } };
+  sc.enter({ st: { ...st, items: { ...st.items } } });
+  sc.grade = gr.split("");
+  sc.tipo = Math.max(0, sc.tipos.indexOf(tipo));
+  sc.fadeA = 0; sc.fadeDir = 0; sc.t = 0.1;
+  if (abreMenu) { sc.modo = "menu"; sc.menuI = 1; }
+  const cv = document.createElement("canvas"); cv.width = 240; cv.height = 160;
+  const c = cv.getContext("2d"); c.imageSmoothingEnabled = false;
+  sc.render(c);
+  return cv;
+};
+const vazia = ".".repeat(30);
+const a = quadro(vazia, false), b = quadro(grade, true);
+const cv = document.createElement("canvas"); cv.width = 240 * 2 + 8 + 84; cv.height = 160;
+const c = cv.getContext("2d"); c.imageSmoothingEnabled = false;
+c.fillStyle = "#1b2030"; c.fillRect(0, 0, cv.width, cv.height);
+c.drawImage(a, 0, 0); c.drawImage(b, 248, 0);
+c.fillStyle = "#88c070"; c.fillRect(496, 4, 76, 152);
+c.drawImage(desenhoDaGrade(vazia), 502, 10, 64, 64); c.drawImage(desenhoDaGrade(grade), 502, 86, 64, 64);
+await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: q.get("nome") || "oficina", dataUrl: cv.toDataURL() }) });
+document.title = "pronto";
+document.getElementById("aviso").textContent = "A BÁSICA · A MELHORADA (COM O MENU) · AS DUAS NO MAPA";
+document.body.appendChild(cv);
+</script>

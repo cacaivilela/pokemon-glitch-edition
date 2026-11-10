@@ -65,11 +65,17 @@ export const MAPS = {
   quarto: {
     name: "SEU QUARTO", music: "casa", interior: true,
     spawn: { x: 3, y: 6, dir: "down" },
-    signs: { "6,4": "UM VIDEOGAME LIGADO NA TV. VOCÊ JOGOU ATÉ TARDE ONTEM...\n...MELHOR NÃO CONTAR PRA SUA MÃE." },
+    signs: { "6,4": "O NINTENDO SWITCH ESTÁ LIGADO NA TV. VOCÊ JOGOU ATÉ TARDE ONTEM...\n...MELHOR NÃO CONTAR PRA SUA MÃE." },
     encounters: [],
     npcs: [
       // o PC: invisível, em cima da mesa (é a mesa que bloqueia o tile)
       { id: "pc_itens", x: 1, y: 1, sprite: "ball", invisivel: true, pcItens: true, lines: ["..."] },
+      // O NINTENDO SWITCH (desenho do CAIO, 64x64, 08/nov/2026): na frente da TV,
+      // em cima do videogame velho do mapa. `lado` é o tamanho na tela (32 =
+      // metade do desenho, 2x2 tiles). Sem o PNG ainda, fica o videogame velho.
+      // Z nele abre o SUPER PAWMOT (src/scenes/superpawmot.js)
+      { id: "switch", x: 6, y: 5, dir: "down", sprite: "desenho", desenho: "assets/sprites/objetos/switch.png", lado: 32,
+        switchJogo: true, lines: ["UM NINTENDO SWITCH!"] },
     ],
   },
   home: {
@@ -353,7 +359,10 @@ export const MAPS = {
     },
     // ALAKAZITA: a cidade dos PSÍQUICOS. A pedra está encostada na cerca do
     // prédio do norte, entre as árvores.
-    addNpcs: [{ id: "pedra_alakazita", x: 15, y: 10, sprite: "ball", gift: { item: "alakazita", qty: 1 } }],
+    addNpcs: [{ id: "pedra_alakazita", x: 15, y: 10, sprite: "ball", gift: { item: "alakazita", qty: 1 } },
+      // a PESQUISADORA DO DYNAMAX (src/systems/dynamax.js): mostra um Pokémon
+      // nível 30 ou mais e ela dá a PULSEIRA DYNAMAX
+      { id: "pesquisadora_dynamax", x: 23, y: 15, dir: "down", sprite: "tecnica", dynamax: true, lines: [] }],
   },
 
   // O VENDEDOR DE MAGIKARP do original, no centro pokémon da ROTA 4. Ele não é

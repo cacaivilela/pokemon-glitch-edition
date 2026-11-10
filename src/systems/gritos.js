@@ -4,6 +4,7 @@ import { GRITOS } from "../data/gritos.js";
 import { Audio2 } from "../core/audio.js";
 import { gritoAtivo } from "../core/gritosmeus.js";
 import { GB_GRITOS } from "../data/gritos-gb.js";
+import { GRAVADOS } from "../data/gritos-gravados.js";
 
 const ONDAS = ["q", "p", "f", "t", "s"];
 
@@ -183,6 +184,15 @@ export function gritoDe(id, doAparelho = true) {
     // sempre ficam de reserva se o arquivo não carregar
     if (meu?.arquivo) return { som: meu.som || GRITOS[id]?.som || "", mais: GRITOS[id]?.mais, s: GRITOS[id]?.s || doNome(id).s, arquivo: meu.arquivo, edita: meu.edita };
     if (meu) return { som: meu.som || GRITOS[id]?.som || "", mais: GRITOS[id]?.mais, s: meu.s };
+  }
+  // OS GRAVADOS NO MICROFONE (Estúdio de Gritos -> GRAVAR NO MICROFONE,
+  // src/data/gritos-gravados.js): quem não tinha grito de verdade (os de
+  // BRAGLITCH e os outros feitos aqui) toca a gravação, com os efeitos por cima.
+  // As sílabas ficam de reserva, se o arquivo não carregar
+  const grav = GRAVADOS[id];
+  if (grav?.arquivo) {
+    const base = GRITOS[id] || doNome(id);
+    return { ...base, som: grav.som || base.som, arquivo: grav.arquivo, edita: grav.edita && Object.keys(grav.edita).length ? grav.edita : undefined };
   }
   // QUEM É DE VERDADE toca o grito ORIGINAL (`original`). A onomatopeia
   // escrita continua a mesma, e as sílabas ficam de reserva (o arquivo que

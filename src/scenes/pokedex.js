@@ -8,6 +8,7 @@ import { progresso, completa } from "../systems/pesquisa.js";
 import { DB } from "../data/index.js";
 import { Input } from "../core/input.js";
 import { Audio2 } from "../core/audio.js";
+import { falar, lerConfig } from "../systems/vozdex.js";
 import { tocarGrito } from "../systems/gritos.js";
 import { Assets } from "../core/assets.js";
 import { panel, drawText, cursor, bar, fade, PAL, LINE_H, wrapText } from "../core/gfx.js";
@@ -40,6 +41,22 @@ import {
 
 const W = 240, H = 160;
 const LINHAS = 9;
+let DESENHO_DEX = null;   // o desenho da POKÉDEX que fala, feito pelo CAIO
+// os balõezinhos de emoção do lado do desenho (ponto a ponto)
+const INTERROGACAO = [".kkkkk.", "kwwwwwk", "kwkkkwk", "kkkkwwk", "..kwwk.", "..kwk..", "..kkk..", "..kwk..", "..kkk.."];
+const BRAVO = ["R.r.r.R", ".rr.rr.", "r.....r", ".......", "r.....r", ".rr.rr.", "R.r.r.R"];
+function pintaPixels(ctx, linhas, cores, x, y) {
+  linhas.forEach((l, j) => [...l].forEach((c, i) => {
+    if (!cores[c]) return;
+    ctx.fillStyle = cores[c]; ctx.fillRect(Math.round(x + i), Math.round(y + j), 1, 1);
+  }));
+}
+/** A VOZ DA POKÉDEX: quem fala é src/systems/vozdex.js, com a voz e os ajustes
+ *  que o CAIO escolheu em dev/vozes.html. Com o jogo mudo (M), fica quieta. */
+function falarEmVoz(txt) {
+  if (Audio2.muted) return;
+  try { falar(txt); } catch {}
+}
 const NOMES_STAT = [["hp", "HP"], ["atk", "ATAQUE"], ["def", "DEFESA"], ["spa", "ESP.ATQ"], ["spd", "ESP.DEF"], ["spe", "VELOC."]];
 const num = (n) => String(Math.max(0, n | 0)).padStart(4, "0");
 const T = () => DB.POKEDEX_TEXTO || {};
@@ -55,6 +72,8 @@ export class PokedexScene {
     this.ficha = null;         // { id, pagina }
     this.fadeA = 1;
     this.t = 0;
+    // args.aba: abre direto numa aba ("FORMAS"...), ex.: o atalho &dextudo=emprestadas
+    if (args.aba) this.aba = Math.max(0, ABAS_DA_DEX.findIndex((a) => a.id === args.aba));
     const alvo = args.especie;
     if (alvo) {
       // aberta direto na ficha de alguém (a captura de uma espécie nova)
@@ -267,7 +286,40 @@ export class PokedexScene {
     } else {
       drawText(ctx, "?", 184, 66, "#9aa0b0");
     }
-    drawText(ctx, T().ajudaLista || "", 8, 148, "#ffe0e0");
+    this.renderFala(ctx, e, c.pegos);
+    this.falouFicha = null;          // voltou pra lista: abrir de novo lê de novo
+  }
+
+  /** A POKÉDEX FALANDO: o desenho do CAIO no canto de baixo e uma fala, que
+   *  reveza com a ajuda dos botões (6 s cada) */
+  renderFala(ctx, e, pegos) {
+    const img = (DESENHO_DEX ||= (() => { const i = new Image(); i.src = "assets/sprites/objetos/rotomdex_caio.png"; return i; })());
+    if (img.complete && img.naturalWidth) {
+      const w = 34, h = Math.round(img.naturalHeight * w / img.naturalWidth);
+      const sobe = Math.round(Math.sin(performance.now() / 300) * 1.5);
+      ctx.drawImage(img, 202, 158 - h + sobe, w, h);
+    }
+    const F = T().fala, vez = Math.floor(performance.now() / 6000);
+    // qual fala é a da vez (a mesma em toda língua); a tela mostra em português
+    const qual = (L) => {
+      if (!L || !(vez % 2)) return null;
+      if (vez % 8 === 1) return L.oi[Math.floor(vez / 8) % L.oi.length];
+      if (vez % 4 === 3) return L.pegos.replace("{N}", pegos);
+      return e === "pego" ? L.pego : e ? L.visto : L.nada;
+    };
+    const txt = qual(F) || T().ajudaLista || "";
+    const idioma = lerConfig().idioma;
+    const falado = qual({ en: T().falaEn, es: T().falaEs }[idioma]) || txt;
+    drawText(ctx, String(txt).slice(0, 32), 8, 148, "#ffe0e0");
+    // a emoção: CURIOSO (nunca viu) = "?" pulando; BRAVO (só viu, falta pegar) = 💢
+    if (img.complete && img.naturalWidth) {
+      const t = performance.now() / 1000;
+      if (!e) pintaPixels(ctx, INTERROGACAO, { k: "#2a1a20", w: "#ffffff" }, 206, 124 - Math.abs(Math.sin(t * 4)) * 3);
+      else if (e !== "pego" && Math.floor(t * 3) % 2) pintaPixels(ctx, BRAVO, { r: "#ff3030", R: "#a01010" }, 226, 128);
+    }
+    // A VOZ: fala em voz alta quando a fala muda (a ajuda dos botões não)
+    if (txt !== T().ajudaLista && txt !== this.falouUltimo) { this.falouUltimo = txt; falarEmVoz(falado); }
+    if (txt === T().ajudaLista) this.falouUltimo = null;
   }
 
   renderFicha(ctx) {
@@ -292,6 +344,16 @@ export class PokedexScene {
       drawText(ctx, pego && kg != null ? `PESO ${String(kg).replace(".", ",")} KG` : "PESO ???", 88, 65, PAL.ink2);
       drawText(ctx, pego ? "PEGO" : "VISTO", 88, 78, pego ? "#2a8a3a" : PAL.ink2);
       const texto = pego ? sp.dexText : T().semDados;
+      // A EXPLICAÇÃO FALADA (pedido do CAIO): abriu a página de quem já pegou, a
+      // Pokédex lê o nome e o texto. O texto é em português, então a voz é a
+      // brasileira, com o tom e a velocidade que ele escolheu.
+      if (pego && texto && this.falouFicha !== id) {
+        this.falouFicha = id;
+        if (!Audio2.muted) {
+          const cfg = lerConfig();
+          try { falar(`${sp.name}. ${texto}`, cfg.idioma === "pt" ? cfg : { ...cfg, idioma: "pt", nome: null, zumbido: false }); } catch {}
+        }
+      }
       // texto que não cabe em 4 linhas passa sozinho, 4 de cada vez, a cada 4 s
       // (o do ZYGARDE 200% tem o dobro dos outros)
       const linhas = wrapText(texto || "", 36), pags = Math.ceil(linhas.length / 4);

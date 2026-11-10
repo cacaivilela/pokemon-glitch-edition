@@ -1,0 +1,41 @@
+<!doctype html>
+<!-- AS FUSÕES DO FUSEMON (src/systems/fusemon.js) numa folha: cabeça, corpo, a montagem antiga e a do
+     Fusemon, lado a lado. /__capture -> dev/captures/fusoes_fusemon.png.
+     ?pares=a+b,c+d escolhe as duplas. -->
+<meta charset="utf-8"><title>fusoesfusemon</title>
+<style>body{background:#1b2030;color:#eef;font:16px system-ui;margin:16px} canvas{image-rendering:pixelated;width:min(100%,1000px)}</style>
+<p id="aviso">CARREGANDO AS FUSÕES... (uns 15 segundos)</p>
+<script type="module">
+import { DB } from "/src/data/index.js";
+import { Assets } from "/src/core/assets.js";
+import { pedirMon } from "/src/core/sprites.js";
+import * as F from "/src/systems/fusao.js";
+import { montarFusao } from "/src/systems/montagem.js";
+Assets.init?.();
+const q = new URLSearchParams(location.search);
+const PARES = (q.get("pares") || "pikachu+charizard,charizard+pikachu,gengar+bulbasaur,eevee+onix,mewtwo+snorlax,grookey+pikachu,pikachu+grookey,zygarde+charizard,sprigatito+eevee,tapukoko+gengar")
+  .split(",").map((p) => p.split("+")).filter(([a, b]) => DB.SPECIES[a] && DB.SPECIES[b]);
+for (const [a, b] of PARES) for (const id of [a, b]) { const sp = DB.SPECIES[id]; pedirMon(sp.id || id, sp.spriteDex || sp.dex); }
+// pede as fusões já (o Fusemon carrega em segundo plano)
+for (const [a, b] of PARES) { const id = F.idFusao(a, b); F.garantirEspecie(id); Assets.mon(id, 7); }
+await new Promise((r) => setTimeout(r, 14000));
+const L = 64, W = L * 4 + 20, cv = document.createElement("canvas");
+cv.width = 2 * W; cv.height = Math.ceil(PARES.length / 2) * (L + 14);
+const c = cv.getContext("2d"); c.imageSmoothingEnabled = false;
+c.fillStyle = "#e8ecf0"; c.fillRect(0, 0, cv.width, cv.height);
+PARES.forEach(([a, b], i) => {
+  const ox = (i % 2) * W, oy = Math.floor(i / 2) * (L + 14);
+  const id = F.idFusao(a, b);
+  const ca = Assets.mon(a, 7), cb = Assets.mon(b, 7);
+  c.drawImage(ca, ox, oy, L, L);
+  c.drawImage(cb, ox + L, oy, L, L);
+  c.fillStyle = "#fff"; c.fillRect(ox + 2 * L, oy, 2 * L, L);
+  c.drawImage(montarFusao(ca, cb, 64), ox + 2 * L, oy, L, L);   // a montagem antiga, pra comparar
+  c.drawImage(Assets.mon(id, 7), ox + 3 * L, oy, L, L);          // a do jogo agora (Fusemon)
+  c.fillStyle = "#333"; c.font = "9px monospace"; c.fillText(`${a} + ${b}`, ox + 2, oy + L + 10);
+});
+await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: q.get("nome") || "fusoes_fusemon", dataUrl: cv.toDataURL() }) });
+document.title = "pronto";
+document.getElementById("aviso").textContent = "CABEÇA · CORPO · MONTAGEM ANTIGA · FUSEMON";
+document.body.appendChild(cv);
+</script>

@@ -21,13 +21,24 @@ export function descDoItem(item) {
   return null;
 }
 
+/** A PEDRA DO TROVÃO que ficou com um FANTASMA volta ASSOMBRADA: é ela que
+ *  evolui o MONSTELITO em MONSTELA (src/data/braglitch.js). FANTASMA é quem é
+ *  do tipo FANTASMA ou sabe um golpe FANTASMA. */
+export const PEDRA_ASSOMBRADA = "pedra do trovão assombrada";
+export function ehFantasma(mon) {
+  if ((DB.SPECIES?.[mon?.species]?.types || []).includes("FANTASMA")) return true;
+  return (mon?.moves || []).some((m) => DB.MOVES?.[m?.id]?.type === "FANTASMA");
+}
+/** o item que volta pra mochila quando sai da mão deste Pokémon */
+export const devolvido = (mon, it) => (it === "pedra do trovão" && ehFantasma(mon) ? PEDRA_ASSOMBRADA : it);
+
 /** DAR PRA SEGURAR: sai 1 da mochila; o que ele segurava volta pra ela.
  *  Devolve o item velho (ou null). */
 export function darItem(st, mon, item) {
   if (!(st.items[item] > 0)) return null;
   st.items[item] -= 1;
   if (st.items[item] <= 0) delete st.items[item];
-  const velho = mon.item || null;
+  const velho = mon.item ? devolvido(mon, mon.item) : null;
   if (velho) st.items[velho] = (st.items[velho] || 0) + 1;
   mon.item = item;
   return velho;
@@ -35,8 +46,8 @@ export function darItem(st, mon, item) {
 
 /** TIRAR: volta pra mochila. Devolve o item, ou null. */
 export function tirarItem(st, mon) {
-  const it = mon.item;
-  if (!it) return null;
+  if (!mon.item) return null;
+  const it = devolvido(mon, mon.item);
   st.items[it] = (st.items[it] || 0) + 1;
   delete mon.item;
   return it;

@@ -7,6 +7,7 @@ const MAP = {
   ShiftLeft: "run", ShiftRight: "run",
   KeyF: "debug", KeyG: "glitch", KeyM: "mute", KeyC: "select",
   KeyQ: "z",            // arma o CRISTAL Z na batalha (o C arma a MEGA)
+  KeyV: "dynamax",      // arma o DYNAMAX na batalha (src/systems/dynamax.js)
   KeyO: "ceu",          // olhar pro céu (D é o "direita" do WASD)
 };
 

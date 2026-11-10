@@ -1,0 +1,158 @@
+<!doctype html>
+<!-- AS VOZES DA POKÉDEX (pedido do CAIO, 09/nov/2026): ouvir as vozes em
+     português do Brasil, mexer nos ajustes e escolher. Quem fala é
+     src/systems/vozdex.js (o mesmo que a Pokédex usa); a escolha fica no
+     localStorage ("pokedex:voz") e vai também pro dev/captures/voz_pokedex.log. -->
+<meta charset="utf-8">
+<title>Vozes da Pokédex</title>
+<style>
+  body { background:#1b1420; color:#f4ecf4; font:16px system-ui, sans-serif; margin:16px; max-width:820px; }
+  h1 { color:#ff6a6a; font-size:22px; margin:0 0 6px; }
+  h2 { font-size:15px; color:#ffd166; margin:14px 0 6px; letter-spacing:1px; }
+  .dica { color:#b8a8bc; font-size:14px; margin-bottom:10px; }
+  .caixa { background:#2a1f30; border-radius:10px; padding:12px; display:grid; gap:10px; }
+  .caixa label { display:flex; gap:10px; align-items:center; }
+  .caixa label b { width:110px; font-size:14px; }
+  input[type=range] { flex:1; }
+  input[type=text] { flex:1; font-size:16px; padding:6px; border-radius:6px; border:1px solid #5a4660; background:#140e18; color:#fff; }
+  input[type=checkbox] { width:22px; height:22px; }
+  .prontos { display:flex; gap:8px; flex-wrap:wrap; }
+  .prontos button { background:#5a3a8a; color:#fff; }
+  .voz { display:flex; align-items:center; gap:10px; padding:10px; border-radius:10px; background:#241a2a; margin-bottom:6px; }
+  .voz.escolhida { outline:3px solid #ffd166; }
+  .voz .nome { flex:1; }
+  .voz small { color:#a898ac; display:block; }
+  button { font-size:15px; padding:8px 12px; border-radius:8px; border:0; cursor:pointer; }
+  .ouvir { background:#3a6ad8; color:#fff; }
+  .escolher { background:#2a8a3a; color:#fff; }
+  #aviso { color:#ffd166; margin:10px 0; min-height:20px; font-weight:bold; }
+</style>
+<h1>📟 A VOZ DA POKÉDEX</h1>
+<div class="dica">Mexe nos ajustes, aperta OUVIR pra testar, e ESCOLHER quando gostar. Escolhe a LÍNGUA primeiro: a Pokédex fala na língua da voz que você escolher.</div>
+
+<h2>🌎 LÍNGUA</h2>
+<div class="prontos" id="idiomas"></div>
+
+<h2>🎛️ JEITOS PRONTOS</h2>
+<div class="prontos" id="prontos"></div>
+
+<h2>🔧 AJUSTES</h2>
+<div class="caixa">
+  <label><b>TOM</b> <input type="range" id="tom" min="0" max="2" step="0.1"> <span id="tomV"></span></label>
+  <label><b>VELOCIDADE</b> <input type="range" id="vel" min="0.5" max="2" step="0.05"> <span id="velV"></span></label>
+  <label><b>VOLUME</b> <input type="range" id="volume" min="0.1" max="1" step="0.05"> <span id="volumeV"></span></label>
+  <label><b>🤖 ROBÔ</b> <input type="checkbox" id="robo"> fala palavra por palavra, com o tom pulando</label>
+  <label><b>🔁 ECO</b> <input type="checkbox" id="eco"> repete o fim baixinho</label>
+  <label><b>⚡ ZUMBIDO</b> <input type="checkbox" id="zumbido"> o "BZZT!" faz barulho de aparelho</label>
+  <label><b>FRASE</b> <input type="text" id="frase" value="BZZT! VAMOS ACHAR MAIS POKÉMON!"></label>
+</div>
+
+<div id="aviso"></div>
+<h2>🗣️ AS VOZES</h2>
+<div id="lista">Procurando as vozes em português do Brasil...</div>
+
+<h2>📖 PRONÚNCIAS</h2>
+<div class="dica">Escreve o NOME e COMO ELE SOA (do jeito que se fala). Ex.: CHARIZARD → tcha-ri-zárd. A Pokédex fala sempre assim.</div>
+<div class="caixa">
+  <label><b>NOME</b> <input type="text" id="pNome" placeholder="CHARIZARD"></label>
+  <label><b>SOA ASSIM</b> <input type="text" id="pSom" placeholder="tcha-ri-zárd"></label>
+  <div class="prontos"><button class="ouvir" id="pOuvir">🔊 OUVIR</button><button class="escolher" id="pGuardar">💾 GUARDAR</button></div>
+  <div id="pLista"></div>
+</div>
+
+<script type="module">
+import { lerConfig, salvarConfig, vozesDoIdioma, falar, PRONTOS, IDIOMAS, lerPronuncias, salvarPronuncias } from "/src/systems/vozdex.js";
+const $ = (id) => document.getElementById(id);
+// ---- AS PRONÚNCIAS
+function listarPronuncias() {
+  const P = lerPronuncias();
+  $("pLista").innerHTML = "";
+  for (const [nome, som] of Object.entries(P).sort()) {
+    const d = document.createElement("div"); d.className = "voz";
+    d.innerHTML = `<div class="nome">${nome}<small>soa: ${som}</small></div>`;
+    const o = document.createElement("button"); o.className = "ouvir"; o.textContent = "🔊";
+    o.onclick = () => falar(nome, { ...lerConfig() });
+    const x = document.createElement("button"); x.textContent = "🗑️ TIRAR"; x.style.background = "#8a2a2a"; x.style.color = "#fff";
+    x.onclick = () => { const Q = lerPronuncias(); delete Q[nome]; salvarPronuncias(Q); avisaPronuncias(); listarPronuncias(); };
+    d.append(o, x); $("pLista").append(d);
+  }
+}
+function avisaPronuncias() {
+  const c = document.createElement("canvas"); c.width = c.height = 1;
+  fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "pronuncias_pokedex", dataUrl: c.toDataURL(), log: JSON.stringify(lerPronuncias()) }) }).catch(() => {});
+}
+$("pOuvir").onclick = () => falar($("pSom").value || $("pNome").value, { ...lerConfig() });
+$("pGuardar").onclick = () => {
+  const nome = $("pNome").value.trim().toUpperCase(), som = $("pSom").value.trim();
+  if (!nome || !som) return;
+  const P = lerPronuncias(); P[nome] = som; salvarPronuncias(P); avisaPronuncias();
+  $("pNome").value = ""; $("pSom").value = "";
+  listarPronuncias();
+};
+listarPronuncias();
+let salvo = lerConfig();
+let idioma = salvo.idioma || "pt";
+// as LÍNGUAS: cada botão mostra as vozes daquela língua (a Pokédex fala nela)
+function botoesIdioma() {
+  $("idiomas").innerHTML = "";
+  for (const [id, I] of Object.entries(IDIOMAS)) {
+    const b = document.createElement("button");
+    b.textContent = (id === idioma ? "▶ " : "") + I.nome;
+    b.style.background = id === idioma ? "#ffd166" : "#5a3a8a";
+    b.style.color = id === idioma ? "#1b1420" : "#fff";
+    b.onclick = () => { idioma = id; $("frase").value = I.teste; botoesIdioma(); montar(); };
+    $("idiomas").append(b);
+  }
+}
+const NUM = ["tom", "vel", "volume"], LIGA = ["robo", "eco", "zumbido"];
+function poe(cfg) {
+  for (const k of NUM) $(k).value = cfg[k];
+  for (const k of LIGA) $(k).checked = !!cfg[k];
+  mostra();
+}
+function mostra() { for (const k of NUM) $(k + "V").textContent = (+$(k).value).toFixed(2); }
+for (const k of NUM) $(k).oninput = mostra;
+function ajustes() {
+  const c = {};
+  for (const k of NUM) c[k] = +$(k).value;
+  for (const k of LIGA) c[k] = $(k).checked;
+  return c;
+}
+poe(salvo);
+
+for (const [nome, cfg] of Object.entries(PRONTOS)) {
+  const b = document.createElement("button");
+  b.textContent = nome;
+  b.onclick = () => { poe(cfg); falar($("frase").value, { ...ajustes(), nome: salvo.nome }); };
+  $("prontos").append(b);
+}
+
+function escolher(v) {
+  salvo = { ...ajustes(), nome: v.name, idioma };
+  salvarConfig(salvo);
+  const c = document.createElement("canvas"); c.width = c.height = 1;
+  fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "voz_pokedex", dataUrl: c.toDataURL(), log: JSON.stringify(salvo) }) }).catch(() => {});
+  $("aviso").textContent = `✔ ESCOLHIDA: ${v.name}! A Pokédex vai falar assim. (Se o jogo estiver aberto, aperta F5 nele.)`;
+  montar();
+}
+function montar() {
+  const vozes = vozesDoIdioma(idioma).sort((a, b) => a.name.localeCompare(b.name));
+  if (!vozes.length) { $("lista").textContent = `Procurando as vozes em ${IDIOMAS[idioma].nome.toLowerCase()}...`; return; }
+  $("lista").innerHTML = "";
+  for (const v of vozes) {
+    const d = document.createElement("div");
+    d.className = "voz" + (v.name === salvo.nome ? " escolhida" : "");
+    d.innerHTML = `<div class="nome">${v.name}<small>${v.lang}${v.localService ? " · do computador" : " · do Google (precisa de internet)"}</small></div>`;
+    const o = document.createElement("button"); o.className = "ouvir"; o.textContent = "🔊 OUVIR";
+    o.onclick = () => falar($("frase").value, { ...ajustes(), nome: v.name });
+    const e = document.createElement("button"); e.className = "escolher"; e.textContent = "✔ ESCOLHER";
+    e.onclick = () => escolher(v);
+    d.append(o, e); $("lista").append(d);
+  }
+}
+$("frase").value = IDIOMAS[idioma].teste;
+botoesIdioma();
+speechSynthesis.onvoiceschanged = montar;
+montar();
+setTimeout(montar, 800);
+</script>

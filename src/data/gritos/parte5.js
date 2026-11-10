@@ -299,6 +299,38 @@ export const GRITOS = {
   // o GHOTOLT: o chiado do espírito saindo da casca
   ghotolt: { som: "SSSSSSH... GHOTOST....", mais: ["SSSSH...", "GHO... TOST..."], s: [[4000, 2500, 500, "n", 0, 0.25], [0, 0, 120, "_"], [300, 260, 220, "o", 10, 0.4], [0, 0, 60, "_"], [260, 180, 520, "o", 12, 0.35]] },
   // a MONSTELA: o chiado da TV ligando, o "TEEEE" comprido e o "LAA" caindo
+  // o MONSTELITO, a TV portátil: grito feito pelo jogador no ESTÚDIO DE GRITOS (nov/2026). O
+  // "TELI" desce e o "TELIII" sobe do grave ao agudíssimo (20 -> 12000 Hz, o limite do estúdio:
+  // fica de propósito fora dos 40..8000 que tools/checa_gritos.mjs cobra dos gritos de base)
+  monstelito: { som: "TELI-TELIII!", mais: ["TELI! TELI!", "TELIII... CHHH... ZZZ"], s: [[2640, 1976, 88, "o", 5, 0], [20, 12000, 229, "o", 5, 0]] },
+  // o COELHATRASADO: o TIC-TAC do relógio de bolso e um "ATRASAAADO!" fininho, correndo e caindo no fim
+  // o COELHADIANTADO: o tic-tac rapidinho e um "ADIANTADO!" mais fininho que o do COELHATRASADO
+  coelhadiantado: { som: "TIC-TIC! ADIANTADO!", mais: ["TIC-TIC-TIC!", "CHEGUEI! CHEGUEI PRIMEIRO!"], s: [[3200, 3200, 25, "q"], [0, 0, 40, "_"], [3000, 3000, 25, "q"], [0, 0, 50, "_"], [2000, 2600, 60, "p"], [2400, 2800, 160, "p", 7, 0.1]] },
+  // a NENÊJAMA: um bocejinho e um "NHÉÉ"; a MENINIJAMA: um bocejo comprido e "ZZZ..."
+  nenejama: { som: "NHÉÉ... AUUUM!", mais: ["NHÉ!", "ZZZ..."], s: [[900, 1300, 120, "p"], [1300, 800, 220, "p", 5, 0.1], [600, 500, 260, "o"]] },
+  meninijama: { som: "AAAAUUUM... ZZZ...", mais: ["MAIS CINCO MINUTINHOS...", "ZZZ..."], s: [[700, 1000, 180, "p"], [1000, 500, 420, "p", 4, 0.1], [0, 0, 80, "_"], [380, 360, 300, "o", 6, 0.2]] },
+  // o HE-MINI: um "IÁÁ!" de criança; o HE-MON: o grito grosso de guerreiro
+  hemini: { som: "IÁÁ! EU TENHO A FORÇA!", mais: ["IÁ! IÁ!", "AI, MINHA PANELA..."], s: [[1200, 1700, 90, "q"], [1700, 1400, 160, "p", 6, 0.1]] },
+  hemon: { som: "HAAAAAA! EU TENHO A FORÇA!", mais: ["HÁ!", "HAAAA!"], s: [[220, 330, 120, "q"], [330, 300, 360, "q", 5, 0.15], [300, 180, 200, "p"]] },
+  // o LOBEBÊ: um uivinho que desafina; o LOBEM: o uivo bonito, de lobo do bem
+  lobebe: { som: "AUUU-ÍÍ!", mais: ["AU! AU!", "A CALÇA! A CALÇA!"], s: [[700, 1100, 160, "p", 5, 0.1], [1100, 1500, 120, "p"]] },
+  lobem: { som: "AUUUUUUUU!", mais: ["AUUU!", "OI, AMIGO!"], s: [[400, 700, 220, "p", 5, 0.1], [700, 650, 500, "p", 5, 0.12], [650, 420, 240, "p"]] },
+  copinha: { som: "CORTEM A... A... NHÉ!", s: [[1200, 1600, 120, "p"], [1600, 1100, 220, "p", 5, 0.1]] },
+  rainhacopa: { som: "CORTEM A CABEÇA!", mais: ["CORTEEEM!", "HUMPF!"], s: [[500, 800, 140, "q"], [800, 500, 160, "q"], [500, 900, 320, "p", 5, 0.12]] },
+  // A TURMA: o bordão de cada um
+  cebolete: { som: "BLÉ-BLÉ!", s: [[900, 1300, 90, "q"], [1300, 1100, 140, "p"]] },
+  cebolinio: { som: "PLANO INFALÍVEL! HÁ-HÁ!", s: [[600, 900, 120, "q"], [900, 700, 120, "q"], [700, 1100, 200, "p"]] },
+  monine: { som: "NHÉ! COELHINHO!", s: [[1100, 1500, 100, "p"], [1500, 1200, 160, "p"]] },
+  monicapow: { som: "POOOW!", s: [[300, 600, 100, "q"], [600, 250, 320, "q", 4, 0.1]] },
+  melanquinha: { som: "NHAM-NHAM!", s: [[800, 1000, 80, "p"], [0, 0, 40, "_"], [800, 1000, 80, "p"]] },
+  magalancia: { som: "TÔ COM FOOOME!", s: [[500, 700, 140, "p"], [700, 450, 420, "p", 5, 0.1]] },
+  laminha: { som: "BLURP! ÁGUA NÃO!", s: [[300, 500, 100, "o"], [700, 1200, 160, "p"]] },
+  cascalama: { som: "ÁGUA?! NUNCA!", s: [[400, 800, 120, "q"], [800, 300, 300, "q"]] },
+  rabisquinha: { som: "RISC-RISC!", s: [[2000, 2400, 40, "q"], [0, 0, 40, "_"], [2000, 2400, 40, "q"], [1400, 1800, 120, "p"]] },
+  marinarte: { som: "TCHARAAAM!", s: [[600, 900, 120, "p"], [900, 1300, 360, "p", 5, 0.08]] },
+  cachinho: { som: "BZZ! HIHI!", s: [[1600, 1600, 80, "q"], [1200, 1600, 140, "p"]] },
+  milecachos: { som: "ZZZAP! VAMOS DANÇAR!", s: [[1800, 900, 90, "q"], [700, 1100, 160, "p"], [1100, 900, 220, "p", 6, 0.1]] },
+  coelhatrasado: { som: "TIC-TAC! ATRASAAADO!", mais: ["TIC-TAC!", "ATRASADO... ATRASADO..."], s: [[2600, 2600, 35, "q"], [0, 0, 70, "_"], [1900, 1900, 35, "q"], [0, 0, 90, "_"], [1300, 1700, 70, "p"], [1700, 1500, 60, "p"], [1600, 1100, 260, "p", 9, 0.1]] },
   monstela: { som: "TEEEEEEEELAA!", mais: ["TELA! TELA!", "TEEELA... CHHHH..."], s: [[3200, 3200, 70, "n", 0, 0.2], [0, 0, 30, "_"], [880, 950, 560, "q", 6, 0.3], [950, 600, 280, "q", 0, 0.35], [0, 0, 40, "_"], [1760, 1760, 40, "f"]] },
 
   capivarinha: { som: "CRRÔ-CRRÔ... UÍN?", mais: ["CRÔ! CRÔ! UÍN!", "CRRÔ... ZZZ... UÍN..."], s: [[320, 350, 160, "t", 28, 0.2], [0, 0, 50, "_"], [300, 320, 180, "t", 28, 0.2], [0, 0, 120, "_"], [800, 1250, 180, "o"]] },

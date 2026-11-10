@@ -26,7 +26,7 @@ export function familiaDoItem(nome) {
   const n = String(nome).toLowerCase();
   if (n.startsWith("ovo ") || n.endsWith(" egg")) return "ovo";
   if (n.startsWith("cristal z") || /ium z$/.test(n) || n.endsWith("inium")) return "cristal-z";
-  if (/(n|s|z|d|r)ita( [xy])?$/.test(n)) return "megapedra";
+  if (/ita( [xyz])?$/.test(n) && !/pepita|marmita|bonita|maldita/.test(n)) return "megapedra";   // as megapedras (gardevoirita, darkraita...)
   if (n.startsWith("fóssil") || n.startsWith("fossil")) return "fossil";
   if (n.startsWith("pedra")) return "pedra";
   if (n.endsWith(" ball") || n.endsWith("bola") || n.endsWith("ball")) return "bola";

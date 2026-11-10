@@ -11,17 +11,41 @@
 import { DB } from "../data/index.js";
 import { recalc } from "./mon.js";
 import { todosGuardados } from "./box.js";
+import { idFusao, partes, garantirEspecie } from "./fusao.js";
 
 export const temAnel = (state) => (state?.items?.[DB.MEGA_ANEL] || 0) > 0;
 
-/** As formas que este Pokémon pode assumir AGORA: precisa do anel e da pedra. */
+/** As formas que este Pokémon pode assumir AGORA: precisa do anel e da pedra.
+ *  Primeiro as dele; depois as MEGAS EMPRESTADAS (ideia do CAIO: "usar a
+ *  blastoisita no charizard"): a pedra de outra espécie vira uma FUSÃO dele
+ *  com aquela mega — CHARIZARD + MEGA BLASTOISE —, só durante a luta. Quem
+ *  pode usar cada pedra está em DB.MEGAS_EMPRESTADAS (src/data/mega.js). */
 export function opcoesMega(state, mon) {
   if (!mon || mon.megaDe || !temAnel(state)) return [];
-  return (DB.MEGAS?.[mon.species] || []).filter((r) => (state.items?.[r.pedra] || 0) > 0);
+  const tem = (p) => (state.items?.[p] || 0) > 0;
+  const minhas = (DB.MEGAS?.[mon.species] || []).filter((r) => tem(r.pedra));
+  return [...minhas, ...megasEmprestadas(mon, tem)];
+}
+
+/** As pedras dos OUTROS que este aqui consegue usar. Fusão não entra (a fita
+ *  não dobra duas vezes) e o MISSINGNO. fica de fora dos dois lados. */
+function megasEmprestadas(mon, tem) {
+  const sp = DB.SPECIES?.[mon.species];
+  if (!sp || sp.mega || partes(mon.species) || mon.species === "missingno") return [];
+  const lista = [];
+  for (const [pedra, forma] of Object.entries(DB.MEGA_PEDRAS || {})) {
+    const mega = DB.SPECIES?.[forma];
+    if (!tem(pedra) || !mega || mega.megaDe === mon.species || mega.megaDe === "missingno") continue;
+    if (!(DB.MEGAS_EMPRESTADAS?.[pedra] || []).includes(mon.species)) continue;   // só quem está na lista
+    const to = idFusao(mon.species, forma);
+    const fus = garantirEspecie(to);
+    if (fus) lista.push({ pedra, to, nome: fus.name, emprestada: true });
+  }
+  return lista;
 }
 
 export function megaEvoluir(mon, to) {
-  const forma = DB.SPECIES?.[to];
+  const forma = DB.SPECIES?.[to] || garantirEspecie(to);   // a emprestada é uma fusão: nasce aqui
   if (!mon || !forma || mon.megaDe) return null;
   const de = mon.species;
   mon.megaDe = de;

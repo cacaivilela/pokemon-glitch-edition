@@ -55,6 +55,11 @@ export const TOTEM = {
  *  esta pasta, e um segundo nome pro mesmo atributo é um segundo jogo. */
 export const NOME_STAT = { atk: "ATAQUE", def: "DEFESA", spa: "ESP.", spd: "ESP.DEF", spe: "VELOCIDADE" };
 
+// ALOLA (09/nov/2026, pedido do CAIO: "passa os totens e cristais z" pra Alola):
+// as provações estão se mudando pra lá, ilha por ilha (src/data/alola.js). As
+// quatro primeiras já estão em MELEMELE; o resto continua em Kanto até a ilha
+// delas existir. O que já foi feito fica feito (o progresso é pelo `id`).
+//
 // OS LUGARES: uma marca em cada canto de KANTO, e não mais na ILHA DOIS (as
 // dezoito ficavam a poucos passos umas das outras). Cada uma em chão aberto
 // (os oito vizinhos andáveis), longe de porta, placa e gente, no pedaço do mapa
@@ -62,10 +67,10 @@ export const NOME_STAT = { atk: "ATAQUE", def: "DEFESA", spa: "ESP.", spd: "ESP.
 const LISTA = [
   {
     tipo: "NORMAL", totem: "gumshoos", nivel: 57, aura: "atk",
-    mapa: "route1", x: 12, y: 18, lugar: "ROTA 1",
+    mapa: "rota1_alola", x: 12, y: 26, lugar: "ROTA 1 DE ALOLA",
     nome: "A PROVAÇÃO DO COMUM",
     marca: [
-      "A PRIMEIRA MARCA FICA NA ROTA 1, ONDE TODO MUNDO PASSA.",
+      "A PRIMEIRA MARCA FICA NA ROTA 1 DE ALOLA, ONDE TODO MUNDO PASSA.",
       "O MATO EM VOLTA ESTÁ PISADO EM CÍRCULO, E NÃO FOI GENTE QUE PISOU.",
     ],
     acorda: "ELE ESTAVA PARADO ESSE TEMPO TODO E VOCÊ ACHOU QUE ERA O CHÃO.",
@@ -73,7 +78,7 @@ const LISTA = [
   },
   {
     tipo: "LUTADOR", totem: "bewear", nivel: 58, aura: "atk",
-    mapa: "saffron_city", x: 29, y: 34, lugar: "SAFFRON",
+    mapa: "trilha_melemele", x: 22, y: 12, lugar: "TRILHA DA ILHA (MELEMELE)",
     nome: "A PROVAÇÃO DO ABRAÇO",
     marca: [
       "TEM TRONCO PARTIDO EM VOLTA DESTA MARCA. PARTIDO AO MEIO, NÃO CORTADO.",
@@ -84,18 +89,18 @@ const LISTA = [
   },
   {
     tipo: "VOADOR", totem: "toucannon", nivel: 59, aura: "atk",
-    mapa: "route16", x: 30, y: 8, lugar: "ROTA 16",
+    mapa: "praia_melemele", x: 16, y: 14, lugar: "PRAIA DE MELEMELE",
     nome: "A PROVAÇÃO DO BICO",
     marca: [
-      "A MARCA ESTÁ NO ALTO, E TODA ÁRVORE EM VOLTA ESTÁ SEM UM GALHO SÓ:",
-      "O DE CIMA. ALGUÉM POUSA SEMPRE NO MESMO LUGAR E O GALHO NÃO AGUENTOU.",
+      "A MARCA ESTÁ NA AREIA, E TODO COQUEIRO EM VOLTA ESTÁ SEM UMA FOLHA SÓ:",
+      "A DE CIMA. ALGUÉM POUSA SEMPRE NO MESMO LUGAR E A FOLHA NÃO AGUENTOU.",
     ],
     acorda: "O BICO DELE ACENDE VERMELHO ANTES DE ABRIR. É O CANO ESQUENTANDO.",
-    venceu: "ELE SOBE, DÁ UMA VOLTA E SOME. O GALHO DE CIMA VAI CRESCER DE NOVO.",
+    venceu: "ELE SOBE, DÁ UMA VOLTA NO MAR E SOME. A FOLHA DE CIMA VAI CRESCER DE NOVO.",
   },
   {
     tipo: "VENENO", totem: "muk", nivel: 60, aura: "spd",
-    mapa: "fuchsia_city", x: 21, y: 20, lugar: "FUCHSIA",
+    mapa: "hauoli", x: 34, y: 14, lugar: "HAU'OLI",
     nome: "A PROVAÇÃO DA POÇA",
     marca: [
       "A MARCA ESTÁ COBERTA POR UMA CAMADA ROXA QUE NÃO É TINTA.",

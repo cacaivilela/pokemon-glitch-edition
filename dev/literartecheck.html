@@ -1,0 +1,25 @@
+<!doctype html>
+<!-- A DIMENSÃO LITERARTE: uma foto do mapa. Uso: /dev/literartecheck.html
+     (a foto vai pra dev/captures/literarte.png) -->
+<meta charset="utf-8">
+<title>literartecheck</title>
+<style>iframe { width: 480px; height: 320px; }</style>
+<script type="module">
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const f = document.createElement("iframe");
+// perfil próprio: NUNCA gravar no save.json de quem joga
+f.src = "../index.html?map=literarte&x=14&y=22&perfil=literartecheck";
+document.body.appendChild(f);
+for (let i = 0; i < 50 && !f.contentDocument?.getElementById("screen"); i++) await espera(100);
+await espera(2500);
+for (let i = 0; i < 6; i++) {
+  await espera(400);
+  for (const type of ["keydown", "keyup"]) f.contentWindow.dispatchEvent(new f.contentWindow.KeyboardEvent(type, { code: "Enter", key: "Enter" }));
+}
+await espera(2500);
+let log = "";
+try { log = f.contentWindow.eval(`(() => { const t = window.game.scenes.top; return t.constructor.name + " " + window.game.state.player.map + " " + window.game.state.player.x + "," + window.game.state.player.y; })()`); } catch (e) { log = "erro: " + e; }
+const erros = (f.contentWindow.__erros || []).join("\n");
+const dataUrl = f.contentDocument.getElementById("screen").toDataURL();
+await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "literarte", dataUrl, log: log + "\n" + erros }) }).catch(() => {});
+</script>

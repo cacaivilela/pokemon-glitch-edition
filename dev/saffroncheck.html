@@ -1,0 +1,13 @@
+<!doctype html>
+<!-- retrato de SAFFRON perto da PESQUISADORA DO DYNAMAX -> dev/captures/saffron_dynamax.png -->
+<meta charset="utf-8"><title>saffroncheck</title>
+<iframe id="f" style="width:480px;height:320px;border:0" src="/index.html?map=saffron_city&x=23&y=17&perfil=teste_dynamax"></iframe>
+<script type="module">
+const f = document.getElementById("f"), espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const tecla = (code) => { const w = f.contentWindow; w.dispatchEvent(new w.KeyboardEvent("keydown", { code })); setTimeout(() => w.dispatchEvent(new w.KeyboardEvent("keyup", { code })), 60); };
+for (let i = 0; i < 40; i++) { await espera(400); try { const t = f.contentWindow.game?.scenes?.top; if (t?.constructor?.name?.includes("Overworld")) break; tecla("Enter"); } catch {} }
+await espera(2500);
+const cv = f.contentDocument.getElementById("screen");
+await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "saffron_dynamax", dataUrl: cv.toDataURL() }) });
+document.title = "pronto";
+</script>

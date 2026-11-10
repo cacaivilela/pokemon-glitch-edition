@@ -293,7 +293,94 @@ def switch():
     return g
 
 
-FORMAS = {"celular": celular, "computador": computador, "switch": switch}
+# ------------------------------------------------------------ ESTÉREO
+# (09/nov/2026: o CAIO quis uma forma de CAIXA DE SOM, "a MONSTELA ESTÉREO").
+# Um rádio de alça: dois ALTO-FALANTES redondos nos lados, a telinha com o
+# rosto no meio, os botões coloridos em cima e uma NOTA MUSICAL no ar.
+NOTA = [
+    "...kkk.",
+    "...kfFk",
+    "...kfk.",
+    "...kfk.",
+    ".kkkfk.",
+    "kfffk..",
+    "kfFfk..",
+    ".kkk...",
+]
+
+
+def alto_falante(g, cx, cy, r=8):
+    """um alto-falante redondo: borda, cone e o miolo, com luz em cima/esquerda"""
+    for y in range(cy - r - 1, cy + r + 2):
+        for x in range(cx - r - 1, cx + r + 2):
+            d = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
+            if d > r + 0.5:
+                continue
+            luz = (x - cx) + (y - cy) < 0
+            if d > r - 0.6:
+                ch = "k"
+            elif d > r - 2:
+                ch = "l" if luz else "s"
+            elif d > r - 3.2:
+                ch = "k"
+            elif d > 3:
+                ch = "c" if (int(d) % 2) else ("l" if luz else "s")
+            elif d > 1.6:
+                ch = "k"
+            else:
+                ch = "r"
+            g.px[y][x] = ch
+
+
+def estereo():
+    W, H = 86, 62
+    g = Grade(W, H)
+    x0, y0 = 11, 16            # o rádio: 64 de largura, 34 de altura
+    L = 64
+    corpo = [
+        ".." + "k" * (L - 4) + "..",
+        ".k" + "l" * (L - 4) + "k.",
+    ]
+    corpo += ["kl" + "c" * (L - 4) + "sk"] * 29
+    corpo += [
+        ".k" + "s" * (L - 4) + "k.",
+        ".." + "k" * (L - 4) + "..",
+    ]
+    g.por(x0, y0, corpo)
+    # a ALÇA em cima (com o vão pra segurar)
+    g.por(x0 + 14, y0 - 8, [
+        "..kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk..",
+        ".kllllllllllllllllllllllllllllllccsk.",
+        "kllcccccccccccccccccccccccccccccccsk",
+        "klck..............................kcsk",
+        "klck..............................kcsk",
+        "klck..............................kcsk",
+        "kcsk..............................kcsk",
+        "kssk..............................kssk",
+    ])
+    # os BOTÕES coloridos, em cima, do lado direito
+    g.por(x0 + 44, y0 + 2, ["kkkkkkkkkkkk", "kggkbbkaakvvk", "kkkkkkkkkkkkk"])
+    # os ALTO-FALANTES
+    alto_falante(g, x0 + 10, y0 + 18)
+    alto_falante(g, x0 + L - 11, y0 + 18)
+    # a TELINHA no meio, com o rosto
+    tx0, ty0, tx1, ty1 = x0 + 20, y0 + 6, x0 + L - 21, y0 + 28
+    for y in range(ty0, ty1 + 1):
+        for x in range(tx0, tx1 + 1):
+            borda = y in (ty0, ty1) or x in (tx0, tx1)
+            g.px[y][x] = "k" if borda else "t"
+    g.tela(tx0 + 1, ty0 + 1, tx1 - 1, ty1 - 1)
+    rosto(g, tx0 + 1 + (tx1 - tx0 - 1 - 24) // 2, ty0 + 5)
+    # as ANTENINHAS tortas da MONSTELA, saindo da alça
+    g.par(x0 + 16, 0, ANTENA, W // 2)
+    # os BRAÇOS, saindo dos lados
+    g.par(0, y0 + 12, BRACO, W // 2)
+    # a NOTA MUSICAL no ar, do lado da alça
+    g.por(x0 + L - 4, y0 - 14, NOTA)
+    return g
+
+
+FORMAS = {"celular": celular, "computador": computador, "switch": switch, "estereo": estereo}
 
 
 def no_quadro(im):

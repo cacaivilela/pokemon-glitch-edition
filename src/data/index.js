@@ -119,6 +119,10 @@ const windsWaves = await import("./winds-waves.js" + V);   // BROWT, POMBON e GE
 const musicaLumioseCidade = await import("./musica-lumiose-cidade.js" + V);
 // KALOS (src/data/kalos.js): a LUMIOSE do Legends Z-A e o avião
 const kalos = await import("./kalos.js" + V);
+// ALOLA (src/data/alola.js): MELEMELE, desenhada do zero com os nomes de lá
+const alola = await import("./alola.js" + V);
+// JOHTO (src/data/johto.js): o TREM MAGNÉTICO de SAFFRON, GOLDENROD e a ROTA 34 (parte 1)
+const johto = await import("./johto.js" + V);
 // A ÁREA ZERO (src/data/area-zero.js): o helicóptero de Viridian, a GARAGEM ZERO e os PARADOXOS novos
 const areaZero = await import("./area-zero.js" + V);
 // A FÁBRICA DE POKÉBOLAS (src/data/fabrica.js)
@@ -131,6 +135,8 @@ const conectador = await import("./conectador.js" + V);
 const arvoreOca = await import("./arvore-oca.js" + V);
 // OS REGIS (src/data/regis.js): as placas das câmaras de Tanoby e o REGIGLITCH
 const regis = await import("./regis.js" + V);
+// AS POKÉMÁQUINAS (src/data/pokemaquinas.js): máquinas que funcionam com a força de um Pokémon
+const pokemaquinas = await import("./pokemaquinas.js" + V);
 // AS MEGAS DESCONTROLADAS (src/data/descontroladas.js), à parte da lista acima
 const descontroladas = await import("./descontroladas.js" + V);
 // AS EVOLUÇÕES SECRETAS (src/data/secretas.js): as espécies e as marcas
@@ -341,6 +347,10 @@ function mergeMaps(kanto, authored) {
       // o CRISTAL DO VÍNCULO (src/data/vinculo.js): a técnica que se compra
       const B = vinculo.VINCULO.cristal;
       if (!tem.has(B.item)) npc.shop.push({ item: B.item, price: B.preco });
+      // AS POKÉMÁQUINAS (src/data/pokemaquinas.js): a CAIXA DE FERRAMENTAS (uma vez só) e as PEÇAS
+      const K = pokemaquinas.CAIXA;
+      if (!tem.has(K.item)) npc.shop.push({ item: K.item, price: K.preco, unico: true });
+      for (const pc of pokemaquinas.PECAS) if (!tem.has(pc.item)) npc.shop.push({ item: pc.item, price: pc.preco });
     }
   }
   // OS COGUMELOS DO PARASECT (src/data/secretas.js) só nas lojas das SEVII
@@ -572,6 +582,10 @@ const BRAG_CONTEUDO = Object.fromEntries(Object.entries({ ...brag.BRAGLITCH_MAPS
 
 /** KALOS (src/data/kalos.js): a LUMIOSE, com o mesmo construtor de Braglitch */
 const MAPAS_KALOS = kanto ? kalos.montarKalos(kanto) : {};
+/** ALOLA (src/data/alola.js), com o mesmo construtor */
+const MAPAS_ALOLA = kanto ? alola.montarAlola(kanto) : {};
+/** JOHTO (src/data/johto.js), com o mesmo construtor */
+const MAPAS_JOHTO = kanto ? johto.montarJohto(kanto) : {};
 const MAPAS_AREA_ZERO = kanto ? areaZero.montarAreaZero(kanto) : {};
 const MAPAS_ARVORE = kanto ? arvoreOca.montarArvore(kanto) : {};
 const MAPAS_ESPACO = kanto ? espaco.montarEspaco(kanto) : {};
@@ -584,6 +598,18 @@ const AZ_CONTEUDO = Object.fromEntries(Object.entries(areaZero.CONTEUDO_AREA_ZER
   ...m, signs: { ...(AZ_PLACAS[id]?.signs || {}), ...(m.signs || {}) },
 }]));
 const KALOS_PLACAS = brag.placasEPortas(MAPAS_KALOS, kalos.KALOS_CONTEUDO, {}, kalos.PORTA_FECHADA_KALOS);
+const JOHTO_PLACAS = brag.placasEPortas(MAPAS_JOHTO, johto.JOHTO_CONTEUDO, {}, johto.PORTA_FECHADA_JOHTO);
+const JOHTO_CONTEUDO = Object.fromEntries(Object.entries(johto.JOHTO_CONTEUDO).map(([id, { placas, mato, niveis, ...m }]) => [id, {
+  ...m,
+  signs: { ...(JOHTO_PLACAS[id]?.signs || {}), ...(m.signs || {}) },
+  lockedWarps: { ...(JOHTO_PLACAS[id]?.lockedWarps || {}), ...(m.lockedWarps || {}) },
+}]));
+const ALOLA_PLACAS = brag.placasEPortas(MAPAS_ALOLA, alola.ALOLA_CONTEUDO, {}, alola.PORTA_FECHADA_ALOLA);
+const ALOLA_CONTEUDO = Object.fromEntries(Object.entries(alola.ALOLA_CONTEUDO).map(([id, { placas, ...m }]) => [id, {
+  ...m,
+  signs: { ...(ALOLA_PLACAS[id]?.signs || {}), ...(m.signs || {}) },
+  lockedWarps: { ...(ALOLA_PLACAS[id]?.lockedWarps || {}), ...(m.lockedWarps || {}) },
+}]));
 const KALOS_CONTEUDO = Object.fromEntries(Object.entries(kalos.KALOS_CONTEUDO).map(([id, { placas, ...m }]) => [id, {
   ...m,
   signs: { ...(KALOS_PLACAS[id]?.signs || {}), ...(m.signs || {}) },
@@ -597,6 +623,12 @@ const ESPECIES_BASE = { ...gen1.GEN1, ...extra.EXTRA, ...reg.REGIONAIS, ...eras.
   ...hack.HACKEANAS, ...brag.BRAGLITCH_ESPECIES, ...rotom.ROTOM_FORMAS, ...mega.MEGA_FORMS,
   ...secretas.SECRETAS_ESPECIES, ...formasBatalha.FORMAS_BATALHA, ...puros.FOSSEIS_PUROS_ESPECIES,
   ...kalos.KALOS_ESPECIES, ...regis.REGIS_ESPECIES };
+// as MEGAS de fora de Kanto: o GEN1 não sabe o número da Pokédex nem a taxa de
+// captura delas, então vêm da espécie de origem (src/data/mega.js)
+for (const f of Object.values(mega.MEGA_FORMS)) {
+  const de = ESPECIES_BASE[f.megaDe];
+  if (de && !f.dex) { f.dex = de.dex || 0; f.catchRate = de.catchRate ?? f.catchRate; }
+}
 // AS ULTRA BEASTS DE CARNAVAL também (src/data/carnaval.js)
 Object.assign(ESPECIES_BASE, carnaval.especiesCarnaval(ESPECIES_BASE));
 // AS FORMAS DE VÍNCULO saem das espécies de sempre (src/data/vinculo.js)
@@ -616,7 +648,9 @@ const ilhaFallback = ILHA_GERADA ? { birth_island: islandMap() } : {};
  *  dispara o hot-swap) apagaria todas elas da memória. */
 export function buildDB() {
   const db = montarDB();
-  kalos.porAeroportos(db);          // o piloto em VERMILION e SÃO LUCARIO, o mato da LUMIOSE
+  kalos.porAeroportos(db);
+  alola.porAlola(db);               // o avião pra HAU'OLI e o mato de MELEMELE
+  johto.porTrem(db);               // o bilheteiro do TREM MAGNÉTICO em SAFFRON, o mato da ROTA 34          // o piloto em VERMILION e SÃO LUCARIO, o mato da LUMIOSE
   areaZero.porHelicoptero(db);
   espaco.porBaseEspacial(db);       // o FOGUETE em CINNABAR (depois da LIGA)
   fabrica.porFabrica(db);
@@ -785,6 +819,9 @@ function montarDB() {
     MEGAS: mega.MEGAS,
     MEGA_FORMS: mega.MEGA_FORMS,
     MEGA_PEDRAS: mega.MEGA_PEDRAS,
+    MEGAS_EMPRESTADAS: mega.MEGAS_EMPRESTADAS,
+    EMPRESTADAS_DESENHADAS: mega.EMPRESTADAS_DESENHADAS,
+    EMPRESTADAS_DEX: mega.EMPRESTADAS_DEX,
     MEGA_ANEL: mega.ANEL,
     FUSAO: fusao.FUSAO,
     FUSOES: fusoes.FUSOES,
@@ -842,9 +879,18 @@ function montarDB() {
     ONLINE_TEXTO: online.ONLINE_TEXTO,
     GIFT_CODES: gifts.GIFT_CODES,
     GIFT_TEXTO: gifts.GIFT_TEXTO,
+    POKEMAQUINAS: pokemaquinas.POKEMAQUINAS,
+    POKEMAQUINAS_PECAS: pokemaquinas.PECAS,
+    POKEMAQUINAS_GRADE: pokemaquinas.GRADE,
+    POKEMAQUINAS_TIPOS: pokemaquinas.TIPOS_MAQUINA,
+    POKEMAQUINAS_GENERICA: pokemaquinas.GENERICA,
+    POKEMAQUINAS_NOMES: pokemaquinas.NOME_POR_TIPO,
+    CAIXA_FERRAMENTAS: pokemaquinas.CAIXA,
+    POKEMAQUINAS_CONFIG: pokemaquinas.POKEMAQUINAS_CONFIG,
+    POKEMAQUINAS_TEXTO: pokemaquinas.POKEMAQUINAS_TEXTO,
     MAPS: musicasBrag.aplicarMusicasBrag(mergeMaps({ ...kanto, ...ilhaFallback, glitchdim: dimensionMap(story.STORY),
-                     tempestade: stormMap(story.STORY), ...MAPAS_ERAS, ...MAPAS_PORTAL, ...MAPAS_BRAGLITCH, ...MAPAS_CAVERNA_SERRA, ...MAPAS_FONTE, ...MAPAS_CIBER, ...MAPAS_SUB, ...MAPAS_VOID, ...MAPAS_KALOS, ...MAPAS_AREA_ZERO, ...MAPAS_ARVORE, ...MAPAS_ESPACO, ...MAPAS_LIGA_VOID },
-                    { ...maps.MAPS, ...BRAG_CONTEUDO, ...vazio.CONTEUDO_VOID, ...cavernaSerra.CONTEUDO_CAVERNA_SERRA, ...fonteCeladon.CONTEUDO_FONTE, ...ciber.CONTEUDO_CIBER, ...conteudoSub(), ...KALOS_CONTEUDO, ...AZ_CONTEUDO, ...arvoreOca.CONTEUDO_ARVORE, ...ESP_CONTEUDO, ...ligaVoid.CONTEUDO_LIGA_VOID }),
+                     tempestade: stormMap(story.STORY), ...MAPAS_ERAS, ...MAPAS_PORTAL, ...MAPAS_BRAGLITCH, ...MAPAS_CAVERNA_SERRA, ...MAPAS_FONTE, ...MAPAS_CIBER, ...MAPAS_SUB, ...MAPAS_VOID, ...MAPAS_KALOS, ...MAPAS_ALOLA, ...MAPAS_JOHTO, ...MAPAS_AREA_ZERO, ...MAPAS_ARVORE, ...MAPAS_ESPACO, ...MAPAS_LIGA_VOID },
+                    { ...maps.MAPS, ...BRAG_CONTEUDO, ...vazio.CONTEUDO_VOID, ...cavernaSerra.CONTEUDO_CAVERNA_SERRA, ...fonteCeladon.CONTEUDO_FONTE, ...ciber.CONTEUDO_CIBER, ...conteudoSub(), ...KALOS_CONTEUDO, ...ALOLA_CONTEUDO, ...JOHTO_CONTEUDO, ...AZ_CONTEUDO, ...arvoreOca.CONTEUDO_ARVORE, ...ESP_CONTEUDO, ...ligaVoid.CONTEUDO_LIGA_VOID }),
                     Object.keys(MAPAS_BRAGLITCH).filter((id) => MAPAS_BRAGLITCH[id]?.regiao === "braglitch")),
     STORY: story.STORY,
     FUNDO_TEXTO: fundoDoMar.FUNDO_TEXTO,
@@ -852,7 +898,7 @@ function montarDB() {
     POS_POS: posPos.POS_POS,   // o FUNDO DO MAR (src/data/fundo-do-mar.js)
     TRUNFO_TEXTO: story.TRUNFO_TEXTO,
     KANTO: { ...(kanto || {}), ...ilhaFallback, glitchdim: dimensionMap(story.STORY),
-             tempestade: stormMap(story.STORY), ...MAPAS_ERAS, ...MAPAS_PORTAL, ...MAPAS_BRAGLITCH, ...MAPAS_CAVERNA_SERRA, ...MAPAS_FONTE, ...MAPAS_CIBER, ...MAPAS_SUB, ...MAPAS_VOID, ...MAPAS_KALOS, ...MAPAS_AREA_ZERO, ...MAPAS_ARVORE, ...MAPAS_ESPACO, ...MAPAS_LIGA_VOID },
+             tempestade: stormMap(story.STORY), ...MAPAS_ERAS, ...MAPAS_PORTAL, ...MAPAS_BRAGLITCH, ...MAPAS_CAVERNA_SERRA, ...MAPAS_FONTE, ...MAPAS_CIBER, ...MAPAS_SUB, ...MAPAS_VOID, ...MAPAS_KALOS, ...MAPAS_ALOLA, ...MAPAS_JOHTO, ...MAPAS_AREA_ZERO, ...MAPAS_ARVORE, ...MAPAS_ESPACO, ...MAPAS_LIGA_VOID },
     // KALOS: o avião (src/data/kalos.js); o piloto entra no `buildDB`
     AVIAO: kalos.AVIAO,
     AREA_ZERO: areaZero.AREA_ZERO,

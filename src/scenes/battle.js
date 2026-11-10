@@ -49,6 +49,7 @@ import { PEDRA_BUGADA } from "../data/pedra-bugada.js";
 import { podeSerReal, iniciar as iniciarReal, atualizar as atualizarReal, desenhar as desenharReal } from "../systems/batalhareal.js";
 import { podeSerExplosiva, iniciar as iniciarExplosiva, atualizar as atualizarExplosiva, desenhar as desenharExplosiva } from "../systems/batalhaexplosiva.js";
 import { tocarMega } from "./mega.js";
+import { DYNAMAX, golpeMax, lutaGrande, podeAqui as podeDynamaxAqui, dynamaxar, desdynamaxar } from "../systems/dynamax.js";
 import { marcarSecreta } from "../systems/secretas.js";
 import { cumprirProcurado } from "../systems/bicos.js";
 import { venceu as venceuAmizade } from "../systems/creche.js";
@@ -131,6 +132,10 @@ export class BattleScene {
     // que chega aqui é só um Pokémon grande com uma aura pendurada.
     this.totem = this.foe?.totem || null;
     this.cristalUsado = false;       // o GOLPE Z é uma vez por batalha
+    // O DYNAMAX (src/systems/dynamax.js): uma vez por lado, por batalha; V arma
+    this.dyUsado = { p: false, f: false };
+    this.dyArmado = false;
+    this.dyTeste = !!args.dyTeste;   // ?battle=...&dynamax=1 (src/main.js)
     this.zArmado = false;
     // O CLIMA (src/data/habilidades.js): a TEMPESTADE chove sempre; o resto
     // vem de habilidade de entrada ou de golpe, por cinco turnos.
@@ -406,7 +411,15 @@ export class BattleScene {
   get mine() { return this.st.party[this.playerIdx]; }
   // todo Pokémon que entra na luta passa por aqui: as METAS de um tipo só conferem
   get playerIdx() { return this._playerIdx; }
-  set playerIdx(i) { this._playerIdx = i; metaUsou(this.st, this.st.party[i]); }
+  set playerIdx(i) {
+    // quem sai da luta dynamaxado volta ao tamanho normal
+    const antes = this.st.party[this._playerIdx];
+    if (i !== this._playerIdx && antes?.dynamax) {
+      desdynamaxar(antes);
+      if (this.sp?.p) { this.sp.p.dyAlvo = null; this.sp.p.escala = (this.sp.p.escala || DYNAMAX.escala) / DYNAMAX.escala; }
+    }
+    this._playerIdx = i; metaUsou(this.st, this.st.party[i]);
+  }
   get foe() { return this.foeParty[this.foeIdx]; }
 
   // ------------------------------------------------- helpers de fluxo
@@ -777,6 +790,9 @@ export class BattleScene {
       this.megaArmada = null;
       await this.fazerMega("p", regra);
     }
+    if (this.dyArmado) { this.dyArmado = false; await this.fazerDynamax("p"); }
+    // o LÍDER (ginásio, liga) dynamaxa o último Pokémon dele
+    if (!this.dyUsado.f && (lutaGrande(this.trainer) || this.dyTeste) && this.foeIdx === this.foeParty.length - 1 && !isFainted(this.foe)) await this.fazerDynamax("f");
     let pMove = this.mine.moves[moveSlot];
     // O GOLPE Z: armado com Q e com o cristal do tipo do golpe escolhido. O
     // golpe original NÃO gasta PP — quem foi usado foi o cristal, e a vez dele
@@ -792,8 +808,13 @@ export class BattleScene {
       await this.say(DB.STORY.zcristal.usou
         .replace("{MON}", this.mine.nickname).replace("{TIPO}", cristal.tipo));
       pMove = { id: cristal.golpe, pp: 1 };
+      // o golpe Z da MONSTELA tem a cena dele (desenhada pelo CAIO, em palavras)
+      if (cristal.golpe === "zmonstelium") await this.cenaMonstelium();
     }
-    const fMoveRef = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages, this.clima?.tipo);
+    let fMoveRef = chooseAiMove(this.foe, this.mine, this.fStages, this.pStages, this.clima?.tipo);
+    // DYNAMAXADO: todo golpe vira GOLPE MAX (o PP sai do golpe de verdade)
+    if (this.mine.dynamax && pMove && !cristal) { pMove.pp = Math.max(0, pMove.pp - 1); pMove = { id: golpeMax(pMove.id, this.mine), pp: 99 }; }
+    if (this.foe.dynamax && fMoveRef) fMoveRef = { id: golpeMax(fMoveRef.id, this.foe), pp: 99 };
 
     const pSpe = effectiveStat(this.mine, "spe", this.pStages, this.clima?.tipo);
     const fSpe = effectiveStat(this.foe, "spe", this.fStages, this.clima?.tipo);
@@ -842,6 +863,57 @@ export class BattleScene {
     Audio2.tone(this.zArmado ? 988 : 330, 0.07, "square", 0.45);
   }
 
+  /** as nuvens vermelhas do DYNAMAX, pulsando atrás dele (GIGANTAMAX: douradas) */
+  auraDynamax(ctx, cx, cy, r, gmax = false) {
+    const a = 0.75 + 0.2 * Math.sin(this.t * 6);
+    const g = ctx.createRadialGradient(cx, cy, 4, cx, cy, r);
+    const [c1, c2, c3] = gmax ? ["255,210,60", "255,80,170", "230,140,40"] : ["255,60,90", "200,0,60", "230,20,70"];
+    g.addColorStop(0, `rgba(${c1},${a})`);
+    g.addColorStop(0.6, `rgba(${c2},${a * 0.6})`);
+    g.addColorStop(1, `rgba(${c2},0)`);
+    ctx.fillStyle = g;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    // as nuvenzinhas girando em volta
+    for (let i = 0; i < 6; i++) {
+      const ang = this.t * 1.5 + i * Math.PI / 3, rx = cx + Math.cos(ang) * r * 0.8, ry = cy + Math.sin(ang) * r * 0.35 + 10;
+      ctx.fillStyle = `rgba(${c3},${0.8 + 0.2 * Math.sin(this.t * 4 + i)})`;
+      ctx.beginPath(); ctx.ellipse(rx, ry, 9, 5, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  /** V liga/desliga o DYNAMAX (com a PULSEIRA, em ginásio, liga ou raid; uma vez por batalha) */
+  tentarArmarDynamax() {
+    if (!Input.consume("dynamax")) return;
+    if (this.dyUsado.p || this.mine.dynamax || !podeDynamaxAqui(this.st, this)) return void Audio2.cancel();
+    this.dyArmado = !this.dyArmado;
+    Audio2.tone(this.dyArmado ? 220 : 330, 0.12, "sawtooth", 0.45);
+  }
+
+  /** O Pokémon cresce, fica vermelho, o HP dobra */
+  async fazerDynamax(who) {
+    const mon = who === "p" ? this.mine : this.foe;
+    if (!dynamaxar(mon)) return;
+    this.dyUsado[who] = true;
+    const giganta = !!mon.gmaxDe;   // tomou a SOPA MAX: virou a forma GIGANTAMAX (src/systems/dynamax.js)
+    const quem = who === "p" ? "VOCÊ" : (this.trainer?.name || "O INIMIGO");
+    await this.say(`${quem} CHAMOU ${mon.nickname} DE VOLTA PRA BOLA... A BOLA FICOU GIGANTE!`);
+    this.sp[who].dyAlvo = (this.sp[who].escala || 1) * DYNAMAX.escala;
+    this.flash = 0.7; this.shake = 0.5;
+    Audio2.tone(110, 0.4, "sawtooth", 0.5); Audio2.tone(82, 0.6, "sawtooth", 0.5);
+    await this.wait(0.8);
+    this.disp[who] = mon.hp;
+    await this.say(giganta ? `${mon.nickname} GIGANTAMAXOU!` : `${mon.nickname} DYNAMAXOU!`);
+  }
+
+  /** acabou o tempo (ou saiu da luta): volta ao tamanho normal */
+  async acabarDynamax(who, falar = true) {
+    const mon = who === "p" ? this.mine : this.foe;
+    if (!desdynamaxar(mon)) return;
+    this.sp[who].dyAlvo = (this.sp[who].escala || DYNAMAX.escala) / DYNAMAX.escala;
+    this.disp[who] = mon.hp;
+    if (falar) { Audio2.tone(330, 0.2, "triangle", 0.4); await this.say(`${mon.nickname} VOLTOU AO TAMANHO NORMAL!`); }
+  }
+
   /** Os cristais que servem AGORA: você tem o cristal, e o bicho na frente sabe
    *  um golpe daquele tipo. Ter o cristal sem o golpe não serve de nada. */
   cristaisAqui() {
@@ -875,7 +947,9 @@ export class BattleScene {
   async fazerMega(who, regra, anel = true) {
     const M = DB.STORY.mega;
     const mon = who === "p" ? this.mine : this.foe;
-    if (anel) await this.say(M.reagem.replace("{PEDRA}", regra.pedra.toUpperCase()));
+    const troca = (t) => t.replace("{PEDRA}", regra.pedra.toUpperCase()).replace("{MON}", mon.nickname);
+    if (anel && regra.emprestada) { await this.say(troca(M.reagemErrada)); await this.say(troca(M.puxaErrada)); }
+    else if (anel) await this.say(M.reagem.replace("{PEDRA}", regra.pedra.toUpperCase()));
     // a cutscene da MEGA (src/scenes/mega.js); a do MISSINGNO, sem anel, não
     // tem — ele não mega evolui, ele se sobrescreve
     if (anel) await tocarMega(this.game, mon, regra.to);
@@ -889,7 +963,7 @@ export class BattleScene {
     if (anel) Audio2.heal(); else { Audio2.glitch(); Glitch.hit(2.5); }
     await this.wait(0.45);
     this.disp[who] = mon.hp;
-    await this.say(M.evoluiu.replace("{MON}", mon.nickname).replace("{FORMA}", r.forma));
+    await this.say((regra.emprestada ? troca(M.evoluiuErrada) : M.evoluiu.replace("{MON}", mon.nickname)).replace("{FORMA}", r.forma));
   }
 
   /** O FENÔMENO DE VÍNCULO: a água (CAIO) ou o rosa (LARA) sobe em volta
@@ -1192,6 +1266,11 @@ export class BattleScene {
 
   async endOfTurn() {
     await this.passaTurnoDoPokebloco();
+    // O DYNAMAX dura 3 turnos
+    for (const who of ["p", "f"]) {
+      const mon = who === "p" ? this.mine : this.foe;
+      if (mon?.dynamax && --mon.dynamax.turnos <= 0) await this.acabarDynamax(who);
+    }
     // O TEMPORAL: o dono saiu ou caiu, a chuva passa; senão, ela bate nos outros
     const T = DB.CLIMA_TEXTO;
     if (this.temporal && !this.temporalAtivo()) {
@@ -1371,6 +1450,14 @@ export class BattleScene {
         await this.say(DB.BRAGLITCH_TEXTO.insignia.replace("{NOME}", b ? b.name : "INSÍGNIA"));
         this.st.flags.encaixePendente = bb;        // o ENCAIXE no estojo (src/scenes/encaixe.js), na volta pro mapa
       }
+      // AS INSÍGNIAS DE JOHTO (src/data/johto.js) também moram à parte
+      const jb = this.trainer.johtoBadge;
+      if (jb && !(this.st.johtoBadges ||= []).includes(jb)) {
+        this.st.johtoBadges.push(jb);
+        const b = (DB.INSIGNIAS_JOHTO || []).find((x) => x.id === jb);
+        Audio2.heal();
+        await this.say(`VOCÊ RECEBEU A ${b ? b.name : "INSÍGNIA"}!`);
+      }
       // AS INSÍGNIAS SECRETAS (a do VOID, src/data/void.js) não contam pra
       // história de lado nenhum: ficam numa flag, só de quem achou
       const sec = this.trainer.insigniaSecreta;
@@ -1542,6 +1629,99 @@ export class BattleScene {
     else if (n === precisa) await this.say([`O CUBO TEM ${precisa} CÉLULAS! ELE ESTÁ PULSANDO...`, "PARECE QUE ELAS QUEREM IR PRA ALGUM LUGAR. LÁ PRO TÚNEL ROCHA!"]);
     else await this.say(`O CUBO JÁ TEM ${n} CÉLULAS.`);
     await this.finish();
+  }
+
+  /** O CURTO-CIRCUITO EXPLOSIVO DE PIXELS (o golpe Z da MONSTELA, ideia do
+   *  CAIO): 1) ela recolhe braços e pernas e vira só um monitor; 2) na tela
+   *  preta acende um Wi-Fi de pixels azuis com as 4 barrinhas; 3) as barrinhas
+   *  caem, 3... 2... 1..., com estática e rachadura; 4) sem sinal: ERRO
+   *  vermelho e o curto-circuito por dentro; 5) BUM! uma explosão de pixels que
+   *  cobre a tela, e ela volta. Quem desenha é `desenharMonstelium`. */
+  async cenaMonstelium() {
+    this.zMonst = { ini: this.t };
+    const tom = (f, d, tipo = "square", v = 0.4, em = 0) => setTimeout(() => Audio2.tone(f, d, tipo, v), em);
+    tom(660, 0.12, "triangle", 0.4); tom(440, 0.12, "triangle", 0.4, 300);              // recolhendo
+    [523, 587, 659, 784].forEach((f, i) => tom(f, 0.08, "square", 0.35, 900 + i * 220));   // o Wi-Fi enchendo
+    [784, 587, 440, 330].forEach((f, i) => tom(f, 0.1, "sawtooth", 0.35, 2050 + i * 340));  // as barrinhas caindo
+    tom(110, 0.6, "sawtooth", 0.5, 3450); setTimeout(() => Audio2.noise(0.6, 0.5), 3500); // ERRO
+    setTimeout(() => { Audio2.noise(0.9, 0.8); Glitch.hit(2.5); this.shake = 0.6; }, 4250); // BUM!
+    await this.wait(5.4);
+    this.zMonst = null;
+    this.sp.p.alpha = 1;
+  }
+
+  desenharMonstelium(ctx) {
+    const t = this.t - this.zMonst.ini;
+    const cx = 120, cy = 58;                 // o monitor vai pro meio da tela
+    // 1) RECOLHIMENTO: ela some do lugar dela e o monitor cresce do lugar dela pro meio
+    this.sp.p.alpha = t < 0.8 ? 1 - t / 0.8 : t > 5 ? 1 : 0;
+    const k = Math.min(1, t / 0.8), mx = 46 + (cx - 46) * k, my = 80 + (cy - 80) * k;
+    const mw = Math.round(20 + 40 * k), mh = Math.round(16 + 30 * k);
+    if (t < 4.25) {
+      const tremor = t > 3.4 ? Math.round(Math.sin(t * 80) * 2) : 0;
+      const x0 = Math.round(mx - mw / 2) + tremor, y0 = Math.round(my - mh / 2);
+      // a moldura e a tela preta
+      ctx.fillStyle = "#202028"; ctx.fillRect(x0 - 3, y0 - 3, mw + 6, mh + 6);
+      ctx.fillStyle = "#6a6a78"; ctx.fillRect(x0 - 2, y0 - 2, mw + 4, mh + 4);
+      ctx.fillStyle = "#08080c"; ctx.fillRect(x0, y0, mw, mh);
+      ctx.fillStyle = "#6a6a78"; ctx.fillRect(Math.round(mx - 4) + tremor, y0 + mh + 2, 8, 4);
+      const px = (x, y, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), 2, 2); };
+      if (t >= 0.8 && t < 3.4) {
+        // 2) O WI-FI: 4 arcos de pixels azuis + o pontinho; 3) caem de um em um
+        let barras = 4;
+        if (t < 2.0) barras = Math.min(4, Math.floor((t - 0.8) / 0.22) + 1);
+        else barras = Math.max(0, 4 - Math.floor((t - 2.05) / 0.34) - 1);
+        if (t >= 2.0 && t < 2.05) barras = 4;
+        const bx = cx + tremor, by = cy + 12;
+        px(bx - 1, by - 1, "#9ad8ff");
+        for (let b = 1; b <= 4; b++) {
+          const r = b * 6, acesa = b <= barras;
+          const pisca = t > 2.0 && b === barras + 1 && Math.floor(t * 20) % 2;
+          for (let a = -2.36; a <= -0.78; a += 0.26 / b) {
+            px(bx + Math.cos(a) * r - 1, by + Math.sin(a) * r - 1, acesa ? (b % 2 ? "#40a8ff" : "#7cc8ff") : pisca ? "#ffffff" : "#1a2238");
+          }
+        }
+        if (t >= 2.0) {
+          // a contagem e a estática em volta
+          const n = Math.max(1, 3 - Math.floor((t - 2.05) / 0.45));
+          drawText(ctx, `${n}...`, x0 + 2, y0 + 2, "#ffd166");
+          for (let i = 0; i < 40; i++) {
+            const a = Math.random() * Math.PI * 2, r = 30 + Math.random() * 22;
+            ctx.fillStyle = ["#ffffff", "#ffd166", "#ff5d8f", "#40a8ff"][i % 4];
+            ctx.fillRect(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r * 0.7), 1, 1);
+          }
+          // a rachadura crescendo na tela
+          const rach = Math.min(1, (t - 2.0) / 1.4);
+          ctx.strokeStyle = "#c8c8d8"; ctx.lineWidth = 1; ctx.beginPath();
+          ctx.moveTo(x0 + mw * 0.7, y0); ctx.lineTo(x0 + mw * 0.6, y0 + mh * 0.35 * rach);
+          ctx.lineTo(x0 + mw * 0.75, y0 + mh * 0.6 * rach); ctx.lineTo(x0 + mw * 0.65, y0 + mh * rach); ctx.stroke();
+        }
+      }
+      if (t >= 3.4) {
+        // 4) O CURTO-CIRCUITO: ERRO vermelho piscando e raios por dentro
+        if (Math.floor(t * 12) % 2) { ctx.fillStyle = "#a01010"; ctx.fillRect(x0, y0, mw, mh); }
+        drawText(ctx, "ERRO!", Math.round(mx - 15) + tremor, Math.round(my - 4), "#ff4040", { shadow: "#000000" });
+        ctx.strokeStyle = "#fff27a"; ctx.lineWidth = 1;
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath(); let x = x0 + Math.random() * mw, y = y0;
+          ctx.moveTo(x, y);
+          while (y < y0 + mh) { x += (Math.random() - 0.5) * 10; y += 4 + Math.random() * 4; ctx.lineTo(x, Math.min(y, y0 + mh)); }
+          ctx.stroke();
+        }
+      }
+    } else if (t < 5.4) {
+      // 5) BUM!: um cogumelo de pixels coloridos crescendo até cobrir tudo
+      const e = (t - 4.25) / 1.15;
+      ctx.fillStyle = `rgba(255,255,255,${Math.max(0, 1 - e * 2)})`; ctx.fillRect(0, 0, 240, 160);
+      const cores = ["#ffffff", "#40a8ff", "#ff5d8f", "#ffd166", "#7cff9a", "#b070ff"];
+      for (let i = 0; i < 260; i++) {
+        const a = (i * 2.399) % (Math.PI * 2), r = e * (40 + (i % 13) * 14);
+        const lado = 2 + (i % 4);
+        ctx.fillStyle = cores[i % cores.length];
+        ctx.fillRect(Math.round(cx + Math.cos(a) * r * 1.4), Math.round(cy + Math.sin(a) * r * 0.9 - e * 20), lado, lado);
+      }
+      if (e < 0.6) drawText(ctx, "BUM!", 108, 54, "#ffffff", { shadow: "#b070ff" });
+    }
   }
 
   /** Liga a GLITCHFORM em quem está na frente: daqui pra frente o dano que ele
@@ -2028,6 +2208,7 @@ export class BattleScene {
     for (const m of [...this.st.party, ...this.foeParty]) desfazerTransformacao(m);
     // a MEGA dura só a batalha: ninguém sai daqui megado (nem o save)
     this.foeParty.forEach(reverterMega);
+    for (const m of [...this.st.party, ...this.foeParty]) desdynamaxar(m);   // o DYNAMAX também
     reverterTudo(this.st);
     limparTudo(this.st);          // o bug do GLITCHBOOSTER dura só esta batalha
     // e o do CHEFE some junto. Sem isto, capturar um chefe de GLITCH RAID
@@ -2086,6 +2267,14 @@ export class BattleScene {
         if (susto) { this.shake = 0.45; this.flash = 0.55; Glitch.hit(2.5); Audio2.glitch(); }
         else Audio2.tone(196, 0.22, "triangle", 0.5);
       }
+    }
+    // o DYNAMAX crescendo (ou voltando)
+    for (const k of ["p", "f"]) {
+      const sp = this.sp[k];
+      if (sp?.dyAlvo == null) continue;
+      const e = sp.escala || 1;
+      sp.escala = e + (sp.dyAlvo - e) * Math.min(1, dt * 5);
+      if (Math.abs(sp.escala - sp.dyAlvo) < 0.01) { sp.escala = sp.dyAlvo; sp.dyAlvo = null; }
     }
     this.flash = Math.max(0, this.flash - dt * 1.6);
     if (this.tOut > 0 && this.tOut < 1) this.tOut = Math.min(1, this.tOut + dt * 4);
@@ -2168,6 +2357,7 @@ export class BattleScene {
       const move = (d) => { m.index = (m.index + d + 4) % 4; Audio2.blip(); };
       this.tentarArmarMega();
       this.tentarArmarZ();
+      this.tentarArmarDynamax();
       if (Input.consume("up")) move(-2);
       if (Input.consume("down")) move(2);
       if (Input.consume("left")) move(-1);
@@ -2206,6 +2396,7 @@ export class BattleScene {
       const move = (d) => { m.index = (m.index + d + n) % n; Audio2.blip(); };
       this.tentarArmarMega();
       this.tentarArmarZ();
+      this.tentarArmarDynamax();
       if (Input.consume("up")) move(-2);
       if (Input.consume("down")) move(2);
       if (Input.consume("left")) move(-1);
@@ -2418,6 +2609,7 @@ export class BattleScene {
           ctx.fillStyle = g;
           ctx.fillRect(122, -12, 112, 104);
         }
+        if (this.foe.dynamax && !this.sp.f.faint) this.auraDynamax(ctx, 178, 44, 58, !!this.foe.gmaxDe);
         // animado, ele já se mexe sozinho: o sobe-e-desce é só de quem é parado
         const fa = !this.foe.transformado && Assets.monAnim(this.foe, false, this.t * 1000 + 500);
         const fbase = this.foe.transformado ? Assets.caraDeDitto(Assets.comCor(fimg, this.foe), this.foe.species) : Assets.comCor(fimg, this.foe);
@@ -2447,6 +2639,7 @@ export class BattleScene {
         ctx.lineWidth = 2;
         ctx.beginPath(); ctx.ellipse(46, 104, 20 + fase * 30, 6 + fase * 8, 0, 0, Math.PI * 2); ctx.stroke();
       }
+      if (this.mine.dynamax && !this.sp.p.faint) this.auraDynamax(ctx, 46, 82, 58, !!this.mine.gmaxDe);
       // o SEU DITTO transformado vira DE FRENTE pra você: dá pra ver a carinha de DITTO
       const dittoMeu = !!this.mine.transformado;
       // a sua FUSÃO também fica DE FRENTE pra você (pedido do CAIO): a montagem
@@ -2489,6 +2682,7 @@ export class BattleScene {
     ctx.restore();
 
     if (this.habPops?.length) this.drawHabPops(ctx);
+    if (this.zMonst) this.desenharMonstelium(ctx);
 
     if (!this.dlg.active && !this.dlg.choice) {
       if (this.menu) this.drawMenu(ctx);
@@ -2647,11 +2841,18 @@ export class BattleScene {
   }
 
   statusBox(ctx, x, y, mon, disp, showHp) {
-    const w = showHp ? 112 : 100;
-    const h = showHp ? 40 : 30;
-    panel(ctx, x, y, w, h);
     const marca = mon.luminoso ? "☼" : mon.shiny ? "*" : "";
-    drawText(ctx, marca + mon.nickname.slice(0, 10), x + 6, y + 5,
+    // NOME COMPRIDO (COELHATRASADO, BRIGADEIRINHO...): em vez de cortar em 10
+    // letras, a caixa cresce o que precisar (até 6 letras a mais). A do
+    // adversário (em cima, à esquerda) cresce pra direita; a sua (embaixo, à
+    // direita) cresce pra esquerda, pra não sair da tela.
+    const nome = marca + mon.nickname.slice(0, 16);
+    const extra = Math.min(6, Math.max(0, [...nome].length - 10)) * 6;
+    const w = (showHp ? 112 : 100) + extra;
+    const h = showHp ? 40 : 30;
+    if (x > 100) x -= extra;
+    panel(ctx, x, y, w, h);
+    drawText(ctx, nome, x + 6, y + 5,
       mon.luminoso ? "#fff3b0" : mon.shiny ? "#d8a828" : mon.corrupt ? PAL.glitch : PAL.ink);
     // o "M" é da MEGA; as formas de batalha (CARDUME, HERÓI) usam o mesmo
     // caminho e não são MEGA
@@ -2777,7 +2978,9 @@ export class BattleScene {
     if (!megas.length) return;
     const armada = this.megaArmada;
     // CHARIZARD e MEWTWO têm duas formas: o X/Y do fim do nome vira a marca
-    const marca = armada ? (/ [XY]$/.test(armada.nome) ? armada.nome.slice(-1) : "ON") : "C";
+    // a MEGA EMPRESTADA mostra o começo da pedra (BLA = blastoisita)
+    const marca = armada ? (armada.emprestada ? armada.pedra.slice(0, 3).toUpperCase()
+      : / [XY]$/.test(armada.nome) ? armada.nome.slice(-1) : "ON") : "C";
     if (compacto) {                       // uma linha só (cabe no menu principal)
       const txt = `MEGA ${marca}`;
       if (armada) { ctx.fillStyle = PAL.glitch; ctx.fillRect(x - 2, y - 2, txt.length * 6 + 3, 12); }
@@ -2837,6 +3040,7 @@ export class BattleScene {
       });
       this.marcaMega(ctx, 10, 146, true);
       if (this.zArmado) drawText(ctx, "Z!", 92, 146, "#ffd166", { shadow: "#7a4a10" });
+      if (this.dyArmado) drawText(ctx, "MAX!", 60, 146, "#ff4060", { shadow: "#5a0010" });
       return;
     }
     if (m.type === "moves") {

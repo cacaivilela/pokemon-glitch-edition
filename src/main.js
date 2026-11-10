@@ -38,7 +38,7 @@ import { NascerScene } from "./scenes/nascer.js";
 import { FusionScene } from "./scenes/fusion.js";
 import { reverterTudo } from "./systems/mega.js";
 import { minutosDaFase } from "./systems/ciclo.js";
-import { registrarDoEstado } from "./systems/fusao.js";
+import { registrarDoEstado, garantirEspecie } from "./systems/fusao.js";
 import { Online } from "./systems/online.js";
 import { carregarDLC, aplicarDLC, ligarDoLink } from "./systems/dlc.js";
 import { lerCodigo as lerPokesave, criarPokesave, folhaDoJogador } from "./systems/pokesave.js";
@@ -414,9 +414,13 @@ function addMons(state, spec) {
   for (const item of String(spec).split(",")) {
     const [id, lvl, extra] = item.trim().split(":");   // pidgey:8:alfa -> ALFA
     if (!DB.SPECIES[id]) { console.warn("[give] espécie desconhecida:", id); continue; }
-    const mon = createMon(id, Math.max(1, Math.min(100, +lvl || 5)), { alfa: extra === "alfa" });
+    // pidgey:8:shiny / :luminoso / :alfa / :shinyalfa (o JUNTAR do DECODIFICADOR)
+    const marcas = ["alfa", "shiny", "luminoso", "shinyalfa"];
+    const mon = createMon(id, Math.max(1, Math.min(100, +lvl || 5)), {
+      alfa: /alfa/.test(extra || "") && marcas.includes(extra),
+      shiny: /^shiny/.test(extra || ""), luminoso: extra === "luminoso" });
     // blastoise:70:surfar+hidrobomba -> já com esses golpes
-    const golpes = extra && extra !== "alfa" ? extra.split("+").filter((g) => DB.MOVES[g]).slice(0, 4) : [];
+    const golpes = extra && !marcas.includes(extra) ? extra.split("+").filter((g) => DB.MOVES[g]).slice(0, 4) : [];
     if (golpes.length) mon.moves = golpes.map((g) => ({ id: g, pp: DB.MOVES[g].pp, ppMax: DB.MOVES[g].pp }));
     (state.party.length < 6 ? state.party : state.box).push(mon);
     state.seen[id] = true;
@@ -488,6 +492,16 @@ if (q.has("segurar") && !q.has("map")) {
 // cassino pra testar o balcão de prêmios
 if (q.has("paintball") && !q.has("map")) {
   for (const [k, v] of [["map", "celadon_city"], ["x", "11"], ["y", "15"], ["dir", "up"], ["starter", "pikachu:20"], ["party", "squirtle:20"]]) if (!q.has(k)) q.set(k, v);
+}
+// ?superpawmot=1 -> no SEU QUARTO, já jogando o SUPER PAWMOT no NINTENDO SWITCH
+if (q.has("superpawmot") && !q.has("map")) {
+  for (const [k, v] of [["map", "quarto"], ["x", "6"], ["y", "6"], ["dir", "up"]]) if (!q.has(k)) q.set(k, v);
+}
+// ?canhaomax=1 -> em SAFFRON, de frente pra PESQUISADORA DO DYNAMAX, já com a
+// PULSEIRA: ela abre o CANHÃO DE RAIOS (src/scenes/canhaomax.js) e faz SOPA MAX.
+// &cogumelos=N -> já com N COGUMELOS MAX
+if (q.has("canhaomax") && !q.has("map")) {
+  for (const [k, v] of [["map", "saffron_city"], ["x", "23"], ["y", "16"], ["dir", "up"], ["starter", "pikachu:35"]]) if (!q.has(k)) q.set(k, v);
 }
 // ?cores=1 -> AS CORES TRAVADAS: em Viridian, de frente pra CAÇADORA DE CORES,
 // com um CHARMANDER N15 e Poké Bolas (o PIKACHU SHINY fica na ROTA 2, oeste)
@@ -579,11 +593,15 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
   game.newGame(GEMEO_TESTE || AMIGOS_TESTE || LIGA_TESTE != null || q.get("regiao") === "braglitch" ? "braglitch" : undefined, q.get("genero") || undefined, q.get("dificuldade") || undefined);
   {
     // &starter=pikachu:50:alfa -> o terceiro pedaço "alfa" faz ele ALFA
-    const [sid, slvl, sextra] = (q.get("starter") || "charmander").split(":");
+    let [sid, slvl, sextra] = (q.get("starter") || "charmander").split(":").map((x) => x.trim().toLowerCase());
+    // espécie que não existe (escrita com espaço, "PIKACHU", "pikachu nv"...)
+    // quebrava o jogo inteiro no createMon: avisa e vai de CHARMANDER
+    if (!DB.SPECIES[sid]) { console.warn("[starter] espécie desconhecida:", sid, "— usando charmander"); sid = "charmander"; }
+    slvl = slvl && Math.max(1, Math.min(100, +slvl.replace(/\D/g, "") || 5));
     const mon = game.giveStarter(sid);
     if (sextra === "alfa") mon.alfa = true;
     // no nível pedido, e com os golpes desse nível (não os do 5)
-    if (slvl) { mon.level = +slvl; mon.moves = createMon(sid, +slvl).moves; recalc(mon); mon.hp = mon.maxHp; }
+    if (slvl) { mon.level = slvl; mon.xp = Math.floor(slvl ** 3); mon.moves = createMon(sid, slvl).moves; recalc(mon); mon.hp = mon.maxHp; }
     // atalho de dev: a POKÉDEX já vem na mão (o resto do laboratório não)
     game.state.flags.pokedex = true;
   }
@@ -788,6 +806,8 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
   }
   // ?missao=blacephalon-contra-deus -> essa side quest já aceita (pra testar o que ela destrava)
   if (q.has("fichas")) game.state.fichas = +q.get("fichas") || 0;
+  if (q.has("canhaomax")) game.state.items["pulseira dynamax"] = 1;
+  if (q.has("cogumelos")) game.state.items["cogumelo max"] = +q.get("cogumelos") || 0;
   // &reencontro=1 -> já com o RATICATE do AZUL revivido na equipe (é só falar com ele)
   if (q.has("reencontro") && !game.state.party.some((m) => m.doRival)) {
     (game.state.flags ||= {}).raticateRival = 2;
@@ -1022,6 +1042,11 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
     for (const pedra of Object.keys(DB.MEGA_PEDRAS || {})) game.state.items[pedra] = 1;
     game.state.flags.anelMega = true;
   }
+  if (q.get("megacom")) {   // ?megacom=aerodactylita -> anel + SÓ essa pedra (a MEGA EMPRESTADA)
+    game.state.items[DB.MEGA_ANEL] = 1;
+    for (const pedra of q.get("megacom").split(",")) if (DB.MEGA_PEDRAS?.[pedra.trim()]) game.state.items[pedra.trim()] = 1;
+    game.state.flags.anelMega = true;
+  }
   if (q.get("ovos")) {   // ?ovos=N -> N MYSTERY EGGS de cada tipo na mochila
     for (const ovo of Object.keys(DB.OVOS?.tipos || {})) game.state.items[ovo] = +q.get("ovos") || 1;
   }
@@ -1082,6 +1107,10 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
   if (q.has("battle")) {
     // &shiny=1 -> o selvagem vem SHINY (o brilho de quando ele aparece)
     // &spinda=branco|vermelho -> o SPINDA raro (DB.CONFIG.spindaRaros)
+    // espécie que não existe no jogo (ex.: CRAMORANT, que só está desenhado no
+    // CANHÃO DE RAIOS) quebrava tudo no createMon: avisa e luta com um RATTATA
+    { const id = q.get("battle").trim().toLowerCase();
+      if (!DB.SPECIES[id]) { console.warn("[battle] espécie desconhecida:", id, "— usando rattata"); q.set("battle", "rattata"); } else q.set("battle", id); }
     const raro = DB.CONFIG?.spindaRaros?.[q.get("spinda")];
     const foe = createMon(q.get("battle"), +(q.get("lvl") || 5), { shiny: q.has("shiny"), luminoso: q.has("luminoso"), alfa: q.has("alfa"), ...(raro ? { seed: raro.seed } : {}) });   // &alfa=1: alfa (olho vermelho)
     if (foe.alfa) { const g = golpeDeAlfa(foe); if (g) foe.moves[Math.min(3, foe.moves.length)] = { id: g, pp: DB.MOVES[g].pp, ppMax: DB.MOVES[g].pp }; }   // o GOLPE FORTE do alfa
@@ -1089,6 +1118,8 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
       const ids = q.get("foegolpes").split(",").map((g) => g.trim()).filter((g) => DB.MOVES[g]).slice(0, 4);
       if (ids.length) foe.moves = ids.map((id) => ({ id, pp: DB.MOVES[id].pp, ppMax: DB.MOVES[id].pp }));
     }
+    // &meu=fus-mimikyu-pikachu -> uma FUSÃO (cabeça-corpo) como o seu: a espécie dela é montada na hora
+    if (q.get("meu")?.startsWith("fus-")) garantirEspecie(q.get("meu"));
     // &meu=lucario&meunv=50 -> o primeiro da SUA equipe vira esse (no nível pedido; sem nível, o do selvagem)
     if (q.has("meu") && DB.SPECIES[q.get("meu")] && game.state.party) {
       const nv = +(q.get("meunv") || q.get("lvl") || 5);
@@ -1105,7 +1136,12 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
     if (q.has("meuluminoso") && meu) { meu.luminoso = true; meu.shiny = false; darClarao(meu); }
     // &meualfa=1 -> o primeiro da SUA equipe vira ALFA (olho vermelho, grito mais grosso)
     if (q.has("meualfa") && meu) meu.alfa = true;
-    const bs = game.scenes.push(new BattleScene(), { foe, glitch: q.get("battle").startsWith("missingno") });
+    // &dynamax=1 -> ganha a PULSEIRA DYNAMAX e a luta vale como de ginásio (V arma; o selvagem dynamaxa também)
+    if (q.has("dynamax") || q.has("gigantamax")) game.state.items["pulseira dynamax"] = 1;
+    // &gigantamax=1 -> os DOIS com a SOPA MAX tomada: quando dynamaxam, viram GIGANTAMAX
+    // (src/data/gigantamax.js). Ex.: ?battle=snorlax&lvl=50&starter=pikachu:100&gigantamax=1
+    if (q.has("gigantamax")) { foe.gmax = true; if (game.state.party[0]) game.state.party[0].gmax = true; }
+    const bs = game.scenes.push(new BattleScene(), { foe, glitch: q.get("battle").startsWith("missingno"), dyTeste: q.has("dynamax") || q.has("gigantamax") });
     bs.fadeA = 0; bs.fadeDir = 0;
   }
   if (q.get("debug")) game.debug = true;
@@ -1125,7 +1161,28 @@ if (q.has("trabalhos")) Promise.all([import("./scenes/trabalhos.js"), import("./
   });
 // ?fps=2000 -> o FPS das OPÇÕES (src/core/opcoes.js)
 if (q.get("fps")) Opcoes.set("fps", +q.get("fps"));
+// ?pokedex=1 -> abre direto a POKÉDEX (a que fala, com o desenho do CAIO no canto)
+// &dextudo=kanto -> (só com &perfil=, pra teste) marca os 151 de KANTO como vistos e pegos
+if (q.get("dextudo") === "kanto" && q.has("perfil")) {
+  for (const sp of Object.values(DB.SPECIES)) if (sp.dex >= 1 && sp.dex <= 151 && !sp.fusao) game.state.seen[sp.id] = game.state.caught[sp.id] = true;
+}
+// &dextudo=emprestadas -> (só com &perfil=) as 6 MEGAS EMPRESTADAS vistas e pegas, e abre na aba FORMAS
+const dexArgs = {};
+if (q.get("dextudo") === "emprestadas" && q.has("perfil")) {
+  const ids = Object.entries(DB.MEGAS_EMPRESTADAS || {}).flatMap(([p, quem]) => quem.map((s) => `fus-${s}-${DB.MEGA_PEDRAS[p]}`));
+  for (const id of ids) if (garantirEspecie(id)) game.state.seen[id] = game.state.caught[id] = true;
+  dexArgs.aba = "FORMAS";
+  dexArgs.especie = ids[0];
+}
+if (q.has("pokedex")) import("./scenes/pokedex.js").then((m) => { const C = Object.values(m).find((v) => typeof v === "function" && /Pokedex/i.test(v.name)); if (C) game.scenes.push(new C(), dexArgs); });
+// ?kart=1 -> abre o SUPER PAWMOT KART (o 3º jogo do Switch, src/scenes/kart.js)
+if (q.has("kart")) import("./scenes/kart.js").then(({ KartScene }) => game.scenes.push(new KartScene(), {}));
+// ?celeba=1 -> abre o THE LEGENDS OF CELEBI (o 2º jogo do Switch, src/scenes/celeba.js)
+if (q.has("celeba")) import("./scenes/celeba.js").then(({ CelebaScene }) => game.scenes.push(new CelebaScene(), {}));
+if (q.has("superpawmot")) import("./scenes/superpawmot.js").then(({ SuperPawmotScene }) => game.scenes.push(new SuperPawmotScene(), {}));
 // &camera=1 -> abre direto o álbum da CÂMERA do ROTOMFONE (src/scenes/fotos.js)
+// &camerareal=1 -> abre direto a FOTO DE VERDADE (webcam em pixel art + Pokémon, src/scenes/camerareal.js)
+if (q.has("camerareal")) import("./scenes/camerareal.js").then(({ CameraRealScene }) => game.scenes.push(new CameraRealScene(), {}));
 if (q.has("camera")) import("./scenes/fotos.js").then(({ FotosScene }) => game.scenes.push(new FotosScene(), q.get("fotos") === "lideres" ? { inicio: 0 } : {}));
 if (q.has("evolucao")) {
   const [de, para] = (q.get("evolucao") || "").split(":");
@@ -1158,6 +1215,7 @@ if (q.has("evolucao")) {
 // MEGA EVOLUÇÃO (src/scenes/mega.js), a mesma da batalha, com a frase no fim
 if (q.has("megacena")) {
   const [de, para] = (q.get("megacena") || "").split(":");
+  if (para?.startsWith("fus-")) garantirEspecie(para);   // a MEGA EMPRESTADA é uma fusão: nasce aqui
   const sid = DB.SPECIES[de] ? de : "charizard";
   const to = DB.SPECIES[para] ? para : DB.MEGAS?.[sid]?.[0]?.to;
   if (!(game.scenes.top instanceof OverworldScene)) {

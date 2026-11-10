@@ -46,18 +46,42 @@ export const POKEDEX_TEXTO = {
     "PROF. CARVALHO: BOA ESCOLHA! AGORA SIGA PELA ROTA 1.",
     "VIRIDIAN FICA AO NORTE. LÁ TEM CENTRO POKÉMON E LOJA.",
   ],
-  registrou: "{MON} FOI ANOTADO NA POKÉDEX: PEGO!",
+  registrou: "BZZT! {MON} ANOTADO NA POKÉDEX: PEGO!",
   abas: ["KANTO", "NACIONAL", "FORMAS"],
   vistos: "VISTOS",
   pegos: "PEGOS",
-  semDados: "CAPTURE PRA LER OS DADOS.",
+  semDados: "BZZT! PEGA ELE PRA EU LER OS DADOS!",
   paginas: ["DADOS", "ATRIBUTOS", "ONDE", "MISSÕES"],
   semLugar: "NÃO VIVE SOLTO EM LUGAR NENHUM QUE A POKÉDEX CONHEÇA.",
   ajudaLista: "C ABA  <> PULA 10  Z VER",
   ajudaFicha: "<> PÁGINA  ▲▼ OUTRO",
   // o professor falando pela Pokédex, quando um marco é passado
   professor: "PROF. CARVALHO (PELA POKÉDEX):",
-  mandou: "O PROFESSOR MANDOU {QTD} {ITEM}!",
+  // A POKÉDEX FALA (pedido do CAIO, 09/nov/2026: "faz as falas da pkdex serem tipo o
+  // rotom falando"). O desenho que aparece no canto é dele (assets/sprites/objetos/rotomdex_caio.png).
+  fala: {
+    oi: ["BZZT! VAMOS ACHAR MAIS POKÉMON!", "BZZT! ESCOLHE UM QUE EU TE CONTO!", "BZZT! EU ANOTO TUDO, VIU?"],
+    pegos: "BZZT! VOCÊ JÁ PEGOU {N}!",
+    pego: "BZZT! ESSE EU CONHEÇO BEM!",
+    visto: "BZZT! SÓ VI DE LONGE. PEGA ELE!",
+    nada: "BZZT! ESSE EU NUNCA VI...",
+  },
+  // as mesmas falas pra VOZ em inglês e espanhol (a tela continua em português)
+  falaEn: {
+    oi: ["BZZT! LET'S FIND MORE POKÉMON!", "BZZT! PICK ONE AND I'LL TELL YOU ALL ABOUT IT!", "BZZT! I WRITE EVERYTHING DOWN, YOU KNOW?"],
+    pegos: "BZZT! YOU'VE ALREADY CAUGHT {N}!",
+    pego: "BZZT! I KNOW THIS ONE REALLY WELL!",
+    visto: "BZZT! I ONLY SAW IT FROM FAR AWAY. CATCH IT!",
+    nada: "BZZT! I'VE NEVER SEEN THIS ONE...",
+  },
+  falaEs: {
+    oi: ["¡BZZT! ¡VAMOS A ENCONTRAR MÁS POKÉMON!", "¡BZZT! ¡ELIGE UNO Y TE CUENTO TODO!", "¡BZZT! YO LO ANOTO TODO, ¿SABES?"],
+    pegos: "¡BZZT! ¡YA ATRAPASTE {N}!",
+    pego: "¡BZZT! ¡ESTE LO CONOZCO MUY BIEN!",
+    visto: "¡BZZT! SOLO LO VI DE LEJOS. ¡ATRÁPALO!",
+    nada: "¡BZZT! ESTE NUNCA LO HE VISTO...",
+  },
+  mandou: "BZZT! O PROFESSOR MANDOU {QTD} {ITEM}!",
 };
 
 /** O PROFESSOR AVALIA. A cada marco de KANTO pegos, ele fala pela Pokédex e

@@ -175,9 +175,13 @@ const placaDaZona = (n) => `ZONA SELVAGEM ${n}\nPOKÉMON DO NÍVEL ${niveisDa(n)
 /** as do CENTRO: 1 e 2 embaixo (do lado do aeroporto), 3 e 4 em cima */
 const ZONAS = [zona(1, [0, 30, 10, 38]), zona(2, [37, 30, 47, 38]), zona(3, [0, 3, 10, 12]), zona(4, [37, 3, 47, 12])];
 
+const MEGAPEDRAS_NOVAS = ["raichita x", "raichita y", "dragonitita", "tyranitarita", "metagrossita", "garchompita", "garchompita z", "lucariita", "lucariita z", "greninjita", "gardevoirita", "salamencita", "scizorita", "ampharosita", "heracrossita", "houndoomita", "absolita", "absolita z", "blazikenita", "sceptilita", "swampertita", "mawilita", "aggronita", "medichamita", "manectricita", "banettita", "abomasnowita", "latiasita", "latiosita", "sableyita", "altariita", "galladita", "audinita", "sharpedita", "steelixita", "glaliita", "dianciita", "rayquazita", "cameruptita", "lopunnyita", "clefablita", "victreebelita", "starmiita", "meganiumita", "feraligatrita", "skarmoryita", "froslassita", "emboarita", "excadrillita", "scolipedita", "scraftyita", "eelektrossita", "chandelurita", "chesnaughtita", "delphoxita", "pyroarita", "malamarita", "barbaraclita", "dragalgita", "hawluchita", "zygardita", "drampita", "falinksita", "chimechita", "staraptorita", "heatranita", "darkraita", "golurkita", "meowsticita", "crabominablita", "golisopodita", "magearnita", "zeraorita", "scovillainita", "glimmorita", "tatsugirita", "baxcaliburita"];
 const LOJA = [
   { item: "poké bola", price: 200 }, { item: "great ball", price: 600 }, { item: "ultra ball", price: 1200 },
   { item: "poção", price: 300 },
+  // AS MEGAPEDRAS DE FORA DE KANTO (src/data/mega.js): GARDEVOIRITA, DARKRAITA...
+  // Elas também servem em bicho de outra espécie: é a MEGA EMPRESTADA.
+  ...MEGAPEDRAS_NOVAS.map((item) => ({ item, price: 10000 })),
 ];
 
 // ------------------------------------------------------------ a Z-A ROYALE
@@ -453,7 +457,7 @@ export const AVIAO = {
   fechado: ["VIAJAR SEM NENHUM POKÉMON? NEM PENSAR! PEGA O SEU PRIMEIRO E VOLTA AQUI."],
   indo: (nome) => [`APERTEM OS CINTOS! DESTINO: ${nome}.`],
   chegou: (nome) => [`(O AVIÃO POUSOU. BEM-VINDO A ${nome}!)`],
-  piloto: ["EU SOU PILOTO DA LINHA KANTO-BRAGLITCH-KALOS.", "O AVIÃO TÁ PRONTO. QUER VOAR?"],
+  piloto: ["EU SOU PILOTO DA LINHA KANTO-BRAGLITCH-KALOS-ALOLA.", "O AVIÃO TÁ PRONTO. QUER VOAR?"],
 };
 
 /** O piloto em Kanto e em Braglitch: do lado do Centro Pokémon. Chamado no fim

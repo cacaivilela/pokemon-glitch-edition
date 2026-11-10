@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Marcar as Cores</title>
+<!-- MARCAR AS CORES DA FUSÃO (pedido do CAIO, 07/nov/2026): o jeito do Japeal,
+     que dá as fusões automáticas do Infinite Fusion — cada Pokémon tem 3 CORES,
+     cada uma com até 5 TONS, escolhidos à mão. Na fusão, o tom 1 da cor 1 do
+     corpo vira o tom 1 da cor 1 da cabeça, e assim vai (src/systems/montagem.js,
+     repintarExato). Quem não tem marca usa as cores automáticas.
+     SALVAR manda tudo pro dev_server: dev/captures/cores_fusao.log (o jogo lê).
+     ?n=25 abre direto num sprite. -->
+<style>
+  body { margin: 0; background: #1b2030; color: #eef2ff; font: 15px system-ui, sans-serif; }
+  header { padding: 10px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0; color: #ffd860; }
+  main { display: flex; gap: 16px; padding: 0 16px 16px; flex-wrap: wrap; align-items: flex-start; }
+  canvas { image-rendering: pixelated; border: 3px solid #000; background: #fff; }
+  #tela { cursor: crosshair; }
+  button { background: #3a4466; color: #eef2ff; border: 0; border-radius: 8px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
+  button:hover { background: #4a5680; }
+  button.on { background: #e8a820; color: #000; }
+  .caixa { background: #262d42; border-radius: 10px; padding: 10px; min-width: 260px; max-width: 420px; }
+  .grupo { display: flex; align-items: center; gap: 6px; margin: 6px 0; padding: 6px; border-radius: 8px; cursor: pointer; }
+  .grupo.on { background: #3a4466; outline: 2px solid #e8a820; }
+  .grupo b { width: 64px; }
+  .tom { width: 34px; height: 34px; border: 2px solid #000; border-radius: 6px; cursor: pointer; }
+  .tom.vazio { background: repeating-linear-gradient(45deg, #333 0 4px, #444 4px 8px); cursor: default; }
+  #msg { font-weight: bold; }
+  input { width: 160px; padding: 6px; border-radius: 6px; border: 0; }
+  #lista { max-height: 200px; overflow: auto; display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  #lista span { background: #2a6a3a; padding: 2px 6px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+  .prev { display: flex; gap: 10px; flex-wrap: wrap; }
+  .prev div { text-align: center; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎨 MARCAR AS CORES</h1>
+  <button id="ant">◀ ANTERIOR</button>
+  <button id="prox">PRÓXIMO ▶</button>
+  <input id="busca" placeholder="nome ou número">
+  <button id="ir">IR</button>
+  <button id="salvar">💾 SALVAR</button>
+  <span id="msg"></span>
+</header>
+<main>
+  <canvas id="tela" width="576" height="576"></canvas>
+  <div class="caixa">
+    <div id="nome" style="font-size:20px;color:#ffd860"></div>
+    <p>1. ESCOLHA A <b>COR 1, 2 ou 3</b>.<br>2. CLIQUE NO POKÉMON nos tons dessa cor (até 5).<br>
+       Clicar num quadradinho TIRA o tom.<br>
+       COR 1 = a cor principal. COR 2 e 3 = as outras.</p>
+    <div id="grupos"></div>
+    <p>
+      <button id="auto">✨ AUTOMÁTICO</button>
+      <button id="limpa">🧹 LIMPAR</button>
+      <label><input type="checkbox" id="mostrar" style="width:auto"> MOSTRAR O QUE PEGOU</label>
+    </p>
+    <p><b>TESTE:</b> fundir com <input id="outro" value="pikachu" style="width:110px"> <button id="testar">VER</button></p>
+    <div class="prev">
+      <div><canvas id="pv1" width="192" height="192"></canvas><br>ELE = CABEÇA</div>
+      <div><canvas id="pv2" width="192" height="192"></canvas><br>ELE = CORPO</div>
+    </div>
+    <p style="font-size:12px;opacity:.8">VERDE = JÁ MARCADO</p>
+    <div id="lista"></div>
+  </div>
+</main>
+<script type="module">
+import { DB } from "/src/data/index.js";
+import { CARA_DITTO, CARAS_FUSAO } from "/src/core/assets.js";
+import { montarFusaoCara, paletaExata, jeitoDePintar } from "/src/systems/montagem.js";
+jeitoDePintar("puro");
+const tela = document.getElementById("tela"), g = tela.getContext("2d");
+const ESC = 6, MAX = 5;
+const nums = [...new Set(Object.values(DB.SPECIES).filter((s) => s.dex > 0 && s.dex <= 1025 && !s.fusao && (s.spriteDex || s.dex) === s.dex).map((s) => s.dex))].sort((a, b) => a - b);
+const nome = new Map(); for (const s of Object.values(DB.SPECIES)) if (s.dex > 0 && !nome.has(s.dex)) nome.set(s.dex, s.name);
+let cores = {};
+try { cores = JSON.parse(localStorage.getItem("cores_fusao") || "{}"); } catch {}
+for (const arq of ["/src/data/cores-fusao.json", "/dev/captures/cores_fusao.log"]) {
+  try { const r = await fetch(arq + "?t=" + Date.now()); if (r.ok) cores = { ...JSON.parse(await r.text() || "{}"), ...cores }; } catch {}
+}
+let idx = 0, img = null, W = 96, H = 96, pix = null, grupo = 0, atual = [[], [], []];
+const q = new URLSearchParams(location.search);
+if (q.get("n")) idx = Math.max(0, nums.indexOf(+q.get("n")));
+
+const hex = (r, g, b) => [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
+const luz = (h) => { const v = parseInt(h, 16); return 0.299 * (v >> 16) + 0.587 * ((v >> 8) & 255) + 0.114 * (v & 255); };
+const ordena = () => atual.forEach((gr) => gr.sort((a, b) => luz(a) - luz(b)));
+const carregar = (src) => new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = src; });
+const spriteDe = (n) => carregar(`/assets/sprites/pokemon/${String(n).padStart(3, "0")}.png`);
+
+function guarda() {
+  const n = nums[idx];
+  ordena();
+  if (atual.some((gr) => gr.length)) cores[n] = atual.map((gr) => [...gr]); else delete cores[n];
+  try { localStorage.setItem("cores_fusao", JSON.stringify(cores)); } catch {}
+  lista(); grupos(); desenha(); testar();
+}
+
+function desenha() {
+  g.imageSmoothingEnabled = false;
+  g.fillStyle = "#fff"; g.fillRect(0, 0, tela.width, tela.height);
+  if (img) g.drawImage(img, 0, 0, W * ESC, H * ESC);
+  if (!document.getElementById("mostrar").checked || !pix) return;
+  // mostra o que cada cor pegou: o resto fica apagadinho
+  const marca = new Map(); atual.forEach((gr, i) => gr.forEach((h) => marca.set(h, i)));
+  const linha = ["#ff2020", "#20a0ff", "#20d040"];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4; if (pix[i + 3] < 40) continue;
+    const m = marca.get(hex(pix[i], pix[i + 1], pix[i + 2]));
+    if (m === undefined) { g.fillStyle = "rgba(255,255,255,0.75)"; g.fillRect(x * ESC, y * ESC, ESC, ESC); }
+    else { g.strokeStyle = linha[m]; g.lineWidth = 1; g.strokeRect(x * ESC + 0.5, y * ESC + 0.5, ESC - 1, ESC - 1); }
+  }
+}
+
+function grupos() {
+  const caixa = document.getElementById("grupos"); caixa.innerHTML = "";
+  atual.forEach((gr, i) => {
+    const d = document.createElement("div"); d.className = "grupo" + (i === grupo ? " on" : "");
+    d.innerHTML = `<b>COR ${i + 1}</b>`;
+    d.onclick = () => { grupo = i; grupos(); };
+    for (let t = 0; t < MAX; t++) {
+      const s = document.createElement("div");
+      if (gr[t]) {
+        s.className = "tom"; s.style.background = "#" + gr[t]; s.title = "clique pra tirar";
+        s.onclick = (e) => { e.stopPropagation(); gr.splice(t, 1); guarda(); };
+      } else s.className = "tom vazio";
+      d.appendChild(s);
+    }
+    caixa.appendChild(d);
+  });
+}
+
+async function abrir(i) {
+  idx = (i + nums.length) % nums.length;
+  const n = nums[idx];
+  document.getElementById("nome").textContent = `#${n} ${nome.get(n) || ""}` + (cores[n] ? " ✅" : " (automático)");
+  img = await spriteDe(n);
+  W = img?.width || 96; H = img?.height || 96;
+  tela.width = W * ESC; tela.height = H * ESC;
+  if (img) { const c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d"); x.drawImage(img, 0, 0); pix = x.getImageData(0, 0, W, H).data; }
+  atual = cores[n] ? cores[n].map((gr) => [...gr]) : automatico();
+  while (atual.length < 3) atual.push([]);
+  grupo = 0; grupos(); desenha(); testar();
+}
+
+// o que o jogo escolheria sozinho (as 3 famílias e os 5 tons que mais aparecem)
+function automatico() {
+  if (!img) return [[], [], []];
+  const c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d"); x.drawImage(img, 0, 0);
+  const p = paletaExata(x.getImageData(0, 0, W, H));
+  const out = p.map((gr) => gr.map((k) => k.toString(16).padStart(6, "0")));
+  while (out.length < 3) out.push([]);
+  return out;
+}
+
+function lista() {
+  const caixa = document.getElementById("lista"); caixa.innerHTML = "";
+  for (const n of Object.keys(cores).map(Number).sort((a, b) => a - b)) {
+    const s = document.createElement("span"); s.textContent = `${n} ${nome.get(n) || ""}`;
+    s.onclick = () => abrir(nums.indexOf(n)); caixa.appendChild(s);
+  }
+}
+
+const achar = (t) => { t = String(t).trim().toUpperCase(); return +t || [...nome.entries()].find(([, v]) => v === t)?.[0] || [...nome.entries()].find(([, v]) => v.startsWith(t))?.[0]; };
+async function testar() {
+  const eu = nums[idx], ele = achar(document.getElementById("outro").value);
+  const pv = [document.getElementById("pv1"), document.getElementById("pv2")];
+  pv.forEach((c) => { const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); });
+  if (!ele) return;
+  const [a, b] = await Promise.all([spriteDe(eu), spriteDe(ele)]);
+  const meu = atual.some((gr) => gr.length) ? atual : null;
+  const pares = [[a, b, eu, ele, meu, cores[ele]], [b, a, ele, eu, cores[ele], meu]];
+  pares.forEach(([cab, cor, nc, nb, kc, kb], i) => {
+    const x = pv[i].getContext("2d"); x.imageSmoothingEnabled = false;
+    const f = cab && cor && montarFusaoCara(cab, cor, 64, CARA_DITTO[nc], CARA_DITTO[nb], CARAS_FUSAO[nc], { cabeca: kc, corpo: kb });
+    if (f) x.drawImage(f, 0, 0, 192, 192);
+    else { x.fillStyle = "#333"; x.font = "12px sans-serif"; x.fillText("falta a cara de ditto", 30, 96); }
+  });
+}
+
+const ponto = (e) => { const r = tela.getBoundingClientRect(); return [Math.floor((e.clientX - r.left) / (r.width / W)), Math.floor((e.clientY - r.top) / (r.height / H))]; };
+tela.onclick = (e) => {
+  if (!pix) return;
+  const [x, y] = ponto(e), i = (y * W + x) * 4;
+  if (pix[i + 3] < 40) return;
+  const h = hex(pix[i], pix[i + 1], pix[i + 2]);
+  // a mesma cor não pode estar em duas: sai de onde estava
+  atual.forEach((gr) => { const k = gr.indexOf(h); if (k >= 0) gr.splice(k, 1); });
+  if (atual[grupo].length >= MAX) { document.getElementById("msg").textContent = "⚠️ essa cor já tem 5 tons — tire um antes"; return; }
+  atual[grupo].push(h);
+  document.getElementById("msg").textContent = "";
+  guarda();
+};
+
+document.getElementById("auto").onclick = () => { atual = automatico(); guarda(); };
+document.getElementById("limpa").onclick = () => { atual = [[], [], []]; guarda(); };
+document.getElementById("mostrar").onchange = desenha;
+document.getElementById("testar").onclick = testar;
+document.getElementById("ant").onclick = () => abrir(idx - 1);
+document.getElementById("prox").onclick = () => abrir(idx + 1);
+addEventListener("keydown", (e) => { if (e.target.tagName === "INPUT") return; if (e.key === "ArrowRight") abrir(idx + 1); if (e.key === "ArrowLeft") abrir(idx - 1); });
+document.getElementById("ir").onclick = () => { const n = achar(document.getElementById("busca").value); if (n && nums.includes(n)) abrir(nums.indexOf(n)); };
+const msg = document.getElementById("msg");
+document.getElementById("salvar").onclick = async () => {
+  msg.textContent = "salvando...";
+  try {
+    const r = await fetch("/__capture", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "cores_fusao", dataUrl: "", log: JSON.stringify(cores) }) });
+    msg.textContent = r.ok ? `✅ SALVO! ${Object.keys(cores).length} Pokémon. Pode falar pro Claude.` : "❌ não salvou";
+  } catch { msg.textContent = "❌ não salvou (o servidor do jogo está ligado?)"; }
+};
+await new Promise((r) => setTimeout(r, 600));   // as caras de ditto chegando
+lista();
+abrir(idx);
+</script>
+</body>
+</html>

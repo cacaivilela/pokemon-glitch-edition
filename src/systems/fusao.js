@@ -190,7 +190,9 @@ export function montarEspecie(cabecaId, corpoId, variante = "", pernasId = "") {
   const cab = DB.SPECIES?.[cabecaId];
   const cor = DB.SPECIES?.[corpoId];
   const per = pernasId ? DB.SPECIES?.[pernasId] : null;
-  if (!cab || !cor || cab.mega || cor.mega || partes(cabecaId) || partes(corpoId)) return null;
+  // o CORPO pode ser uma MEGA: é a MEGA EMPRESTADA (src/systems/mega.js), que
+  // só existe dentro da luta. A cabeça nunca é mega.
+  if (!cab || !cor || cab.mega || (cor.mega && (pernasId || cor.megaDe === "missingno")) || partes(cabecaId) || partes(corpoId)) return null;
   if (pernasId && (!per || per.mega || partes(pernasId))) return null;
   const F = cfg();
   const id = idFusao(cabecaId, corpoId, variante, pernasId);
@@ -210,12 +212,25 @@ export function montarEspecie(cabecaId, corpoId, variante = "", pernasId = "") {
     lore: true,
     codigo: F.codigo(cab, cor) + (per ? ((per.dex || 0) % 256).toString(16).toUpperCase().padStart(2, "0") : ""),
     fusao: { cabeca: cabecaId, corpo: corpoId, variante, ...(per ? { pernas: pernasId } : {}) },
+    ...(cor.mega ? { mega: true, megaDe: cabecaId, megaEmprestada: corpoId } : {}),
   };
+  // MEGA EMPRESTADA: o nome é o bicho + a pedra (o CAIO: "vira charizard blastoisita")
+  if (cor.mega && !per) {
+    const pedra = (DB.MEGAS?.[cor.megaDe] || []).find((r) => r.to === corpoId)?.pedra;
+    if (pedra) sp.name = `${cab.name} ${pedra.toUpperCase()}`;
+    sp.dex = cab.dex || 0;                       // na aba FORMAS, junto do bicho dele
+    // o desenho feito à mão (assets/fusoes/emprestadas/), quando já existe
+    if ((DB.EMPRESTADAS_DESENHADAS || []).includes(id)) {
+      sp.spriteCustom = `assets/fusoes/emprestadas/${id}.png`;
+      sp.spriteCustomCostas = `assets/fusoes/emprestadas/${id}_costas.png`;
+    }
+  }
   // a página da Pokédex: as duas páginas misturadas (pedido do CAIO, nov/2026)
   sp.dexText = (!per && DEX_ESCRITOS[`${cabecaId}+${corpoId}`]) || misturarDex(cab, cor, per, sp.name) || String((per && F.dexText3) || F.dexText || "")
     .replace("{CABECA}", cab.name).replace("{CORPO}", cor.name).replace("{PERNAS}", per?.name || "");
   // sem variante vale a sua ficha (a da oficina, que mora no save); com
   // variante vale a ficha escrita no código
+  if (DB.EMPRESTADAS_DEX?.[id]) sp.dexText = DB.EMPRESTADAS_DEX[id];   // a página escrita da MEGA EMPRESTADA
   const ficha = variante ? fichaPronta(cabecaId, corpoId, variante, pernasId) : fichaDe(cabecaId, corpoId, pernasId);
   if (variante && !ficha) return null;          // variante que não existe mais
   return comFicha(sp, ficha);
@@ -358,6 +373,24 @@ export function trocarVariante(mon, variante = "") {
   const p = partes(mon?.species);
   if (!p) return null;
   const sp = montarEspecie(p.cabeca, p.corpo, variante, p.pernas);
+  if (!sp) return null;
+  DB.SPECIES[sp.id] = sp;
+  const nomeAntigo = mon.name;
+  const frac = fracao(mon);
+  mon.species = sp.id;
+  if (mon.nickname === nomeAntigo) mon.nickname = sp.name;   // apelido próprio fica
+  recalc(mon);
+  mon.hp = Math.max(mon.hp > 0 ? 1 : 0, Math.round(mon.maxHp * frac));
+  return sp;
+}
+
+/** INVERTER (pedido do CAIO): a cabeça vira corpo e o corpo vira cabeça, sem
+ *  separar — A+B vira B+A, e o resto (nível, golpes, cor, HP) fica. Só dupla;
+ *  a versão volta pra da partida (a ficha de B+A, se você tiver, ou a automática). */
+export function inverterFusao(mon) {
+  const p = partes(mon?.species);
+  if (!p || p.pernas) return null;
+  const sp = montarEspecie(p.corpo, p.cabeca, "", "");
   if (!sp) return null;
   DB.SPECIES[sp.id] = sp;
   const nomeAntigo = mon.name;

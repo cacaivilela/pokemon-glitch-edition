@@ -1,0 +1,30 @@
+<!doctype html>
+<!-- MEGA EMPRESTADA: CHARIZARD com a BLASTOISITA vira a fusão CHARIZARD +
+     MEGA BLASTOISE na luta. Fotos em dev/captures/megatrocada_*.png
+     Uso: /dev/megatrocadacheck.html -->
+<meta charset="utf-8">
+<title>megatrocadacheck</title>
+<style>iframe { width: 480px; height: 320px; }</style>
+<script type="module">
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const f = document.createElement("iframe");
+// perfil próprio: NUNCA gravar no save.json de quem joga
+f.src = "../index.html?battle=pidgey&lvl=5&starter=charizard:50&mega=1&perfil=megatrocadacheck";
+document.body.appendChild(f);
+for (let i = 0; i < 50 && !f.contentDocument?.getElementById("screen"); i++) await espera(100);
+await espera(2500);
+const tecla = (code, key) => { for (const type of ["keydown", "keyup"]) f.contentWindow.dispatchEvent(new f.contentWindow.KeyboardEvent(type, { code, key })); };
+for (let i = 0; i < 4; i++) { await espera(400); tecla("Enter", "Enter"); }
+const foto = async (name, codigo, ms = 1200) => {
+  let log = "";
+  try { log = String(await f.contentWindow.eval(codigo)); } catch (e) { log = "erro: " + e; }
+  await espera(ms);
+  const dataUrl = f.contentDocument.getElementById("screen").toDataURL();
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({ name, dataUrl, log }) }).catch(() => {});
+};
+for (let i = 0; i < 6; i++) { await espera(500); tecla("KeyZ", "z"); }
+await foto("megatrocada_0", `(() => { const b = window.game.scenes.top; const o = b.megasDisponiveis?.() || []; b.megaArmada = o.find(r => r.pedra === "blastoisita"); return b.constructor.name + " " + JSON.stringify(o.map(r => r.nome)); })()`);
+await foto("megatrocada_1", `(() => { const b = window.game.scenes.top; b._p = b.fazerMega("p", b.megaArmada); return "megando"; })()`, 2500);
+for (let i = 0; i < 12; i++) { await espera(500); tecla("KeyZ", "z"); }
+await foto("megatrocada_2", `(() => { const b = window.game.scenes.find ? null : null; const m = window.game.state.party[0]; return m.species + " " + m.nickname + " megaDe=" + m.megaDe + " " + JSON.stringify(m.types); })()`, 800);
+</script>

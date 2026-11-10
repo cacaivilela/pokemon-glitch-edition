@@ -1,0 +1,45 @@
+<!doctype html>
+<!-- O DYNAMAX (src/systems/dynamax.js) num retrato: batalha de teste com a
+     PULSEIRA, os dois lados dynamaxam no 1º turno e a tela vai pro
+     /__capture -> dev/captures/dynamax_check.png. As falas passam sozinhas. -->
+<meta charset="utf-8"><title>dynamaxcheck</title>
+<style>body{background:#1b2030;color:#eef;font:14px monospace} iframe{width:480px;height:320px;border:0}</style>
+<iframe id="f" src="/index.html?battle=charmander&lvl=30&meu=pikachu&meunv=40&dynamax=1&perfil=teste_dynamax"></iframe>
+<pre id="log">esperando...</pre>
+<script type="module">
+const f = document.getElementById("f"), log = (t) => (document.getElementById("log").textContent += "\n" + t);
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+let bs = null;
+// aperta ENTER (título e falas da entrada) até o menu da batalha aparecer
+const tecla = (code) => { const w = f.contentWindow; w.dispatchEvent(new w.KeyboardEvent("keydown", { code, key: "Enter" })); setTimeout(() => w.dispatchEvent(new w.KeyboardEvent("keyup", { code, key: "Enter" })), 60); };
+let ultimo = "";
+for (let i = 0; i < 160 && !bs; i++) {
+  await espera(250);
+  try {
+    const top = f.contentWindow.game?.scenes?.top;
+    ultimo = top?.constructor?.name + " " + (top?.menu?.type || "-");
+    if (top?.menu?.type === "main") bs = top; else if (i % 3 === 0) tecla("Enter");
+  } catch (e) { ultimo = String(e); }
+}
+if (!bs) {
+  log("a batalha não abriu: " + ultimo);
+  await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "dynamax_check_log", dataUrl: "", log: document.getElementById("log").textContent }) });
+  throw 0;
+}
+// as falas passam sozinhas
+bs.say = async (t) => { log("FALA: " + t); };
+bs.wait = async () => {};
+log(`antes: ${bs.mine.nickname} HP ${bs.mine.hp}/${bs.mine.maxHp}  inimigo HP ${bs.foe.hp}/${bs.foe.maxHp}`);
+bs.dyArmado = true;
+await bs.playerTurn(0);
+log(`depois: ${bs.mine.nickname} HP ${bs.mine.hp}/${bs.mine.maxHp} dyn=${JSON.stringify(bs.mine.dynamax)}  inimigo HP ${bs.foe.hp}/${bs.foe.maxHp} dyn=${JSON.stringify(bs.foe.dynamax)}`);
+bs.menu = { type: "main", index: 0 };
+await espera(1500);
+const cv = f.contentDocument.getElementById("screen");
+await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "dynamax_check", dataUrl: cv.toDataURL(), log: document.getElementById("log").textContent }) });
+// mais 3 turnos: tem que voltar ao normal
+try { for (let t = 0; t < 3; t++) { if (bs.mine.hp <= 0 || bs.foe.hp <= 0) break; await bs.playerTurn(0); } } catch (e) { log("ERRO: " + e + " " + e.stack); }
+log(`3 turnos depois: ${bs.mine.nickname} HP ${bs.mine.hp}/${bs.mine.maxHp} dyn=${!!bs.mine.dynamax}  inimigo ${bs.foe.hp}/${bs.foe.maxHp} dyn=${!!bs.foe.dynamax}`);
+await fetch("/__capture", { method: "POST", body: JSON.stringify({ name: "dynamax_check_log", dataUrl: "", log: document.getElementById("log").textContent }) });
+document.title = "pronto";
+</script>

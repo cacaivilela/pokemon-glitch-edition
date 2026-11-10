@@ -9,6 +9,17 @@ import { mapArtInteira, trainerArt } from "../core/sprites.js";
 import { Assets } from "../core/assets.js";
 import { fotos, FOTO_TEXTO as T } from "../systems/fotos.js";
 import { DB } from "../data/index.js";
+import { desenharMonNaFoto } from "./camerareal.js";
+import { desenharFotoBoneco } from "../systems/boneco.js";
+import { criarCamada, prepararCamada, esconderCamada } from "../core/camada.js";
+
+// as FOTOS DE VERDADE (webcam pixelada) guardam a imagem: carrega uma vez só
+const IMGS = new Map();
+function imagemDa(f, src = f.img) {
+  if (!IMGS.has(src)) { const i = new Image(); i.src = src; IMGS.set(src, i); }
+  const i = IMGS.get(src);
+  return i.complete && i.naturalWidth ? i : null;
+}
 
 const W = 240, H = 160;
 const FOTO = { x: 34, y: 14, w: 172, h: 112 };   // a imagem dentro do porta-retrato
@@ -19,6 +30,8 @@ export class FotosScene {
     this.i = Math.max(0, Math.min(this.lista.length - 1, args.inicio ?? this.lista.length - 1));   // abre na mais nova
     this.t = 0;
   }
+
+  exit() { this.camada?.remove(); this.camada = null; }
 
   update(dt) {
     this.t += dt;
@@ -75,7 +88,38 @@ export class FotosScene {
     const d = new Date(f.data || 0), quando = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
     const sub = `${(f.lugar || "").slice(0, 22)} ${quando}`.trim();
     drawText(ctx, sub, x + (w - sub.length * 6) / 2, y + h + 14, "#806878");
-    drawText(ctx, "◀ ▶ PASSAR   B: VOLTAR", 6, H - 10, "#c8c8d8");
+    drawText(ctx, "← → PASSAR   B: VOLTAR", 6, H - 10, "#c8c8d8");
+  }
+
+  /** FOTO DE VERDADE: você pela webcam, em pixel art, com o Pokémon escolhido */
+  fotoDeVerdade(ctx, f) {
+    const { x, y, w, h } = FOTO;
+    if (f.foto) {
+      // a FOTO NORMAL da webcam: na camada nítida por cima do jogo (src/core/camada.js)
+      ctx.fillStyle = "#16202c"; ctx.fillRect(x, y, w, h);
+      this.camada ||= criarCamada();
+      const g = prepararCamada(this.camada), img = imagemDa(f, f.foto);
+      if (g && img) {
+        g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
+        g.drawImage(img, x, y, w, h);
+        const a = Math.max(0, 1 - this.t * 3);
+        if (a > 0) { g.fillStyle = `rgba(255,255,255,${a})`; g.fillRect(x, y, w, h); }
+      }
+    } else if (f.boneco) desenharFotoBoneco(ctx, f, x, y, w, h);
+    else {
+      const img = imagemDa(f);
+      ctx.fillStyle = "#16202c"; ctx.fillRect(x, y, w, h);
+      if (img) ctx.drawImage(img, x, y, w, h);
+      if (f.mon) desenharMonNaFoto(ctx, { species: f.mon }, x, y, w, h);
+    }
+    const a = Math.max(0, 1 - this.t * 3);
+    if (a > 0) { ctx.fillStyle = `rgba(255,255,255,${a})`; ctx.fillRect(x, y, w, h); }
+    const d = new Date(f.data || 0), quando = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const leg = (f.nome ? `VOCÊ E ${f.nome}` : "VOCÊ").slice(0, 28);
+    drawText(ctx, leg, x + (w - leg.length * 6) / 2, y + h + 4, "#303040");
+    const sub = `${(f.lugar || "").slice(0, 22)} ${quando}`.trim();
+    drawText(ctx, sub, x + (w - sub.length * 6) / 2, y + h + 14, "#806878");
+    drawText(ctx, "← → PASSAR   B: VOLTAR", 6, H - 10, "#c8c8d8");
   }
 
   render(ctx) {
@@ -94,6 +138,8 @@ export class FotosScene {
     const { x, y, w, h } = FOTO;
     ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.fillRect(x - 4, y - 2, w + 12, h + 30);
     ctx.fillStyle = "#f4f0e8"; ctx.fillRect(x - 6, y - 6, w + 12, h + 30);
+    if (!f.foto) esconderCamada(this.camada);
+    if (f.img || f.boneco || f.foto) return this.fotoDeVerdade(ctx, f);
     this.fundo(ctx, f);
     // os dois: você na esquerda, ele na direita, um pouquinho por cima
     if (f.tipo === "campeao") return this.fotoCampeao(ctx, f);
@@ -125,6 +171,6 @@ export class FotosScene {
     drawText(ctx, leg, x + (w - leg.length * 6) / 2, y + h + 4, "#303040");
     const sub = `${(f.lugar || "").slice(0, 22)} ${quando}`.trim();
     drawText(ctx, sub, x + (w - sub.length * 6) / 2, y + h + 14, "#806878");
-    drawText(ctx, "◀ ▶ PASSAR   B: VOLTAR", 6, H - 10, "#c8c8d8");
+    drawText(ctx, "← → PASSAR   B: VOLTAR", 6, H - 10, "#c8c8d8");
   }
 }

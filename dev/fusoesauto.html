@@ -1,7 +1,7 @@
 <!doctype html>
 <!-- AS FUSÕES AUTOMÁTICAS (src/systems/montagem.js) numa folha: cabeça, corpo e
      a fusão, lado a lado, pra comparar. /__capture -> dev/captures/fusoes_auto.png.
-     ?pares=a+b,c+d escolhe as duplas. -->
+     ?pares=a+b,c+d escolhe as duplas; ?pintura=velha mostra a pintura de antes. -->
 <meta charset="utf-8"><title>fusoesauto</title>
 <style>body{background:#1b2030;color:#eef;font:16px system-ui;margin:16px} canvas{image-rendering:pixelated;width:min(100%,848px)}</style>
 <p id="aviso">CARREGANDO AS FUSÕES... (uns 10 segundos)</p>
@@ -10,8 +10,10 @@ import { DB } from "/src/data/index.js";
 import { Assets } from "/src/core/assets.js";
 import { pedirMon } from "/src/core/sprites.js";
 import * as F from "/src/systems/fusao.js";
+import { jeitoDePintar } from "/src/systems/montagem.js";
 Assets.init?.();
 const q = new URLSearchParams(location.search);
+if (q.get("pintura")) jeitoDePintar(q.get("pintura"));   // ?pintura=velha = a de antes
 const PARES = (q.get("pares") || "pikachu+charizard,charizard+pikachu,gengar+bulbasaur,eevee+onix,mewtwo+snorlax,squirtle+pidgeot,gyarados+machamp,jigglypuff+dragonite,psyduck+alakazam,lapras+arcanine,mew+blastoise,magikarp+tauros")
   .split(",").map((p) => p.split("+"));
 for (const [a, b] of PARES) for (const id of [a, b]) { const sp = DB.SPECIES[id]; pedirMon(sp.id || id, sp.spriteDex || sp.dex); }

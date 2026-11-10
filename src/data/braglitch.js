@@ -127,6 +127,29 @@ const NOVAS = `
 1102 | VOLTABUM       | ELÉTRICO/FOGO    | 103 187  51 175  60  18
 1103 | GHOTOLT        | PEDRA/FANTASMA   |  50  90 200  95  70  35
 1104 | MONSTELA       | ELÉTRICO/FANTASMA|  54  78  96  79  88  45
+1129 | MONSTELITO     | ELÉTRICO/FANTASMA|  38  52  64  55  60  40
+1130 | COELHATRASADO  | NORMAL/PSÍQUICO  |  65  70  60  90  75 120
+1131 | COELHADIANTADO | NORMAL/PSÍQUICO  |  45  45  40  60  50  85
+1132 | NENÊJAMA       | FADA             |  50  30  45  45  55  35
+1133 | MENINIJAMA     | FADA/PSÍQUICO    |  85  55  80  95 105  60
+1134 | HE-MINI        | LUTADOR          |  55  75  60  30  40  50
+1135 | HE-MON         | LUTADOR/AÇO      |  95 130 110  55  75  75
+1136 | LOBEBÊ         | SOMBRIO          |  45  60  40  40  45  55
+1137 | LOBEM          | SOMBRIO/FADA     |  85 105  75  70  85  95
+1138 | CEBOLETE       | PLANTA           | 45  40  45  55  45  50
+1139 | CEBOLÍNIO      | PLANTA/PSÍQUICO  | 70  65  70 100  80  95
+1140 | MONINÊ         | LUTADOR          | 55  65  50  30  45  40
+1141 | MONICAPOW      | LUTADOR/FADA     | 90 120  80  60  85  70
+1142 | MELANQUINHA    | NORMAL           | 65  45  45  40  45  40
+1143 | MAGALANCIA     | NORMAL/PLANTA    | 110  80  70  70  80  60
+1144 | LAMINHA        | TERRA            | 55  50  60  30  40  40
+1145 | CASCALAMA      | TERRA/VENENO     | 85  95  95  50  65  85
+1146 | RABISQUINHA    | FADA             | 45  35  40  60  55  45
+1147 | MARINARTE      | FADA/NORMAL      | 75  55  70 110  95  75
+1148 | CACHINHO       | ELÉTRICO         | 45  35  40  60  45  65
+1149 | MILECACHOS     | ELÉTRICO/FADA    | 75  60  70 105  85 105
+1150 | COPINHA        | FADA             |  50  40  45  60  55  45
+1151 | RAINHACOPA     | FOGO/FADA        |  90  75  85 115 100  70
 1110 | BEBBIDAH       | ÁGUA             |  50  40  50  55  60  45
 1111 | BEBBIDÃO       | ÁGUA             |  85  65  85 100 105  70
 1115 | AMEBO          | VENENO           |  40  45  40  50  45  50
@@ -172,6 +195,57 @@ const GOLPES_NOVAS = {
   // ROTOM. Choque, lambida de fantasma, e a CONFUSÃO de quem fica olhando a tela
   monstela: { learnset: [[1, "investida"], [1, "choquedotrovao"], [5, "lambida"], [9, "encarar"],
                          [14, "ondadechoque"], [20, "confusao"], [28, "bolasombria"], [38, "trovoada"]] },
+  // o MONSTELITO, a pré-evolução dela: a TV PORTÁTIL. Os mesmos golpes do começo
+  // da MONSTELA, mais devagar (a CONFUSÃO e o resto vêm quando ela evolui)
+  monstelito: { learnset: [[1, "investida"], [1, "choquedotrovao"], [6, "lambida"], [11, "encarar"],
+                           [17, "ondadechoque"], [24, "confusao"]] },
+  // o COELHATRASADO: o coelho branco de cartola azul e relógio de bolso. Rápido
+  // demais (VEL 120) e sempre atrasado — a BOLA DO TEMPO é o relógio dele
+  // o COELHADIANTADO, a pré-evolução (ideia do CAIO): cartola e relógio grandes
+  // demais pra ele. Os golpes do começo do COELHATRASADO, mais cedo — ele é ADIANTADO
+  coelhadiantado: { learnset: [[1, "investida"], [1, "ataquerapido"], [4, "encarar"], [8, "confusao"],
+                               [13, "agilidade"], [18, "boladotempo"]] },
+  // a NENÊJAMA e a MENINIJAMA (ideia do CAIO): a "pessoa" de touca de dormir e
+  // pijama. Golpes de canção de ninar, de fada e, depois de evoluir, de sonho
+  nenejama: { learnset: [[1, "investida"], [1, "ventodefada"], [5, "encanto"], [10, "vozdesarmante"],
+                         [15, "beijodefada"], [19, "confusao"]] },
+  meninijama: { learnset: [[1, "investida"], [1, "ventodefada"], [5, "encanto"], [10, "vozdesarmante"],
+                           [15, "beijodefada"], [19, "confusao"], [28, "beijodrenante"], [34, "brilhomagico"],
+                           [41, "psiquico"], [48, "explosaolunar"]] },
+  // o HE-MINI e o HE-MON (ideia do CAIO): o guerreiro bárbaro de espada e
+  // armadura de aço. Socos, chutes e, depois de evoluir, os golpes de metal
+  hemini: { learnset: [[1, "investida"], [1, "socorapido"], [5, "golpecarate"], [9, "garrademetal"],
+                       [13, "chuteduplo"], [17, "socobala"], [22, "quebratijolo"]] },
+  hemon: { learnset: [[1, "investida"], [1, "socorapido"], [5, "golpecarate"], [9, "garrademetal"],
+                      [13, "chuteduplo"], [17, "socobala"], [22, "quebratijolo"], [30, "aumentodemusculo"],
+                      [34, "cabecadeferro"], [40, "socometeoro"], [47, "combateproximo"], [54, "martelopesado"]] },
+  // o LOBEBÊ e o LOBEM (ideia do CAIO): o LOBO MAU que é DO BEM, de calça. Os
+  // golpes de lobo (mordida, rosnado) e, depois de evoluir, os de fada
+  lobebe: { learnset: [[1, "investida"], [1, "rosnado"], [5, "lagrimasfalsas"], [9, "mordida"],
+                       [14, "ataquetraicoeiro"], [19, "golpebaixo"]] },
+  lobem: { learnset: [[1, "investida"], [1, "rosnado"], [5, "lagrimasfalsas"], [9, "mordida"],
+                      [14, "ataquetraicoeiro"], [19, "golpebaixo"], [26, "beijodefada"], [32, "triturar"],
+                      [38, "brincadeirabruta"], [44, "talhonoturno"], [50, "jogosujo"]] },
+  // A TURMA (ideia do CAIO): seis linhas de bebê -> criança (tools/turma/sprite.py)
+  cebolete: { learnset: [[1, "investida"], [1, "absorver"], [5, "chicotedevinha"], [9, "megadreno"], [14, "folhanavalha"], [19, "confusao"]] },
+  cebolinio: { learnset: [[1, "investida"], [1, "absorver"], [5, "chicotedevinha"], [9, "megadreno"], [14, "folhanavalha"], [19, "confusao"], [26, "folhamagica"], [32, "psicorraio"], [38, "bombadesementes"], [44, "psiquico"], [50, "energiadanatureza"]] },
+  monine: { learnset: [[1, "investida"], [1, "tapa"], [5, "socorapido"], [9, "golpecarate"], [14, "chuteduplo"], [19, "ventodefada"]] },
+  monicapow: { learnset: [[1, "investida"], [1, "tapa"], [5, "socorapido"], [9, "golpecarate"], [14, "chuteduplo"], [19, "ventodefada"], [26, "quebratijolo"], [32, "brincadeirabruta"], [38, "socodinamico"], [44, "superforca"], [50, "explosaolunar"]] },
+  melanquinha: { learnset: [[1, "investida"], [1, "mordida"], [5, "absorver"], [9, "megadreno"], [14, "golpedecorpo"], [19, "bombadesementes"]] },
+  magalancia: { learnset: [[1, "investida"], [1, "mordida"], [5, "absorver"], [9, "megadreno"], [14, "golpedecorpo"], [19, "bombadesementes"], [26, "gigadreno"], [32, "triturar"], [38, "energiadanatureza"], [44, "debaterse"], [50, "raiosolar"]] },
+  laminha: { learnset: [[1, "investida"], [1, "bofetadadelama"], [5, "areianosolhos"], [9, "tirodelama"], [14, "poderdeacido"], [19, "bombadelama"]] },
+  cascalama: { learnset: [[1, "investida"], [1, "bofetadadelama"], [5, "areianosolhos"], [9, "tirodelama"], [14, "poderdeacido"], [19, "bombadelama"], [26, "lodo"], [32, "escavar"], [38, "bombadelodo"], [44, "poderdaterra"], [50, "tirodeimundicie"]] },
+  rabisquinha: { learnset: [[1, "investida"], [1, "ventodefada"], [5, "encanto"], [9, "vozdesarmante"], [14, "beijodefada"], [19, "rodaveloz"]] },
+  marinarte: { learnset: [[1, "investida"], [1, "ventodefada"], [5, "encanto"], [9, "vozdesarmante"], [14, "beijodefada"], [19, "rodaveloz"], [26, "brilhomagico"], [32, "triataque"], [38, "claraodeslumbrante"], [44, "hipervoz"], [50, "explosaolunar"]] },
+  cachinho: { learnset: [[1, "investida"], [1, "choquedotrovao"], [5, "ondadotrovao"], [9, "faisca"], [14, "encanto"], [19, "bolaeletrica"]] },
+  milecachos: { learnset: [[1, "investida"], [1, "choquedotrovao"], [5, "ondadotrovao"], [9, "faisca"], [14, "encanto"], [19, "bolaeletrica"], [26, "beijodefada"], [32, "descarga"], [38, "brilhomagico"], [44, "trovao"], [50, "explosaolunar"]] },
+  // a COPINHA e a RAINHACOPA (ideia do CAIO): a rainha de copas da LITERARTE
+  copinha: { learnset: [[1, "investida"], [1, "ventodefada"], [5, "brasa"], [9, "encanto"], [14, "beijodefada"], [19, "rodadefogo"]] },
+  rainhacopa: { learnset: [[1, "investida"], [1, "ventodefada"], [5, "brasa"], [9, "encanto"], [14, "beijodefada"], [19, "rodadefogo"],
+                           [26, "chamadebirra"], [32, "brilhomagico"], [38, "lancachamas"], [44, "explosaolunar"], [50, "labareda"]] },
+  coelhatrasado: { learnset: [[1, "investida"], [1, "ataquerapido"], [5, "encarar"], [9, "confusao"],
+                              [14, "agilidade"], [19, "boladotempo"], [25, "cabecadazen"], [31, "calmamental"],
+                              [38, "psiquico"], [45, "avancoduplo"]] },
 };
 
 const LORE_NOVAS = {
@@ -240,6 +314,29 @@ const LORE_NOVAS = {
   galliny: "SAIU DO FÓSSIL PENUGEM MIRAGEM E SAIU CORRENDO — LITERALMENTE. A PERNA CRESCE ANTES DO RESTO DO CORPO.",
   ghotolt: "ESSE É A CASCA ANTIGA DO VOLTURG, AGORA DE PEDRA. VAGA SEM RUMO PELA ESCURIDÃO DA NOITE E JOGA ESPÍRITOS DE PESSOAS MORTAS QUE AJUDARAM OS VOLTURG A EVOLUÍREM NO PASSADO. ELE MORRE TOTALMENTE SE O CASCO QUEBRAR AO MEIO.",
   voltabum: "A CARGA DO CASCO FICOU GRANDE DEMAIS E AS VINHAS QUEIMARAM: O CASCO VIROU UMA BOMBA COM O PAVIO ACESO. QUANDO A RACHADURA EM RAIO BRILHA, É MELHOR SAIR DE PERTO.",
+  coelhatrasado: "UM COELHO BRANCO DE CARTOLA AZUL QUE CORRE OLHANDO O RELÓGIO DE BOLSO. É RAPIDÍSSIMO E MESMO ASSIM CHEGA ATRASADO EM TUDO: O RELÓGIO DELE ANDA PRA TRÁS.",
+  coelhadiantado: "A CARTOLA E O RELÓGIO SÃO GRANDES DEMAIS PRA ELE: SÓ VÃO SERVIR QUANDO ELE EVOLUIR PRA COELHATRASADO. O RELÓGIO DELE ANDA PRA FRENTE: CHEGA EM TUDO UMA HORA ANTES E FICA ESPERANDO SOZINHO.",
+  nenejama: "NASCEU DE PIJAMA E NUNCA TIROU. DORME O DIA INTEIRO AGARRADA NO COBERTORZINHO, E QUEM CHEGA PERTO SEM FAZER SILÊNCIO LEVA UMA CHORADEIRA QUE DÁ SONO EM TODO MUNDO.",
+  meninijama: "PARECE UMA MENINA QUE ACABOU DE ACORDAR, MAS ESTÁ DORMINDO EM PÉ. ANDA DE OLHO FECHADO PELA MATA COM O TRAVESSEIRO, E OS SONHOS DELA VAZAM PELA TOUCA COMO ESTRELINHAS.",
+  hemini: "USA UMA PANELA DE CAPACETE E VIVE ERGUENDO A ESPADINHA PRO CÉU, ESPERANDO UM RAIO QUE NUNCA CAI. BRIGA COM TODO MUNDO E SEMPRE VOLTA COM UM CURATIVO NOVO.",
+  hemon: "QUANDO ERGUE A ESPADA PRO ALTO, A ARMADURA DE AÇO APARECE NO CORPO DELE NUM CLARÃO. É FORTE O BASTANTE PRA LEVANTAR UMA PEDRA DO TAMANHO DE UM CASTELO.",
+  lobebe: "AINDA NÃO TEM CALÇA DO TAMANHO DELE: USA A DE UM LOBEM E ANDA SEGURANDO PRA ELA NÃO CAIR. QUANDO SOLTA PRA MORDER, A CALÇA DESCE E ELE MORRE DE VERGONHA.",
+  lobem: "O LOBO MAU DAS HISTÓRIAS, SÓ QUE DO BEM. EM VEZ DE DERRUBAR AS CASAS NO SOPRO, ELE ASSOPRA E FAZ CASAS DE VENTO. ANDA DE CALÇA COM SUSPENSÓRIO E SEMPRE TEM UMA FLOR PRA DAR PRA QUEM ESTÁ COM MEDO DELE.",
+cebolete: "UMA CEBOLINHA QUE BROTOU COM CARA DE NENÊ. JÁ NASCE PENSANDO EM PLANOS, MAS AINDA SÓ CONSEGUE PLANEJAR A HORA DO LANCHE.",
+  cebolinio: "TEM CINCO FOLHAS DE CEBOLINHA NA CABEÇA E UM PLANO INFALÍVEL NO BOLSO. NENHUM PLANO DELE DÁ CELTO: DE TÃO NELVOSO, ELE TLOCA O ERRE PELO ELE.",
+  monine: "NÃO SOLTA O COELHINHO DE PELÚCIA POR NADA. QUEM FAZ ELA CHORAR LEVA UMA COELHADA QUE ARREMESSA LONGE.",
+  monicapow: "A MAIS FORTE DA RUA. GIRA O COELHO DE PELÚCIA PELA ORELHA E — POW! — MANDA O ADVERSÁRIO PRO OUTRO BAIRRO. NÃO GOSTA QUE FALEM DOS DENTES DELA.",
+  melanquinha: "ABRAÇA UMA FATIA DE MELANCIA MAIOR QUE ELA E DÁ MORDIDINHAS O DIA INTEIRO. NUNCA SOBRA NEM A CASCA.",
+  magalancia: "COME TUDO O QUE VÊ E CONTINUA COM FOME. A MELANCIA É A COMIDA FAVORITA: CUSPINDO AS SEMENTES, ELA ACERTA UM ALVO A CEM METROS.",
+  laminha: "SÓ FICA FELIZ SENTADO NUMA POÇA DE LAMA. SE ALGUÉM TENTA DAR BANHO, ELE CHORA TÃO ALTO QUE A ÁGUA SECA.",
+  cascalama: "NUNCA TOMOU BANHO E TEM ORGULHO DISSO. ANDA NUMA NUVEM DE POEIRA E LEVA SEMPRE O GUARDA-CHUVA: SE CHOVER, NEM UMA GOTA ENCOSTA NELE.",
+  rabisquinha: "RABISCA O CHÃO COM UM GIZ DE CERA MAIOR QUE ELA. OS RABISCOS VIRAM BICHINHOS DE MENTIRA QUE CORREM ATÉ O GIZ ACABAR.",
+  marinarte: "O LÁPIS GIGANTE DELA DESENHA NO AR. O QUE ELA DESENHA FICA DE VERDADE POR UM MINUTO: UMA PONTE, UMA ESCADA, UM AMIGO PRA BRINCAR.",
+  cachinho: "O CABELO CACHEADO É MAIOR QUE O CORPO E VIVE CHEIO DE ESTÁTICA. QUEM FAZ CARINHO NA CABEÇA DELE LEVA UM CHOQUINHO.",
+  milecachos: "OS CACHOS GUARDAM ELETRICIDADE COMO UMA NUVEM DE TEMPESTADE. QUANDO DANÇA, SOLTA FAÍSCAS PRA TODO LADO E ACENDE AS LUZES DA RUA.",
+copinha: "A PRINCESINHA DA LITERARTE. QUANDO NÃO GANHA O QUE QUER, SACODE O CHOCALHO DE CORAÇÃO E GRITA: CORTEM A... A... ESQUECEU O RESTO.",
+  rainhacopa: "MANDA EM TODA A DIMENSÃO LITERARTE. QUANDO PERDE A PACIÊNCIA, O CORAÇÃO DO CETRO PEGA FOGO E ELA GRITA: CORTEM A CABEÇA! (NINGUÉM CORTA. TODO MUNDO SÓ FOGE.)",
+  monstelito: "UMA TV PORTÁTIL DE PILHA QUE NINGUÉM DESLIGOU. AS ANTENAS PEGAM CANAL DE FANTASMA: QUANDO SEGURA UMA PEDRA DO TROVÃO QUE PASSOU NA MÃO DE UM POKÉMON FANTASMA, A TELA CRESCE E ELE VIRA MONSTELA.",
   monstela: "ESSE POKÉMON, COMO O ROTOM, ENTRA EM DISPOSITIVOS ELETRÔNICOS. O ROSTO DELE APARECE NA TELA EM PONTINHOS, E OS BOTÕES DO LADO MUDAM DE COR QUANDO ELE ESTÁ BRAVO.",
   volturg: "AS PLANTAS NELE EVOLUÍRAM COM A RESERVA DE VOLTS DESSE POKÉMON, FORMANDO PARA-RAIOS DE FLOR. NA RACHADURA EM FORMA DE RAIO DO CASCO ELE SOLTA EXPLOSÕES DE ELETRICIDADE QUE PODEM SER OUVIDAS DE LONGE.",
   gallimirage: "O BICHO MAIS RÁPIDO DE BRAGLITCH. CORRE TÃO DEPRESSA QUE A IMAGEM DELE FICA PRA TRÁS, E O INIMIGO ATACA A MIRAGEM ERRADA.",
@@ -480,6 +577,24 @@ export const EVO_BRAGLITCH = {
   penadinha: [{ lvl: 35, to: "assombracao" }],
   beijaflorzinha: [{ lvl: 32, to: "plumario" }],
   bantevy: [{ lvl: 28, to: "bangveet" }],
+  // o MONSTELITO vira MONSTELA com a PEDRA DO TROVÃO ASSOMBRADA: a pedra do
+  // trovão que ficou com um POKÉMON FANTASMA (do tipo, ou que sabe golpe
+  // FANTASMA) e foi tirada dele (src/systems/segurar.js, `devolvido`)
+  // `segurando` (ideia do CAIO): DAR PRA SEGURAR já evolui — ele é fantasma, então
+  // a PEDRA DO TROVÃO assombra na mão dele na hora (src/scenes/overworld.js, darPraSegurar)
+  monstelito: [{ item: "pedra do trovão assombrada", to: "monstela", segurando: true }],
+  coelhadiantado: [{ lvl: 25, to: "coelhatrasado" }],
+  nenejama: [{ lvl: 22, to: "meninijama" }],
+  hemini: [{ lvl: 30, to: "hemon" }],
+  lobebe: [{ lvl: 24, to: "lobem" }],
+  copinha: [{ lvl: 30, to: "rainhacopa" }],          // a coroinha cresce
+  // A TURMA: todos crescem no 24
+  cebolete: [{ lvl: 24, to: "cebolinio" }],
+  monine: [{ lvl: 24, to: "monicapow" }],
+  melanquinha: [{ lvl: 24, to: "magalancia" }],
+  laminha: [{ lvl: 24, to: "cascalama" }],
+  rabisquinha: [{ lvl: 24, to: "marinarte" }],
+  cachinho: [{ lvl: 24, to: "milecachos" }],                 // a calça finalmente serve                 // troca a panela pela armadura de aço          // tira a chupeta e ganha o travesseiro   // a cartola e o relógio finalmente servem
   // os fósseis (src/data/fosseis-brag.js)
   gigantiny: [{ lvl: 39, to: "giganteeth" }],
   blindino: [{ lvl: 39, to: "stegarmorex" }],
@@ -879,10 +994,26 @@ export const BRAGLITCH_MAPS = {
       { id: "biquinho", min: 2, max: 5, w: 18 },
       { id: "tatubola", min: 3, max: 6, w: 14 },
       { id: "sauvinha", min: 3, max: 6, w: 12 },
-      { id: "monstela", min: 3, max: 6, w: 16 },    // criada pelo CAIO
+      { id: "monstelito", min: 3, max: 6, w: 14 },  // a pré-evolução da MONSTELA
+      // os bebês que o CAIO inventou (nov/2026): todos também moram na DIMENSÃO LITERARTE
+      { id: "coelhadiantado", min: 3, max: 6, w: 8 },  // a pré-evolução do COELHATRASADO
+      { id: "nenejama", min: 3, max: 6, w: 8 },        // a pré-evolução da MENINIJAMA
+      { id: "hemini", min: 3, max: 6, w: 6 },          // a pré-evolução do HE-MON
+      { id: "lobebe", min: 3, max: 6, w: 7 },          // a pré-evolução do LOBEM
+      // A TURMA: os seis bebês, rarinhos
+      { id: "cebolete", min: 3, max: 6, w: 4 },
+      { id: "monine", min: 3, max: 6, w: 4 },
+      { id: "melanquinha", min: 3, max: 6, w: 4 },
+      { id: "laminha", min: 3, max: 6, w: 4 },
+      { id: "rabisquinha", min: 3, max: 6, w: 4 },
+      { id: "cachinho", min: 3, max: 6, w: 4 },
+      { id: "monstela", min: 5, max: 7, w: 2 },     // criada pelo CAIO (agora rara: ela vem do MONSTELITO)
       { id: "bebbidah", min: 3, max: 6, w: 12 },    // criado pelo CAIO
     ],
     npcs: [
+      // a TOCA DO COELHO: quem pula cai na DIMENSÃO LITERARTE (src/data/braglitch-literarte.js)
+      { id: "toca_literarte", x: 7, y: 26, sprite: "toca", lines: ["..."],
+        aoFalar: (cena) => cena.pularNaToca("literarte", 14, 23) },
       {
         id: "capoeira", x: 9, y: 13, dir: "right", sprite: "lutador",
         lines: ["Ê, CAMARADA! QUEM PASSA NA MINHA RODA JOGA COMIGO!"],

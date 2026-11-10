@@ -231,6 +231,145 @@ function repintar(im, deFam, paraFam) {
   }
 }
 
+// --------------------------------------------- O JEITO DO POKÉMON FUSION
+// Como o Alex Onsager fez (e o gerador do Japeal, que dá as fusões
+// automáticas do Infinite Fusion): cada bicho tem 3 CORES (a principal, a
+// segunda e a terceira), cada uma com 5 TONS, do escuro pro claro. Na fusão,
+// cada tom do corpo vira O MESMO TOM da cabeça: 1º tom da cor 1 do corpo ->
+// 1º tom da cor 1 da cabeça, e assim vai. O resto (contorno, olho, brilho
+// pequeno) fica como está. Lá as cores são escolhidas à mão; aqui são as 3
+// famílias de cor que mais aparecem, e os 5 tons são os 5 pedaços de luz delas.
+// (o CAIO, 07/nov/2026: "copie 100 pct o jeito")
+// "puro" = o jeito dele inteiro (troca só a cor IGUAL e cola a cara inteira);
+// "onsager" = só a pintura por tons; "velha" = o `repintar` de antes
+let PINTURA = "puro";
+export function jeitoDePintar(j) { PINTURA = j; }
+const TONS = 5;
+
+function paletaOnsager(im) {
+  const d = im.data, fams = familias(im).slice(0, 3);
+  const grupos = fams.map((f) => ({ f: f.f, px: [] }));
+  const dono = (f) => grupos.findIndex((g) => g.f === f
+    || (g.f !== NEUTRO && f !== NEUTRO && Math.min(Math.abs(g.f - f), 12 - Math.abs(g.f - f)) <= 1));
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] <= OPACO || brilho(d[i], d[i + 1], d[i + 2]) < CONTORNO) continue;
+    const [h, s, l] = hsl(d[i], d[i + 1], d[i + 2]);
+    const g = dono(familia(h, s, l));
+    if (g >= 0) grupos[g].px.push([l, d[i], d[i + 1], d[i + 2]]);
+  }
+  return grupos.filter((g) => g.px.length).map((g) => {
+    g.px.sort((a, b) => a[0] - b[0]);
+    const n = g.px.length, cortes = [], tons = [];
+    for (let t = 0; t < TONS; t++) {
+      const fatia = g.px.slice(Math.floor(t * n / TONS), Math.max(Math.floor(t * n / TONS) + 1, Math.floor((t + 1) * n / TONS)));
+      // o tom é a cor de verdade que mais aparece naquele pedaço de luz
+      const conta = new Map();
+      let melhor = fatia[0], mx = 0;
+      for (const p of fatia) { const k = (p[1] << 16) | (p[2] << 8) | p[3]; const c = (conta.get(k) || 0) + 1; conta.set(k, c); if (c > mx) { mx = c; melhor = p; } }
+      tons.push([melhor[1], melhor[2], melhor[3]]);
+      cortes.push(fatia[fatia.length - 1][0]);
+    }
+    return { f: g.f, tons, cortes, dono };
+  });
+}
+
+function repintarOnsager(im, cab) {
+  const de = paletaOnsager(im), para = paletaOnsager(cab);
+  if (!de.length || !para.length) return;
+  const d = im.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] <= OPACO || brilho(d[i], d[i + 1], d[i + 2]) < CONTORNO) continue;
+    const [h, s, l] = hsl(d[i], d[i + 1], d[i + 2]);
+    const f = familia(h, s, l);
+    const g = de.findIndex((x) => x.f === f
+      || (x.f !== NEUTRO && f !== NEUTRO && Math.min(Math.abs(x.f - f), 12 - Math.abs(x.f - f)) <= 1));
+    if (g < 0) continue;                       // não é uma das 3 cores: fica
+    const alvo = para[Math.min(g, para.length - 1)];
+    let t = de[g].cortes.findIndex((c) => l <= c);
+    if (t < 0) t = TONS - 1;
+    const cor = alvo.tons[t];
+    d[i] = cor[0]; d[i + 1] = cor[1]; d[i + 2] = cor[2];
+  }
+}
+
+/** A PALETA DO ONSAGER de verdade: das 3 cores, os 5 tons são as 5 cores
+ *  EXATAS que mais aparecem, do escuro pro claro. */
+export function paletaExata(im) {
+  const d = im.data, fams = familias(im).slice(0, 3);
+  const grupos = fams.map((f) => ({ f: f.f, conta: new Map() }));
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] <= OPACO || brilho(d[i], d[i + 1], d[i + 2]) < CONTORNO) continue;
+    const [h, s, l] = hsl(d[i], d[i + 1], d[i + 2]);
+    const f = familia(h, s, l);
+    const g = grupos.findIndex((x) => x.f === f
+      || (x.f !== NEUTRO && f !== NEUTRO && Math.min(Math.abs(x.f - f), 12 - Math.abs(x.f - f)) <= 1));
+    if (g < 0) continue;
+    const k = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+    grupos[g].conta.set(k, (grupos[g].conta.get(k) || 0) + 1);
+  }
+  return grupos.filter((g) => g.conta.size).map((g) => Object.assign([...g.conta.entries()]
+    .sort((a, b) => b[1] - a[1]).slice(0, TONS).map(([k]) => k)
+    .sort((a, b) => brilho(a >> 16, (a >> 8) & 255, a & 255) - brilho(b >> 16, (b >> 8) & 255, b & 255)), { f: g.f }));
+}
+
+/** A troca dele: pixel com a cor EXATA do tom t da cor g do corpo vira o tom t
+ *  da cor g da cabeça (se a cabeça tem menos tons, o tom do mesmo lugar). O
+ *  resto não muda. */
+// as cores MARCADAS À MÃO (dev/marcarcores.html): ["rrggbb", ...] x 3 -> o
+// mesmo formato da paletaExata (números, do escuro pro claro)
+function daMarca(m) {
+  if (!Array.isArray(m) || !m.some((g) => g?.length)) return null;
+  const br = (k) => brilho(k >> 16, (k >> 8) & 255, k & 255);
+  return m.filter((g) => g?.length).map((g) => g.map((h) => parseInt(h, 16)).sort((a, b) => br(a) - br(b)));
+}
+
+function repintarExato(im, cab, marcaDe = null, marcaPara = null) {
+  const mDe = daMarca(marcaDe), mPara = daMarca(marcaPara);
+  const de = mDe || paletaExata(im), para = mPara || paletaExata(cab);
+  if (!de.length || !para.length) return;
+  const troca = new Map();
+  de.forEach((tons, g) => {
+    const alvo = para[Math.min(g, para.length - 1)];
+    tons.forEach((k, t) => {
+      const u = tons.length > 1 ? Math.round(t * (alvo.length - 1) / (tons.length - 1)) : alvo.length - 1;
+      troca.set(k, alvo[u]);
+    });
+  });
+  // os sprites dele tinham SÓ esses 5 tons por cor; os nossos têm mais. Então
+  // primeiro o nosso fica no formato dele: o tom que sobra vai pro tom mais
+  // parecido (de luz) da mesma cor — e aí troca
+  const br = (k) => brilho(k >> 16, (k >> 8) & 255, k & 255);
+  const d = im.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] <= OPACO) continue;
+    const k = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+    let v = troca.get(k);
+    if (v === undefined && mDe && brilho(d[i], d[i + 1], d[i + 2]) >= CONTORNO) {
+      // marcado à mão: o tom que ele não clicou vai pro tom marcado mais perto
+      // (se for perto mesmo; longe é outra coisa — olho, brilho — e fica)
+      let perto = -1, menor = 48 * 48;
+      for (const t of troca.keys()) {
+        const e = ((t >> 16) - d[i]) ** 2 + (((t >> 8) & 255) - d[i + 1]) ** 2 + ((t & 255) - d[i + 2]) ** 2;
+        if (e < menor) { menor = e; perto = t; }
+      }
+      if (perto >= 0) v = troca.get(perto);
+    } else if (v === undefined && brilho(d[i], d[i + 1], d[i + 2]) >= CONTORNO) {
+      const [h, s, l] = hsl(d[i], d[i + 1], d[i + 2]);
+      const f = familia(h, s, l);
+      const tons = de.find((x) => x.f === f
+        || (x.f !== NEUTRO && f !== NEUTRO && Math.min(Math.abs(x.f - f), 12 - Math.abs(x.f - f)) <= 1));
+      if (tons) {
+        const b = br(k);
+        let perto = tons[0];
+        for (const t of tons) if (Math.abs(br(t) - b) < Math.abs(br(perto) - b)) perto = t;
+        v = troca.get(perto);
+      }
+    }
+    if (v === undefined) continue;
+    d[i] = v >> 16; d[i + 1] = (v >> 8) & 255; d[i + 2] = v & 255;
+  }
+}
+
 function corDoContorno(im) {
   const d = im.data;
   let melhor = [24, 16, 24], menor = Infinity;
@@ -554,7 +693,7 @@ export function montarTripla(cabeca, meio, pernas, lado = 64, mC = null, mB = nu
 // dá a cabeça (os olhos, a boca e o que tem em volta) é colada em cima da cara
 // do corpo, no tamanho certo (os olhos de um na distância dos olhos do outro).
 // `mC`, `mB`: { o: [[x,y],[x,y]], b: [x,y] }, nas coordenadas de cada imagem.
-export function montarFusaoCara(cabeca, corpo, lado = 64, mC, mB, pintada = null) {
+export function montarFusaoCara(cabeca, corpo, lado = 64, mC, mB, pintada = null, cores = {}) {
   const N = Math.max(cabeca?.width || 0, corpo?.width || 0, 16);
   const fim = tela(lado, lado);
   if (!cabeca || !corpo || !mC?.o?.length || !mB?.o?.length) return null;
@@ -569,11 +708,25 @@ export function montarFusaoCara(cabeca, corpo, lado = 64, mC, mB, pintada = null
   };
   const fc = cara(mC, N / cabeca.width), fb = cara(mB, N / corpo.width);
   // 1: o corpo com as cores da cabeça (o mesmo `repintar` da fusão de sempre)
-  repintar(B, familias(B), familias(C));
+  if (PINTURA === "puro") repintarExato(B, C, cores.corpo, cores.cabeca);
+  else if (PINTURA === "onsager") repintarOnsager(B, C);
+  else repintar(B, familias(B), familias(C));
   // 2: o tamanho: os olhos de um na distância dos olhos do outro (em meios,
   //    pra pixel esticado não ficar torto)
   // (até 1/4: a cara do BASTIODON tem que caber no MUDKIP)
-  const k = Math.max(0.25, Math.min(2, Math.round((fb.dist / fc.dist) * 4) / 4));
+  // NO JEITO DO JAPEAL a cara cresce até a LARGURA DA CABEÇA do corpo: mede a
+  // largura do desenho na linha dos olhos de cada um (o pedaço contínuo em
+  // volta do meio da cara) e usa a proporção
+  const largura = (im, cx, y) => {
+    y = Math.round(y); let a = Math.round(cx), b = a;
+    if (!cheio(im, a, y)) return 0;
+    while (cheio(im, a - 1, y)) a--;
+    while (cheio(im, b + 1, y)) b++;
+    return b - a + 1;
+  };
+  const lC = largura(C, fc.cx, fc.ey), lB = largura(B, fb.cx, fb.ey);
+  const pelaLargura = PINTURA === "puro" && lC > 4 && lB > 4;
+  const k = Math.max(0.25, Math.min(2, Math.round((pelaLargura ? lB / lC : fb.dist / fc.dist) * 4) / 4));
   // 3: a região da cara de quem dá a cabeça: um oval em volta dos olhos e da boca
   // (o CAIO: "faz puxar um pouco mais a cabeça": o oval pega mais pros lados e
   // bem mais pra cima — a testa, as orelhas, os chifres de quem dá a cabeça)
@@ -597,8 +750,15 @@ export function montarFusaoCara(cabeca, corpo, lado = 64, mC, mB, pintada = null
       if (foraB && y >= fb.ey) continue;
       // de onde vem este pixel na cabeça
       const X = fc.cx + (x - fb.cx) / k, Y = fc.ey + (y - fb.ey) / k;
-      const dy = Y - fc.ey, ry = dy < 0 ? cima : baixo;
-      const r2 = naPintada ? 0 : ((X - fc.cx) / rx) ** 2 + (dy / ry) ** 2;
+      const dy = Y - fc.ey;
+      // NO JEITO DAS FUSÕES DO INFINITE FUSION (o CAIO, 07/nov: "vê a de cacnea
+      // mais pikachu"): DENTRO do corpo entra só a cara mesmo — olhos e boca,
+      // num oval justo —, e o desenho do corpo (as manchas dele) fica. FORA do
+      // corpo, em cima dos olhos, entra o que a cabeça tem lá (coroa, orelha)
+      const justo = PINTURA === "puro" && !foraB;
+      const rxx = justo ? fc.dist / 2 + Math.max(3, fc.dist * 0.45) : rx;
+      const ry = justo ? (dy < 0 ? Math.max(3, fc.dist * 0.55) : fc.boca + Math.max(2, fc.dist * 0.3)) : (dy < 0 ? cima : baixo);
+      const r2 = naPintada ? 0 : ((X - fc.cx) / rxx) ** 2 + (dy / ry) ** 2;
       if (naPintada ? !naPintada(X, Y) : r2 > 1) continue;
       const xi = Math.round(X), yi = Math.round(Y);
       if (xi < 0 || yi < 0 || xi >= N || yi >= N) continue;

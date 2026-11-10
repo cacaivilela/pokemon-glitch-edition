@@ -10,6 +10,8 @@ import { SpriteStore, loadImage, pedirMon, pedirMonShiny, pedirMonUrl, pedirAnim
 import { url as arquivo } from "./base.js";
 import { corpoBombado, CORPO } from "./diglettbombado.js";
 import { montarFusao, montarTripla, montarFusaoCara } from "../systems/montagem.js";
+import { fusemonFrente, fusemonPronto, registrarEspecie } from "../systems/fusemon.js";
+import { CABECAS_BRAG } from "../data/cabecas-brag.js";
 import { spriteDoCardume } from "../systems/cardume.js";
 import { spriteDoBizarro } from "../systems/bizarro.js";
 import { docesDoSeed, corDoCreme } from "../systems/doces.js";
@@ -669,7 +671,7 @@ const idImg = (img) => img.__id || (img.__id = Math.random().toString(36).slice(
 // feita com média, não com amostragem: um pixel do sprite é a média de 16 do
 // desenho, senão o traço fino some.
 const desenhos = new Map();
-function desenhoDoJogador(url) {
+function desenhoDoJogador(url, inteiro = false) {
   if (!desenhos.has(url)) {
     desenhos.set(url, null);
     const img = new Image();
@@ -679,7 +681,8 @@ function desenhoDoJogador(url) {
     // do jogo, senão quebra na versão publicada, que mora numa subpasta.
     const endereco = url.startsWith("data:") ? url : arquivo(url);
     img.onload = () => {
-      const lado = DB.FUSAO?.editor?.tamanho || 64;
+      // `inteiro`: o desenho da MEGA EMPRESTADA é do tamanho dos sprites (96), não da ficha
+      const lado = inteiro ? img.width : DB.FUSAO?.editor?.tamanho || 64;
       const { cv, ctx } = makeCanvas(lado, lado);
       // desenho antigo, feito quando a tela era maior: reduz com média, senão
       // o traço fino sumia. No tamanho certo, entra pixel por pixel.
@@ -695,8 +698,32 @@ function desenhoDoJogador(url) {
   return desenhos.get(url);
 }
 
+// AS FUSÕES DO FUSEMON (src/systems/fusemon.js, gerado pelo ~/fusemon): de frente, a fusão automática de
+// uma dupla é a MESMA do Fusemon — o sprite do Infinite Fusion quando os dois existem lá, o gerador do Fusemon
+// quando não. Só vale pra espécie "comum" da Pokédex nacional (1-1025, sem forma regional/única/glitch);
+// o resto, as costas e a tripla continuam na montagem de sempre. O desenho do jogador continua ganhando
+// (fusaoSprite olha ele antes). Enquanto o Fusemon carrega, a montagem antiga segura o lugar.
+function natFusemon(id) {
+  const e = DB.SPECIES[id];
+  if (!e || e.fusao || e.spriteUrl || e.bizarro || e.cardume || e.hack) return 0;
+  // os BRAGLITCHIANOS com a cabeça marcada (src/data/cabecas-brag.js) também fundem pelo gerador do
+  // Fusemon: o sprite deles entra registrado, com a chave = o id da espécie
+  if (CABECAS_BRAG[id]) {
+    registrarEspecie(id, arquivo(`assets/sprites/pokemon/${e.spriteDex || e.dex}.png`), CABECAS_BRAG[id]);
+    return id;
+  }
+  const dex = e.dex | 0;
+  if (dex < 1 || dex > 1025 || (e.spriteDex && e.spriteDex !== dex)) return 0;
+  return dex;
+}
+
 function comporFusao(sp, lado, seed) {
   const frente = lado !== "costas";
+  if (frente && !sp.fusao.pernas) {
+    const nc = natFusemon(sp.fusao.cabeca), nb = natFusemon(sp.fusao.corpo);
+    const fm = nc && nb && fusemonFrente(nc, nb);
+    if (fm) return fm;
+  }
   const cab = frente ? Assets.mon(sp.fusao.cabeca, seed) : Assets.monBack(sp.fusao.cabeca, seed);
   const cor = frente ? Assets.mon(sp.fusao.corpo, seed) : Assets.monBack(sp.fusao.corpo, seed);
   // a TRIPLA: o terceiro dá as pernas (src/systems/montagem.js, montarTripla)
@@ -715,7 +742,8 @@ function comporFusao(sp, lado, seed) {
   if (frente) {
     const n = (id) => { const e = DB.SPECIES[id]; return e?.spriteDex || e?.dex; };
     const pc = CARA_DITTO[n(sp.fusao.cabeca)], pb = CARA_DITTO[n(sp.fusao.corpo)];
-    const pelaCara = pc && pb && montarFusaoCara(cab, cor, DB.FUSAO?.editor?.tamanho || 64, pc, pb, CARAS_FUSAO[n(sp.fusao.cabeca)]);
+    const pelaCara = pc && pb && montarFusaoCara(cab, cor, DB.FUSAO?.editor?.tamanho || 64, pc, pb, CARAS_FUSAO[n(sp.fusao.cabeca)],
+      { cabeca: CORES_FUSAO[n(sp.fusao.cabeca)], corpo: CORES_FUSAO[n(sp.fusao.corpo)] });
     if (pelaCara) return pelaCara;
   }
   return montarFusao(cab, cor, DB.FUSAO?.editor?.tamanho || 64, frente ? DB.CABECAS_MARCADAS?.[sp.fusao.cabeca] : null,
@@ -737,8 +765,10 @@ const PESCOCUDOS = {
 function fusaoSprite(sp, lado, seed) {
   // ficha do jogador com desenho: é ele, e mais nada. Enquanto o PNG não abre,
   // a montagem automática segura o lugar — nada fica preto.
-  if (sp.spriteCustom) {
-    const img = desenhoDoJogador(sp.spriteCustom);
+  // a MEGA EMPRESTADA desenhada à mão tem as costas num arquivo próprio
+  const desenho = lado === "costas" && sp.spriteCustomCostas ? sp.spriteCustomCostas : sp.spriteCustom;
+  if (desenho) {
+    const img = desenhoDoJogador(desenho, !!sp.megaEmprestada);
     if (img) return img;
   }
   const frente = lado !== "costas";
@@ -746,7 +776,10 @@ function fusaoSprite(sp, lado, seed) {
   const b = frente ? Assets.mon(sp.fusao.corpo, seed) : Assets.monBack(sp.fusao.corpo, seed);
   const c = !sp.fusao.pernas ? null
     : frente ? Assets.mon(sp.fusao.pernas, seed) : Assets.monBack(sp.fusao.pernas, seed);
-  const chave = `${sp.id}|${lado}|${idImg(a)}|${idImg(b)}` + (c ? `|${idImg(c)}` : "");
+  // a fusão do Fusemon (de frente) entra na chave: quando ela termina de carregar, o sprite remonta
+  const nc = frente && !c ? natFusemon(sp.fusao.cabeca) : 0, nb = nc ? natFusemon(sp.fusao.corpo) : 0;
+  const fm = nc && nb ? (fusemonPronto(nc, nb) ? "|fm1" : (fusemonFrente(nc, nb), "|fm0")) : "";
+  const chave = `${sp.id}|${lado}|${idImg(a)}|${idImg(b)}` + (c ? `|${idImg(c)}` : "") + fm;
   let img = fusaoCache.get(chave);
   if (!img) {
     if (fusaoCache.size > 240) fusaoCache.clear();      // sessão longa: recomeça
@@ -1407,6 +1440,13 @@ export const CARAS_FUSAO = {};
 if (typeof fetch === "function") {
   for (const nome of ["../data/caras-fusao.json", "../../dev/captures/caras_fusao.log"])
     fetch(new URL(nome + "?t=" + Date.now(), import.meta.url)).then((r) => (r.ok ? r.text() : "{}")).then((t) => { try { Object.assign(CARAS_FUSAO, JSON.parse(t || "{}")); } catch {} }).catch(() => {});
+}
+/** AS CORES DA FUSÃO marcadas à mão (dev/marcarcores.html): número do sprite ->
+ *  [["rrggbb", ...] x 3] — as 3 cores, cada uma com até 5 tons (o jeito do Japeal) */
+export const CORES_FUSAO = {};
+if (typeof fetch === "function") {
+  for (const nome of ["../data/cores-fusao.json", "../../dev/captures/cores_fusao.log"])
+    fetch(new URL(nome + "?t=" + Date.now(), import.meta.url)).then((r) => (r.ok ? r.text() : "{}")).then((t) => { try { Object.assign(CORES_FUSAO, JSON.parse(t || "{}")); } catch {} }).catch(() => {});
 }
 /** o alfa é de alguém (equipe ou PC)? aí ele não tem marca, só o tamanho */
 function alfaEhMeu(mon) {
@@ -3208,12 +3248,17 @@ export const Assets = {
       serra: ["#5d9a5a", "#66a562", "#548f52", "#70ad6a"],
       sertao: ["#b9a95a", "#c4b465", "#ad9d50", "#cdbd72"],
       cerrado: ["#93a84a", "#9db352", "#879c42", "#a8bd5d"],
+      literarte: ["#c48fd8", "#cd9ae0", "#b983cc", "#d6a8e8"],     // a DIMENSÃO LITERARTE: grama lilás
     }[tema] || ["#5fae4a", "#67b852", "#58a444", "#6fbf58"];
-    const COPA = tema === "sertao" ? ["#7a6a55", "#8f7f66", "#a39478"]
+    // A DIMENSÃO LITERARTE (src/data/braglitch-literarte.js): o País das
+    // Maravilhas do CAIO — chão de xadrez, árvore roxa, lago de chá, cogumelo
+    const literarte = tema === "literarte";
+    const COPA = literarte ? ["#5b2f8f", "#7a45b5", "#a070d8"]
+      : tema === "sertao" ? ["#7a6a55", "#8f7f66", "#a39478"]
       : tema === "cerrado" ? ["#4f7a2c", "#5e8f36", "#74a445"] : ["#1f5e2a", "#2c7a36", "#3f9446"];
     const TERRA = ["#c07a48", "#b86f3e", "#c98553", "#ae683a"];
     const AREIA = ["#efdca6", "#e8d397", "#f4e4b4", "#e2cb8c"];
-    const AGUA = ["#2f7fc0", "#3689cc", "#2a74b2", "#3c93d6"];
+    const AGUA = literarte ? ["#b0703c", "#ba7a46", "#a56632", "#c4844e"] : ["#2f7fc0", "#3689cc", "#2a74b2", "#3c93d6"];
     const salpica = (x, y, pal, passo = 4) => {
       for (let py = 0; py < 16; py += passo) {
         for (let px2 = 0; px2 < 16; px2 += passo) {
@@ -3228,7 +3273,18 @@ export const Assets = {
     // BRAGLITCH COM OS BLOCOS DO FIRERED (pedido do CAIO, nov/2026): a grama, o
     // capim alto, a areia, a água e as árvores saem do tileset do FireRed
     // (src/core/fr-blocos.js); o caminho de terra, o coqueiro e as casas continuam
-    const FR = !!geo.braglitch && !lumiose;
+    // (JOHTO também: "feita por fãs no estilo FireRed", src/data/johto.js)
+    const FR = (!!geo.braglitch || !!geo.johto) && !lumiose && !literarte;
+    // o XADREZ do chão da LITERARTE: quadrados de 8px, preto e branco
+    const xadrez = (x, y) => {
+      for (let qy = 0; qy < 2; qy++) for (let qx = 0; qx < 2; qx++) {
+        const branco = (x * 2 + qx + y * 2 + qy) % 2 === 0;
+        ctx.fillStyle = branco ? "#f4f0f8" : "#26222e";
+        ctx.fillRect(x * 16 + qx * 8, y * 16 + qy * 8, 8, 8);
+        ctx.fillStyle = branco ? "#ffffff" : "#3a3546";
+        ctx.fillRect(x * 16 + qx * 8, y * 16 + qy * 8, 8, 1);
+      }
+    };
     const B = FR ? this.blocosFR() : null;
     const calcada = (x, y) => {
       const X = x * 16, Y = y * 16;
@@ -3407,6 +3463,7 @@ export const Assets = {
         // placa e pedra ficam no chão de quem está do lado: na praia, areia
         else if (/[1-9o]/.test(c) && [at(x - 1, y), at(x + 1, y), at(x, y + 1)].includes("a")) areia(x, y);
         else if (lumiose && /[PD1-9lT]/.test(c)) calcada(x, y);
+        else if (literarte && /[PD]/.test(c)) xadrez(x, y);
         else if (c === "P" || c === "D") terra(x, y);
         else if (c === "R" || c === "e" || c === "U") salpica(x, y, ["#8d8a84", "#97948d", "#827f79", "#a09c94"]);
         else if (c === "=") {
@@ -3457,12 +3514,12 @@ export const Assets = {
         }
         if (c === "," && FR) ctx.drawImage(B.capim, X, Y);   // o capim alto do FireRed
         else if (c === "#" && FR) { /* a árvore do FireRed vem inteira depois (4) */ }
-        else if (c === ",") {                       // mato alto
-          ctx.fillStyle = "#2f7a2c";
+        else if (c === ",") {                       // mato alto (na LITERARTE, roxo com fio verde-água)
+          ctx.fillStyle = literarte ? "#6a3c9a" : "#2f7a2c";
           ctx.fillRect(X, Y + 7, 16, 9);
           for (let k = 0; k < 12; k++) {
             const bx = X + r.int(15), topo = Y + 1 + r.int(8);
-            ctx.fillStyle = r.pick(["#3f9a36", "#4fb044", "#2f8a2a", "#6cc45a"]);
+            ctx.fillStyle = r.pick(literarte ? ["#8a56c0", "#a46ad8", "#c38ae8", "#5ed0c0"] : ["#3f9a36", "#4fb044", "#2f8a2a", "#6cc45a"]);
             ctx.fillRect(bx, topo, 1, Y + 16 - topo);
           }
         } else if (c === "F") {                     // canteiro de flor
@@ -3473,6 +3530,12 @@ export const Assets = {
             ctx.fillStyle = "#3e8d34";
             ctx.fillRect(fx, fy + 2, 1, 2);
           }
+        } else if (c === "o" && literarte) {        // o COGUMELO gigante da LITERARTE
+          ctx.fillStyle = "#f2e6d0"; ctx.fillRect(X + 6, Y + 8, 4, 8);        // o pé
+          ctx.fillStyle = "#c82a3c"; ctx.fillRect(X + 1, Y + 3, 14, 6); ctx.fillRect(X + 3, Y + 1, 10, 2);
+          ctx.fillStyle = "#e85060"; ctx.fillRect(X + 3, Y + 2, 6, 2);
+          ctx.fillStyle = "#ffffff"; ctx.fillRect(X + 3, Y + 4, 2, 2); ctx.fillRect(X + 9, Y + 3, 2, 2); ctx.fillRect(X + 12, Y + 6, 2, 1);
+          ctx.fillStyle = "#7a1420"; ctx.fillRect(X + 1, Y + 8, 14, 1);
         } else if (c === "o") {                     // pedra
           ctx.fillStyle = "#7d776c";
           ctx.fillRect(X + 2, Y + 4, 12, 11);

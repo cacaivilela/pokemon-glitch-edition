@@ -89,6 +89,10 @@ const ESPECIE = [
   ["primarium z", "primarina", "ÁGUA", "OPERETA OCEÂNICA", 195, "six_island", 22, 19],
   ["decidium z", "decidueye", "PLANTA", "CHUVA DE FLECHAS SINISTRA", 200, "seven_island", 7, 1],
   ["mewnium z", "mew", "PSÍQUICO", "SUPERNOVA GÊNESE", 200, "birth_island", 13, 6],
+  // A MONSTELIUM Z (09/nov/2026): o CAIO criou a MONSTELA, desenhou o cristal e
+  // inventou o golpe com a animação inteira (src/scenes/battle.js `cenaMonstelium`).
+  // Mora em ALOLA, no canto da TRILHA DA ILHA de MELEMELE (src/data/alola.js).
+  ["monstelium z", "monstela", "ELÉTRICO", "CURTO-CIRCUITO EXPLOSIVO DE PIXELS", 250, "trilha_melemele", 37, 21],
 ];
 
 for (const [item, especie, tipo, nome, poder, mapa, x, y] of ESPECIE) {

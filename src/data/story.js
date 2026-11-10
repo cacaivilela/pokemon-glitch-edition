@@ -429,7 +429,7 @@ export const STORY = {
     ],
     // a tela da máquina
     titulo: "DECODIFICADOR DE GENOMA",
-    menu: ["FUNDIR", "SEPARAR", "TROCAR A VERSÃO", "OFICINA", "MUNDO", "FUNDIR 3", "DESLIGAR"],
+    menu: ["FUNDIR", "SEPARAR", "TROCAR A VERSÃO", "OFICINA", "MUNDO", "FUNDIR 3", "JUNTAR", "INVERTER", "DESLIGAR"],
     escolheCabeca: "QUEM ENTRA COMO CABEÇA?",
     escolheCorpo: "QUEM ENTRA COMO CORPO?",
     escolheFusao: "QUAL GENOMA EU ABRO?",
@@ -487,6 +487,21 @@ export const STORY = {
     // FUSÃO TRIPLA (ideia do CAIO): cabeça, meio e pernas; o bicho sai com os três tipos
     escolheMeio: "QUEM ENTRA COMO MEIO?",
     escolhePernas: "QUEM ENTRA COMO PERNAS?",
+    // JUNTAR (ideia do CAIO): 2 da mesma espécie viram 1 com o melhor dos dois
+    // INVERTER (pedido do CAIO): a cabeça vira corpo e o corpo vira cabeça, sem separar
+    escolheInverter: "QUAL FUSÃO EU INVERTO?",
+    inverteu: "{MON} VIROU {NOME}: A CABEÇA E O CORPO TROCARAM DE LUGAR!",
+    inverterTripla: "A TRIPLA NÃO INVERTE: SÃO TRÊS PEDAÇOS, NÃO DOIS.",
+    juntarPrimeiro: "QUEM FICA? (O OUTRO ENTRA NELE)",
+    juntarSegundo: "QUEM ENTRA NELE?",
+    juntarPoucos: "PRA JUNTAR, PRECISA DE DOIS DA MESMA ESPÉCIE NA EQUIPE. TIPO DOIS PIPLUP.",
+    juntarConfirma: "{OUTRO} ENTRA EM {BASE} E SOME DA EQUIPE. NÃO DÁ PRA DESFAZER. JUNTAR?",
+    juntarSim: ["JUNTAR", "CANCELAR"],
+    juntarGanha: "GANHA:",
+    juntarNada: "NÃO GANHA NADA NOVO",
+    juntando: "A FITA DOS DOIS VIRA UMA SÓ.",
+    juntou: "{BASE} AGORA TEM O MELHOR DOS DOIS: {LISTA}!",
+    juntouNada: "{BASE} ABSORVEU {OUTRO}. MAS ELE JÁ ERA O MELHOR DOS DOIS.",
     poucos3: "PRA FUNDIR 3, A MÁQUINA PRECISA DE TRÊS POKÉMON NA EQUIPE QUE AINDA NÃO SÃO FUSÃO.",
     confirmaFundir3: "GRAVAR {CABECA} + {CORPO} + {PERNAS} COMO {NOME}?",
     fundiu3: "{CABECA}, {CORPO} E {PERNAS} VIRARAM {NOME}!",
@@ -835,6 +850,10 @@ export const STORY = {
     // dentro da batalha
     reagem: "O ANEL MEGA E A {PEDRA} REAGEM UM COM O OUTRO!",
     evoluiu: "{MON} MEGA EVOLUIU PARA {FORMA}!",
+    // a MEGA EMPRESTADA (pedra de outro bicho, src/systems/mega.js)
+    reagemErrada: "A {PEDRA} NÃO É DE {MON}... ELA NÃO QUER IR!",
+    puxaErrada: "{MON} PUXA A PEDRA À FORÇA!",
+    evoluiuErrada: "{MON} ENGOLIU A {PEDRA} E VIROU {FORMA}!",
     voltou: "{MON} VOLTOU AO NORMAL.",
     jaUsou: "SÓ DÁ PRA MEGA EVOLUIR UM POKÉMON POR BATALHA.",
     // examinar a pedra na mochila
