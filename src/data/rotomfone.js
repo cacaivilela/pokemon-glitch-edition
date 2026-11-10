@@ -30,6 +30,20 @@ export const ROTOMFONE_TEXTO = {
   intervalo: [150, 300],
 };
 
+/** A LIGAÇÃO DO MISSINGNO. (pedido do CAIO): na 1ª vez que você PEGA ele, o
+ *  CARVALHO liga e manda a foto do PIKACHU SURPRESO (a cara dele agora).
+ *  `[imagem]` na fala mostra a foto na tela do ROTOMFONE. */
+export const LIGACAO_MISSINGNO = {
+  imagem: "assets/sprites/objetos/pikachu_surpreso.png",
+  falas: [
+    "PROF. CARVALHO: ALÔ?! ALÔ?! A SUA POKÉDEX ME MANDOU UM ALERTA AGORA MESMO...",
+    "PROF. CARVALHO: VOCÊ... PEGOU UM MISSINGNO.?! ELE ESTÁ NA SUA EQUIPE?!",
+    "[imagem]PROF. CARVALHO: VOU TE MANDAR UMA FOTO DA MINHA CARA AGORA:",
+    "[imagem]PROF. CARVALHO: ...",
+    "PROF. CARVALHO: TOMA CUIDADO. NEM EU SEI O QUE É ESSA COISA.",
+  ],
+};
+
 export const CONTATOS = [
   {
     id: "mae", nome: "MÃE", retrato: null,

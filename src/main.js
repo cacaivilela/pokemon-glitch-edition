@@ -853,6 +853,8 @@ if (q.has("map") || q.has("battle") || q.has("era")) {
   if (q.has("metas")) game.state.metas ||= [{ k: "tipo", tipo: "FOGO", n: 3 }, { k: "derrotar", alvo: 2, n: 1 }, { k: "nivel", alvo: 21, n: 0 }];
   if (q.has("segurar")) for (const it of Object.keys(DB.SEGURAVEIS || {})) game.state.items[it] = Math.max(game.state.items[it] || 0, 1);
   if (q.has("doces")) for (const d of DB.DOCES || []) game.state.items[d.item] = Math.max(game.state.items[d.item] || 0, 2);
+  // &bolas=N -> N POKÉ BOLAS e uma GLITCHBALL (pra testar captura, ex.: a ligação do MISSINGNO.)
+  if (q.has("bolas")) { game.state.items["poké bola"] = Math.max(game.state.items["poké bola"] || 0, +q.get("bolas") || 10); game.state.items.glitchball = Math.max(game.state.items.glitchball || 0, 1); }
   if (q.has("subterraneo")) {
     game.state.items.picareta = 1;
     for (const it of ["estátua de pikachu", "estátua de eevee", "estátua de dratini", DB.KIT_BASE]) game.state.items[it] = Math.max(game.state.items[it] || 0, 1);

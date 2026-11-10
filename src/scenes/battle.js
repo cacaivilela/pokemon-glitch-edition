@@ -2053,6 +2053,9 @@ export class BattleScene {
       Glitch.burst = 0;
       for (const line of DB.STORY.ending) await this.say(line);
     }
+    // PEGOU O MISSINGNO. pela 1ª vez: de volta no mapa, o CARVALHO liga e manda
+    // a foto do PIKACHU SURPRESO (src/data/rotomfone.js, LIGACAO_MISSINGNO)
+    if (this.foe.species === "missingno" && !this.st.flags.ligouMissingno) this.st.flags.ligouMissingno = "pendente";
     await this.finish();
   }
 

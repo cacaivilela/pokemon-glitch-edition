@@ -8,6 +8,18 @@ import { Assets } from "../core/assets.js";
 import { reduzido } from "../core/reduzir.js";
 import { desenharRotomfone } from "../core/rotomfone.js";
 import { trainerArt } from "../core/sprites.js";
+import { url as arquivo } from "../core/base.js";
+
+// A FOTO MANDADA NA LIGAÇÃO: fala que começa com `[imagem]` mostra, grande, a
+// imagem de `fone.imagem` (o caminho do arquivo) — a do PIKACHU SURPRESO que o
+// CARVALHO manda quando o MISSINGNO. aparece (src/data/rotomfone.js)
+const IMAGEM = /^\[imagem\]\s*/;
+const imagens = new Map();
+function imagemDe(caminho) {
+  if (!imagens.has(caminho)) { const im = new Image(); im.src = arquivo(caminho); imagens.set(caminho, im); }
+  const im = imagens.get(caminho);
+  return im.complete && im.naturalWidth ? im : null;
+}
 
 /** trechos que o jogo substitui em qualquer fala: {NOME} = nome do jogador */
 let TEXT_VARS = {};
@@ -62,6 +74,7 @@ export class Dialogue {
     // A LIGAÇÃO (src/data/rotomfone.js): { retrato, t } — o ROTOMFONE grande
     // em cima, com o rosto de quem fala na tela, até a conversa acabar
     this.fone = null;
+    this.mostraImagem = false;
   }
 
   say(text, onDone) {
@@ -103,6 +116,12 @@ export class Dialogue {
       const m = PENSA.exec(t);
       this.pensa = m ? { especie: m[1], t: 0 } : null;
       if (m) t = t.slice(m[0].length);
+      const im = IMAGEM.exec(t);
+      if (im) {
+        t = t.slice(im[0].length);
+        if (!this.mostraImagem) { Audio2.tone(1320, 0.06, "triangle", 0.3); Audio2.tone(1760, 0.08, "triangle", 0.3); }   // *plim*: chegou foto
+      }
+      this.mostraImagem = !!im;
       const f = FOTO.exec(t);
       this.foto = f ? { t: 0 } : null;
       if (f) {
@@ -202,6 +221,14 @@ export class Dialogue {
     }
     if (this.pensa) this.desenhaPensamento(ctx, caixa, balao);
     if (this.fone) this.desenhaLigacao(ctx);
+    // a FOTO que chegou na ligação, grande, com moldura de tela de celular
+    const foto = this.mostraImagem && this.fone?.imagem ? imagemDe(this.fone.imagem) : null;
+    if (foto) {
+      const w = 96, h = Math.round(foto.naturalHeight * w / foto.naturalWidth), x = 14, y = 8;
+      ctx.fillStyle = "#1a1a24"; ctx.fillRect(x - 4, y - 4, w + 8, h + 8);
+      ctx.fillStyle = "#40d0e0"; ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+      ctx.drawImage(foto, x, y, w, h);
+    }
     if (this.foto) {
       // o ROTOMFONE do lado da caixa, e o clarão da foto
       desenharRotomfone(ctx, caixa.x + caixa.w - 26, caixa.y - 24, 1, this.foto.t);

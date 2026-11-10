@@ -23,7 +23,7 @@ import { TremScene } from "./trem.js";
 import { TrabalhosScene } from "./trabalhos.js";
 import { tirarFoto, FOTO_TEXTO } from "../systems/fotos.js";
 import { desenharCorpoMenu, desenharIcone, desenharRotomfone, LARGURA_FONE, ALTURA_FONE } from "../core/rotomfone.js";
-import { CONTATOS, ROTOMFONE_TEXTO } from "../data/rotomfone.js";
+import { CONTATOS, ROTOMFONE_TEXTO, LIGACAO_MISSINGNO } from "../data/rotomfone.js";
 import { ZEROGLE } from "../data/zerogle.js";
 import { SELVAGENS_3D } from "../data/selvagem3d.js";
 import { pedirModelo, desenharModelo } from "../core/modelo3d.js";
@@ -2597,6 +2597,7 @@ export class OverworldScene {
     }
     // A SALA DA LIGA SE TRANSFORMANDO (src/data/liga-kanto.js): ninguém anda
     // O ROTOMFONE (src/data/rotomfone.js): de vez em quando alguém liga
+    this.talvezLigarMissingno();
     this.talvezTocarRotomfone(dt);
     // OS SELVAGENS 3D (src/data/selvagem3d.js): o WAILORD nadando solto no mar
     this.atualizarSelvagens3D(dt);
@@ -13796,6 +13797,24 @@ export class OverworldScene {
     const nome = this.nomeContato(c);
     this.dlg.say([...(recebida ? [] : [T.ligando.replace("{NOME}", nome)]), ...conversa, T.desligou.replace("{NOME}", nome)]);
     this.dlg.fone = { retrato: this.retratoContato(c), t: 0 };
+  }
+
+  /** A LIGAÇÃO DO MISSINGNO. (src/data/rotomfone.js): o MISSINGNO. apareceu
+   *  numa luta (src/scenes/battle.js marca "pendente"), e, de volta no mapa, o
+   *  CARVALHO liga e manda a foto do PIKACHU SURPRESO. Uma vez só. */
+  talvezLigarMissingno() {
+    if (this.st.flags?.ligouMissingno !== "pendente") return;
+    if (this.menu || this.dlg.active || this.dlg.choice || this.fx || this.fadeDir) return;
+    const T = ROTOMFONE_TEXTO, L = LIGACAO_MISSINGNO;
+    this.st.flags.ligouMissingno = true;
+    this.game.autosave?.(true);
+    for (let i = 0; i < 3; i++) setTimeout(() => Audio2.tone(1400, 0.08, "square", 0.15), i * 160);   // trim-trim
+    const nome = "PROF. CARVALHO";
+    this.dlg.ask(T.chamando.replace("{NOME}", nome), ["ATENDER"], () => {
+      this.dlg.say([...L.falas, T.desligou.replace("{NOME}", nome)]);
+      this.dlg.fone = { retrato: "prof", t: 0, imagem: L.imagem };
+    });
+    this.dlg.fone = { retrato: "prof", t: 0 };
   }
 
   /** alguém te liga de vez em quando (ROTOMFONE_TEXTO.intervalo, em segundos andando) */
